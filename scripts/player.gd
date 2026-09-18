@@ -31,11 +31,21 @@ signal died
 ## 落地前提前按下跳跃键仍然有效的时间（跳跃缓冲）。
 @export var jump_buffer_time := 0.1
 
+@export_group("Crouch")
+## 蹲下时的移动速度倍率。
+@export var crouch_speed_scale := 0.45
+
 @export_group("Shooting")
 @export var fire_cooldown := 0.15
 
+## 站立/蹲下的碰撞体高度。脚底位置不变，只压低头顶。
+const STAND_HEIGHT := 16.0
+const CROUCH_HEIGHT := 10.0
+const HURTBOX_STAND_HEIGHT := 18.0
+
 var facing := 1
 var health := 0
+var is_crouching := false
 
 var _coyote_timer := 0.0
 var _jump_buffer_timer := 0.0
@@ -46,6 +56,9 @@ var _dead := false
 @onready var _visual: Node2D = $Visual
 @onready var _muzzle: Marker2D = $Visual/Muzzle
 @onready var _hurtbox: Area2D = $Hurtbox
+@onready var _shape: CollisionShape2D = $CollisionShape2D
+@onready var _hurtbox_shape: CollisionShape2D = $Hurtbox/CollisionShape2D
+@onready var _head_check: ShapeCast2D = $HeadCheck
 
 
 func _ready() -> void:
@@ -61,6 +74,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_apply_gravity(delta)
+	_update_crouch()
 	_handle_jump(delta)
 	_handle_horizontal(delta)
 	move_and_slide()
@@ -85,7 +99,15 @@ func _handle_jump(delta: float) -> void:
 	else:
 		_jump_buffer_timer -= delta
 
-	if _jump_buffer_timer > 0.0 and _coyote_timer > 0.0:
+	var can_jump := _jump_buffer_timer > 0.0 and _coyote_timer > 0.0
+	if can_jump and is_crouching:
+		# 蹲着也能跳，但得先站得起来：头顶被挡住就跳不了。
+		if _head_blocked():
+			can_jump = false
+		else:
+			_set_crouching(false)
+
+	if can_jump:
 		velocity.y = jump_velocity
 		_jump_buffer_timer = 0.0
 		_coyote_timer = 0.0
@@ -97,12 +119,50 @@ func _handle_jump(delta: float) -> void:
 func _handle_horizontal(delta: float) -> void:
 	var direction := Input.get_axis("move_left", "move_right")
 	var control := 1.0 if is_on_floor() else air_control
+	var speed := move_speed * (crouch_speed_scale if is_crouching else 1.0)
 	if direction != 0.0:
 		facing = signi(direction)
 		_visual.scale.x = facing
-		velocity.x = move_toward(velocity.x, direction * move_speed, acceleration * control * delta)
+		velocity.x = move_toward(velocity.x, direction * speed, acceleration * control * delta)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, friction * control * delta)
+
+
+func _update_crouch() -> void:
+	# 只能在地面上主动蹲；空中松开蹲键会自动站起来。
+	var wants := Input.is_action_pressed("crouch") and is_on_floor()
+	if wants == is_crouching:
+		return
+	if wants:
+		_set_crouching(true)
+	elif not _head_blocked():
+		_set_crouching(false)
+
+
+func _set_crouching(value: bool) -> void:
+	is_crouching = value
+	var height := CROUCH_HEIGHT if value else STAND_HEIGHT
+	var lowered := (STAND_HEIGHT - height) / 2.0
+	# 碰撞体和受击框同时压低，并整体下移，保证脚底位置不变。
+	(_shape.shape as RectangleShape2D).size.y = height
+	_shape.position.y = lowered
+	(_hurtbox_shape.shape as RectangleShape2D).size.y = HURTBOX_STAND_HEIGHT - (STAND_HEIGHT - height)
+	_hurtbox_shape.position.y = lowered
+	# 占位美术直接纵向压扁；第 4 步换成精灵图后这里改成切换动画。
+	_visual.scale.y = height / STAND_HEIGHT
+	_visual.position.y = lowered
+
+
+## 头顶上方是否有东西挡着，挡着就站不起来。
+func _head_blocked() -> bool:
+	_head_check.force_shapecast_update()
+	for i in _head_check.get_collision_count():
+		var collider := _head_check.get_collider(i)
+		# 单向平台可以从下面穿过去，不算挡头。
+		if collider is Platform and (collider as Platform).one_way:
+			continue
+		return true
+	return false
 
 
 func _handle_shoot(delta: float) -> void:

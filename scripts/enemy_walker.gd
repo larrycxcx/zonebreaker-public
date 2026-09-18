@@ -22,8 +22,9 @@ func _physics_process(delta: float) -> void:
 	velocity.x = move_speed * direction
 	move_and_slide()
 
-	# 脚下没路（悬空）或前方有墙就掉头。
-	if is_on_floor() and (not _floor_check.is_colliding() or _wall_check.is_colliding()):
+	# 脚下没路（悬空）或前方被挡住就掉头。
+	# is_on_wall() 是必要的补充：矮天花板挡住的是身体上半部分，WallCheck 那条射线打不到。
+	if is_on_floor() and (not _floor_check.is_colliding() or _wall_check.is_colliding() or is_on_wall()):
 		direction = -direction
 		_apply_direction()
 

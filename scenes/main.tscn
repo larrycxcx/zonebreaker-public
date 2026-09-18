@@ -57,6 +57,11 @@ position = Vector2(500, 92)
 size = Vector2(48, 8)
 one_way = true
 
+[node name="CrawlBlock" parent="Level" instance=ExtResource("1")]
+position = Vector2(296, 120)
+size = Vector2(56, 28)
+color = Color(0.22, 0.22, 0.3, 1)
+
 [node name="Enemies" type="Node2D" parent="."]
 
 [node name="Walker1" parent="Enemies" instance=ExtResource("4")]
