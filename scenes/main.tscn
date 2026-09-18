@@ -2,8 +2,13 @@
 
 [ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_walker.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_turret.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="6"]
 
 [node name="Main" type="Node2D"]
+script = ExtResource("3")
 
 [node name="Level" type="Node2D" parent="."]
 
@@ -52,6 +57,25 @@ position = Vector2(500, 92)
 size = Vector2(48, 8)
 one_way = true
 
+[node name="Enemies" type="Node2D" parent="."]
+
+[node name="Walker1" parent="Enemies" instance=ExtResource("4")]
+position = Vector2(220, 153)
+
+[node name="Walker2" parent="Enemies" instance=ExtResource("4")]
+position = Vector2(352, 89)
+start_direction = 1
+
+[node name="Walker3" parent="Enemies" instance=ExtResource("4")]
+position = Vector2(470, 153)
+start_direction = 1
+
+[node name="Turret1" parent="Enemies" instance=ExtResource("5")]
+position = Vector2(580, 153)
+
+[node name="Turret2" parent="Enemies" instance=ExtResource("5")]
+position = Vector2(184, 93)
+
 [node name="Player" parent="." instance=ExtResource("2")]
 position = Vector2(32, 152)
 
@@ -60,3 +84,5 @@ limit_left = 0
 limit_top = 0
 limit_right = 640
 limit_bottom = 180
+
+[node name="HUD" parent="." instance=ExtResource("6")]

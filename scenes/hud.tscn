@@ -1,0 +1,25 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/hud.gd" id="1"]
+
+[node name="HUD" type="CanvasLayer"]
+script = ExtResource("1")
+
+[node name="PipRow" type="HBoxContainer" parent="."]
+offset_left = 6.0
+offset_top = 6.0
+offset_right = 80.0
+offset_bottom = 12.0
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="Message" type="Label" parent="."]
+anchors_preset = -1
+offset_left = 110.0
+offset_top = 80.0
+offset_right = 210.0
+offset_bottom = 100.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 16
+text = "GAME OVER"
+horizontal_alignment = 1
