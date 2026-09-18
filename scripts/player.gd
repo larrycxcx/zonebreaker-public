@@ -40,7 +40,8 @@ signal died
 
 ## 站立/蹲下的碰撞体高度。脚底位置不变，只压低头顶。
 const STAND_HEIGHT := 16.0
-const CROUCH_HEIGHT := 10.0
+## 敌人子弹离地面只有 6~8px（枪口在敌人身体中线），趴下后必须矮于 6px 才躲得开，取 4px 留 2px 余量。
+const CROUCH_HEIGHT := 4.0
 const HURTBOX_STAND_HEIGHT := 18.0
 
 var facing := 1
@@ -64,6 +65,11 @@ var _dead := false
 func _ready() -> void:
 	health = max_health
 	health_changed.emit(health, max_health)
+	# HeadCheck 正好覆盖「站起来需要多出来的那段空间」：从站立头顶到趴下后的头顶。
+	# 按常量算而不是写死在场景里，改下蹲高度时不会不同步。
+	var headroom := STAND_HEIGHT - CROUCH_HEIGHT
+	(_head_check.shape as RectangleShape2D).size.y = headroom
+	_head_check.position.y = -STAND_HEIGHT / 2.0 + headroom / 2.0
 
 
 func _physics_process(delta: float) -> void:

@@ -26,10 +26,10 @@ func test_crouch_and_stand_up() -> void:
 
 	Input.action_press("crouch")
 	await frames(3)
-	check("crouches on the ground", player.is_crouching and shape_height() == 10.0, str(shape_height()))
+	check("crouches on the ground", player.is_crouching and shape_height() == Player.CROUCH_HEIGHT, str(shape_height()))
 	check("feet stay exactly put", absf(feet_y() - standing_feet) < 0.5, "%.2f -> %.2f" % [standing_feet, feet_y()])
-	check("hurtbox shrinks as well", (player._hurtbox_shape.shape as RectangleShape2D).size.y == 12.0, str((player._hurtbox_shape.shape as RectangleShape2D).size.y))
-	check("visual is squashed and lowered", is_equal_approx(player._visual.scale.y, 0.625) and is_equal_approx(player._visual.position.y, 3.0), "%s %s" % [player._visual.scale, player._visual.position])
+	check("hurtbox shrinks as well", (player._hurtbox_shape.shape as RectangleShape2D).size.y == Player.HURTBOX_STAND_HEIGHT - (Player.STAND_HEIGHT - Player.CROUCH_HEIGHT), str((player._hurtbox_shape.shape as RectangleShape2D).size.y))
+	check("visual is squashed and lowered", is_equal_approx(player._visual.scale.y, Player.CROUCH_HEIGHT / Player.STAND_HEIGHT) and is_equal_approx(player._visual.position.y, (Player.STAND_HEIGHT - Player.CROUCH_HEIGHT) / 2.0), "%s %s" % [player._visual.scale, player._visual.position])
 	check("still standing on the floor", player.is_on_floor())
 
 	Input.action_release("crouch")
@@ -85,7 +85,7 @@ func test_low_ceiling_keeps_the_player_down() -> void:
 
 	Input.action_release("crouch")
 	await frames(20)
-	check("cannot stand up under the low ceiling", player.is_crouching and shape_height() == 10.0, str(shape_height()))
+	check("cannot stand up under the low ceiling", player.is_crouching and shape_height() == Player.CROUCH_HEIGHT, str(shape_height()))
 	check("head check reports blocked", player._head_blocked())
 
 	var y_before := player.global_position.y
@@ -159,3 +159,51 @@ func test_shooting_while_crouched() -> void:
 	check("can still shoot while crouched", shots.size() == 1, str(shots.size()))
 	if shots.size() == 1:
 		check("the shot comes out of the lowered muzzle", absf(shots[0].global_position.y - muzzle_crouching) < 6.0, str(shots[0].global_position))
+
+
+## 敌人子弹离地面只有 6~8px，趴下的玩家必须矮到让它们从头顶飞过去。
+## 这两条用例同时确认「子弹确实飞过了玩家所在位置」，否则没开火也会误判为躲开了。
+func _assert_crouch_dodges(enemy_name: String, enemy_pos: Vector2, facing: int) -> void:
+	await reset_scene(true)
+	keep_only_enemies([enemy_name])
+	var enemy: Enemy = main.get_node("Enemies/" + enemy_name)
+	await frames(10)
+	enemy.global_position = enemy_pos
+	enemy.facing = facing
+	enemy._visual.scale.x = facing
+	if enemy is EnemyWalker:
+		(enemy as EnemyWalker).move_speed = 0.0
+		(enemy as EnemyWalker)._apply_facing()
+	player.global_position = enemy_pos + Vector2(70 * facing, -1)
+	player.velocity = Vector2.ZERO
+	Input.action_press("crouch")
+	await frames(10)
+	check(enemy_name + ": player is lying down", player.is_crouching and player.is_on_floor())
+
+	var passed_player := false
+	for i in 150:
+		await tree.physics_frame
+		for bullet in bullets(16):
+			if signf(player.global_position.x - bullet.global_position.x) == float(facing):
+				continue
+			passed_player = true
+	check(enemy_name + ": bullets fly past the player", passed_player)
+	check(enemy_name + ": lying down dodges every bullet", player.health == 3, str(player.health))
+
+	# 对照组：站起来就会中弹，证明躲开靠的是高度而不是别的原因。
+	Input.action_release("crouch")
+	await frames(3)
+	check(enemy_name + ": player stands up again", not player.is_crouching)
+	for i in 150:
+		await tree.physics_frame
+		if player.health < 3:
+			break
+	check(enemy_name + ": standing up gets the player hit", player.health < 3, str(player.health))
+
+
+func test_lying_down_dodges_turret_fire() -> void:
+	await _assert_crouch_dodges("Turret1", Vector2(580, 153), -1)
+
+
+func test_lying_down_dodges_walker_fire() -> void:
+	await _assert_crouch_dodges("Walker1", Vector2(250, 153), -1)

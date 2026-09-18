@@ -12,7 +12,8 @@ resource_local_to_scene = true
 size = Vector2(14, 18)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3"]
-size = Vector2(11, 6)
+resource_local_to_scene = true
+size = Vector2(11, 12)
 
 [node name="Player" type="CharacterBody2D" groups=["player"]]
 collision_layer = 2
@@ -32,7 +33,7 @@ monitorable = false
 shape = SubResource("RectangleShape2D_2")
 
 [node name="HeadCheck" type="ShapeCast2D" parent="."]
-position = Vector2(0, -5)
+position = Vector2(0, -2)
 enabled = false
 shape = SubResource("RectangleShape2D_3")
 target_position = Vector2(0, 0)
