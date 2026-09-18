@@ -4,6 +4,7 @@ extends CharacterBody2D
 
 signal health_changed(health: int, max_health: int)
 signal died
+signal stamina_changed(stamina: float, max_stamina: float)
 
 @export var bullet_scene: PackedScene
 
@@ -32,8 +33,22 @@ signal died
 @export var jump_buffer_time := 0.1
 
 @export_group("Crouch")
-## 蹲下时的移动速度倍率。
-@export var crouch_speed_scale := 0.45
+## 趴下时的移动速度倍率。
+@export var crouch_speed_scale := 0.6
+
+@export_group("Sprint")
+## 奔跑时的移动速度倍率。
+@export var sprint_speed_scale := 1.2
+@export var max_stamina := 100.0
+## 奔跑时每秒消耗的体力。满体力大约能连续跑 max_stamina / stamina_drain 秒。
+@export var stamina_drain := 35.0
+## 停止奔跑后每秒恢复的体力。
+@export var stamina_regen := 25.0
+## 停止奔跑后隔多久才开始恢复。
+@export var stamina_regen_delay := 0.5
+## 体力耗尽后，要恢复到这个比例才能再次奔跑。
+## 否则一直按着奔跑键时，体力会在 0 附近刚回一点就被用掉，人物一顿一顿地时快时慢。
+@export_range(0.0, 1.0) var stamina_recover_ratio := 0.25
 
 @export_group("Shooting")
 @export var fire_cooldown := 0.15
@@ -47,12 +62,16 @@ const HURTBOX_STAND_HEIGHT := 18.0
 var facing := 1
 var health := 0
 var is_crouching := false
+var is_sprinting := false
+var stamina := 0.0
 
 var _coyote_timer := 0.0
 var _jump_buffer_timer := 0.0
 var _fire_timer := 0.0
 var _invincible_timer := 0.0
 var _dead := false
+var _exhausted := false
+var _stamina_regen_timer := 0.0
 
 @onready var _visual: Node2D = $Visual
 @onready var _muzzle: Marker2D = $Visual/Muzzle
@@ -65,6 +84,8 @@ var _dead := false
 func _ready() -> void:
 	health = max_health
 	health_changed.emit(health, max_health)
+	stamina = max_stamina
+	stamina_changed.emit(stamina, max_stamina)
 	# HeadCheck 正好覆盖「站起来需要多出来的那段空间」：从站立头顶到趴下后的头顶。
 	# 按常量算而不是写死在场景里，改下蹲高度时不会不同步。
 	var headroom := STAND_HEIGHT - CROUCH_HEIGHT
@@ -124,14 +145,58 @@ func _handle_jump(delta: float) -> void:
 
 func _handle_horizontal(delta: float) -> void:
 	var direction := Input.get_axis("move_left", "move_right")
+	_update_sprint(delta, direction)
 	var control := 1.0 if is_on_floor() else air_control
-	var speed := move_speed * (crouch_speed_scale if is_crouching else 1.0)
+	var speed := move_speed * _speed_scale()
 	if direction != 0.0:
 		facing = signi(direction)
 		_visual.scale.x = facing
 		velocity.x = move_toward(velocity.x, direction * speed, acceleration * control * delta)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, friction * control * delta)
+
+
+func _speed_scale() -> float:
+	if is_crouching:
+		return crouch_speed_scale
+	if is_sprinting:
+		return sprint_speed_scale
+	return 1.0
+
+
+## 按住奔跑键且正在移动时加速并消耗体力；不跑的时候隔一小段时间开始回体力。
+## 原地按着奔跑键不算奔跑，也不耗体力；趴着不能奔跑。
+func _update_sprint(delta: float, direction: float) -> void:
+	var wants := Input.is_action_pressed("sprint") and direction != 0.0 and not is_crouching
+	is_sprinting = wants and not _exhausted and stamina > 0.0
+
+	# 先更新 _exhausted 再改体力：stamina_changed 发出时状态已经是最新的，HUD 据此变色。
+	if is_sprinting:
+		var drained := stamina - stamina_drain * delta
+		if drained <= 0.0:
+			_exhausted = true
+		_set_stamina(drained)
+		_stamina_regen_timer = stamina_regen_delay
+	elif _stamina_regen_timer > 0.0:
+		_stamina_regen_timer -= delta
+	else:
+		var regained := stamina + stamina_regen * delta
+		if _exhausted and regained >= max_stamina * stamina_recover_ratio:
+			_exhausted = false
+		_set_stamina(regained)
+
+
+## 体力耗尽、还没恢复到能重新起跑的程度。
+func is_exhausted() -> bool:
+	return _exhausted
+
+
+func _set_stamina(value: float) -> void:
+	var clamped := clampf(value, 0.0, max_stamina)
+	if clamped == stamina:
+		return
+	stamina = clamped
+	stamina_changed.emit(stamina, max_stamina)
 
 
 func _update_crouch() -> void:

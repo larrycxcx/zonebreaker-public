@@ -50,8 +50,8 @@ func test_crouch_walk_is_slower() -> void:
 	Input.action_press("crouch")
 	await frames(40)
 	var crouching_speed := absf(player.velocity.x)
-	check("crouch walk is much slower", crouching_speed < standing_speed * 0.6 and crouching_speed > 1.0, "%.1f vs %.1f" % [crouching_speed, standing_speed])
-	check("crouch speed is 45% of walking", absf(crouching_speed - standing_speed * 0.45) < 2.0, "%.1f" % crouching_speed)
+	check("crouch walk is slower", crouching_speed < standing_speed * 0.8 and crouching_speed > 1.0, "%.1f vs %.1f" % [crouching_speed, standing_speed])
+	check("crouch speed is 60% of walking", absf(crouching_speed - standing_speed * 0.6) < 1.0, "%.1f" % crouching_speed)
 
 
 func test_cannot_crouch_in_mid_air() -> void:

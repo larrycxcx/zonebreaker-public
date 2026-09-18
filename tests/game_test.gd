@@ -7,7 +7,7 @@ extends RefCounted
 ## 为此会直接读写被测对象的私有成员（`_fire_timer` 之类），这是有意为之，
 ## 比为测试在游戏代码里开一堆公开接口更划算。
 
-const ACTIONS := ["move_left", "move_right", "jump", "crouch", "shoot"]
+const ACTIONS := ["move_left", "move_right", "jump", "crouch", "sprint", "shoot"]
 
 ## 由 runner 注入。SceneTree 脚本里 `await tree.physics_frame` 才能推进物理。
 var tree: SceneTree
