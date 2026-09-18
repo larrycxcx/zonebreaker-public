@@ -49,12 +49,12 @@ func test_walker_turns_at_the_crawl_block() -> void:
 	# 矮通道（x 296..352，净空 12px）比巡逻兵矮，它得掉头而不是卡在那里推墙。
 	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
 	walker.global_position = Vector2(270, 153)
-	walker.direction = 1
-	walker._apply_direction()
+	walker.facing = 1
+	walker._apply_facing()
 	var turned := false
 	for i in 200:
 		await tree.physics_frame
-		if walker.direction == -1:
+		if walker.facing == -1:
 			turned = true
 			break
 	check("walker turns around instead of getting stuck", turned, str(walker.global_position))
@@ -62,6 +62,7 @@ func test_walker_turns_at_the_crawl_block() -> void:
 
 func test_bullets_kill_the_walker() -> void:
 	await reset_scene(true)
+	keep_only_enemies(["Walker1"])
 	await frames(30)
 	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
 	check("walker has 2 health", walker.max_health == 2 and walker.health == 2)
@@ -102,6 +103,7 @@ func test_collision_masks_keep_sides_apart() -> void:
 
 func test_turret_only_fires_in_range() -> void:
 	await reset_scene(true)
+	keep_only_enemies(["Turret1"])
 	await frames(30)
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
 
@@ -127,6 +129,7 @@ func test_turret_only_fires_in_range() -> void:
 
 func test_turret_flips_to_face_the_player() -> void:
 	await reset_scene(true)
+	keep_only_enemies(["Turret1"])
 	await frames(30)
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
 	player.global_position = turret.global_position + Vector2(45, 0)
@@ -135,8 +138,119 @@ func test_turret_flips_to_face_the_player() -> void:
 	check("turret turns to the other side", turret.facing == 1, str(turret.facing))
 
 
-func test_player_invincibility_frames() -> void:
+func test_walker_shoots_at_the_player() -> void:
 	await reset_scene(true)
+	keep_only_enemies(["Walker1"])
+	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
+	await frames(20)
+
+	# 站到巡逻兵正前方、同高度，射程之内。
+	walker.global_position = Vector2(200, 153)
+	walker.facing = -1
+	walker._apply_facing()
+	player.global_position = Vector2(140, 152)
+	player.velocity = Vector2.ZERO
+
+	var directions := {}
+	for i in 160:
+		await tree.physics_frame
+		for bullet in bullets(16):
+			directions[bullet.direction] = true
+	check("walker fires at the player", directions.size() > 0, str(directions.keys()))
+	check("walker bullets fly toward the player", directions.keys() == [Vector2.LEFT], str(directions.keys()))
+	check("walker bullets hurt the player", player.health < 3, str(player.health))
+
+
+func test_walker_does_not_shoot_backwards() -> void:
+	await reset_scene(true)
+	keep_only_enemies(["Walker1"])
+	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
+	await frames(20)
+
+	# 玩家在身后：巡逻兵不该回头瞄准，转向只由巡逻决定。
+	walker.global_position = Vector2(200, 153)
+	walker.facing = -1
+	walker._apply_facing()
+	player.global_position = Vector2(260, 152)
+	player.velocity = Vector2.ZERO
+
+	var shots := 0
+	for i in 100:
+		await tree.physics_frame
+		# 让它一直朝左走，避免中途掉头把玩家转到正面来。
+		walker.facing = -1
+		shots += bullets(16).size()
+	check("walker holds fire when the player is behind it", shots == 0, str(shots))
+	check("walker keeps facing away", walker.facing == -1 and player.health == 3, str(player.health))
+
+
+func test_walker_and_turret_shoot_at_the_same_height() -> void:
+	await reset_scene(true)
+	keep_only_enemies(["Walker1", "Turret1"])
+	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
+	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
+	await frames(30)
+
+	# 我们真正能保证的不变量：两种敌人的枪口本地偏移完全相同（都是 y=0）。这个要精确。
+	check("muzzle offsets are identical by design", walker._muzzle.position.y == turret._muzzle.position.y, "%s vs %s" % [walker._muzzle.position, turret._muzzle.position])
+
+	# 世界坐标只要求亚像素级一致：巡逻兵在移动，CharacterBody2D 的碰撞安全边距（默认 0.08）
+	# 会让它悬在地面上方约 0.07px，而站着不动的炮台贴得严丝合缝。
+	# 渲染开了像素对齐，这点差别画面上落在同一行；容差取 0.5px，
+	# 仍然能抓到「枪口摆错一整个像素」这种真正的设计错误。
+	var body_gap := absf(walker.global_position.y - turret.global_position.y)
+	check("both rest on the ground within a sub-pixel", body_gap < 0.5, "%.3f px" % body_gap)
+	var muzzle_gap := absf(walker._muzzle.global_position.y - turret._muzzle.global_position.y)
+	check("muzzles line up within a sub-pixel", muzzle_gap < 0.5, "%.3f px" % muzzle_gap)
+
+	# 光看 Marker 位置不够，还要确认真打出来的子弹高度一致。
+	walker.facing = -1
+	turret.facing = -1
+	walker.try_shoot(999.0, player)
+	turret.try_shoot(999.0, player)
+	await frames(1)
+	var shots := bullets(16)
+	check("both actually fired", shots.size() == 2, str(shots.size()))
+	if shots.size() == 2:
+		var shot_gap := absf(shots[0].global_position.y - shots[1].global_position.y)
+		check("the bullets share one firing line", shot_gap < 0.5, "%.3f px" % shot_gap)
+
+
+func test_enemy_bullets_do_not_hurt_other_enemies() -> void:
+	await reset_scene(true)
+	keep_only_enemies(["Walker1", "Walker2"])
+	var shooter: EnemyWalker = main.get_node("Enemies/Walker1")
+	var victim: EnemyWalker = main.get_node("Enemies/Walker2")
+	await frames(20)
+
+	# 把另一只巡逻兵直接摆在枪口前面，玩家挪到远处不干扰。
+	player.global_position = Vector2(600, 152)
+	shooter.global_position = Vector2(240, 153)
+	shooter.facing = -1
+	shooter._apply_facing()
+	victim.global_position = Vector2(200, 153)
+	victim.facing = -1
+	victim._apply_facing()
+	victim.move_speed = 0.0
+	shooter.move_speed = 0.0
+	await frames(2)
+
+	var victim_health := victim.health
+	var deaths := []
+	victim.died.connect(func(): deaths.append(true))
+	shooter.try_shoot(999.0, player)
+	await frames(2)
+	check("a bullet is in the air", bullets(16).size() == 1, str(bullets(16).size()))
+
+	# 子弹飞过同伴身上所需的帧数：40px / (150px/s / 60) = 16 帧，留足余量。
+	await frames(40)
+	check("the other enemy takes no damage", victim.health == victim_health and deaths.is_empty(), str(victim.health))
+	check("it is still alive", is_instance_valid(victim) and not victim.is_queued_for_deletion())
+
+
+func test_player_invincibility_frames() -> void:
+	# 这条只关心玩家和 HUD，清掉敌人免得中途被冷不丁打一枪。
+	await reset_scene()
 	await frames(30)
 	var health_events := []
 	player.health_changed.connect(func(health, _max_health): health_events.append(health))
@@ -158,6 +272,7 @@ func test_player_invincibility_frames() -> void:
 
 func test_touching_an_enemy_hurts() -> void:
 	await reset_scene(true)
+	keep_only_enemies(["Walker1"])
 	await frames(30)
 	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
 	player.global_position = walker.global_position
@@ -167,7 +282,7 @@ func test_touching_an_enemy_hurts() -> void:
 
 
 func test_player_death() -> void:
-	await reset_scene(true)
+	await reset_scene()
 	await frames(30)
 	var death_signals := []
 	player.died.connect(func(): death_signals.append(true))

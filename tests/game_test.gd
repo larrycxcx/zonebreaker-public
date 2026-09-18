@@ -45,6 +45,14 @@ func reset_scene(keep_enemies := false) -> void:
 	await frames(2)
 
 
+## 只留下指定名字的敌人，其它全部移除。
+## 敌人现在都会射击，测某一个敌人时必须清掉其它的，否则别人的子弹会污染结果。
+func keep_only_enemies(names: Array) -> void:
+	for enemy in main.get_node("Enemies").get_children():
+		if not names.has(String(enemy.name)):
+			enemy.free()
+
+
 func free_scene() -> void:
 	release_all_input()
 	if main != null and is_instance_valid(main):
