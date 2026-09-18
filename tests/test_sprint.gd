@@ -36,7 +36,7 @@ func test_sprinting_is_faster() -> void:
 	await frames(20)
 	var sprinting := absf(player.velocity.x)
 	check("walk speed is the normal speed", is_equal_approx(walking, player.move_speed), "%.1f" % walking)
-	check("sprint is 120% of normal speed", is_equal_approx(sprinting, player.move_speed * 1.2), "%.1f" % sprinting)
+	check("sprint is 150% of normal speed", is_equal_approx(sprinting, player.move_speed * 1.5), "%.1f" % sprinting)
 	check("is_sprinting is set", player.is_sprinting)
 
 	Input.action_release("sprint")

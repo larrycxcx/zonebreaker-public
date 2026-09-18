@@ -38,7 +38,7 @@ signal stamina_changed(stamina: float, max_stamina: float)
 
 @export_group("Sprint")
 ## 奔跑时的移动速度倍率。
-@export var sprint_speed_scale := 1.2
+@export var sprint_speed_scale := 1.5
 @export var max_stamina := 100.0
 ## 奔跑时每秒消耗的体力。满体力大约能连续跑 max_stamina / stamina_drain 秒。
 @export var stamina_drain := 35.0
@@ -75,6 +75,9 @@ var _stamina_regen_timer := 0.0
 
 @onready var _visual: Node2D = $Visual
 @onready var _muzzle: Marker2D = $Visual/Muzzle
+@onready var _muzzle_up: Marker2D = $Visual/MuzzleUp
+@onready var _gun: ColorRect = $Visual/Gun
+@onready var _gun_up: ColorRect = $Visual/GunUp
 @onready var _hurtbox: Area2D = $Hurtbox
 @onready var _shape: CollisionShape2D = $CollisionShape2D
 @onready var _hurtbox_shape: CollisionShape2D = $Hurtbox/CollisionShape2D
@@ -236,18 +239,25 @@ func _head_blocked() -> bool:
 	return false
 
 
+## 按住 W 向上瞄准，J 开火：瞄准时朝正上方打，否则朝面向打。瞄准时照样可以移动。
+## 趴下时不能开枪也不能瞄准，只能移动。
 func _handle_shoot(delta: float) -> void:
 	_fire_timer -= delta
-	if Input.is_action_pressed("shoot") and _fire_timer <= 0.0:
-		_fire_timer = fire_cooldown
-		_shoot()
+	var aim_up := Input.is_action_pressed("aim_up") and not is_crouching
+	# 占位美术：向上瞄准时把枪竖起来。
+	_gun.visible = not aim_up
+	_gun_up.visible = aim_up
+	if is_crouching or _fire_timer > 0.0 or not Input.is_action_pressed("shoot"):
+		return
+	_fire_timer = fire_cooldown
+	_shoot(Vector2.UP if aim_up else Vector2(facing, 0))
 
 
-func _shoot() -> void:
+func _shoot(direction: Vector2) -> void:
 	var bullet := bullet_scene.instantiate() as Bullet
-	bullet.direction = Vector2(facing, 0)
+	bullet.direction = direction
 	get_parent().add_child(bullet)
-	bullet.global_position = _muzzle.global_position
+	bullet.global_position = (_muzzle_up if direction == Vector2.UP else _muzzle).global_position
 
 
 func _update_invincibility(delta: float) -> void:

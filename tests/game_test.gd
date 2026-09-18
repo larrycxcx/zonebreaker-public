@@ -7,7 +7,8 @@ extends RefCounted
 ## 为此会直接读写被测对象的私有成员（`_fire_timer` 之类），这是有意为之，
 ## 比为测试在游戏代码里开一堆公开接口更划算。
 
-const ACTIONS := ["move_left", "move_right", "jump", "crouch", "sprint", "shoot"]
+## 项目里应该定义的全部输入动作，test_input_actions_exist 逐个检查。
+const ACTIONS := ["move_left", "move_right", "jump", "crouch", "sprint", "aim_up", "shoot"]
 
 ## 由 runner 注入。SceneTree 脚本里 `await tree.physics_frame` 才能推进物理。
 var tree: SceneTree
@@ -25,9 +26,13 @@ func frames(count: int) -> void:
 		await tree.physics_frame
 
 
+## 松开所有游戏动作（跳过引擎自带的 ui_*）。
+## 直接遍历 InputMap 而不是用 ACTIONS 列表：新加了动作却忘了登记的话，
+## 某条用例按下的键就会一直按着带进后面的用例（向上瞄准刚踩过这个坑）。
 func release_all_input() -> void:
-	for action in ACTIONS:
-		Input.action_release(action)
+	for action in InputMap.get_actions():
+		if not String(action).begins_with("ui_"):
+			Input.action_release(action)
 
 
 ## 重新加载一份主场景。

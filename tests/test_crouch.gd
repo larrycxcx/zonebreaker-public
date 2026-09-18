@@ -140,25 +140,41 @@ func test_jumping_from_a_crouch() -> void:
 	check("jumping from a crouch stands up and jumps", not player.is_crouching and player.velocity.y < 0.0, str(player.velocity))
 
 
-func test_shooting_while_crouched() -> void:
+func test_cannot_shoot_while_lying_down() -> void:
 	await reset_scene()
 	player.global_position = Vector2(OPEN_X, 152)
 	player.velocity = Vector2.ZERO
 	await frames(10)
-	var muzzle_standing := player._muzzle.global_position.y
-
 	Input.action_press("crouch")
 	await frames(5)
-	var muzzle_crouching := player._muzzle.global_position.y
-	check("muzzle drops when crouched", muzzle_crouching > muzzle_standing + 2.0, "%.1f -> %.1f" % [muzzle_standing, muzzle_crouching])
 
 	player._fire_timer = 0.0
-	player._shoot()
+	Input.action_press("shoot")
+	await frames(30)
+	Input.action_release("shoot")
+	check("J does nothing while lying down", bullets(4).size() == 0, str(bullets(4).size()))
+
+	Input.action_press("aim_up")
+	Input.action_press("shoot")
+	await frames(30)
+	check("W + J does nothing while lying down", bullets(4).size() == 0, str(bullets(4).size()))
+	check("the gun is not raised while lying down", player._gun.visible and not player._gun_up.visible)
+	Input.action_release("aim_up")
+	Input.action_release("shoot")
+
+	# 趴着仍然可以移动。
+	var x_before := player.global_position.x
+	Input.action_press("move_right")
+	await frames(30)
+	check("can still crawl while lying down", player.is_crouching and player.global_position.x > x_before + 15.0, "%.1f -> %.1f" % [x_before, player.global_position.x])
+	Input.action_release("move_right")
+
+	# 站起来立刻就能开火（证明上面没开火是因为趴着，而不是别的原因）。
+	Input.action_release("crouch")
+	await frames(3)
+	Input.action_press("shoot")
 	await frames(2)
-	var shots := bullets(4)
-	check("can still shoot while crouched", shots.size() == 1, str(shots.size()))
-	if shots.size() == 1:
-		check("the shot comes out of the lowered muzzle", absf(shots[0].global_position.y - muzzle_crouching) < 6.0, str(shots[0].global_position))
+	check("shooting works again after standing up", bullets(4).size() == 1, str(bullets(4).size()))
 
 
 ## 敌人子弹离地面只有 6~8px，趴下的玩家必须矮到让它们从头顶飞过去。

@@ -81,7 +81,7 @@ func test_bullets_kill_the_walker() -> void:
 	player._visual.scale.x = 1
 	await frames(2)
 	player._fire_timer = 0.0
-	player._shoot()
+	player._shoot(Vector2(player.facing, 0))
 	for i in 30:
 		await tree.physics_frame
 		if not is_instance_valid(walker):

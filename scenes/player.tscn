@@ -66,3 +66,15 @@ color = Color(0.7, 0.7, 0.75, 1)
 
 [node name="Muzzle" type="Marker2D" parent="Visual"]
 position = Vector2(12, 0)
+
+[node name="GunUp" type="ColorRect" parent="Visual"]
+visible = false
+offset_left = 2.0
+offset_top = -14.0
+offset_right = 4.0
+offset_bottom = -8.0
+mouse_filter = 2
+color = Color(0.7, 0.7, 0.75, 1)
+
+[node name="MuzzleUp" type="Marker2D" parent="Visual"]
+position = Vector2(3, -14)
