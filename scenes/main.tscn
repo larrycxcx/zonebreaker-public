@@ -1,0 +1,62 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2"]
+
+[node name="Main" type="Node2D"]
+
+[node name="Level" type="Node2D" parent="."]
+
+[node name="Ground" parent="Level" instance=ExtResource("1")]
+position = Vector2(0, 160)
+size = Vector2(640, 20)
+color = Color(0.36, 0.25, 0.2, 1)
+
+[node name="WallLeft" parent="Level" instance=ExtResource("1")]
+position = Vector2(-8, 0)
+size = Vector2(8, 180)
+color = Color(0.2, 0.2, 0.26, 1)
+
+[node name="WallRight" parent="Level" instance=ExtResource("1")]
+position = Vector2(640, 0)
+size = Vector2(8, 180)
+color = Color(0.2, 0.2, 0.26, 1)
+
+[node name="Platform1" parent="Level" instance=ExtResource("1")]
+position = Vector2(80, 128)
+size = Vector2(48, 8)
+one_way = true
+
+[node name="Platform2" parent="Level" instance=ExtResource("1")]
+position = Vector2(160, 100)
+size = Vector2(48, 8)
+one_way = true
+
+[node name="Platform3" parent="Level" instance=ExtResource("1")]
+position = Vector2(240, 128)
+size = Vector2(48, 8)
+one_way = true
+
+[node name="Platform4" parent="Level" instance=ExtResource("1")]
+position = Vector2(320, 96)
+size = Vector2(64, 8)
+one_way = true
+
+[node name="Platform5" parent="Level" instance=ExtResource("1")]
+position = Vector2(420, 124)
+size = Vector2(48, 8)
+one_way = true
+
+[node name="Platform6" parent="Level" instance=ExtResource("1")]
+position = Vector2(500, 92)
+size = Vector2(48, 8)
+one_way = true
+
+[node name="Player" parent="." instance=ExtResource("2")]
+position = Vector2(32, 152)
+
+[node name="Camera2D" type="Camera2D" parent="Player"]
+limit_left = 0
+limit_top = 0
+limit_right = 640
+limit_bottom = 180
