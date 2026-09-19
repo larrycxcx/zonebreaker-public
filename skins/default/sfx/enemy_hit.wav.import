@@ -2,13 +2,13 @@
 
 importer="wav"
 type="AudioStreamWAV"
-uid="uid://bmjrye71remta"
-path="res://.godot/imported/enemy_prone.wav-aa2ab6c9db71d699c5fcd07f20862355.sample"
+uid="uid://mhtw2ag1c3sr"
+path="res://.godot/imported/enemy_hit.wav-79df43609a0e3007c17365c80265127c.sample"
 
 [deps]
 
-source_file="res://assets/sfx/enemy_prone.wav"
-dest_files=["res://.godot/imported/enemy_prone.wav-aa2ab6c9db71d699c5fcd07f20862355.sample"]
+source_file="res://skins/default/sfx/enemy_hit.wav"
+dest_files=["res://.godot/imported/enemy_hit.wav-79df43609a0e3007c17365c80265127c.sample"]
 
 [params]
 

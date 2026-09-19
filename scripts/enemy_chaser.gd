@@ -42,7 +42,10 @@ func _physics_process(delta: float) -> void:
 		_memory_left = memory_time
 	else:
 		_memory_left -= delta
+	var was_chasing := is_chasing
 	is_chasing = _memory_left > 0.0
+	if is_chasing and not was_chasing:
+		GameEvents.report(&"chaser_alert", self)
 
 	if is_chasing:
 		_chase(delta, target != null)

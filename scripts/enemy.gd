@@ -25,6 +25,8 @@ signal shot_fired
 @export_range(1, 10) var burst_max := 1
 ## 同一轮连发里相邻两颗子弹的间隔。
 @export var burst_gap := 0.15
+## 开枪时报告的事件名（素材包按它找声音）：巡逻兵 enemy_shoot，炮台 turret_shoot，E flyer_shoot。
+@export var shoot_event := &"enemy_shoot"
 
 @export_group("Prone")
 ## 玩家在射程内趴下时，敌人也跟着趴下打低处。默认关闭，即只会站着开枪。
@@ -76,10 +78,12 @@ func take_damage(amount: int, _source_position := Vector2.INF) -> void:
 		die()
 	else:
 		_flash()
+		GameEvents.report(&"enemy_hit", self)
 
 
 func die() -> void:
 	died.emit()
+	GameEvents.report(&"enemy_death", self)
 	queue_free()
 
 
@@ -146,6 +150,7 @@ func _fire_one() -> void:
 	get_parent().add_child(bullet)
 	bullet.global_position = _muzzle.global_position
 	shot_fired.emit()
+	GameEvents.report(shoot_event, self)
 
 
 ## 子弹往哪边飞。地面敌人朝面向水平开火；飞行敌人覆盖成向下。
@@ -171,6 +176,8 @@ func update_prone(delta: float, target: Node2D) -> void:
 ## 和玩家下蹲同一套做法：碰撞体压低并下移让脚底不动，Visual 整体压扁，
 ## 枪口是 Visual 的子节点，会跟着降到贴地的高度。
 func set_prone(value: bool) -> void:
+	if value and not is_prone:
+		GameEvents.report(&"enemy_prone", self)
 	is_prone = value
 	var height := PRONE_HEIGHT if value else _stand_height
 	var lowered := (_stand_height - height) / 2.0

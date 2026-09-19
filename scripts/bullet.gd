@@ -31,5 +31,8 @@ func _on_body_entered(body: Node2D) -> void:
 	if body is Platform and (body as Platform).one_way:
 		return
 	if body.has_method("take_damage"):
+		# 打中角色的声音由被打的一方报告（enemy_hit / player_hurt 等）。
 		body.take_damage(damage, global_position)
+	else:
+		GameEvents.report(&"bullet_impact", self)
 	queue_free()

@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="SkinPack" format=3]
+
+[ext_resource type="Script" path="res://scripts/skin/skin_pack.gd" id="script"]
+[ext_resource type="AudioStream" path="res://skins/default/player_shoot.tres" id="player_shoot"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/jump.wav" id="jump"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/player_hurt.wav" id="player_hurt"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/player_death.wav" id="player_death"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/stamina_exhausted.wav" id="stamina_exhausted"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/enemy_shoot.wav" id="enemy_shoot"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/turret_shoot.wav" id="turret_shoot"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/flyer_shoot.wav" id="flyer_shoot"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/enemy_hit.wav" id="enemy_hit"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/enemy_death.wav" id="enemy_death"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/enemy_prone.wav" id="enemy_prone"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/chaser_alert.wav" id="chaser_alert"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/bullet_impact.wav" id="bullet_impact"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/game_over.wav" id="game_over"]
+
+[resource]
+script = ExtResource("script")
+display_name = "默认（8-bit 占位音效）"
+sounds = Dictionary[StringName, AudioStream]({
+&"player_shoot": ExtResource("player_shoot"),
+&"jump": ExtResource("jump"),
+&"player_hurt": ExtResource("player_hurt"),
+&"player_death": ExtResource("player_death"),
+&"stamina_exhausted": ExtResource("stamina_exhausted"),
+&"enemy_shoot": ExtResource("enemy_shoot"),
+&"turret_shoot": ExtResource("turret_shoot"),
+&"flyer_shoot": ExtResource("flyer_shoot"),
+&"enemy_hit": ExtResource("enemy_hit"),
+&"enemy_death": ExtResource("enemy_death"),
+&"enemy_prone": ExtResource("enemy_prone"),
+&"chaser_alert": ExtResource("chaser_alert"),
+&"bullet_impact": ExtResource("bullet_impact"),
+&"game_over": ExtResource("game_over")
+})

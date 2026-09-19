@@ -4,7 +4,7 @@ extends SceneTree
 ##   & $godot --headless --path . --script res://tests/run_tests.gd
 ##   & $godot --headless --path . --script res://tests/run_tests.gd -- crouch
 ##
-## 加 `-- <名字>`（player / enemies / enemy_types / chaser / flyer / crouch / sprint / walls / gamepad）只跑指定的一组，不加就全跑。全部通过退出码为 0，有失败为 1。
+## 加 `-- <名字>`（player / enemies / enemy_types / chaser / flyer / crouch / sprint / walls / gamepad / audio）只跑指定的一组，不加就全跑。全部通过退出码为 0，有失败为 1。
 
 const SUITES := {
 	"player": "res://tests/test_player.gd",
@@ -16,6 +16,7 @@ const SUITES := {
 	"sprint": "res://tests/test_sprint.gd",
 	"walls": "res://tests/test_walls.gd",
 	"gamepad": "res://tests/test_gamepad.gd",
+	"audio": "res://tests/test_audio.gd",
 }
 
 
@@ -66,6 +67,11 @@ func _arm_watchdog(label: String) -> void:
 
 
 func _run() -> void:
+	# 这个入口脚本比 autoload 单例（GameEvents、Skins、Sfx）更早编译，那时它们的名字还不存在。
+	# 所以这里不能静态引用任何会连带加载游戏脚本的类型（比如 `var suite: GameTest`——
+	# 它会立刻编译 GameTest → Player → player.gd 里的 GameEvents 报「找不到标识符」，整场测试都跑在坏掉的玩家上），
+	# 并且先等一帧，单例注册好之后再去加载各组测试。
+	await process_frame
 	var wanted := OS.get_cmdline_user_args()
 	var total := 0
 	var failed := 0
@@ -83,7 +89,7 @@ func _run() -> void:
 			failed_labels.append("%s: suite failed to load (see SCRIPT ERROR above)" % suite_name)
 			print("    FAIL  could not load ", SUITES[suite_name])
 			continue
-		var suite: GameTest = script.new()
+		var suite = script.new()
 		suite.tree = self
 
 		for method in suite.get_method_list():

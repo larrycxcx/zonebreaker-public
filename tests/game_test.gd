@@ -15,6 +15,8 @@ var tree: SceneTree
 var main: Node
 var player: Player
 var results: Array[Dictionary] = []
+## 这条用例里 GameEvents 报告过的事件名，按先后顺序。reset_scene() 时清空。
+var events: Array[StringName] = []
 
 
 func check(label: String, ok: bool, detail := "") -> void:
@@ -43,6 +45,11 @@ func release_all_input() -> void:
 func reset_scene(keep_enemies := false, keep_walls := false) -> void:
 	release_all_input()
 	free_scene()
+	# 素材包是全局状态：换过包的用例如果中途出错没换回来，会影响后面所有用例，所以每次都恢复默认包。
+	Skins.use(Skins.default_skin())
+	events.clear()
+	if not GameEvents.event_happened.is_connected(_record_event):
+		GameEvents.event_happened.connect(_record_event)
 	main = load("res://scenes/main.tscn").instantiate()
 	tree.root.add_child(main)
 	player = main.get_node("Player")
@@ -63,8 +70,14 @@ func keep_only_enemies(names: Array) -> void:
 			enemy.free()
 
 
+func _record_event(event: StringName, _source: Node) -> void:
+	events.append(event)
+
+
 func free_scene() -> void:
 	release_all_input()
+	if GameEvents.event_happened.is_connected(_record_event):
+		GameEvents.event_happened.disconnect(_record_event)
 	if main != null and is_instance_valid(main):
 		main.free()
 	main = null

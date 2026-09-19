@@ -1,4 +1,4 @@
-"""程序合成复古 8-bit 风格音效（思路同 sfxr/bfxr），输出到 assets/sfx/*.wav。
+"""程序合成复古 8-bit 风格音效（思路同 sfxr/bfxr），输出到默认素材包 skins/default/sfx/*.wav。
 
 只用 Python 标准库。每个音效是 SOUNDS 里的一组参数：一层或几层「声音」叠加，
 每层有波形、音调滑动、颤音、音量包络、占空比等。想调某个声音就改这里的数字再运行：
@@ -6,8 +6,8 @@
     python tools/sfx_gen.py            # 生成全部
     python tools/sfx_gen.py jump       # 只生成名字里含 jump 的
 
-文件名就是事件名（player_shoot、enemy_death……），第 4 步的音频管理器按事件名找声音。
-这些是占位音效，以后换成正式素材时直接替换同名文件即可。
+文件名和游戏里的事件名对应（player_shoot、enemy_death……），对应关系写在 skins/default/default_skin.tres 里。
+这些是占位音效：换正式素材时替换同名文件，或者新建一个素材包（见 CLAUDE.md「皮肤与素材包」）。
 """
 
 import math
@@ -18,7 +18,7 @@ import sys
 import wave
 
 SAMPLE_RATE = 22050
-OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "sfx")
+OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skins", "default", "sfx")
 
 # 音名 → 频率（A4 = 440Hz），写旋律用。
 NOTE = {

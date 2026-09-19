@@ -141,6 +141,7 @@ func _handle_jump(delta: float) -> void:
 		velocity.y = jump_velocity
 		_jump_buffer_timer = 0.0
 		_coyote_timer = 0.0
+		GameEvents.report(&"jump", self)
 
 	if Input.is_action_just_released("jump") and velocity.y < 0.0:
 		velocity.y *= jump_cut
@@ -179,6 +180,7 @@ func _update_sprint(delta: float, direction: float) -> void:
 		var drained := stamina - stamina_drain * delta
 		if drained <= 0.0:
 			_exhausted = true
+			GameEvents.report(&"stamina_exhausted", self)
 		_set_stamina(drained)
 		_stamina_regen_timer = stamina_regen_delay
 	elif _stamina_regen_timer > 0.0:
@@ -265,6 +267,7 @@ func _shoot(direction: Vector2) -> void:
 	bullet.direction = direction
 	get_parent().add_child(bullet)
 	bullet.global_position = (_muzzle_up if direction == Vector2.UP else _muzzle).global_position
+	GameEvents.report(&"player_shoot", self)
 
 
 func _update_invincibility(delta: float) -> void:
@@ -297,6 +300,7 @@ func take_damage(amount: int, source_position := Vector2.INF) -> void:
 	if health <= 0:
 		_die()
 		return
+	GameEvents.report(&"player_hurt", self)
 	_invincible_timer = invincible_time
 	var away := 1.0 if source_position == Vector2.INF else signf(global_position.x - source_position.x)
 	if away == 0.0:
@@ -309,3 +313,4 @@ func _die() -> void:
 	health = 0
 	_visual.modulate = Color(0.5, 0.5, 0.5, 1.0)
 	died.emit()
+	GameEvents.report(&"player_death", self)
