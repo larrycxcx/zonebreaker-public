@@ -8,7 +8,7 @@ extends RefCounted
 ## 比为测试在游戏代码里开一堆公开接口更划算。
 
 ## 项目里应该定义的全部输入动作，test_input_actions_exist 逐个检查。
-const ACTIONS := ["move_left", "move_right", "jump", "crouch", "sprint", "aim_up", "aim_down", "shoot", "switch_weapon"]
+const ACTIONS := ["move_left", "move_right", "jump", "crouch", "sprint", "aim_up", "aim_down", "shoot", "switch_weapon", "ultimate"]
 
 ## 由 runner 注入。SceneTree 脚本里 `await tree.physics_frame` 才能推进物理。
 var tree: SceneTree
@@ -45,6 +45,8 @@ func release_all_input() -> void:
 func reset_scene(keep_enemies := false, keep_walls := false) -> void:
 	release_all_input()
 	free_scene()
+	# 终极武器会暂停整棵树：用例中途出错、没等到恢复，也不能把暂停带进下一条用例。
+	tree.paused = false
 	# 素材包是全局状态：换过包的用例如果中途出错没换回来，会影响后面所有用例，所以每次都恢复默认包。
 	Skins.use(Skins.default_skin())
 	events.clear()
@@ -76,6 +78,7 @@ func _record_event(event: StringName, _source: Node) -> void:
 
 func free_scene() -> void:
 	release_all_input()
+	tree.paused = false
 	if GameEvents.event_happened.is_connected(_record_event):
 		GameEvents.event_happened.disconnect(_record_event)
 	if main != null and is_instance_valid(main):

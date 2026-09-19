@@ -29,6 +29,8 @@ const SOUND_EVENTS := {
 	&"grenade_bounce": "手雷撞到地面或墙弹起来",
 	&"explosion": "手雷爆炸",
 	&"weapon_switch": "玩家切换武器",
+	&"ultimate_start": "玩家发动终极武器（定格开始）",
+	&"ultimate_blast": "终极武器消灭屏幕内的敌人（定格结束）",
 }
 
 ## 在编辑器里显示的名字。

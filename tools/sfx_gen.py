@@ -208,6 +208,16 @@ SOUNDS = {
         voice("square", freq=900, duration=0.04, duty=0.25, offset=0.045),
         voice("noise", freq=7000, duration=0.015, volume=0.5, seed=16),
     ], 0.4),
+    # ---- 终极武器 ----
+    "ultimate_start": ("终极武器发动：越来越高的蓄力声", [
+        voice("square", freq=180, freq_end=1600, duration=0.9, duty=0.5, duty_end=0.125, vibrato_depth=0.04, vibrato_speed=18),
+        voice("noise", freq=500, freq_end=4000, duration=0.9, attack=0.6, volume=0.35, seed=17),
+    ], 0.6),
+    "ultimate_blast": ("终极武器消灭敌人：很大很长的爆炸", [
+        voice("noise", freq=1400, freq_end=50, duration=1.3, seed=18),
+        voice("square", freq=160, freq_end=30, duration=1.1, duty=0.5, volume=0.7),
+        voice("triangle", freq=90, freq_end=35, duration=1.2, volume=0.8, crush=2),
+    ], 0.9),
     "stamina_exhausted": ("体力耗尽：两声往下的「累了」", [
         voice("triangle", freq=NOTE["E5"], duration=0.1, crush=2),
         voice("triangle", freq=NOTE["A4"], duration=0.16, offset=0.11, crush=2),

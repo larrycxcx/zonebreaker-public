@@ -7,6 +7,8 @@ signal died
 signal stamina_changed(stamina: float, max_stamina: float)
 ## 切换武器（或当前这把被换掉）时发出，HUD 接这个。
 signal weapon_switched(index: int, weapon: Weapon)
+## 终极武器剩余次数变化，HUD 接这个。
+signal ultimate_ammo_changed(ammo: int, max_ammo: int)
 
 
 @export_group("Health")
@@ -55,6 +57,8 @@ signal weapon_switched(index: int, weapon: Weapon)
 ## 身上的武器，按切换顺序排列（默认 [步枪, 手雷]）。Shift / 手柄 X 切到下一把，J / RT 用当前这把开火，
 ## 都跟着 8 方向瞄准。换武器 = 换这里的资源文件（weapons/*.tres）。
 @export var weapons: Array[Weapon] = []
+## 终极武器（K / 手柄 Y，瞬时发动，有次数限制）。不在切换顺序里。默认 weapons/ultimate.tres。
+@export var ultimate_weapon: Weapon
 
 ## 瞄准方向（魂斗罗式）。W + 左右 = 边走边斜上，只按 W = 原地正上；
 ## S + 左右 = 边走边斜下，只按 S：地面上朝前斜下、空中朝正下；W、S 同时按互相抵消；趴下时一律水平。
@@ -86,7 +90,10 @@ var _jump_buffer_timer := 0.0
 var current_weapon := 0
 ## 每把武器一个槽，各自记冷却和弹药：切走再切回来，冷却和弹药都还在。
 var _slots: Array[WeaponSlot] = []
+var _ultimate := WeaponSlot.new()
 var _invincible_timer := 0.0
+## 不闪烁的无敌（终极武器用）。暂停期间玩家的计时也停着，所以它能覆盖整个定格。
+var _shield_timer := 0.0
 var _dead := false
 var _exhausted := false
 var _stamina_regen_timer := 0.0
@@ -108,6 +115,9 @@ var _stamina_regen_timer := 0.0
 func _ready() -> void:
 	for weapon in weapons:
 		_slots.append(WeaponSlot.new(weapon))
+	_ultimate.ammo_changed.connect(func(ammo: int, max_ammo: int) -> void: ultimate_ammo_changed.emit(ammo, max_ammo))
+	if ultimate_weapon != null:
+		_ultimate.equip(ultimate_weapon)
 	health = max_health
 	health_changed.emit(health, max_health)
 	stamina = max_stamina
@@ -131,9 +141,11 @@ func _physics_process(delta: float) -> void:
 	_handle_jump(delta)
 	_handle_horizontal(delta)
 	move_and_slide()
+	_handle_ultimate()
 	_handle_switch()
 	_handle_shoot(delta)
 	_update_invincibility(delta)
+	_shield_timer -= delta
 	_check_contact_damage()
 
 
@@ -318,6 +330,27 @@ func aim_vector() -> Vector2:
 	return Vector2(facing, 0)
 
 
+## K / 手柄 Y 发动终极武器。任何状态（趴着、爬行、空中）都能用；效果见 Ultimate。
+func _handle_ultimate() -> void:
+	if _ultimate.weapon == null or not Input.is_action_just_pressed("ultimate") or not _ultimate.is_ready():
+		return
+	_ultimate.fire(get_parent(), global_position, Vector2(facing, 0), self)
+
+
+## 终极武器还剩几次。
+func ultimate_ammo() -> int:
+	return _ultimate.ammo
+
+
+## 不闪烁的无敌 seconds 秒（已有更长的就保留更长的）。
+func grant_invincibility(seconds: float) -> void:
+	_shield_timer = maxf(_shield_timer, seconds)
+
+
+func is_invincible() -> bool:
+	return _invincible_timer > 0.0 or _shield_timer > 0.0
+
+
 func _handle_switch() -> void:
 	if Input.is_action_just_pressed("switch_weapon"):
 		switch_weapon()
@@ -376,7 +409,7 @@ func _update_invincibility(delta: float) -> void:
 
 ## 站在/贴着敌人身上时持续判定，无敌帧结束后会再次受伤。
 func _check_contact_damage() -> void:
-	if _invincible_timer > 0.0:
+	if is_invincible():
 		return
 	for body in _hurtbox.get_overlapping_bodies():
 		if body is Enemy:
@@ -386,7 +419,7 @@ func _check_contact_damage() -> void:
 
 ## 被敌人子弹或接触伤害调用。`source_position` 用来决定击退方向。
 func take_damage(amount: int, source_position := Vector2.INF) -> void:
-	if _dead or _invincible_timer > 0.0:
+	if _dead or is_invincible():
 		return
 	health -= amount
 	health_changed.emit(health, max_health)

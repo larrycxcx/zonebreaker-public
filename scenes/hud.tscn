@@ -34,6 +34,14 @@ offset_right = 12.0
 offset_bottom = 26.0
 mouse_filter = 2
 
+[node name="UltimateRow" type="HBoxContainer" parent="."]
+offset_left = 6.0
+offset_top = 28.0
+offset_right = 60.0
+offset_bottom = 32.0
+mouse_filter = 2
+theme_override_constants/separation = 2
+
 [node name="Message" type="Label" parent="."]
 anchors_preset = -1
 offset_left = 110.0

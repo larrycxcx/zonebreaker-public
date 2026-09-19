@@ -59,7 +59,7 @@ func test_every_sound_file_is_used() -> void:
 		else:
 			used[stream.resource_path] = true
 	var files := Array(DirAccess.get_files_at(DEFAULT_SKIN_DIR + "sfx")).filter(func(f): return f.ends_with(".wav")).map(func(f): return DEFAULT_SKIN_DIR + "sfx/" + f)
-	check("20 sound files in the default skin", files.size() == 20, str(files.size()))
+	check("22 sound files in the default skin", files.size() == 22, str(files.size()))
 	for f in files:
 		check("%s is used by the skin" % f.get_file(), used.has(f))
 	check("the skin references no missing files", used.keys().all(func(p): return FileAccess.file_exists(p)))
@@ -211,6 +211,16 @@ func test_grenade_events() -> void:
 	Input.action_release("shoot")
 	await frames(90)
 	expect_events([&"weapon_switch", &"grenade_throw", &"grenade_bounce", &"explosion"], "switching to grenades and throwing one")
+
+
+func test_ultimate_events() -> void:
+	await reset_scene()
+	await frames(5)
+	Input.action_press("ultimate")
+	await frames(2)
+	Input.action_release("ultimate")
+	await frames(135) # 定格 2 秒
+	expect_events([&"ultimate_start", &"ultimate_blast"], "using the ultimate weapon")
 
 
 # ---------------------------------------------------------------- 播放器与素材包

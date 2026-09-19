@@ -56,6 +56,9 @@ const DIAGONAL_DOWN_MUZZLE := Vector2(10, 3)
 ## 瞄准方向。
 enum Aim { LEVEL, DIAGONAL_UP, DIAGONAL_DOWN }
 
+## 所有敌人都在这个组里（终极武器靠它找屏幕内的敌人）。
+const GROUP := &"enemies"
+
 var health := 0
 var is_prone := false
 var aim := Aim.LEVEL
@@ -90,6 +93,7 @@ func _find_muzzle() -> Marker2D:
 
 
 func _ready() -> void:
+	add_to_group(GROUP)
 	health = max_health
 	_stand_height = (_shape.shape as RectangleShape2D).size.y
 

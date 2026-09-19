@@ -1,4 +1,4 @@
-extends GameTest
+﻿extends GameTest
 ## 手雷与武器切换：Shift / 手柄 X 在 [步枪, 手雷] 之间切换，J / RT 用当前武器开火。
 ## 手雷规则：直接砸中敌人立刻爆炸；撞到地面/墙弹一下，再碰到就爆炸；最长 1.5 秒保底爆炸；
 ## 伤害中心/直接命中最高、往边缘递减、范围外为零；不伤自己；墙挡爆炸；单向平台上穿下落；不限数量。
@@ -79,7 +79,7 @@ func test_weapons_and_bindings() -> void:
 	check("one grenade per press, 0.5s apart", not g.automatic and g.cooldown == 0.5)
 	check("throwing reports grenade_throw", g.fire_event == &"grenade_throw")
 	check("switch weapon: Shift", keyboard_keys("switch_weapon") == [KEY_SHIFT], str(keyboard_keys("switch_weapon")))
-	check("K is not bound to anything", not InputMap.get_actions().any(func(a): return keyboard_keys(a).has(KEY_K)))
+	check("K only fires the ultimate, not switch", InputMap.get_actions().filter(func(a): return keyboard_keys(a).has(KEY_K)) == [&"ultimate"])
 
 
 func test_shift_switches_weapons() -> void:

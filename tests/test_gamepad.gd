@@ -70,6 +70,7 @@ func test_gamepad_layout() -> void:
 	check("shoot: RT", has_axis("shoot", JOY_AXIS_TRIGGER_RIGHT, true))
 	check("X is no longer a fire button", not has_button("shoot", JOY_BUTTON_X))
 	check("switch weapon: X", has_button("switch_weapon", JOY_BUTTON_X))
+	check("ultimate: Y", has_button("ultimate", JOY_BUTTON_Y))
 	check("aim up: left stick up / d-pad up", has_axis("aim_up", JOY_AXIS_LEFT_Y, false) and has_button("aim_up", JOY_BUTTON_DPAD_UP))
 	check("aim down: left stick down / d-pad down", has_axis("aim_down", JOY_AXIS_LEFT_Y, true) and has_button("aim_down", JOY_BUTTON_DPAD_DOWN))
 	check("lie down: LT", has_axis("crouch", JOY_AXIS_TRIGGER_LEFT, true))

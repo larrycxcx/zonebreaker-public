@@ -19,6 +19,8 @@
 [ext_resource type="AudioStream" path="res://skins/default/sfx/grenade_bounce.wav" id="grenade_bounce"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/explosion.wav" id="explosion"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/weapon_switch.wav" id="weapon_switch"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/ultimate_start.wav" id="ultimate_start"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/ultimate_blast.wav" id="ultimate_blast"]
 
 [resource]
 script = ExtResource("script")
@@ -41,5 +43,7 @@ sounds = Dictionary[StringName, AudioStream]({
 &"grenade_throw": ExtResource("grenade_throw"),
 &"grenade_bounce": ExtResource("grenade_bounce"),
 &"explosion": ExtResource("explosion"),
-&"weapon_switch": ExtResource("weapon_switch")
+&"weapon_switch": ExtResource("weapon_switch"),
+&"ultimate_start": ExtResource("ultimate_start"),
+&"ultimate_blast": ExtResource("ultimate_blast")
 })

@@ -17,6 +17,8 @@ var _warned := {}
 
 
 func _ready() -> void:
+	# 终极武器发动时整棵树会暂停，音效要照常播放。
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	for i in POOL_SIZE:
 		var player := AudioStreamPlayer.new()
 		player.bus = BUS

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="Weapon" format=3]
+
+[ext_resource type="Script" path="res://scripts/weapons/weapon.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/ultimate.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+display_name = "终极武器"
+projectile = ExtResource("2")
+cooldown = 0.0
+automatic = false
+max_ammo = 2
+fire_event = &"ultimate_start"
+hud_color = Color(1, 0.8, 0.25, 1)
