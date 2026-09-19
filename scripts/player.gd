@@ -240,14 +240,15 @@ func _head_blocked() -> bool:
 
 
 ## 按住 W 向上瞄准，J 开火：瞄准时朝正上方打，否则朝面向打。瞄准时照样可以移动。
-## 趴下时不能开枪也不能瞄准，只能移动。
+## 趴下时不能向上瞄准；趴着不动可以水平开枪（子弹贴地飞），趴着爬行时不能开枪。
 func _handle_shoot(delta: float) -> void:
 	_fire_timer -= delta
 	var aim_up := Input.is_action_pressed("aim_up") and not is_crouching
 	# 占位美术：向上瞄准时把枪竖起来。
 	_gun.visible = not aim_up
 	_gun_up.visible = aim_up
-	if is_crouching or _fire_timer > 0.0 or not Input.is_action_pressed("shoot"):
+	var crawling := is_crouching and Input.get_axis("move_left", "move_right") != 0.0
+	if crawling or _fire_timer > 0.0 or not Input.is_action_pressed("shoot"):
 		return
 	_fire_timer = fire_cooldown
 	_shoot(Vector2.UP if aim_up else Vector2(facing, 0))

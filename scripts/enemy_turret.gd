@@ -1,6 +1,6 @@
 class_name EnemyTurret
 extends Enemy
-## 站桩敌人：玩家进入射程且高度接近时，转向玩家并定时开火。
+## 站桩敌人：玩家进入射程且高度接近时，转向玩家并定时开火；玩家趴下时它也趴下打低处。
 
 func _physics_process(delta: float) -> void:
 	_apply_gravity(delta)
@@ -9,6 +9,7 @@ func _physics_process(delta: float) -> void:
 	var target := find_target()
 	if target != null:
 		_face_toward(target)
+	update_prone(delta, target)
 	try_shoot(delta, target)
 
 

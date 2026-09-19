@@ -1,6 +1,6 @@
 class_name Enemy
 extends CharacterBody2D
-## 敌人基类：生命值、受击闪白、死亡、重力，以及共用的射击逻辑。具体行为见子类。
+## 敌人基类：生命值、受击闪白、死亡、重力，以及共用的射击、趴下逻辑。具体行为见子类。
 
 signal died
 
@@ -18,21 +18,35 @@ signal died
 ## 和玩家的高度差在这个范围内才会开火（子弹只走水平方向）。
 @export var vertical_tolerance := 20.0
 
+@export_group("Prone")
+## 玩家在射程内趴下时，敌人也跟着趴下打低处。关掉就是一直站着打的敌人。
+@export var can_go_prone := true
+## 发现玩家趴下后隔多久才跟着趴下，给玩家留一个躲子弹的窗口。
+@export var prone_reaction_time := 0.4
+
+## 趴下后的碰撞体高度，和玩家一样。站着开的枪会从头顶飞过去。
+const PRONE_HEIGHT := 4.0
+
 var health := 0
+var is_prone := false
 ## 面朝方向，同时决定子弹飞行方向：-1 向左，1 向右。
 var facing := -1
 
 var _fire_timer := 0.0
+var _prone_timer := 0.0
+var _stand_height := 0.0
 
 @onready var _visual: Node2D = $Visual
 ## 每个敌人场景都必须有 `Visual/Muzzle`，且本地 y 坐标为 0。
 ## 各种敌人的碰撞体底边都贴着自己的原点下方 7px，所以本地 y=0 能保证
 ## 站在同一地面上的不同敌人出膛高度完全一致。
 @onready var _muzzle: Marker2D = $Visual/Muzzle
+@onready var _shape: CollisionShape2D = $CollisionShape2D
 
 
 func _ready() -> void:
 	health = max_health
+	_stand_height = (_shape.shape as RectangleShape2D).size.y
 
 
 ## 被子弹调用（Bullet 通过 has_method("take_damage") 找到它）。
@@ -74,6 +88,33 @@ func try_shoot(delta: float, target: Node2D) -> void:
 	bullet.direction = Vector2(facing, 0)
 	get_parent().add_child(bullet)
 	bullet.global_position = _muzzle.global_position
+
+
+## 子类每帧拿当前瞄准的目标调用：目标趴着就隔 prone_reaction_time 跟着趴下，否则马上站起来。
+func update_prone(delta: float, target: Node2D) -> void:
+	var player := target as Player
+	if not (can_go_prone and player != null and player.is_crouching):
+		_prone_timer = 0.0
+		if is_prone:
+			set_prone(false)
+		return
+	if is_prone:
+		return
+	_prone_timer += delta
+	if _prone_timer >= prone_reaction_time:
+		set_prone(true)
+
+
+## 和玩家下蹲同一套做法：碰撞体压低并下移让脚底不动，Visual 整体压扁，
+## 枪口是 Visual 的子节点，会跟着降到贴地的高度。
+func set_prone(value: bool) -> void:
+	is_prone = value
+	var height := PRONE_HEIGHT if value else _stand_height
+	var lowered := (_stand_height - height) / 2.0
+	(_shape.shape as RectangleShape2D).size.y = height
+	_shape.position.y = lowered
+	_visual.scale.y = height / _stand_height
+	_visual.position.y = lowered
 
 
 func _flash() -> void:

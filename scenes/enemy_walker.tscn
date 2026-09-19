@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" path="res://scenes/enemy_bullet.tscn" id="2"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+resource_local_to_scene = true
 size = Vector2(12, 14)
 
 [node name="EnemyWalker" type="CharacterBody2D"]

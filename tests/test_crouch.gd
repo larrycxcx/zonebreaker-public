@@ -140,7 +140,7 @@ func test_jumping_from_a_crouch() -> void:
 	check("jumping from a crouch stands up and jumps", not player.is_crouching and player.velocity.y < 0.0, str(player.velocity))
 
 
-func test_cannot_shoot_while_lying_down() -> void:
+func test_prone_shooting_rules() -> void:
 	await reset_scene()
 	player.global_position = Vector2(OPEN_X, 152)
 	player.velocity = Vector2.ZERO
@@ -148,41 +148,50 @@ func test_cannot_shoot_while_lying_down() -> void:
 	Input.action_press("crouch")
 	await frames(5)
 
+	# 趴着爬行：不能开枪。
 	player._fire_timer = 0.0
+	Input.action_press("move_right")
 	Input.action_press("shoot")
 	await frames(30)
-	Input.action_release("shoot")
-	check("J does nothing while lying down", bullets(4).size() == 0, str(bullets(4).size()))
+	check("cannot shoot while crawling", bullets(4).size() == 0, str(bullets(4).size()))
+	check("still crawling meanwhile", player.is_crouching and absf(player.velocity.x) > 1.0)
 
+	# 停下来：马上可以开枪，子弹贴地水平飞。
+	Input.action_release("move_right")
+	var shots := []
+	for i in 10:
+		await tree.physics_frame
+		shots = bullets(4)
+		if not shots.is_empty():
+			break
+	check("lying still, J fires", shots.size() == 1, str(shots.size()))
+	if shots.size() == 1:
+		var bullet: Bullet = shots[0]
+		check("prone shot flies horizontally", bullet.direction == Vector2.RIGHT, str(bullet.direction))
+		# 趴下后枪口离地约 2px（地面 y=160）。子弹高 2px，底边不能碰到地面。
+		check("prone shot skims the ground", bullet.global_position.y > 156.0 and bullet.global_position.y < 159.0, "y=%.1f" % bullet.global_position.y)
+	Input.action_release("shoot")
+
+	# 趴着按 W：不能向上瞄准，J 仍然水平开火。
+	await frames(15)
+	for b in bullets(4):
+		b.free()
 	Input.action_press("aim_up")
 	Input.action_press("shoot")
-	await frames(30)
-	check("W + J does nothing while lying down", bullets(4).size() == 0, str(bullets(4).size()))
-	check("the gun is not raised while lying down", player._gun.visible and not player._gun_up.visible)
-	Input.action_release("aim_up")
-	Input.action_release("shoot")
-
-	# 趴着仍然可以移动。
-	var x_before := player.global_position.x
-	Input.action_press("move_right")
-	await frames(30)
-	check("can still crawl while lying down", player.is_crouching and player.global_position.x > x_before + 15.0, "%.1f -> %.1f" % [x_before, player.global_position.x])
-	Input.action_release("move_right")
-
-	# 站起来立刻就能开火（证明上面没开火是因为趴着，而不是别的原因）。
-	Input.action_release("crouch")
 	await frames(3)
-	Input.action_press("shoot")
-	await frames(2)
-	check("shooting works again after standing up", bullets(4).size() == 1, str(bullets(4).size()))
+	var aimed := bullets(4)
+	check("aiming up is ignored while lying down", player._gun.visible and not player._gun_up.visible)
+	check("W + J while lying still still fires sideways", aimed.size() >= 1 and aimed.all(func(b): return b.direction == Vector2.RIGHT), str(aimed.map(func(b): return b.direction)))
 
 
-## 敌人子弹离地面只有 6~8px，趴下的玩家必须矮到让它们从头顶飞过去。
-## 这两条用例同时确认「子弹确实飞过了玩家所在位置」，否则没开火也会误判为躲开了。
+## 敌人**站着**开的枪子弹离地面 6~8px，趴下的玩家必须矮到让它们从头顶飞过去。
+## 这里把敌人的 can_go_prone 关掉，只验证高度上躲得开；敌人跟着趴下的情况在 test_enemies.gd 里测。
+## 同时确认「子弹确实飞过了玩家所在位置」，否则没开火也会误判为躲开了。
 func _assert_crouch_dodges(enemy_name: String, enemy_pos: Vector2, facing: int) -> void:
 	await reset_scene(true)
 	keep_only_enemies([enemy_name])
 	var enemy: Enemy = main.get_node("Enemies/" + enemy_name)
+	enemy.can_go_prone = false
 	await frames(10)
 	enemy.global_position = enemy_pos
 	enemy.facing = facing
@@ -204,7 +213,7 @@ func _assert_crouch_dodges(enemy_name: String, enemy_pos: Vector2, facing: int) 
 				continue
 			passed_player = true
 	check(enemy_name + ": bullets fly past the player", passed_player)
-	check(enemy_name + ": lying down dodges every bullet", player.health == 3, str(player.health))
+	check(enemy_name + ": lying down dodges a standing enemy", player.health == 3, str(player.health))
 
 	# 对照组：站起来就会中弹，证明躲开靠的是高度而不是别的原因。
 	Input.action_release("crouch")
