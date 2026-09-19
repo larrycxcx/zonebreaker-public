@@ -4,18 +4,61 @@ extends SceneTree
 ##   & $godot --headless --path . --script res://tests/run_tests.gd
 ##   & $godot --headless --path . --script res://tests/run_tests.gd -- crouch
 ##
-## 加 `-- <名字>`（player / enemies / crouch / sprint）只跑指定的一组，不加就全跑。全部通过退出码为 0，有失败为 1。
+## 加 `-- <名字>`（player / enemies / enemy_types / crouch / sprint）只跑指定的一组，不加就全跑。全部通过退出码为 0，有失败为 1。
 
 const SUITES := {
 	"player": "res://tests/test_player.gd",
 	"enemies": "res://tests/test_enemies.gd",
+	"enemy_types": "res://tests/test_enemy_types.gd",
 	"crouch": "res://tests/test_crouch.gd",
 	"sprint": "res://tests/test_sprint.gd",
 }
 
 
+## 单条用例最多跑多久。防的是用例在等一个永远不会来的信号，
+## runner 的 await 会一直等下去；看门狗到点就报出是哪条用例卡住，并以失败退出。
+const TEST_TIMEOUT_SEC := 60.0
+
+
+## 收集用例运行期间的 SCRIPT ERROR。
+## Godot 里协程中途出运行时错误时，那条用例直接中止，但 runner 的 await 照常返回，
+## 而它一条断言都没记——不拦下来的话，出错的用例会被当成「通过」。
+## Logger 可能在别的线程被调用，所以加锁。
+class ScriptErrorCollector extends Logger:
+	var _mutex := Mutex.new()
+	var _errors: Array[String] = []
+
+	func _log_error(_function: String, file: String, line: int, code: String, rationale: String, _editor_notify: bool, error_type: int, _script_backtraces: Array[ScriptBacktrace]) -> void:
+		if error_type != ERROR_TYPE_SCRIPT:
+			return
+		_mutex.lock()
+		_errors.append("%s:%d %s" % [file.get_file(), line, rationale if rationale != "" else code])
+		_mutex.unlock()
+
+	func take() -> Array[String]:
+		_mutex.lock()
+		var taken := _errors.duplicate()
+		_errors.clear()
+		_mutex.unlock()
+		return taken
+
+
+var _test_serial := 0
+var _script_errors := ScriptErrorCollector.new()
+
+
 func _initialize() -> void:
+	OS.add_logger(_script_errors)
 	_run()
+
+
+func _arm_watchdog(label: String) -> void:
+	_test_serial += 1
+	var serial := _test_serial
+	create_timer(TEST_TIMEOUT_SEC).timeout.connect(func() -> void:
+		if serial == _test_serial:
+			print("\n    TIMEOUT  %s did not finish within %d s (look for a SCRIPT ERROR above)" % [label, int(TEST_TIMEOUT_SEC)])
+			quit(1))
 
 
 func _run() -> void:
@@ -28,7 +71,15 @@ func _run() -> void:
 		if wanted.size() > 0 and not wanted.has(suite_name):
 			continue
 		print("\n=== ", suite_name, " ===")
-		var suite: GameTest = load(SUITES[suite_name]).new()
+		# 测试脚本本身有语法错误时 load 会失败：记为一条失败、继续跑别的组，而不是整个 runner 崩掉卡死。
+		var script := load(SUITES[suite_name]) as GDScript
+		if script == null or not script.can_instantiate():
+			total += 1
+			failed += 1
+			failed_labels.append("%s: suite failed to load (see SCRIPT ERROR above)" % suite_name)
+			print("    FAIL  could not load ", SUITES[suite_name])
+			continue
+		var suite: GameTest = script.new()
 		suite.tree = self
 
 		for method in suite.get_method_list():
@@ -37,10 +88,14 @@ func _run() -> void:
 				continue
 			print("  ", test_name)
 			suite.results.clear()
+			_script_errors.take() # 丢掉上一条用例收尾阶段可能产生的错误，只算这条自己的
+			_arm_watchdog("%s / %s" % [suite_name, test_name])
 			await suite.call(test_name)
 			# 每条用例跑完就把场景释放掉，用例之间互不影响，退出时也不会报资源泄漏。
 			suite.free_scene()
 			await physics_frame
+			for error in _script_errors.take():
+				suite.check("no script error (%s)" % error, false)
 
 			for result in suite.results:
 				total += 1
@@ -53,6 +108,7 @@ func _run() -> void:
 					failed_labels.append(label)
 					print("    FAIL  ", result["label"], ("  " + detail) if detail != "" else "")
 
+	_test_serial += 1 # 解除最后一条用例的看门狗
 	print("\n", "-".repeat(50))
 	if failed == 0:
 		print("all %d checks passed" % total)
@@ -60,4 +116,5 @@ func _run() -> void:
 		print("%d of %d checks FAILED:" % [failed, total])
 		for label in failed_labels:
 			print("  - ", label)
+	OS.remove_logger(_script_errors)
 	quit(1 if failed > 0 else 0)

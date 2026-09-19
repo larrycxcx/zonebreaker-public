@@ -12,8 +12,8 @@ func test_level_setup() -> void:
 func test_enemies_stand_where_placed() -> void:
 	await reset_scene(true)
 	await frames(40)
-	var walker1: EnemyWalker = main.get_node("Enemies/Walker1")
-	var walker2: EnemyWalker = main.get_node("Enemies/Walker2")
+	var walker1: EnemyWalker = main.get_node("Enemies/WalkerA")
+	var walker2: EnemyWalker = main.get_node("Enemies/WalkerB")
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
 	check("ground walker stands on the ground", walker1.is_on_floor() and absf(walker1.global_position.y - 153.0) < 2.0, str(walker1.global_position))
 	check("platform walker stands on its platform", walker2.is_on_floor() and absf(walker2.global_position.y - 89.0) < 2.0, str(walker2.global_position))
@@ -23,7 +23,7 @@ func test_enemies_stand_where_placed() -> void:
 func test_walker_patrols() -> void:
 	await reset_scene(true)
 	await frames(40)
-	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
+	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	var start_x := walker.global_position.x
 	await frames(60)
 	check("walker moves along the ground", absf(walker.global_position.x - start_x) > 10.0, "%.1f -> %.1f" % [start_x, walker.global_position.x])
@@ -33,7 +33,7 @@ func test_walker_turns_at_ledges() -> void:
 	await reset_scene(true)
 	await frames(40)
 	# Platform4：x 320..384。巡逻兵必须在边缘掉头，不能走下去。
-	var walker: EnemyWalker = main.get_node("Enemies/Walker2")
+	var walker: EnemyWalker = main.get_node("Enemies/WalkerB")
 	var fell := false
 	for i in 300:
 		await tree.physics_frame
@@ -47,7 +47,7 @@ func test_walker_turns_at_ledges() -> void:
 func test_walker_turns_at_the_crawl_block() -> void:
 	await reset_scene(true)
 	# 矮通道（x 296..352，净空 12px）比巡逻兵矮，它得掉头而不是卡在那里推墙。
-	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
+	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	walker.global_position = Vector2(270, 153)
 	walker.facing = 1
 	walker._apply_facing()
@@ -62,9 +62,9 @@ func test_walker_turns_at_the_crawl_block() -> void:
 
 func test_bullets_kill_the_walker() -> void:
 	await reset_scene(true)
-	keep_only_enemies(["Walker1"])
+	keep_only_enemies(["WalkerA"])
 	await frames(30)
-	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
+	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	check("walker has 2 health", walker.max_health == 2 and walker.health == 2)
 
 	walker.take_damage(1)
@@ -140,8 +140,8 @@ func test_turret_flips_to_face_the_player() -> void:
 
 func test_walker_shoots_at_the_player() -> void:
 	await reset_scene(true)
-	keep_only_enemies(["Walker1"])
-	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
+	keep_only_enemies(["WalkerA"])
+	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	await frames(20)
 
 	# 站到巡逻兵正前方、同高度，射程之内。
@@ -163,8 +163,8 @@ func test_walker_shoots_at_the_player() -> void:
 
 func test_walker_does_not_shoot_backwards() -> void:
 	await reset_scene(true)
-	keep_only_enemies(["Walker1"])
-	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
+	keep_only_enemies(["WalkerA"])
+	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	await frames(20)
 
 	# 玩家在身后：巡逻兵不该回头瞄准，转向只由巡逻决定。
@@ -186,8 +186,8 @@ func test_walker_does_not_shoot_backwards() -> void:
 
 func test_walker_and_turret_shoot_at_the_same_height() -> void:
 	await reset_scene(true)
-	keep_only_enemies(["Walker1", "Turret1"])
-	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
+	keep_only_enemies(["WalkerA", "Turret1"])
+	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
 	await frames(30)
 
@@ -218,9 +218,9 @@ func test_walker_and_turret_shoot_at_the_same_height() -> void:
 
 func test_enemy_bullets_do_not_hurt_other_enemies() -> void:
 	await reset_scene(true)
-	keep_only_enemies(["Walker1", "Walker2"])
-	var shooter: EnemyWalker = main.get_node("Enemies/Walker1")
-	var victim: EnemyWalker = main.get_node("Enemies/Walker2")
+	keep_only_enemies(["WalkerA", "WalkerB"])
+	var shooter: EnemyWalker = main.get_node("Enemies/WalkerA")
+	var victim: EnemyWalker = main.get_node("Enemies/WalkerB")
 	await frames(20)
 
 	# 把另一只巡逻兵直接摆在枪口前面，玩家挪到远处不干扰。
@@ -301,10 +301,10 @@ func test_prone_enemy_hits_a_prone_player() -> void:
 	check("the hit came while both were prone", player.is_crouching and turret.is_prone)
 
 
-func test_walker_stops_and_lies_down_to_shoot() -> void:
+func test_type_c_stops_and_lies_down_to_shoot() -> void:
 	await reset_scene(true)
-	keep_only_enemies(["Walker1"])
-	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
+	keep_only_enemies(["WalkerC"])
+	var walker: EnemyWalker = main.get_node("Enemies/WalkerC")
 	await frames(10)
 	_place_enemy(walker, Vector2(250, 153))
 	player.global_position = Vector2(180, 152) # 在巡逻兵正前方（左边）
@@ -322,10 +322,10 @@ func test_walker_stops_and_lies_down_to_shoot() -> void:
 	check("walker resumes its patrol", absf(walker.global_position.x - x_prone) > 5.0, "%.2f -> %.2f" % [x_prone, walker.global_position.x])
 
 
-func test_walker_ignores_a_prone_player_behind_it() -> void:
+func test_type_c_ignores_a_prone_player_behind_it() -> void:
 	await reset_scene(true)
-	keep_only_enemies(["Walker1"])
-	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
+	keep_only_enemies(["WalkerC"])
+	var walker: EnemyWalker = main.get_node("Enemies/WalkerC")
 	await frames(10)
 	_place_enemy(walker, Vector2(200, 153))
 	player.global_position = Vector2(250, 152) # 在背后（右边）
@@ -357,7 +357,7 @@ func test_standing_shots_fly_over_a_prone_enemy() -> void:
 	player._fire_timer = 0.0
 	player._shoot(Vector2.RIGHT)
 	await frames(40)
-	check("a standing shot flies over a prone enemy", turret.health == 3, str(turret.health))
+	check("a standing shot flies over a prone enemy", turret.health == turret.max_health, str(turret.health))
 
 	# 对照组：玩家也趴下（不动）开枪，就打得中。
 	Input.action_press("crouch")
@@ -367,7 +367,7 @@ func test_standing_shots_fly_over_a_prone_enemy() -> void:
 	await frames(2)
 	Input.action_release("shoot")
 	await frames(40)
-	check("a prone shot hits a prone enemy", is_instance_valid(turret) and turret.health < 3, str(turret.health) if is_instance_valid(turret) else "dead")
+	check("a prone shot hits a prone enemy", is_instance_valid(turret) and turret.health < turret.max_health, str(turret.health) if is_instance_valid(turret) else "dead")
 
 
 func test_player_invincibility_frames() -> void:
@@ -394,9 +394,9 @@ func test_player_invincibility_frames() -> void:
 
 func test_touching_an_enemy_hurts() -> void:
 	await reset_scene(true)
-	keep_only_enemies(["Walker1"])
+	keep_only_enemies(["WalkerA"])
 	await frames(30)
-	var walker: EnemyWalker = main.get_node("Enemies/Walker1")
+	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	player.global_position = walker.global_position
 	player.velocity = Vector2.ZERO
 	await frames(4)

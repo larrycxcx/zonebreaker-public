@@ -3,6 +3,8 @@ extends CharacterBody2D
 ## 敌人基类：生命值、受击闪白、死亡、重力，以及共用的射击、趴下逻辑。具体行为见子类。
 
 signal died
+## 每射出一颗子弹发一次（连发时每颗都发）。第 3 步的枪口闪光、音效可以接在这上面。
+signal shot_fired
 
 @export var max_health := 2
 ## 碰到玩家时对玩家造成的伤害。
@@ -17,10 +19,16 @@ signal died
 @export var detect_range := 150.0
 ## 和玩家的高度差在这个范围内才会开火（子弹只走水平方向）。
 @export var vertical_tolerance := 20.0
+## 每次开火连发几颗，在 [burst_min, burst_max] 里随机取。都为 1 就是单发。
+## fire_interval 从一轮连发的第一颗开始算。
+@export_range(1, 10) var burst_min := 1
+@export_range(1, 10) var burst_max := 1
+## 同一轮连发里相邻两颗子弹的间隔。
+@export var burst_gap := 0.15
 
 @export_group("Prone")
-## 玩家在射程内趴下时，敌人也跟着趴下打低处。关掉就是一直站着打的敌人。
-@export var can_go_prone := true
+## 玩家在射程内趴下时，敌人也跟着趴下打低处。默认关闭，即只会站着开枪。
+@export var can_go_prone := false
 ## 发现玩家趴下后隔多久才跟着趴下，给玩家留一个躲子弹的窗口。
 @export var prone_reaction_time := 0.4
 
@@ -33,6 +41,8 @@ var is_prone := false
 var facing := -1
 
 var _fire_timer := 0.0
+var _burst_left := 0
+var _burst_timer := 0.0
 var _prone_timer := 0.0
 var _stand_height := 0.0
 
@@ -77,17 +87,32 @@ func find_target() -> Node2D:
 	return player
 
 
-## 冷却好了就朝 `facing` 方向打一发。`target` 传 null 表示这一帧不该开火。
-## 子弹挂在敌人的父节点下，这样敌人死了子弹还能继续飞。
+## 冷却好了就朝 `facing` 方向开一轮火（单发或连发）。`target` 传 null 表示这一帧不该开始新的一轮。
+## 一轮连发开始后会打完，即使中途玩家离开了射程。
 func try_shoot(delta: float, target: Node2D) -> void:
 	_fire_timer -= delta
+	if _burst_left > 0:
+		_burst_timer -= delta
+		if _burst_timer <= 0.0:
+			_fire_one()
+			_burst_left -= 1
+			_burst_timer = burst_gap
+		return
 	if target == null or bullet_scene == null or _fire_timer > 0.0:
 		return
 	_fire_timer = fire_interval
+	_fire_one()
+	_burst_left = randi_range(burst_min, maxi(burst_min, burst_max)) - 1
+	_burst_timer = burst_gap
+
+
+## 子弹挂在敌人的父节点下，这样敌人死了子弹还能继续飞。
+func _fire_one() -> void:
 	var bullet := bullet_scene.instantiate() as Bullet
 	bullet.direction = Vector2(facing, 0)
 	get_parent().add_child(bullet)
 	bullet.global_position = _muzzle.global_position
+	shot_fired.emit()
 
 
 ## 子类每帧拿当前瞄准的目标调用：目标趴着就隔 prone_reaction_time 跟着趴下，否则马上站起来。

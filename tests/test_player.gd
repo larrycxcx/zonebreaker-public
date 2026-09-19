@@ -241,7 +241,7 @@ func test_shooting_up_passes_one_way_platforms() -> void:
 	player._fire_timer = 0.0
 	Input.action_press("aim_up")
 	Input.action_press("shoot")
-	for i in 60:
+	for i in 150: # 炮台 6 血，射速 0.15 秒一发，再加上子弹飞行时间
 		await tree.physics_frame
 		if not deaths.is_empty():
 			break

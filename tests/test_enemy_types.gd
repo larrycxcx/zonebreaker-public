@@ -1,0 +1,202 @@
+extends GameTest
+## 敌人分类：A（单发，110px，只站着）、B（连发 2~3 颗，110px，只站着）、
+## C（单发，200px，会跟着玩家趴下），以及炮台（200px，6 血）。
+
+
+## 玩家停在这里时离所有敌人都在射程外（摆好的敌人在 x=450，最远射程 200）。
+const PARKED_X := 40.0
+
+
+## 把一个巡逻兵固定在 x=450 朝左站着，不再走动。玩家先停在射程外：
+## 如果准备阶段就在射程内，敌人会先按默认冷却开一枪，之后测试改的节奏就看不出来了。
+func _setup_duel(enemy_name: String) -> Enemy:
+	await reset_scene(true)
+	keep_only_enemies([enemy_name])
+	var enemy: Enemy = main.get_node("Enemies/" + enemy_name)
+	player.global_position = Vector2(PARKED_X, 152)
+	await frames(5)
+	enemy.global_position = Vector2(450, 153)
+	enemy.facing = -1
+	enemy._visual.scale.x = -1
+	if enemy is EnemyWalker:
+		(enemy as EnemyWalker).move_speed = 0.0
+		(enemy as EnemyWalker)._apply_facing()
+	await frames(2)
+	return enemy
+
+
+## 玩家站到敌人正前方 distance 处。玩家设为无敌，免得被击退或打死打断观察。
+func _step_in_front(enemy: Enemy, distance: float) -> void:
+	player.global_position = Vector2(enemy.global_position.x - distance, 152)
+	player.velocity = Vector2.ZERO
+
+
+## 玩家在敌人前方 distance 处站 frame_count 帧，记下每颗子弹是第几帧射出的，
+## 再按间隔分成一轮一轮的连发（同一轮相邻两颗隔 9~10 帧，两轮之间隔 fire_interval）。
+## 观察结束后把玩家移走、再等一会儿，让最后一轮打完，避免被截断成「1 颗」。
+func _observe_bursts(enemy: Enemy, distance: float, frame_count: int) -> Array:
+	var shot_frames := []
+	var frame := [0]
+	enemy.shot_fired.connect(func(): shot_frames.append(frame[0]))
+	_step_in_front(enemy, distance)
+	for i in frame_count + 40:
+		if i == frame_count:
+			player.global_position = Vector2(PARKED_X, 152)
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		frame[0] += 1
+	var bursts := []
+	var last := -1000
+	for f in shot_frames:
+		if f - last > 15:
+			bursts.append(0)
+		bursts[-1] += 1
+		last = f
+	return bursts
+
+
+func test_types_are_configured() -> void:
+	await reset_scene(true)
+	var a: Enemy = main.get_node("Enemies/WalkerA")
+	var b: Enemy = main.get_node("Enemies/WalkerB")
+	var c: Enemy = main.get_node("Enemies/WalkerC")
+	var turret: Enemy = main.get_node("Enemies/Turret1")
+	check("A, B and C are all patrolling walkers", a is EnemyWalker and b is EnemyWalker and c is EnemyWalker)
+	check("A: 110px range, single shots, standing only", a.detect_range == 110.0 and a.burst_min == 1 and a.burst_max == 1 and not a.can_go_prone)
+	check("B: 110px range, bursts of 2-3, standing only", b.detect_range == 110.0 and b.burst_min == 2 and b.burst_max == 3 and not b.can_go_prone)
+	check("C: 200px range, single shots, can go prone", c.detect_range == 200.0 and c.burst_min == 1 and c.burst_max == 1 and c.can_go_prone)
+	check("walkers have 2 health", a.max_health == 2 and b.max_health == 2 and c.max_health == 2)
+	check("turret: 200px range and 6 health", turret.detect_range == 200.0 and turret.max_health == 6, "%s / %s" % [turret.detect_range, turret.max_health])
+	var colors := [a, b, c].map(func(e): return (e.get_node("Visual/Body") as ColorRect).color)
+	check("A, B and C look different", colors[0] != colors[1] and colors[1] != colors[2] and colors[0] != colors[2], str(colors))
+
+
+func test_type_a_fires_single_shots() -> void:
+	var a := await _setup_duel("WalkerA")
+	a.fire_interval = 0.5
+	var bursts := await _observe_bursts(a, 60.0, 150)
+	check("A fired several times", bursts.size() >= 4, str(bursts))
+	check("every A volley is a single shot", bursts.all(func(n): return n == 1), str(bursts))
+
+
+func test_type_b_fires_bursts_of_two_or_three() -> void:
+	# 连发颗数是随机的，固定种子让结果可重复。
+	seed(20260918)
+	var b := await _setup_duel("WalkerB")
+	b.fire_interval = 0.6
+	var bursts := await _observe_bursts(b, 60.0, 420)
+	check("B fired several volleys", bursts.size() >= 8, str(bursts))
+	check("every B volley has 2 or 3 shots", bursts.all(func(n): return n == 2 or n == 3), str(bursts))
+	check("both 2-shot and 3-shot volleys happen", bursts.has(2) and bursts.has(3), str(bursts))
+
+
+func test_type_b_burst_shots_are_spaced_out() -> void:
+	seed(1)
+	var b := await _setup_duel("WalkerB")
+	var shot_frames := []
+	var frame := [0]
+	b.shot_fired.connect(func(): shot_frames.append(frame[0]))
+	_step_in_front(b, 60.0)
+	for i in 40:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		frame[0] += 1
+	check("a burst fired at least two shots", shot_frames.size() >= 2, str(shot_frames))
+	if shot_frames.size() >= 2:
+		var gap: int = shot_frames[1] - shot_frames[0]
+		check("burst shots come 0.15s apart", gap >= 8 and gap <= 10, "%d frames" % gap)
+
+
+func test_burst_finishes_even_if_the_player_leaves() -> void:
+	seed(7)
+	var b := await _setup_duel("WalkerB")
+	var shots := [0]
+	b.shot_fired.connect(func(): shots[0] += 1)
+	_step_in_front(b, 60.0)
+	for i in 5:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		if shots[0] > 0:
+			break
+	check("the burst started as soon as the player stepped in", shots[0] == 1, str(shots[0]))
+	# 第一颗打出后玩家立刻跑出射程，这一轮也要打完。
+	player.global_position = Vector2(PARKED_X, 152)
+	await frames(40)
+	check("the rest of the burst still comes out", shots[0] == 2 or shots[0] == 3, str(shots[0]))
+
+
+func test_only_type_c_goes_prone() -> void:
+	for enemy_name in ["WalkerA", "WalkerB", "WalkerC"]:
+		var enemy := await _setup_duel(enemy_name)
+		_step_in_front(enemy, 60.0)
+		Input.action_press("crouch")
+		var ever_prone := false
+		for i in 60:
+			player._invincible_timer = 1000.0
+			await tree.physics_frame
+			ever_prone = ever_prone or enemy.is_prone
+		var expected: bool = enemy_name == "WalkerC"
+		check("%s %s when the player lies down" % [enemy_name, "goes prone" if expected else "stays standing"], ever_prone == expected)
+		Input.action_release("crouch")
+
+
+func test_type_c_outranges_a_and_b() -> void:
+	# 180px：在 C 的 200px 射程内，在 A/B 的 110px 射程外。
+	for enemy_name in ["WalkerA", "WalkerB", "WalkerC"]:
+		var enemy := await _setup_duel(enemy_name)
+		var bursts := await _observe_bursts(enemy, 180.0, 60)
+		var expected: bool = enemy_name == "WalkerC"
+		check("%s %s at 180px" % [enemy_name, "fires" if expected else "holds fire"], (bursts.size() > 0) == expected, str(bursts))
+
+
+func test_a_and_b_fire_inside_their_range() -> void:
+	for enemy_name in ["WalkerA", "WalkerB"]:
+		var enemy := await _setup_duel(enemy_name)
+		var bursts := await _observe_bursts(enemy, 100.0, 30)
+		check("%s fires at 100px" % enemy_name, bursts.size() > 0, str(bursts))
+
+
+func test_turret_range_is_200() -> void:
+	await reset_scene(true)
+	keep_only_enemies(["Turret1"])
+	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
+	await frames(5)
+	turret.global_position = Vector2(500, 153)
+	var shots := [0]
+	turret.shot_fired.connect(func(): shots[0] += 1)
+	player.global_position = Vector2(290, 152) # 210px，射程外
+	for i in 60:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+	check("turret holds fire at 210px", shots[0] == 0, str(shots[0]))
+	player.global_position = Vector2(310, 152) # 190px，射程内
+	for i in 30:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+	check("turret fires at 190px", shots[0] > 0, str(shots[0]))
+
+
+func test_turret_takes_six_hits() -> void:
+	await reset_scene(true)
+	keep_only_enemies(["Turret1"])
+	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
+	turret.can_go_prone = false
+	await frames(5)
+	turret.global_position = Vector2(500, 153)
+	player.global_position = Vector2(440, 152)
+	player.velocity = Vector2.ZERO
+	player.facing = 1
+	player._visual.scale.x = 1
+	await frames(3)
+
+	# 真打子弹：前 5 颗打不死，第 6 颗打死。
+	var deaths := []
+	turret.died.connect(func(): deaths.append(true))
+	for i in 6:
+		player._invincible_timer = 1000.0
+		player._fire_timer = 0.0
+		player._shoot(Vector2.RIGHT)
+		await frames(20)
+		if i == 4:
+			check("five hits do not kill the turret", deaths.is_empty() and is_instance_valid(turret) and turret.health == 1, str(turret.health) if is_instance_valid(turret) else "dead")
+	check("the sixth hit kills it", deaths.size() == 1)

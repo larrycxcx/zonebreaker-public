@@ -231,4 +231,4 @@ func test_lying_down_dodges_turret_fire() -> void:
 
 
 func test_lying_down_dodges_walker_fire() -> void:
-	await _assert_crouch_dodges("Walker1", Vector2(250, 153), -1)
+	await _assert_crouch_dodges("WalkerA", Vector2(250, 153), -1)
