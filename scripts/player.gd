@@ -53,6 +53,16 @@ signal stamina_changed(stamina: float, max_stamina: float)
 @export_group("Shooting")
 @export var fire_cooldown := 0.15
 
+## 瞄准方向（魂斗罗式）。W + 左右 = 边走边斜上，只按 W = 原地正上；
+## S + 左右 = 边走边斜下，只按 S：地面上朝前斜下、空中朝正下；W、S 同时按互相抵消；趴下时一律水平。
+enum Aim { FORWARD, UP, DIAGONAL_UP, DIAGONAL_DOWN, DOWN }
+
+## 斜向和正下方的出膛点，相对身体中心（朝右时；朝左时 x 取反）。按约定由代码算、不挂在 Visual 下，和外观无关。
+## 斜下的枪口不能太低：子弹转 45° 后半高约 3px，站在地面上（脚底在 +8）时出膛点要在 +5 以上，否则一出膛就嵌进地里。
+const DIAGONAL_UP_MUZZLE := Vector2(9, -9)
+const DIAGONAL_DOWN_MUZZLE := Vector2(9, 4)
+const DOWN_MUZZLE := Vector2(0, 11)
+
 ## 站立/蹲下的碰撞体高度。脚底位置不变，只压低头顶。
 const STAND_HEIGHT := 16.0
 ## 敌人子弹离地面只有 6~8px（枪口在敌人身体中线），趴下后必须矮于 6px 才躲得开，取 4px 留 2px 余量。
@@ -63,6 +73,7 @@ var facing := 1
 var health := 0
 var is_crouching := false
 var is_sprinting := false
+var aim := Aim.FORWARD
 var stamina := 0.0
 
 var _coyote_timer := 0.0
@@ -78,6 +89,9 @@ var _stamina_regen_timer := 0.0
 @onready var _muzzle_up: Marker2D = $Visual/MuzzleUp
 @onready var _gun: ColorRect = $Visual/Gun
 @onready var _gun_up: ColorRect = $Visual/GunUp
+@onready var _gun_diagonal_up: ColorRect = $Visual/GunDiagonalUp
+@onready var _gun_diagonal_down: ColorRect = $Visual/GunDiagonalDown
+@onready var _gun_down: ColorRect = $Visual/GunDown
 @onready var _hurtbox: Area2D = $Hurtbox
 @onready var _shape: CollisionShape2D = $CollisionShape2D
 @onready var _hurtbox_shape: CollisionShape2D = $Hurtbox/CollisionShape2D
@@ -247,27 +261,70 @@ func _head_blocked() -> bool:
 	return false
 
 
-## 按住 W 向上瞄准，J 开火：瞄准时朝正上方打，否则朝面向打。瞄准时照样可以移动。
-## 趴下时不能向上瞄准；趴着不动可以水平开枪（子弹贴地飞），趴着爬行时不能开枪。
+## J 朝当前瞄准方向开火（瞄准规则见 Aim）。趴着不动只能水平开枪（子弹贴地飞），趴着爬行时不能开枪。
 func _handle_shoot(delta: float) -> void:
 	_fire_timer -= delta
-	var aim_up := Input.is_action_pressed("aim_up") and not is_crouching
-	# 占位美术：向上瞄准时把枪竖起来。
-	_gun.visible = not aim_up
-	_gun_up.visible = aim_up
-	var crawling := is_crouching and Input.get_axis("move_left", "move_right") != 0.0
+	var moving := Input.get_axis("move_left", "move_right") != 0.0
+	_update_aim(moving)
+	var crawling := is_crouching and moving
 	if crawling or _fire_timer > 0.0 or not Input.is_action_pressed("shoot"):
 		return
 	_fire_timer = fire_cooldown
-	_shoot(Vector2.UP if aim_up else Vector2(facing, 0))
+	_shoot(aim_vector())
+
+
+func _update_aim(moving: bool) -> void:
+	var up := Input.is_action_pressed("aim_up")
+	var down := Input.is_action_pressed("aim_down")
+	if is_crouching or up == down:
+		aim = Aim.FORWARD
+	elif up:
+		aim = Aim.DIAGONAL_UP if moving else Aim.UP
+	elif moving or is_on_floor():
+		aim = Aim.DIAGONAL_DOWN
+	else:
+		aim = Aim.DOWN
+	# 占位美术：按瞄准方向显示对应的那根枪。
+	_gun.visible = aim == Aim.FORWARD
+	_gun_up.visible = aim == Aim.UP
+	_gun_diagonal_up.visible = aim == Aim.DIAGONAL_UP
+	_gun_diagonal_down.visible = aim == Aim.DIAGONAL_DOWN
+	_gun_down.visible = aim == Aim.DOWN
+
+
+## 当前瞄准方向对应的子弹方向（单位向量）。
+func aim_vector() -> Vector2:
+	match aim:
+		Aim.UP:
+			return Vector2.UP
+		Aim.DIAGONAL_UP:
+			return Vector2(facing, -1).normalized()
+		Aim.DIAGONAL_DOWN:
+			return Vector2(facing, 1).normalized()
+		Aim.DOWN:
+			return Vector2.DOWN
+	return Vector2(facing, 0)
 
 
 func _shoot(direction: Vector2) -> void:
 	var bullet := bullet_scene.instantiate() as Bullet
 	bullet.direction = direction
 	get_parent().add_child(bullet)
-	bullet.global_position = (_muzzle_up if direction == Vector2.UP else _muzzle).global_position
+	bullet.global_position = _muzzle_position(direction)
 	GameEvents.report(&"player_shoot", self)
+
+
+## 出膛点。水平和正上方还用 Visual 下的老 Marker（水平枪口趴下时跟着压低，是现有高度规则的一部分，第 4 步统一迁移）；
+## 斜向和正下方按新约定由代码算。
+func _muzzle_position(direction: Vector2) -> Vector2:
+	if direction == Vector2.UP:
+		return _muzzle_up.global_position
+	if direction.y == 0.0:
+		return _muzzle.global_position
+	if direction == Vector2.DOWN:
+		return global_position + DOWN_MUZZLE
+	var offset := DIAGONAL_UP_MUZZLE if direction.y < 0.0 else DIAGONAL_DOWN_MUZZLE
+	return global_position + Vector2(offset.x * facing, offset.y)
 
 
 func _update_invincibility(delta: float) -> void:

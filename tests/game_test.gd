@@ -8,7 +8,7 @@ extends RefCounted
 ## 比为测试在游戏代码里开一堆公开接口更划算。
 
 ## 项目里应该定义的全部输入动作，test_input_actions_exist 逐个检查。
-const ACTIONS := ["move_left", "move_right", "jump", "crouch", "sprint", "aim_up", "shoot"]
+const ACTIONS := ["move_left", "move_right", "jump", "crouch", "sprint", "aim_up", "aim_down", "shoot"]
 
 ## 由 runner 注入。SceneTree 脚本里 `await tree.physics_frame` 才能推进物理。
 var tree: SceneTree

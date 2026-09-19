@@ -3,7 +3,8 @@ extends GameTest
 ## 实测死区、全速移动、斜推不误触发趴下/瞄准等只有摇杆才有的行为。
 ##
 ## 按键约定（Xbox 布局，PS 手柄对应位置相同）：
-##   移动 左摇杆/十字键左右 · 跳跃 A · 开火 X 或 RT · 趴下 左摇杆下/十字键下 · 向上瞄准 左摇杆上/十字键上 · 奔跑 LT
+##   移动 左摇杆/十字键左右 · 跳跃 A · 开火 X 或 RT · 向上瞄准 左摇杆上/十字键上 · 向下瞄准 左摇杆下/十字键下
+##   · 趴下 LT · 奔跑 LB
 
 const OPEN_X := 200.0
 
@@ -33,7 +34,7 @@ func joy_axis(axis: JoyAxis, value: float) -> void:
 func joy_neutral() -> void:
 	for axis in [JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y, JOY_AXIS_TRIGGER_LEFT, JOY_AXIS_TRIGGER_RIGHT]:
 		joy_axis(axis, 0.0)
-	for button in [JOY_BUTTON_A, JOY_BUTTON_X, JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT]:
+	for button in [JOY_BUTTON_A, JOY_BUTTON_X, JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT]:
 		joy_button(button, false)
 
 
@@ -67,10 +68,12 @@ func test_gamepad_layout() -> void:
 	check("move right: left stick / d-pad right", has_axis("move_right", JOY_AXIS_LEFT_X, true) and has_button("move_right", JOY_BUTTON_DPAD_RIGHT))
 	check("jump: A", has_button("jump", JOY_BUTTON_A))
 	check("shoot: X or RT", has_button("shoot", JOY_BUTTON_X) and has_axis("shoot", JOY_AXIS_TRIGGER_RIGHT, true))
-	check("crouch: left stick down / d-pad down", has_axis("crouch", JOY_AXIS_LEFT_Y, true) and has_button("crouch", JOY_BUTTON_DPAD_DOWN))
 	check("aim up: left stick up / d-pad up", has_axis("aim_up", JOY_AXIS_LEFT_Y, false) and has_button("aim_up", JOY_BUTTON_DPAD_UP))
-	check("sprint: LT", has_axis("sprint", JOY_AXIS_TRIGGER_LEFT, true))
-	check("stick needs a 50% push to crouch or aim", InputMap.action_get_deadzone("crouch") == 0.5 and InputMap.action_get_deadzone("aim_up") == 0.5)
+	check("aim down: left stick down / d-pad down", has_axis("aim_down", JOY_AXIS_LEFT_Y, true) and has_button("aim_down", JOY_BUTTON_DPAD_DOWN))
+	check("lie down: LT", has_axis("crouch", JOY_AXIS_TRIGGER_LEFT, true))
+	check("lying down is no longer on the stick or d-pad", not has_axis("crouch", JOY_AXIS_LEFT_Y, true) and not has_button("crouch", JOY_BUTTON_DPAD_DOWN))
+	check("sprint: LB", has_button("sprint", JOY_BUTTON_LEFT_SHOULDER) and not has_axis("sprint", JOY_AXIS_TRIGGER_LEFT, true))
+	check("stick needs a 50% push to aim up or down", InputMap.action_get_deadzone("aim_up") == 0.5 and InputMap.action_get_deadzone("aim_down") == 0.5)
 
 
 func test_a_jumps() -> void:
@@ -109,21 +112,33 @@ func test_dpad_moves() -> void:
 	joy_neutral()
 
 
-func test_stick_down_crouches_only_past_half() -> void:
+func test_stick_down_aims_down_only_past_half() -> void:
 	await start()
 	joy_axis(JOY_AXIS_LEFT_Y, 0.4)
 	await frames(5)
-	check("a 40% push down does not lie down", not player.is_crouching)
+	check("a 40% push down does not aim down", player.aim == Player.Aim.FORWARD, str(player.aim))
 	joy_axis(JOY_AXIS_LEFT_Y, 0.8)
 	await frames(5)
-	check("an 80% push down lies down", player.is_crouching)
+	check("an 80% push down aims down (and does not lie down)", player.aim == Player.Aim.DIAGONAL_DOWN and not player.is_crouching, str(player.aim))
 	joy_neutral()
 	await frames(5)
 	joy_button(JOY_BUTTON_DPAD_DOWN, true)
 	await frames(5)
-	check("d-pad down lies down too", player.is_crouching)
+	check("d-pad down aims down too", player.aim == Player.Aim.DIAGONAL_DOWN, str(player.aim))
 	joy_neutral()
 
+
+func test_lt_lies_down() -> void:
+	await start()
+	joy_axis(JOY_AXIS_TRIGGER_LEFT, 0.3)
+	await frames(5)
+	check("a light LT squeeze does not lie down", not player.is_crouching)
+	joy_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)
+	await frames(5)
+	check("pulling LT lies down", player.is_crouching)
+	joy_neutral()
+	await frames(5)
+	check("releasing LT stands up", not player.is_crouching)
 
 func test_running_with_a_slightly_diagonal_stick() -> void:
 	# 往右推的时候手指难免带一点上下：不能因此突然趴下或举枪。
@@ -166,28 +181,28 @@ func test_x_and_rt_both_fire_sideways() -> void:
 	joy_neutral()
 
 
-func test_lt_sprints() -> void:
+func test_lb_sprints() -> void:
 	await start()
 	player.global_position = Vector2(370, 152) # 矮通道右边的空地，够跑
 	joy_axis(JOY_AXIS_LEFT_X, 1.0)
-	joy_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)
+	joy_button(JOY_BUTTON_LEFT_SHOULDER, true)
 	await frames(20)
-	check("LT + stick sprints", player.is_sprinting and is_equal_approx(player.velocity.x, player.move_speed * player.sprint_speed_scale), "%.1f" % player.velocity.x)
+	check("LB + stick sprints", player.is_sprinting and is_equal_approx(player.velocity.x, player.move_speed * player.sprint_speed_scale), "%.1f" % player.velocity.x)
 	joy_neutral()
 
 
 func test_prone_shooting_rules_on_the_gamepad() -> void:
 	await start()
-	joy_axis(JOY_AXIS_LEFT_Y, 0.8)
+	joy_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)
 	await frames(5)
 	player._fire_timer = 0.0
-	# 摇杆往右下：趴着爬行，不能开枪。
+	# 按住 LT 趴下再推摇杆：趴着爬行，不能开枪。
 	joy_axis(JOY_AXIS_LEFT_X, 0.9)
 	joy_button(JOY_BUTTON_X, true)
 	await frames(20)
 	check("crawling with the stick: X does not fire", player.is_crouching and bullets(4).is_empty(), str(bullets(4).size()))
-	# 摇杆只往下：趴着不动，可以开枪。
+	# 摇杆回中：趴着不动，可以开枪。
 	joy_axis(JOY_AXIS_LEFT_X, 0.0)
 	await frames(5)
-	check("lying still with the stick: X fires", player.is_crouching and bullets(4).size() >= 1, str(bullets(4).size()))
+	check("lying still: X fires", player.is_crouching and bullets(4).size() >= 1, str(bullets(4).size()))
 	joy_neutral()

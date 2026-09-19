@@ -216,7 +216,8 @@ func test_holding_aim_and_fire_auto_fires_upward() -> void:
 	check("aiming up keeps the normal fire rate", spawned.size() >= 3 and spawned.size() <= 5, str(spawned.size()))
 
 
-func test_can_move_while_aiming_up() -> void:
+func test_w_while_moving_aims_diagonally_up() -> void:
+	# 魂斗罗式：W + 左右是边走边斜上，不再是边走边正上（正上只在原地按 W）。
 	await reset_scene()
 	player.global_position = Vector2(OPEN_SKY_X, 152)
 	await frames(10)
@@ -224,8 +225,7 @@ func test_can_move_while_aiming_up() -> void:
 	Input.action_press("aim_up")
 	Input.action_press("move_right")
 	await frames(20)
-	check("moving while aiming up works", player.global_position.x > x_before + 15.0 and player._gun_up.visible, "%.1f -> %.1f" % [x_before, player.global_position.x])
-
+	check("W + move walks and raises the gun diagonally", player.global_position.x > x_before + 15.0 and player._gun_diagonal_up.visible and not player._gun_up.visible, "%.1f -> %.1f" % [x_before, player.global_position.x])
 
 func test_shooting_up_passes_one_way_platforms() -> void:
 	# Turret2 站在 Platform2（x 160..208，y 100..108）上。从正下方往上打，
