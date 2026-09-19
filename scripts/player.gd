@@ -293,9 +293,10 @@ func _handle_shoot(delta: float) -> void:
 		slot.tick(delta)
 	var moving := Input.get_axis("move_left", "move_right") != 0.0
 	_update_aim(moving)
-	var crawling := is_crouching and moving
 	var pressed := Input.is_action_pressed("shoot") if current_slot().weapon.automatic else Input.is_action_just_pressed("shoot")
-	if crawling or not pressed or not current_slot().is_ready():
+	# 趴下时一律不能开火：步枪、手雷都不行，不管在不在爬行。想开枪先站起来。
+	# （终极武器不走这里，任何状态都能发动。）
+	if is_crouching or not pressed or not current_slot().is_ready():
 		return
 	_shoot(aim_vector())
 

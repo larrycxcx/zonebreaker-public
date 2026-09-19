@@ -377,15 +377,14 @@ func test_standing_shots_fly_over_a_prone_enemy() -> void:
 	await frames(40)
 	check("a standing shot flies over a prone enemy", c.health == c.max_health, str(c.health))
 
-	# 对照组：玩家也趴下（不动）开枪，就打得中。
-	Input.action_press("crouch")
-	await frames(5)
+	# 对照组：同一枪在敌人站起来后就打得中，证明刚才是被高度躲掉的，不是根本没打出去。
+	# （玩家趴下不能开枪，所以对照组换成让敌人站起来。）
+	c.set_prone(false)
+	await frames(3)
 	player.current_slot().cooldown_left = 0.0
-	Input.action_press("shoot")
-	await frames(2)
-	Input.action_release("shoot")
+	player._shoot(Vector2.RIGHT)
 	await frames(40)
-	check("a prone shot hits a prone enemy", not is_instance_valid(c) or c.health < c.max_health, str(c.health) if is_instance_valid(c) else "dead")
+	check("the same shot hits it once it stands up", not is_instance_valid(c) or c.health < c.max_health, str(c.health) if is_instance_valid(c) else "dead")
 
 
 func test_player_invincibility_frames() -> void:

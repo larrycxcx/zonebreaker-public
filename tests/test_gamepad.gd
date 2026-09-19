@@ -202,7 +202,7 @@ func test_lb_sprints() -> void:
 	joy_neutral()
 
 
-func test_prone_shooting_rules_on_the_gamepad() -> void:
+func test_cannot_fire_while_lying_down_on_the_gamepad() -> void:
 	await start()
 	joy_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)
 	await frames(5)
@@ -212,8 +212,12 @@ func test_prone_shooting_rules_on_the_gamepad() -> void:
 	joy_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)
 	await frames(20)
 	check("crawling with the stick: RT does not fire", player.is_crouching and bullets(4).is_empty(), str(bullets(4).size()))
-	# 摇杆回中：趴着不动，可以开枪。
+	# 摇杆回中：趴着不动，照样不能开枪。
 	joy_axis(JOY_AXIS_LEFT_X, 0.0)
-	await frames(5)
-	check("lying still: RT fires", player.is_crouching and bullets(4).size() >= 1, str(bullets(4).size()))
+	await frames(20)
+	check("lying still: RT does not fire either", player.is_crouching and bullets(4).is_empty(), str(bullets(4).size()))
+	# 松开 LT 站起来：马上就能打。
+	joy_axis(JOY_AXIS_TRIGGER_LEFT, 0.0)
+	await frames(10)
+	check("RT fires again once standing", not player.is_crouching and not bullets(4).is_empty(), str(bullets(4).size()))
 	joy_neutral()

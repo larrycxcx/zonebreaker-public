@@ -140,7 +140,8 @@ func test_jumping_from_a_crouch() -> void:
 	check("jumping from a crouch stands up and jumps", not player.is_crouching and player.velocity.y < 0.0, str(player.velocity))
 
 
-func test_prone_shooting_rules() -> void:
+func test_cannot_fire_while_lying_down() -> void:
+	# 趴下时步枪和手雷都打不出来（以前趴着不动可以贴地水平射，现在取消了）
 	await reset_scene()
 	player.global_position = Vector2(OPEN_X, 152)
 	player.velocity = Vector2.ZERO
@@ -148,40 +149,79 @@ func test_prone_shooting_rules() -> void:
 	Input.action_press("crouch")
 	await frames(5)
 
-	# 趴着爬行：不能开枪。
+	# 趴着爬行
 	player.current_slot().cooldown_left = 0.0
 	Input.action_press("move_right")
 	Input.action_press("shoot")
 	await frames(30)
-	check("cannot shoot while crawling", bullets(4).size() == 0, str(bullets(4).size()))
+	check("cannot shoot while crawling", bullets(4).is_empty(), str(bullets(4).size()))
 	check("still crawling meanwhile", player.is_crouching and absf(player.velocity.x) > 1.0)
 
-	# 停下来：马上可以开枪，子弹贴地水平飞。
+	# 趴着不动
 	Input.action_release("move_right")
-	var shots := []
-	for i in 10:
-		await tree.physics_frame
-		shots = bullets(4)
-		if not shots.is_empty():
-			break
-	check("lying still, J fires", shots.size() == 1, str(shots.size()))
-	if shots.size() == 1:
-		var bullet: Bullet = shots[0]
-		check("prone shot flies horizontally", bullet.direction == Vector2.RIGHT, str(bullet.direction))
-		# 趴下后枪口离地约 2px（地面 y=160）。子弹高 2px，底边不能碰到地面。
-		check("prone shot skims the ground", bullet.global_position.y > 156.0 and bullet.global_position.y < 159.0, "y=%.1f" % bullet.global_position.y)
+	player.current_slot().cooldown_left = 0.0
+	await frames(30)
+	check("cannot shoot while lying still either", bullets(4).is_empty(), str(bullets(4).size()))
+	check("still lying down meanwhile", player.is_crouching and is_zero_approx(player.velocity.x))
+
+	# 趴着按 W 也一样
+	Input.action_press("aim_up")
+	await frames(10)
+	check("aiming up while lying down does not fire", bullets(4).is_empty(), str(bullets(4).size()))
+	Input.action_release("aim_up")
 	Input.action_release("shoot")
 
-	# 趴着按 W：不能向上瞄准，J 仍然水平开火。
-	await frames(15)
-	for b in bullets(4):
-		b.free()
-	Input.action_press("aim_up")
+	# 站起来就能打
+	Input.action_release("crouch")
+	await frames(5)
+	check("setup: standing again", not player.is_crouching)
+	player.current_slot().cooldown_left = 0.0
 	Input.action_press("shoot")
-	await frames(3)
-	var aimed := bullets(4)
-	check("aiming up is ignored while lying down", player._gun.visible and not player._gun_up.visible)
-	check("W + J while lying still still fires sideways", aimed.size() >= 1 and aimed.all(func(b): return b.direction == Vector2.RIGHT), str(aimed.map(func(b): return b.direction)))
+	await frames(5)
+	check("fires again once standing", not bullets(4).is_empty())
+	release_all_input()
+
+
+func test_cannot_throw_grenades_while_lying_down() -> void:
+	await reset_scene()
+	player.global_position = Vector2(OPEN_X, 152)
+	player.velocity = Vector2.ZERO
+	await frames(10)
+	player.switch_weapon()
+	check("setup: holding grenades", player.current_weapon == 1)
+	Input.action_press("crouch")
+	await frames(5)
+
+	for label in ["crawling", "lying still"]:
+		if label == "crawling":
+			Input.action_press("move_right")
+		else:
+			Input.action_release("move_right")
+		await frames(5)
+		player.current_slot().cooldown_left = 0.0
+		# 每按一次扔一颗：按住两帧再松开（见 CLAUDE.md 里的坑）
+		for i in 3:
+			Input.action_press("shoot")
+			await frames(2)
+			Input.action_release("shoot")
+			await frames(2)
+		check("no grenade while %s" % label, grenades().is_empty(), str(grenades().size()))
+	check("still lying down", player.is_crouching)
+
+	# 站起来就能扔
+	Input.action_release("crouch")
+	await frames(5)
+	player.current_slot().cooldown_left = 0.0
+	Input.action_press("shoot")
+	await frames(2)
+	Input.action_release("shoot")
+	await frames(2)
+	check("throws again once standing", not grenades().is_empty())
+	release_all_input()
+
+
+func grenades() -> Array:
+	return main.get_children().filter(func(c): return c is Grenade)
 
 
 ## 敌人**站着**开的枪子弹离地面 6~8px，趴下的玩家必须矮到让它们从头顶飞过去。
