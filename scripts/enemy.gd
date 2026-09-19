@@ -49,11 +49,16 @@ var _prone_timer := 0.0
 var _stand_height := 0.0
 
 @onready var _visual: Node2D = $Visual
-## 会开枪的敌人场景要有 `Visual/Muzzle`，且本地 y 坐标为 0。
-## 各种敌人的碰撞体底边都贴着自己的原点下方 7px，所以本地 y=0 能保证
-## 站在同一地面上的不同敌人出膛高度完全一致。不开枪的敌人（D）没有枪口。
-@onready var _muzzle: Marker2D = get_node_or_null("Visual/Muzzle")
+## 枪口。新敌人把它直接挂在本体下（`Muzzle`），和外观无关（见 CLAUDE.md「皮肤与素材包」）；
+## 老的地面敌人还在 `Visual/Muzzle`，本地 y 坐标为 0——各种地面敌人的碰撞体底边都在原点下方 7px，
+## 所以站在同一地面上时出膛高度一致。第 4 步统一挪到本体下。不开枪的敌人（D）没有枪口。
+@onready var _muzzle: Marker2D = _find_muzzle()
 @onready var _shape: CollisionShape2D = $CollisionShape2D
+
+
+func _find_muzzle() -> Marker2D:
+	var muzzle := get_node_or_null("Muzzle") as Marker2D
+	return muzzle if muzzle != null else get_node_or_null("Visual/Muzzle") as Marker2D
 
 
 func _ready() -> void:
@@ -137,10 +142,15 @@ func try_shoot(delta: float, target: Node2D) -> void:
 ## 子弹挂在敌人的父节点下，这样敌人死了子弹还能继续飞。
 func _fire_one() -> void:
 	var bullet := bullet_scene.instantiate() as Bullet
-	bullet.direction = Vector2(facing, 0)
+	bullet.direction = shoot_direction()
 	get_parent().add_child(bullet)
 	bullet.global_position = _muzzle.global_position
 	shot_fired.emit()
+
+
+## 子弹往哪边飞。地面敌人朝面向水平开火；飞行敌人覆盖成向下。
+func shoot_direction() -> Vector2:
+	return Vector2(facing, 0)
 
 
 ## 子类每帧拿当前瞄准的目标调用：目标趴着就隔 prone_reaction_time 跟着趴下，否则马上站起来。
