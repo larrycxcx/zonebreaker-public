@@ -20,4 +20,4 @@ func _face_toward(target: Node2D) -> void:
 	if offset_x == 0.0:
 		return
 	facing = signi(offset_x)
-	_visual.scale.x = facing
+	_apply_visual_facing()

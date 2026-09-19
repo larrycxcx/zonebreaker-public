@@ -43,6 +43,12 @@ func _watch(enemy: Enemy, frame_count: int, invincible := true) -> Dictionary:
 	return {"shots": shots, "moved": absf(enemy.global_position.x - x0) if is_instance_valid(enemy) else 0.0, "stood_still": stood_still}
 
 
+## 枪管（占位美术）实际指着哪个方向：枪管按「朝右」摆，朝左时整块镜像过去，所以本地 +x 指向身体。
+func gun_direction(e: Enemy) -> Vector2:
+	var gun: Control = e.get_node(e.gun_visual)
+	return (Vector2.RIGHT if e.facing > 0 else Vector2.LEFT).rotated(gun.rotation)
+
+
 func _all_toward(shots: Array, expected: Vector2) -> bool:
 	return not shots.is_empty() and shots.all(func(s): return s["direction"].is_equal_approx(expected))
 
@@ -104,7 +110,7 @@ func test_b_stops_and_fires_diagonally_up() -> void:
 	check("B aims diagonally up", b.aim == Enemy.Aim.DIAGONAL_UP, str(b.aim))
 	check("B fires diagonally up-left", _all_toward(w["shots"], Vector2(-DIAGONAL, -DIAGONAL)), str(w["shots"].map(func(s): return s["direction"])))
 	check("B still fires in bursts", w["shots"].size() >= 2, str(w["shots"].size()))
-	check("the gun is turned up", is_equal_approx(b.get_node(b.gun_visual).rotation, -PI / 4.0))
+	check("the gun points up-left", gun_direction(b).is_equal_approx(Vector2(-DIAGONAL, -DIAGONAL)), str(gun_direction(b)))
 
 
 func test_a_burst_keeps_its_direction() -> void:
@@ -214,7 +220,7 @@ func test_turret_fires_diagonally_up() -> void:
 	check("the turret aims diagonally up", turret.aim == Enemy.Aim.DIAGONAL_UP, str(turret.aim))
 	check("it fires up-left", _all_toward(w["shots"], Vector2(-DIAGONAL, -DIAGONAL)), str(w["shots"].map(func(s): return s["direction"])))
 	check("the player on the platform gets hit", player.health < player.max_health, str(player.health))
-	check("the barrel is turned up", is_equal_approx(turret.get_node(turret.gun_visual).rotation, -PI / 4.0))
+	check("the barrel points up-left", gun_direction(turret).is_equal_approx(Vector2(-DIAGONAL, -DIAGONAL)), str(gun_direction(turret)))
 
 
 func test_turret_turns_for_a_diagonal_target_behind_it() -> void:

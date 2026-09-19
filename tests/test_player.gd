@@ -36,7 +36,10 @@ func test_moves_and_turns() -> void:
 	Input.action_press("move_left")
 	await frames(20)
 	check("moves left", player.global_position.x < start_x - 10.0, str(player.global_position.x))
-	check("faces left", player.facing == -1 and player._visual.scale.x == -1.0)
+	# 翻转不用负 scale（会让外观被错误剔除，见 VisualFlip）：枪的方块镜像到身体左边
+	var gun: Control = player._visual.get_node("Gun")
+	check("faces left", player.facing == -1 and player._visual.scale.x == 1.0)
+	check("the gun is mirrored to the left", gun.position.x + gun.size.x <= 0.0, str(gun.get_rect()))
 
 
 func test_jump_height_and_short_hop() -> void:

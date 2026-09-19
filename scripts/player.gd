@@ -91,6 +91,8 @@ var current_weapon := 0
 ## 每把武器一个槽，各自记冷却和弹药：切走再切回来，冷却和弹药都还在。
 var _slots: Array[WeaponSlot] = []
 var _ultimate := WeaponSlot.new()
+## Visual 下每个子节点朝右时的横向位置，翻转时按它镜像（见 VisualFlip）。
+var _visual_bases := {}
 var _invincible_timer := 0.0
 ## 不闪烁的无敌（终极武器用）。暂停期间玩家的计时也停着，所以它能覆盖整个定格。
 var _shield_timer := 0.0
@@ -127,6 +129,7 @@ func _ready() -> void:
 	var headroom := STAND_HEIGHT - CROUCH_HEIGHT
 	(_head_check.shape as RectangleShape2D).size.y = headroom
 	_head_check.position.y = -STAND_HEIGHT / 2.0 + headroom / 2.0
+	_visual_bases = VisualFlip.capture(_visual)
 
 
 func _physics_process(delta: float) -> void:
@@ -191,7 +194,7 @@ func _handle_horizontal(delta: float) -> void:
 	var speed := move_speed * _speed_scale()
 	if direction != 0.0:
 		facing = signi(direction)
-		_visual.scale.x = facing
+		VisualFlip.apply(_visual_bases, facing)
 		velocity.x = move_toward(velocity.x, direction * speed, acceleration * control * delta)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, friction * control * delta)

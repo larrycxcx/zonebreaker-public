@@ -42,9 +42,6 @@ var _roam_dir := -1
 var _turn_timer := 0.0
 var _jump_timer := 0.0
 
-@onready var _gun: Control = $Visual/Gun
-
-
 func _ready() -> void:
 	super()
 	_home = global_position
@@ -146,7 +143,6 @@ func _muzzle_position() -> Vector2:
 	return global_position + d * MUZZLE_REACH
 
 
-## 占位美术：身体朝向 + 枪管转到瞄准方向（Visual 左右翻转，所以枪管按翻转后的本地方向转）。
+## 占位美术：身体朝向 + 枪管转到瞄准方向（枪管由基类按 gun_visual 转，方向取 shoot_direction()）。
 func _show_facing() -> void:
-	_visual.scale.x = facing
-	_gun.rotation = Vector2(aim_direction.x * facing, aim_direction.y).angle()
+	_apply_visual_facing()

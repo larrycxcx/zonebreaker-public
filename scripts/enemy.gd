@@ -79,6 +79,8 @@ var _prone_timer := 0.0
 var _stand_height := 0.0
 ## 当前瞄准方向已经保持了多久。
 var _aim_timer := 0.0
+## Visual 下每个子节点朝右时的横向位置，翻转时按它镜像（见 VisualFlip）。
+var _visual_bases := {}
 
 @onready var _visual: Node2D = $Visual
 ## 枪口。新敌人把它直接挂在本体下（`Muzzle`），和外观无关（见 CLAUDE.md「皮肤与素材包」）；
@@ -96,6 +98,8 @@ func _find_muzzle() -> Marker2D:
 func _ready() -> void:
 	add_to_group(GROUP)
 	health = max_health
+	_visual_bases = VisualFlip.capture(_visual)
+	_apply_visual_facing()
 	_stand_height = (_shape.shape as RectangleShape2D).size.y
 
 
@@ -179,18 +183,18 @@ func is_aiming_diagonally() -> bool:
 	return aim != Aim.LEVEL
 
 
-## 占位美术：把枪管转到瞄准方向。
+## 按当前朝向摆放外观。**不要用负的 scale 翻转**，原因见 VisualFlip。
+func _apply_visual_facing() -> void:
+	VisualFlip.apply(_visual_bases, facing)
+	_show_aim()
+
+
+## 占位美术：把枪管转到开火方向。
 func _show_aim() -> void:
 	var gun := get_node_or_null(gun_visual) as Control
 	if gun == null:
 		return
-	match aim:
-		Aim.DIAGONAL_UP:
-			gun.rotation = -PI / 4.0
-		Aim.DIAGONAL_DOWN:
-			gun.rotation = PI / 4.0
-		_:
-			gun.rotation = 0.0
+	VisualFlip.aim_gun(gun, facing, shoot_direction())
 
 
 ## 从枪口到 `point` 之间有没有实心障碍（墙、地面、矮通道）挡着；单向平台不挡。规则见 Sight。

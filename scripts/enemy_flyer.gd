@@ -32,7 +32,7 @@ var _memory_left := 0.0
 func _ready() -> void:
 	super()
 	facing = start_direction
-	_visual.scale.x = facing
+	_apply_visual_facing()
 	set_anchor(global_position)
 
 
@@ -112,4 +112,4 @@ func _set_facing(value: int) -> void:
 	if value == facing:
 		return
 	facing = value
-	_visual.scale.x = facing
+	_apply_visual_facing()

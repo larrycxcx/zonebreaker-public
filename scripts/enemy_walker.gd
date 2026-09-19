@@ -60,7 +60,7 @@ func _target_in_front() -> Node2D:
 
 
 func _apply_facing() -> void:
-	_visual.scale.x = facing
+	_apply_visual_facing()
 	_floor_check.position.x = absf(_floor_check.position.x) * facing
 	_wall_check.target_position.x = absf(_wall_check.target_position.x) * facing
 	# 掉头后立刻重算，避免下一帧还用旧结果导致反复抖动。
