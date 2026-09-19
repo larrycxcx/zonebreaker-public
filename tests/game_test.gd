@@ -64,6 +64,17 @@ func reset_scene(keep_enemies := false, keep_walls := false) -> void:
 	await frames(2)
 
 
+## 在关卡里临时搭一堵实心竖墙（和关卡里的竖墙同样的做法：platform.tscn，8px 宽，立在地面上），返回它。
+## 测「墙」这个机制本身时用它，不依赖关卡里墙摆在哪、有没有（Wall3 就是为了试 Boss 难度拆掉的）。
+func add_wall(x: float, height: float, wall_name := "TestWall") -> Platform:
+	var w: Platform = load("res://scenes/platform.tscn").instantiate()
+	w.name = wall_name
+	w.position = Vector2(x, 160.0 - height)
+	w.size = Vector2(8, height)
+	main.get_node("Level/Walls").add_child(w)
+	return w
+
+
 ## 只留下指定名字的敌人，其它全部移除。
 ## 敌人现在都会射击，测某一个敌人时必须清掉其它的，否则别人的子弹会污染结果。
 func keep_only_enemies(names: Array) -> void:

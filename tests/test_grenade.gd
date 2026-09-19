@@ -274,9 +274,10 @@ func test_the_blast_reaches_a_prone_enemy() -> void:
 # ---------------------------------------------------------------- 实战
 
 func test_lob_over_a_wall_onto_the_turret() -> void:
-	# Wall3：x 540..548，高 36，挡在 Turret1（x=580）前面。玩家在墙左边往前扔，手雷越过墙砸到炮台。
-	await reset_scene(true, true)
+	# 在 Turret1（x=580）前面搭一堵 36px 高的墙（x 540..548）。玩家在墙左边往前扔，手雷越过墙砸到炮台。
+	await reset_scene(true)
 	keep_only_enemies(["Turret1"])
+	add_wall(540, 36)
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
 	player.global_position = Vector2(470, 152)
 	player.velocity = Vector2.ZERO

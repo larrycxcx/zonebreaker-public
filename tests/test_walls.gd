@@ -33,7 +33,7 @@ func measure_jump_height() -> float:
 func test_level_has_vertical_walls() -> void:
 	await reset_scene(false, true)
 	var all := walls()
-	check("the level has 3 walls", all.size() == 3, str(all.size()))
+	check("the level has 2 walls", all.size() == 2, str(all.size()))
 	for w in all:
 		check("%s is solid, not a one-way platform" % w.name, not w.one_way)
 		check("%s is taller than it is wide" % w.name, w.size.y > w.size.x, str(w.size))
@@ -49,9 +49,10 @@ func test_walls_are_lower_than_the_jump() -> void:
 
 
 func test_player_can_jump_over_every_wall() -> void:
-	for wall_name in ["Wall1", "Wall2", "Wall3"]:
+	# 关卡里的两堵墙，外加一堵临时搭的 36px 高墙（原来的 Wall3，接近允许的最高高度）。
+	for wall_name in ["Wall1", "Wall2", "TallWall"]:
 		await reset_scene(false, true)
-		var w := wall(wall_name)
+		var w := add_wall(540, 36, wall_name) if wall_name == "TallWall" else wall(wall_name)
 		# 从墙左边 40px 处往右跑，离墙 22px 时起跳并按住跳跃键。
 		# Wall1 左边上方有 Platform1，改从右边往左翻，免得跳到平台上去。
 		var from_left: bool = wall_name != "Wall1"
@@ -122,7 +123,7 @@ func test_turret_cannot_see_through_a_wall() -> void:
 	await reset_scene(true, true)
 	keep_only_enemies(["Turret1"])
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
-	var w := wall("Wall3") # 36px 高，挡在炮台（x=580）前面
+	var w := add_wall(540, 36) # 36px 高，挡在炮台（x=580）前面
 	var shots := [0]
 	turret.shot_fired.connect(func(): shots[0] += 1)
 	# 玩家站在墙左边，炮台射程内（200px）。
