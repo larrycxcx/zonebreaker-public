@@ -208,6 +208,12 @@ SOUNDS = {
         voice("square", freq=900, duration=0.04, duty=0.25, offset=0.045),
         voice("noise", freq=7000, duration=0.015, volume=0.5, seed=16),
     ], 0.4),
+    # ---- Boss ----
+    "boss_appear": ("Boss 出场：两遍高低交替的警报 + 低音轰鸣", [
+        voice("square", duration=0.84, duty=0.5, decay=2.0, volume=0.55,
+              notes=[(0.0, 660), (0.18, 440), (0.36, 660), (0.54, 440)]),
+        voice("triangle", freq=55, freq_end=45, duration=1.0, attack=0.1, volume=0.9),
+    ], 0.75),
     # ---- 终极武器 ----
     "ultimate_start": ("终极武器发动：越来越高的蓄力声", [
         voice("square", freq=180, freq_end=1600, duration=0.9, duty=0.5, duty_end=0.125, vibrato_depth=0.04, vibrato_speed=18),

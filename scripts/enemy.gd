@@ -1,6 +1,7 @@
 class_name Enemy
 extends CharacterBody2D
 ## 敌人基类：生命值、受击闪白、死亡、重力，以及共用的射击、趴下逻辑。具体行为见子类。
+## 直接继承它的是普通敌人（A/B/C/D/E/炮台）；Boss 继承 Boss（scripts/boss.gd）。
 
 signal died
 ## 每射出一颗子弹发一次（连发时每颗都发）。第 3 步的枪口闪光、音效可以接在这上面。
@@ -109,6 +110,18 @@ func take_damage(amount: int, _source_position := Vector2.INF) -> void:
 	else:
 		_flash()
 		GameEvents.report(&"enemy_hit", self)
+
+
+## 被终极武器打中：普通敌人直接消灭（不管血量）。Boss 覆盖成只受伤害。
+func hit_by_ultimate() -> void:
+	die()
+
+
+## 身体原点在不在屏幕可见范围内（终极武器、Boss 出场用）。
+func is_on_screen() -> bool:
+	var viewport := get_viewport()
+	var visible := viewport.get_canvas_transform().affine_inverse() * viewport.get_visible_rect()
+	return visible.has_point(global_position)
 
 
 func die() -> void:

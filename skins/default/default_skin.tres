@@ -21,6 +21,7 @@
 [ext_resource type="AudioStream" path="res://skins/default/sfx/weapon_switch.wav" id="weapon_switch"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/ultimate_start.wav" id="ultimate_start"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/ultimate_blast.wav" id="ultimate_blast"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/boss_appear.wav" id="boss_appear"]
 
 [resource]
 script = ExtResource("script")
@@ -45,5 +46,6 @@ sounds = Dictionary[StringName, AudioStream]({
 &"explosion": ExtResource("explosion"),
 &"weapon_switch": ExtResource("weapon_switch"),
 &"ultimate_start": ExtResource("ultimate_start"),
-&"ultimate_blast": ExtResource("ultimate_blast")
+&"ultimate_blast": ExtResource("ultimate_blast"),
+&"boss_appear": ExtResource("boss_appear")
 })

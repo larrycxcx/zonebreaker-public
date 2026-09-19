@@ -1,5 +1,6 @@
 extends CanvasLayer
-## 临时 HUD：左上角用小方块显示血量、下面一条体力条、再下面一个色块表示当前武器、一排金色小方块表示终极武器剩余次数，死亡时显示提示。完整 HUD 留到第 5 步。
+## 临时 HUD：左上角用小方块显示血量、下面一条体力条、再下面一个色块表示当前武器、一排金色小方块表示终极武器剩余次数，死亡时显示提示；
+## Boss 出场时右上角显示它的头像和血条（血条从右往左减少，Boss 死了隐藏）。完整 HUD 留到第 5 步。
 
 const PIP_SIZE := Vector2(6, 6)
 const PIP_FULL := Color(0.9, 0.25, 0.3)
@@ -11,6 +12,8 @@ const STAMINA_TIRED := Color(0.85, 0.5, 0.25)
 var _pips: Array[ColorRect] = []
 var _ultimate_pips: Array[ColorRect] = []
 var _player: Player
+## 右上角正在显示的 Boss。
+var _boss: Boss
 
 @onready var _pip_row: HBoxContainer = $PipRow
 @onready var _message: Label = $Message
@@ -18,10 +21,16 @@ var _player: Player
 @onready var _stamina_fill: ColorRect = $StaminaBar/Fill
 @onready var _weapon_icon: ColorRect = $WeaponIcon
 @onready var _ultimate_row: HBoxContainer = $UltimateRow
+@onready var _boss_bar: Control = $BossBar
+@onready var _boss_portrait: TextureRect = $BossBar/Portrait
+@onready var _boss_health: ColorRect = $BossBar/Health
+@onready var _boss_fill: ColorRect = $BossBar/Health/Fill
 
 
 func _ready() -> void:
 	_message.hide()
+	_boss_bar.hide()
+	GameEvents.boss_appeared.connect(_on_boss_appeared)
 	var player := get_tree().get_first_node_in_group("player") as Player
 	if player == null:
 		return
@@ -71,6 +80,31 @@ func _on_ultimate_changed(ammo: int, max_ammo: int) -> void:
 	var full: Color = _player.ultimate_weapon.hud_color
 	for i in _ultimate_pips.size():
 		_ultimate_pips[i].color = full if i < ammo else full.darkened(0.75)
+
+
+## 同时只显示一个 Boss：后出场的替换先出场的。
+func _on_boss_appeared(boss: Node2D) -> void:
+	if _boss != null and is_instance_valid(_boss):
+		_boss.health_changed.disconnect(_on_boss_health_changed)
+		_boss.died.disconnect(_on_boss_died)
+	_boss = boss as Boss
+	_boss.health_changed.connect(_on_boss_health_changed)
+	_boss.died.connect(_on_boss_died)
+	_boss_portrait.texture = _boss.portrait
+	_on_boss_health_changed(_boss.health, _boss.max_health)
+	_boss_bar.show()
+
+
+## 血条靠右对齐的头像，从右往左减少，所以填充条贴右边。
+func _on_boss_health_changed(health: int, max_health: int) -> void:
+	var ratio := float(health) / max_health if max_health > 0 else 0.0
+	_boss_fill.size.x = roundf(_boss_health.size.x * ratio)
+	_boss_fill.position.x = _boss_health.size.x - _boss_fill.size.x
+
+
+func _on_boss_died() -> void:
+	_boss = null
+	_boss_bar.hide()
 
 
 func _on_player_died() -> void:

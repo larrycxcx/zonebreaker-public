@@ -3,7 +3,8 @@ extends Node2D
 ## 终极武器的效果（瞬时发动，用 weapons/ultimate.tres 的武器槽发射出来，所以次数、冷却都走武器结构）。
 ##
 ## 发动的瞬间：清除所有敌人子弹，记下此刻屏幕内的敌人，给玩家无敌，然后暂停整个场景树——
-## 玩家、敌人、子弹全部定格 freeze_time 秒。时间到了恢复运行，同时消灭刚才记下的那些敌人（不管血量）。
+## 玩家、敌人、子弹全部定格 freeze_time 秒。时间到了恢复运行，同时对刚才记下的那些敌人调 hit_by_ultimate()：
+## 普通敌人直接消灭（不管血量），Boss 只受伤害（Boss.ultimate_damage），不会被直接消灭。
 ## 屏幕外的敌人不受影响。以后的动画放在这里，节点设成 PROCESS_MODE_ALWAYS，暂停期间照样播放。
 
 ## 定格多久（秒）。
@@ -41,17 +42,15 @@ func _activate() -> void:
 	GameEvents.report(&"ultimate_blast", self)
 	for enemy in targets:
 		if is_instance_valid(enemy) and enemy.health > 0:
-			enemy.die()
+			enemy.hit_by_ultimate()
 	queue_free()
 
 
 ## 此刻身体中心在屏幕可见范围内的敌人。
 func enemies_on_screen() -> Array[Enemy]:
-	var viewport := get_viewport()
-	var visible := viewport.get_canvas_transform().affine_inverse() * viewport.get_visible_rect()
 	var found: Array[Enemy] = []
 	for node in get_tree().get_nodes_in_group(Enemy.GROUP):
 		var enemy := node as Enemy
-		if enemy != null and enemy.health > 0 and visible.has_point(enemy.global_position):
+		if enemy != null and enemy.health > 0 and enemy.is_on_screen():
 			found.append(enemy)
 	return found

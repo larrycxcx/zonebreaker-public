@@ -5,6 +5,8 @@ extends Node
 ## 事件名见 SkinPack.SOUND_EVENTS。
 
 signal event_happened(event: StringName, source: Node)
+## Boss 出场（第一次进入屏幕）。HUD 靠它在右上角显示头像和血条；Boss 可能是关卡进行中才生成的，所以走总线。
+signal boss_appeared(boss: Node2D)
 
 
 func report(event: StringName, source: Node = null) -> void:

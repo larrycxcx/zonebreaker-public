@@ -21,6 +21,7 @@ const SUITES := {
 	"weapons": "res://tests/test_weapons.gd",
 	"grenade": "res://tests/test_grenade.gd",
 	"ultimate": "res://tests/test_ultimate.gd",
+	"boss": "res://tests/test_boss.gd",
 	"audio": "res://tests/test_audio.gd",
 }
 
