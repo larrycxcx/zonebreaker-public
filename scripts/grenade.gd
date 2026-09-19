@@ -23,10 +23,14 @@ extends CharacterBody2D
 ## 爆炸的样子（占位美术），只管显示。
 @export var explosion_scene: PackedScene
 
+## 场上的手雷都在这个组里（Boss A 躲手雷时靠它找）。
+const GROUP := &"grenades"
 ## 物理层 4（enemy）的位掩码：爆炸只找敌人，所以不会炸到玩家自己。
 const ENEMY_LAYER := 8
 
 var exploded := false
+## 撞到过地面/平台顶面（弹起来过）。之后它就是「在地上」贴地弹跳的手雷，Boss A 会躲；撞墙反弹不算。
+var landed := false
 
 var _age := 0.0
 var _bounces_left := 0
@@ -43,6 +47,7 @@ func launch(direction: Vector2) -> void:
 
 
 func _ready() -> void:
+	add_to_group(GROUP)
 	_contact.body_entered.connect(_on_contact)
 
 
@@ -58,6 +63,8 @@ func _physics_process(delta: float) -> void:
 	if _bounces_left > 0:
 		_bounces_left -= 1
 		velocity = velocity.bounce(collision.get_normal()) * bounciness
+		if collision.get_normal().y < -0.7:
+			landed = true
 		GameEvents.report(&"grenade_bounce", self)
 	else:
 		explode()

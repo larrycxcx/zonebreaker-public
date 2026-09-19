@@ -6,7 +6,7 @@ extends Enemy
 ## - **出场**：进入屏幕之前处于待机状态（只受重力，不行动）；第一次进入屏幕时「出场」——
 ##   报告 appear_event（特殊音效），通过 GameEvents.boss_appeared 通知 HUD 在右上角显示头像和血条。只出场一次。
 ## - **终极武器**：定格和清子弹对 Boss 一样有效（暂停整棵树、Boss 的子弹也在 enemy_bullets 组里），
-##   但不会被直接消灭，而是受到 ultimate_damage 点伤害（血量不够时照样会被打死）。
+##   但不会被直接消灭，而是受到 ultimate_damage() 点伤害 = 最大血量 × ultimate_damage_ratio（血量不够时照样会被打死）。
 ## - 血量变化发 health_changed，HUD 的血条接这个。
 ##
 ## 具体的攻击方式写在子类的 _boss_process() 里，每个 Boss 各不相同。
@@ -18,8 +18,8 @@ signal health_changed(health: int, max_health: int)
 @export var display_name := "BOSS"
 ## HUD 右上角的头像（占位美术放在 skins/default/portraits/）。
 @export var portrait: Texture2D
-## 被终极武器打中时受到的伤害。每个 Boss 可以不同。
-@export var ultimate_damage := 10
+## 被终极武器打中时受到的伤害占最大血量的比例（0.25 = 四分之一，4 次打死）。每个 Boss 可以不同。
+@export_range(0.0, 1.0) var ultimate_damage_ratio := 0.25
 ## 出场时报告的事件名（素材包按它找声音）。
 @export var appear_event := &"boss_appear"
 
@@ -58,6 +58,11 @@ func take_damage(amount: int, source_position := Vector2.INF) -> void:
 	health_changed.emit(maxi(health, 0), max_health)
 
 
+## 终极武器一次造成的伤害（向上取整，至少 1）。
+func ultimate_damage() -> int:
+	return maxi(1, ceili(max_health * ultimate_damage_ratio))
+
+
 ## 终极武器对 Boss 只造成伤害，不直接消灭。
 func hit_by_ultimate() -> void:
-	take_damage(ultimate_damage)
+	take_damage(ultimate_damage())

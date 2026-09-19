@@ -225,7 +225,7 @@ func test_ultimate_events() -> void:
 
 func test_boss_appear_event() -> void:
 	await reset_scene(true)
-	keep_only_enemies(["Boss"])
+	keep_only_enemies(["BossA"])
 	player.global_position = Vector2(560, 152)
 	await frames(10)
 	expect_events([&"boss_appear"], "a boss coming on screen")

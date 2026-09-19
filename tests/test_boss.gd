@@ -1,19 +1,19 @@
 extends GameTest
 ## Boss：关卡里的其它敌人都是普通敌人（直接继承 Enemy），Boss 继承 Boss。
 ## 规则：进入屏幕才出场（之前待机不行动）；出场时报告 boss_appear、右上角显示头像和血条；
-## 终极武器定住 Boss、清掉它的子弹、对它造成 ultimate_damage 点伤害，但不会直接消灭它。
-## 具体攻击方式每个 Boss 不同，这里只测通用规则（占位 Boss 的站桩连发除外）。
+## 终极武器定住 Boss、清掉它的子弹、对它造成 ultimate_damage() 点伤害，但不会直接消灭它。
+## 具体攻击方式每个 Boss 不同，这里只测通用规则（Boss A 自己的规则见 test_boss_a.gd）。
 
 const ENEMY_BULLET_SCENE := "res://scenes/enemy_bullet.tscn"
 
 var boss: Boss
 
 
-## 只留 Boss（x=616），玩家在关卡最左边，Boss 在屏幕外。
+## 只留 Boss A（x=600），玩家在关卡最左边，Boss 在屏幕外。
 func start(extra := []) -> void:
 	await reset_scene(true)
-	keep_only_enemies(["Boss"] + extra)
-	boss = main.get_node("Enemies/Boss")
+	keep_only_enemies(["BossA"] + extra)
+	boss = main.get_node("Enemies/BossA")
 	await frames(5)
 
 
@@ -38,6 +38,12 @@ func fill_ratio() -> float:
 	return fill.size.x / health.size.x
 
 
+## 血条显示的是不是这么多血（血条宽度按整像素取整，允许差一个像素）。
+func bar_shows(health: int) -> bool:
+	var width: float = main.get_node("HUD/BossBar/Health").size.x
+	return absf(fill_ratio() - float(health) / boss.max_health) <= 1.0 / width
+
+
 func use_ultimate() -> void:
 	Input.action_press("ultimate")
 	await frames(2)
@@ -59,18 +65,18 @@ func test_classification() -> void:
 			bosses.append(enemy.name)
 		else:
 			check("%s is a normal enemy" % enemy.name, enemy is Enemy)
-	check("the level has one boss", bosses == [&"Boss"], str(bosses))
-	var b: Boss = main.get_node("Enemies/Boss")
+	check("the level has one boss", bosses == [&"BossA"], str(bosses))
+	var b: Boss = main.get_node("Enemies/BossA")
 	check("boss has a portrait", b.portrait != null)
 	check("boss is much tougher than normal enemies", b.max_health >= 30)
-	check("one ultimate does not kill it", b.ultimate_damage < b.max_health)
+	check("one ultimate does not kill it", b.ultimate_damage() < b.max_health)
 
 
 func test_dormant_until_on_screen() -> void:
 	await start()
 	# 把射程放大到整个关卡：如果它在屏幕外也在行动，就一定会开火
 	boss.detect_range = 1000.0
-	await go_to(300) # 屏幕 = x 140..460，Boss 在 616
+	await go_to(300) # 屏幕 = x 140..460，Boss 在 600
 	await frames(120)
 	check("off screen: not appeared", not boss.has_appeared)
 	check("off screen: no appear event", count(&"boss_appear") == 0)
@@ -102,21 +108,21 @@ func test_appears_once_with_hud_and_sound() -> void:
 
 func test_attacks_after_appearing() -> void:
 	await start()
-	await go_to(460) # 屏幕内、射程 200 内
+	await go_to(460) # 屏幕内、射程内
 	var fired := false
 	for i in 150:
 		await frames(1)
 		if not bullets(16).is_empty():
 			fired = true
 			break
-	check("placeholder boss fires at the player", fired)
+	check("boss fires at the player", fired)
 
 
 func test_health_bar_follows_damage() -> void:
 	await start()
 	await go_to(560)
 	boss.take_damage(10)
-	check("bar shrinks with damage", is_equal_approx(fill_ratio(), 30.0 / 40.0), str(fill_ratio()))
+	check("bar shrinks with damage", bar_shows(boss.max_health - 10), str(fill_ratio()))
 	boss.take_damage(100)
 	await frames(2)
 	check("boss dies", not is_instance_valid(boss))
@@ -146,8 +152,8 @@ func test_ultimate_freezes_clears_and_damages() -> void:
 	await wait_for_unpause()
 	await frames(2)
 	check("boss survives the ultimate", is_instance_valid(boss))
-	check("boss takes ultimate_damage", is_instance_valid(boss) and boss.health == hp - boss.ultimate_damage)
-	check("HUD bar updated", is_equal_approx(fill_ratio(), float(hp - boss.ultimate_damage) / boss.max_health))
+	check("boss takes ultimate_damage", is_instance_valid(boss) and boss.health == hp - boss.ultimate_damage())
+	check("HUD bar updated", bar_shows(hp - boss.ultimate_damage()), str(fill_ratio()))
 	check("normal enemy on screen is still destroyed", not is_instance_valid(turret))
 
 
