@@ -1,5 +1,5 @@
 extends GameTest
-## 敌人 D（冲锋型）：不开枪不趴下、巡逻用普通速度、150px 内看见玩家就用 88 的冲锋速度（比玩家走路略慢）冲过去、
+## 敌人 D（冲锋型）：不开枪不趴下、巡逻用普通速度、120px 内看见玩家就用 75 的冲锋速度（比玩家走路慢）冲过去、
 ## 靠碰撞伤人、能跳墙跳平台、墙挡视线、追丢后会放弃。
 
 const GROUND_ENEMY_Y := 153.0
@@ -43,9 +43,9 @@ func test_d_is_configured() -> void:
 	check("D has no gun", d.bullet_scene == null and d.get_node_or_null("Visual/Muzzle") == null)
 	check("D never goes prone", not d.can_go_prone)
 	check("D patrols at the normal enemy speed", d.move_speed == walker.move_speed, "%.1f vs %.1f" % [d.move_speed, walker.move_speed])
-	check("D charges at 88", d.charge_speed == 88.0, "%.1f" % d.charge_speed)
-	check("D charges a little slower than the player walks", d.charge_speed < player.move_speed, "%.1f vs %.1f" % [d.charge_speed, player.move_speed])
-	check("D notices the player within 150px", d.detect_range == 150.0)
+	check("D charges at 75", d.charge_speed == 75.0, "%.1f" % d.charge_speed)
+	check("D charges slower than the player walks", d.charge_speed < player.move_speed, "%.1f vs %.1f" % [d.charge_speed, player.move_speed])
+	check("D notices the player within 120px", d.detect_range == 120.0)
 	check("D jumps like the player", d.jump_velocity == player.jump_velocity)
 
 
@@ -61,7 +61,7 @@ func test_d_charges_when_it_sees_the_player() -> void:
 	_put_player(150.0)
 	await frames(5)
 	check("D starts chasing", d.is_chasing)
-	check("D charges at 88", is_equal_approx(d.velocity.x, -88.0), "%.1f" % d.velocity.x)
+	check("D charges at 75", is_equal_approx(d.velocity.x, -75.0), "%.1f" % d.velocity.x)
 
 
 func test_d_turns_around_for_a_player_behind_it() -> void:
@@ -72,11 +72,11 @@ func test_d_turns_around_for_a_player_behind_it() -> void:
 	check("D turns toward a player behind it", d.facing == -1 and d.velocity.x < 0.0, "facing %d, vx %.1f" % [d.facing, d.velocity.x])
 
 
-func test_d_ignores_a_player_beyond_150px() -> void:
+func test_d_ignores_a_player_beyond_120px() -> void:
 	var d := await _setup_chaser(250.0, 1)
-	_put_player(80.0) # 170px
+	_put_player(120.0) # 130px，刚好在发现距离外
 	await frames(30)
-	check("D keeps patrolling at 170px", not d.is_chasing and d.facing == 1)
+	check("D keeps patrolling at 130px", not d.is_chasing and d.facing == 1)
 	check("still at patrol speed", is_equal_approx(absf(d.velocity.x), d.move_speed), "%.1f" % absf(d.velocity.x))
 
 
@@ -109,7 +109,7 @@ func test_d_hurts_by_touching_the_player() -> void:
 
 
 func test_walls_block_d_vision() -> void:
-	# Wall2：x 400..408，高 28。D 在墙右边，玩家在墙左边，距离 70px（在 150 以内）。
+	# Wall2：x 400..408，高 28。D 在墙右边，玩家在墙左边，距离 70px（在 120 以内）。
 	var d := await _setup_chaser(450.0, 1, true)
 	_put_player(380.0)
 	var ever_chased := false
@@ -186,7 +186,7 @@ func test_d_gives_up_after_losing_the_player() -> void:
 	_put_player(180.0)
 	await frames(5)
 	check("D is chasing", d.is_chasing)
-	_put_player(560.0) # 突然跑出 150px 外
+	_put_player(560.0) # 突然跑出 120px 外
 	var gave_up_at := -1
 	for i in 240:
 		await tree.physics_frame
@@ -269,5 +269,5 @@ func test_walking_away_keeps_ahead_of_d() -> void:
 func test_sprinting_away_outruns_d() -> void:
 	var r := await _gap_after_running_away(true)
 	check("D was chasing", r[0])
-	# 奔跑 135 对冲锋 88，一秒拉开约 47px。
+	# 奔跑 135 对冲锋 75，一秒拉开约 60px。
 	check("sprinting away opens a clear gap", r[2] - r[1] > 40.0, "%.1f -> %.1f" % [r[1], r[2]])
