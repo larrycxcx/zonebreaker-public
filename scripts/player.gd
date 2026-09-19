@@ -227,6 +227,11 @@ func _set_crouching(value: bool) -> void:
 	_visual.position.y = lowered
 
 
+## 碰撞体中心的世界坐标。趴下时比 global_position 低 6px，敌人的视线要瞄这里。
+func body_center() -> Vector2:
+	return _shape.global_position
+
+
 ## 头顶上方是否有东西挡着，挡着就站不起来。
 func _head_blocked() -> bool:
 	_head_check.force_shapecast_update()

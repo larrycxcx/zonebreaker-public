@@ -34,6 +34,8 @@ signal shot_fired
 
 ## 趴下后的碰撞体高度，和玩家一样。站着开的枪会从头顶飞过去。
 const PRONE_HEIGHT := 4.0
+## 物理层 1（world）：地面、平台、墙。
+const WORLD_LAYER := 1
 
 var health := 0
 var is_prone := false
@@ -76,15 +78,36 @@ func die() -> void:
 	queue_free()
 
 
-## 射程和高度容差内的玩家，够不着就返回 null。
+## 射程和高度容差内、并且看得见的玩家，否则返回 null。
 func find_target() -> Node2D:
-	var player := get_tree().get_first_node_in_group("player") as Node2D
+	var player := get_tree().get_first_node_in_group("player") as Player
 	if player == null:
 		return null
 	var offset := player.global_position - global_position
 	if absf(offset.x) > detect_range or absf(offset.y) > vertical_tolerance:
 		return null
+	if not has_line_of_sight(player.body_center()):
+		return null
 	return player
+
+
+## 从枪口到 `point` 之间有没有实心障碍（墙、地面、矮通道）挡着。
+## 单向平台不挡视线——子弹能穿过去，视线也一样，规则保持一致。
+func has_line_of_sight(point: Vector2) -> bool:
+	var space := get_world_2d().direct_space_state
+	var query := PhysicsRayQueryParameters2D.create(_muzzle.global_position, point, WORLD_LAYER)
+	var ignored: Array[RID] = []
+	# 一条射线最多穿过几块单向平台，给个上限防止意外死循环。
+	for i in 8:
+		query.exclude = ignored
+		var hit := space.intersect_ray(query)
+		if hit.is_empty():
+			return true
+		var platform := hit["collider"] as Platform
+		if platform == null or not platform.one_way:
+			return false
+		ignored.append(hit["rid"])
+	return false
 
 
 ## 冷却好了就朝 `facing` 方向开一轮火（单发或连发）。`target` 传 null 表示这一帧不该开始新的一轮。

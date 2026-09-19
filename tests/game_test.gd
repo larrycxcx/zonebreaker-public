@@ -38,7 +38,9 @@ func release_all_input() -> void:
 ## 重新加载一份主场景。
 ## 默认清掉所有敌人：巡逻兵走遍了整块地面，测纯操作时如果不清场，
 ## 玩家一传送过去就会吃接触伤害被击飞，后面一连串断言都会莫名其妙地失败。
-func reset_scene(keep_enemies := false) -> void:
+## 默认也移除 Level/Walls 下的竖墙：墙会挡路、挡子弹、挡视线，而大部分用例测的是和墙无关的机制，
+## 不该因为关卡里掩体摆放的调整而失败。测墙本身的用例传 keep_walls = true。
+func reset_scene(keep_enemies := false, keep_walls := false) -> void:
 	release_all_input()
 	free_scene()
 	main = load("res://scenes/main.tscn").instantiate()
@@ -47,6 +49,9 @@ func reset_scene(keep_enemies := false) -> void:
 	if not keep_enemies:
 		for enemy in main.get_node("Enemies").get_children():
 			enemy.free()
+	if not keep_walls:
+		for wall in main.get_node("Level/Walls").get_children():
+			wall.free()
 	await frames(2)
 
 
