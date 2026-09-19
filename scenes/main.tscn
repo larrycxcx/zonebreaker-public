@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/enemy_walker_c.tscn" id="8"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_turret.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_chaser.tscn" id="9"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("3")
@@ -93,6 +94,9 @@ start_direction = 1
 [node name="WalkerC" parent="Enemies" instance=ExtResource("8")]
 position = Vector2(470, 153)
 start_direction = 1
+
+[node name="ChaserD" parent="Enemies" instance=ExtResource("9")]
+position = Vector2(524, 85)
 
 [node name="Turret1" parent="Enemies" instance=ExtResource("5")]
 position = Vector2(580, 153)

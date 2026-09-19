@@ -49,10 +49,10 @@ var _prone_timer := 0.0
 var _stand_height := 0.0
 
 @onready var _visual: Node2D = $Visual
-## 每个敌人场景都必须有 `Visual/Muzzle`，且本地 y 坐标为 0。
+## 会开枪的敌人场景要有 `Visual/Muzzle`，且本地 y 坐标为 0。
 ## 各种敌人的碰撞体底边都贴着自己的原点下方 7px，所以本地 y=0 能保证
-## 站在同一地面上的不同敌人出膛高度完全一致。
-@onready var _muzzle: Marker2D = $Visual/Muzzle
+## 站在同一地面上的不同敌人出膛高度完全一致。不开枪的敌人（D）没有枪口。
+@onready var _muzzle: Marker2D = get_node_or_null("Visual/Muzzle")
 @onready var _shape: CollisionShape2D = $CollisionShape2D
 
 
@@ -95,7 +95,7 @@ func find_target() -> Node2D:
 ## 单向平台不挡视线——子弹能穿过去，视线也一样，规则保持一致。
 func has_line_of_sight(point: Vector2) -> bool:
 	var space := get_world_2d().direct_space_state
-	var query := PhysicsRayQueryParameters2D.create(_muzzle.global_position, point, WORLD_LAYER)
+	var query := PhysicsRayQueryParameters2D.create(_sight_origin(), point, WORLD_LAYER)
 	var ignored: Array[RID] = []
 	# 一条射线最多穿过几块单向平台，给个上限防止意外死循环。
 	for i in 8:
@@ -108,6 +108,11 @@ func has_line_of_sight(point: Vector2) -> bool:
 			return false
 		ignored.append(hit["rid"])
 	return false
+
+
+## 视线从哪里发出：有枪口就是枪口（看得见才打得着），没有就是身体中心。
+func _sight_origin() -> Vector2:
+	return _muzzle.global_position if _muzzle != null else global_position
 
 
 ## 冷却好了就朝 `facing` 方向开一轮火（单发或连发）。`target` 传 null 表示这一帧不该开始新的一轮。

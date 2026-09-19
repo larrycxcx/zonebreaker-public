@@ -4,7 +4,7 @@ extends GameTest
 
 func test_level_setup() -> void:
 	await reset_scene(true)
-	check("5 enemies in the level", main.get_node("Enemies").get_child_count() == 5, str(main.get_node("Enemies").get_child_count()))
+	check("6 enemies in the level", main.get_node("Enemies").get_child_count() == 6, str(main.get_node("Enemies").get_child_count()))
 	check("player starts at full health", player.health == 3 and player.max_health == 3, str(player.health))
 	check("hud shows one pip per health point", main.get_node("HUD/PipRow").get_child_count() == 3)
 
