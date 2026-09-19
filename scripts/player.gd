@@ -5,6 +5,8 @@ extends CharacterBody2D
 signal health_changed(health: int, max_health: int)
 signal died
 signal stamina_changed(stamina: float, max_stamina: float)
+## 切换武器（或当前这把被换掉）时发出，HUD 接这个。
+signal weapon_switched(index: int, weapon: Weapon)
 
 
 @export_group("Health")
@@ -50,8 +52,9 @@ signal stamina_changed(stamina: float, max_stamina: float)
 @export_range(0.0, 1.0) var stamina_recover_ratio := 0.25
 
 @export_group("Weapons")
-## 主武器（J 开火，跟着 8 方向瞄准）。换武器 = 换这里的资源文件（weapons/*.tres）。
-@export var primary_weapon: Weapon
+## 身上的武器，按切换顺序排列（默认 [步枪, 手雷]）。Shift / 手柄 X 切到下一把，J / RT 用当前这把开火，
+## 都跟着 8 方向瞄准。换武器 = 换这里的资源文件（weapons/*.tres）。
+@export var weapons: Array[Weapon] = []
 
 ## 瞄准方向（魂斗罗式）。W + 左右 = 边走边斜上，只按 W = 原地正上；
 ## S + 左右 = 边走边斜下，只按 S：地面上朝前斜下、空中朝正下；W、S 同时按互相抵消；趴下时一律水平。
@@ -79,7 +82,10 @@ var stamina := 0.0
 var _coyote_timer := 0.0
 var _jump_buffer_timer := 0.0
 ## 主武器槽：冷却和弹药都在里面。
-var _primary: WeaponSlot
+## 当前拿在手上的是第几把。
+var current_weapon := 0
+## 每把武器一个槽，各自记冷却和弹药：切走再切回来，冷却和弹药都还在。
+var _slots: Array[WeaponSlot] = []
 var _invincible_timer := 0.0
 var _dead := false
 var _exhausted := false
@@ -100,7 +106,8 @@ var _stamina_regen_timer := 0.0
 
 
 func _ready() -> void:
-	_primary = WeaponSlot.new(primary_weapon)
+	for weapon in weapons:
+		_slots.append(WeaponSlot.new(weapon))
 	health = max_health
 	health_changed.emit(health, max_health)
 	stamina = max_stamina
@@ -124,6 +131,7 @@ func _physics_process(delta: float) -> void:
 	_handle_jump(delta)
 	_handle_horizontal(delta)
 	move_and_slide()
+	_handle_switch()
 	_handle_shoot(delta)
 	_update_invincibility(delta)
 	_check_contact_damage()
@@ -263,14 +271,16 @@ func _head_blocked() -> bool:
 	return false
 
 
-## J 用主武器朝当前瞄准方向开火（瞄准规则见 Aim）。趴着不动只能水平开枪（子弹贴地飞），趴着爬行时不能开枪。
+## J 用当前武器朝当前瞄准方向开火（瞄准规则见 Aim）。趴着不动只能水平开枪（子弹贴地飞），趴着爬行时不能开枪。
 func _handle_shoot(delta: float) -> void:
-	_primary.tick(delta)
+	# 所有武器的冷却都在走：切走的那把也会冷却好。
+	for slot in _slots:
+		slot.tick(delta)
 	var moving := Input.get_axis("move_left", "move_right") != 0.0
 	_update_aim(moving)
 	var crawling := is_crouching and moving
-	var pressed := Input.is_action_pressed("shoot") if primary_weapon.automatic else Input.is_action_just_pressed("shoot")
-	if crawling or not pressed or not _primary.is_ready():
+	var pressed := Input.is_action_pressed("shoot") if current_slot().weapon.automatic else Input.is_action_just_pressed("shoot")
+	if crawling or not pressed or not current_slot().is_ready():
 		return
 	_shoot(aim_vector())
 
@@ -308,15 +318,36 @@ func aim_vector() -> Vector2:
 	return Vector2(facing, 0)
 
 
-## 换主武器（以后拾取武器升级就调这个）：冷却清零、弹药补满。
-func equip_primary(weapon: Weapon) -> void:
-	primary_weapon = weapon
-	_primary.equip(weapon)
+func _handle_switch() -> void:
+	if Input.is_action_just_pressed("switch_weapon"):
+		switch_weapon()
 
 
-## 用主武器朝 direction 开一次火（不看冷却；_handle_shoot 先检查过了，测试也直接调它）。
+## 切到下一把武器（最后一把之后回到第一把）。
+func switch_weapon() -> void:
+	if _slots.size() < 2:
+		return
+	current_weapon = (current_weapon + 1) % _slots.size()
+	weapon_switched.emit(current_weapon, current_slot().weapon)
+	GameEvents.report(&"weapon_switch", self)
+
+
+func current_slot() -> WeaponSlot:
+	return _slots[current_weapon]
+
+
+## 把第 index 把武器换成 weapon（以后拾取武器升级就调这个）：冷却清零、弹药补满。
+func equip_weapon(index: int, weapon: Weapon) -> void:
+	weapons[index] = weapon
+	_slots[index].equip(weapon)
+	if index == current_weapon:
+		weapon_switched.emit(current_weapon, weapon)
+
+
+## 用当前武器朝 direction 开一次火（不看冷却；_handle_shoot 先检查过了，测试也直接调它）。
+## 所有武器都从同一套枪口出膛（见 _muzzle_position）。
 func _shoot(direction: Vector2) -> void:
-	_primary.fire(get_parent(), _muzzle_position(direction), direction, self)
+	current_slot().fire(get_parent(), _muzzle_position(direction), direction, self)
 
 
 ## 出膛点。水平和正上方还用 Visual 下的老 Marker（水平枪口趴下时跟着压低，是现有高度规则的一部分，第 4 步统一迁移）；

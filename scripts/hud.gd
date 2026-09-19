@@ -1,5 +1,5 @@
 extends CanvasLayer
-## 临时 HUD：左上角用小方块显示血量、下面一条体力条，死亡时显示提示。完整 HUD 留到第 5 步。
+## 临时 HUD：左上角用小方块显示血量、下面一条体力条、再下面一个色块表示当前武器，死亡时显示提示。完整 HUD 留到第 5 步。
 
 const PIP_SIZE := Vector2(6, 6)
 const PIP_FULL := Color(0.9, 0.25, 0.3)
@@ -15,6 +15,7 @@ var _player: Player
 @onready var _message: Label = $Message
 @onready var _stamina_bar: ColorRect = $StaminaBar
 @onready var _stamina_fill: ColorRect = $StaminaBar/Fill
+@onready var _weapon_icon: ColorRect = $WeaponIcon
 
 
 func _ready() -> void:
@@ -25,10 +26,12 @@ func _ready() -> void:
 	_player = player
 	player.health_changed.connect(_on_health_changed)
 	player.stamina_changed.connect(_on_stamina_changed)
+	player.weapon_switched.connect(_on_weapon_switched)
 	player.died.connect(_on_player_died)
 	# 直接读当前值，不依赖 Player._ready 里那次 emit 的先后顺序。
 	_on_health_changed(player.health, player.max_health)
 	_on_stamina_changed(player.stamina, player.max_stamina)
+	_on_weapon_switched(player.current_weapon, player.current_slot().weapon)
 
 
 func _on_health_changed(health: int, max_health: int) -> void:
@@ -46,6 +49,10 @@ func _on_stamina_changed(stamina: float, max_stamina: float) -> void:
 	var ratio := stamina / max_stamina if max_stamina > 0.0 else 0.0
 	_stamina_fill.size.x = roundf(_stamina_bar.size.x * ratio)
 	_stamina_fill.color = STAMINA_TIRED if _player.is_exhausted() else STAMINA_READY
+
+
+func _on_weapon_switched(_index: int, weapon: Weapon) -> void:
+	_weapon_icon.color = weapon.hud_color
 
 
 func _on_player_died() -> void:

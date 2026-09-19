@@ -3,7 +3,7 @@ extends GameTest
 ## 实测死区、全速移动、斜推不误触发趴下/瞄准等只有摇杆才有的行为。
 ##
 ## 按键约定（Xbox 布局，PS 手柄对应位置相同）：
-##   移动 左摇杆/十字键左右 · 跳跃 A · 开火 X 或 RT · 向上瞄准 左摇杆上/十字键上 · 向下瞄准 左摇杆下/十字键下
+##   移动 左摇杆/十字键左右 · 跳跃 A · 开火 RT · 切换武器 X · 向上瞄准 左摇杆上/十字键上 · 向下瞄准 左摇杆下/十字键下
 ##   · 趴下 LT · 奔跑 LB
 
 const OPEN_X := 200.0
@@ -67,7 +67,9 @@ func test_gamepad_layout() -> void:
 	check("move left: left stick / d-pad left", has_axis("move_left", JOY_AXIS_LEFT_X, false) and has_button("move_left", JOY_BUTTON_DPAD_LEFT))
 	check("move right: left stick / d-pad right", has_axis("move_right", JOY_AXIS_LEFT_X, true) and has_button("move_right", JOY_BUTTON_DPAD_RIGHT))
 	check("jump: A", has_button("jump", JOY_BUTTON_A))
-	check("shoot: X or RT", has_button("shoot", JOY_BUTTON_X) and has_axis("shoot", JOY_AXIS_TRIGGER_RIGHT, true))
+	check("shoot: RT", has_axis("shoot", JOY_AXIS_TRIGGER_RIGHT, true))
+	check("X is no longer a fire button", not has_button("shoot", JOY_BUTTON_X))
+	check("switch weapon: X", has_button("switch_weapon", JOY_BUTTON_X))
 	check("aim up: left stick up / d-pad up", has_axis("aim_up", JOY_AXIS_LEFT_Y, false) and has_button("aim_up", JOY_BUTTON_DPAD_UP))
 	check("aim down: left stick down / d-pad down", has_axis("aim_down", JOY_AXIS_LEFT_Y, true) and has_button("aim_down", JOY_BUTTON_DPAD_DOWN))
 	check("lie down: LT", has_axis("crouch", JOY_AXIS_TRIGGER_LEFT, true))
@@ -153,31 +155,39 @@ func test_running_with_a_slightly_diagonal_stick() -> void:
 	joy_neutral()
 
 
-func test_stick_up_and_x_shoots_straight_up() -> void:
+func test_stick_up_and_rt_shoots_straight_up() -> void:
 	await start()
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	joy_axis(JOY_AXIS_LEFT_Y, -0.8)
-	joy_button(JOY_BUTTON_X, true)
+	joy_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)
 	await frames(2)
 	var shots := bullets(4)
-	check("stick up + X fires one bullet", shots.size() == 1, str(shots.size()))
+	check("stick up + RT fires one bullet", shots.size() == 1, str(shots.size()))
 	check("straight up", shots.size() == 1 and shots[0].direction == Vector2.UP)
 	joy_neutral()
 
 
-func test_x_and_rt_both_fire_sideways() -> void:
+func test_rt_fires_sideways() -> void:
 	await start()
-	player._primary.cooldown_left = 0.0
-	joy_button(JOY_BUTTON_X, true)
-	await frames(2)
-	joy_button(JOY_BUTTON_X, false)
-	check("X fires sideways", bullets(4).size() == 1 and bullets(4)[0].direction == Vector2.RIGHT)
-	for b in bullets(4):
-		b.free()
-	await frames(15)
+	player.current_slot().cooldown_left = 0.0
 	joy_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)
 	await frames(2)
-	check("RT fires sideways too", bullets(4).size() == 1 and bullets(4)[0].direction == Vector2.RIGHT, str(bullets(4).size()))
+	check("RT fires sideways", bullets(4).size() == 1 and bullets(4)[0].direction == Vector2.RIGHT, str(bullets(4).size()))
+	joy_neutral()
+
+
+func test_x_switches_weapons() -> void:
+	await start()
+	check("starts with the rifle", player.current_weapon == 0)
+	joy_button(JOY_BUTTON_X, true)
+	await frames(2)
+	check("X switches to the next weapon", player.current_weapon == 1)
+	joy_button(JOY_BUTTON_X, false)
+	await frames(2)
+	joy_button(JOY_BUTTON_X, true)
+	await frames(2)
+	check("pressing X again cycles back", player.current_weapon == 0)
+	check("switching does not fire anything", bullets(4).is_empty())
 	joy_neutral()
 
 
@@ -195,14 +205,14 @@ func test_prone_shooting_rules_on_the_gamepad() -> void:
 	await start()
 	joy_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)
 	await frames(5)
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	# 按住 LT 趴下再推摇杆：趴着爬行，不能开枪。
 	joy_axis(JOY_AXIS_LEFT_X, 0.9)
-	joy_button(JOY_BUTTON_X, true)
+	joy_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)
 	await frames(20)
-	check("crawling with the stick: X does not fire", player.is_crouching and bullets(4).is_empty(), str(bullets(4).size()))
+	check("crawling with the stick: RT does not fire", player.is_crouching and bullets(4).is_empty(), str(bullets(4).size()))
 	# 摇杆回中：趴着不动，可以开枪。
 	joy_axis(JOY_AXIS_LEFT_X, 0.0)
 	await frames(5)
-	check("lying still: X fires", player.is_crouching and bullets(4).size() >= 1, str(bullets(4).size()))
+	check("lying still: RT fires", player.is_crouching and bullets(4).size() >= 1, str(bullets(4).size()))
 	joy_neutral()

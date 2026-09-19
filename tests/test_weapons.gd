@@ -35,11 +35,11 @@ func hold_fire(frame_count: int, fire_event := &"player_shoot") -> int:
 
 func test_the_default_gun_is_the_rifle_resource() -> void:
 	await start()
-	var rifle := player.primary_weapon
+	var rifle := player.weapons[0]
 	check("the primary weapon comes from weapons/rifle.tres", rifle != null and rifle.resource_path == "res://weapons/rifle.tres", rifle.resource_path if rifle else "none")
 	check("it fires ordinary bullets", rifle.projectile.resource_path == "res://scenes/bullet.tscn")
 	check("0.15s between shots, fully automatic", rifle.cooldown == 0.15 and rifle.automatic)
-	check("unlimited ammo", rifle.max_ammo == -1 and player._primary.ammo == -1)
+	check("unlimited ammo", rifle.max_ammo == -1 and player.current_slot().ammo == -1)
 	check("reports player_shoot", rifle.fire_event == &"player_shoot")
 
 
@@ -47,7 +47,7 @@ func test_fire_rate_comes_from_the_weapon() -> void:
 	await start()
 	var rifle_shots := await hold_fire(60)
 	await frames(80)
-	player.equip_primary(make_weapon(0.5))
+	player.equip_weapon(0, make_weapon(0.5))
 	var slow_shots := await hold_fire(60)
 	check("the rifle fires ~7 times a second", rifle_shots >= 6 and rifle_shots <= 8, str(rifle_shots))
 	check("a 0.5s weapon fires 2-3 times a second", slow_shots >= 2 and slow_shots <= 3, str(slow_shots))
@@ -55,7 +55,7 @@ func test_fire_rate_comes_from_the_weapon() -> void:
 
 func test_semi_automatic_weapons_need_a_press_per_shot() -> void:
 	await start()
-	player.equip_primary(make_weapon(0.05, false))
+	player.equip_weapon(0, make_weapon(0.05, false))
 	var held := await hold_fire(60)
 	check("holding fire shoots once", held == 1, str(held))
 	await frames(5)
@@ -70,30 +70,30 @@ func test_limited_ammo_runs_out() -> void:
 	await start()
 	var weapon := make_weapon(0.1, true, 2)
 	var changes := []
-	player._primary.ammo_changed.connect(func(ammo: int, max_ammo: int): changes.append([ammo, max_ammo]))
-	player.equip_primary(weapon)
+	player.current_slot().ammo_changed.connect(func(ammo: int, max_ammo: int): changes.append([ammo, max_ammo]))
+	player.equip_weapon(0, weapon)
 	var shots := await hold_fire(60)
 	check("a 2-round weapon fires exactly twice", shots == 2, str(shots))
-	check("ammo is empty", player._primary.ammo == 0 and not player._primary.is_ready())
+	check("ammo is empty", player.current_slot().ammo == 0 and not player.current_slot().is_ready())
 	check("ammo_changed tracks it: full, then 1, then 0", changes == [[2, 2], [1, 2], [0, 2]], str(changes))
-	player.equip_primary(weapon)
-	check("equipping again refills it", player._primary.ammo == 2 and player._primary.is_ready())
+	player.equip_weapon(0, weapon)
+	check("equipping again refills it", player.current_slot().ammo == 2 and player.current_slot().is_ready())
 
 
 func test_the_fire_event_comes_from_the_weapon() -> void:
 	await start()
-	player.equip_primary(make_weapon(0.15, true, -1, &"custom_fire"))
+	player.equip_weapon(0, make_weapon(0.15, true, -1, &"custom_fire"))
 	await hold_fire(3)
 	check("the weapon's own event is reported", events.has(&"custom_fire") and not events.has(&"player_shoot"), str(events))
 
 
 func test_aiming_still_applies_to_any_weapon() -> void:
 	await start()
-	player.equip_primary(make_weapon(0.3))
+	player.equip_weapon(0, make_weapon(0.3))
 	Input.action_press("aim_up")
 	Input.action_press("move_right")
 	await frames(2)
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	Input.action_press("shoot")
 	await frames(1)
 	Input.action_release("shoot")

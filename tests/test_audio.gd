@@ -59,7 +59,7 @@ func test_every_sound_file_is_used() -> void:
 		else:
 			used[stream.resource_path] = true
 	var files := Array(DirAccess.get_files_at(DEFAULT_SKIN_DIR + "sfx")).filter(func(f): return f.ends_with(".wav")).map(func(f): return DEFAULT_SKIN_DIR + "sfx/" + f)
-	check("16 sound files in the default skin", files.size() == 16, str(files.size()))
+	check("20 sound files in the default skin", files.size() == 20, str(files.size()))
 	for f in files:
 		check("%s is used by the skin" % f.get_file(), used.has(f))
 	check("the skin references no missing files", used.keys().all(func(p): return FileAccess.file_exists(p)))
@@ -77,7 +77,7 @@ func test_player_events() -> void:
 	await frames(3)
 	Input.action_release("jump")
 	await frames(60)
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	Input.action_press("shoot") # 贴着左墙往左打
 	await frames(2)
 	Input.action_release("shoot")
@@ -120,7 +120,7 @@ func test_enemy_hit_and_death() -> void:
 	await frames(5)
 	for i in 2:
 		player._invincible_timer = 1000.0
-		player._primary.cooldown_left = 0.0
+		player.current_slot().cooldown_left = 0.0
 		player._shoot(Vector2.RIGHT)
 		await frames(20)
 	expect_events([&"enemy_hit", &"enemy_death"], "shooting a 2-health walker twice")
@@ -198,6 +198,19 @@ func test_chaser_alert() -> void:
 		await tree.physics_frame
 	expect_events([&"chaser_alert"], "D spotting the player")
 	check("the alert sounds once, not every frame", events.count(&"chaser_alert") == 1, str(events.count(&"chaser_alert")))
+
+
+func test_grenade_events() -> void:
+	await reset_scene()
+	player.global_position = Vector2(100, 152)
+	await frames(10)
+	player.switch_weapon()
+	player.current_slot().cooldown_left = 0.0
+	Input.action_press("shoot")
+	await frames(1)
+	Input.action_release("shoot")
+	await frames(90)
+	expect_events([&"weapon_switch", &"grenade_throw", &"grenade_bounce", &"explosion"], "switching to grenades and throwing one")
 
 
 # ---------------------------------------------------------------- 播放器与素材包

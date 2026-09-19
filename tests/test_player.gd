@@ -100,7 +100,7 @@ func test_shooting() -> void:
 	player.velocity = Vector2.ZERO
 	await frames(20)
 
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	Input.action_press("shoot")
 	await frames(1)
 	Input.action_release("shoot")
@@ -121,7 +121,7 @@ func test_auto_fire_is_rate_limited() -> void:
 	player.velocity = Vector2.ZERO
 	await frames(20)
 
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	Input.action_press("shoot")
 	await frames(30) # 0.5 秒，射速 0.15 秒一发 → 3~4 发
 	Input.action_release("shoot")
@@ -134,7 +134,7 @@ func test_bullets_despawn() -> void:
 	player.global_position = Vector2(200, 152)
 	player.velocity = Vector2.ZERO
 	await frames(20)
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	player._shoot(Vector2(player.facing, 0))
 	await frames(90) # 存活时间 1.2 秒 = 72 帧
 	check("bullet disappears after its lifetime", bullets(4).size() == 0, str(bullets(4).size()))
@@ -145,7 +145,7 @@ func test_bullets_despawn() -> void:
 	player.facing = -1
 	player._visual.scale.x = -1
 	await frames(5)
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	player._shoot(Vector2(player.facing, 0))
 	await frames(20) # 0.33 秒，按速度本该飞 86px，但墙只有 20px 远
 	check("bullet is destroyed by a wall well before its lifetime", bullets(4).size() == 0, str(bullets(4).size()))
@@ -178,7 +178,7 @@ func test_shooting_straight_up() -> void:
 	player.velocity = Vector2.ZERO
 	await frames(20)
 
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	Input.action_press("aim_up")
 	Input.action_press("shoot")
 	await frames(1)
@@ -202,7 +202,7 @@ func test_holding_aim_and_fire_auto_fires_upward() -> void:
 	player.velocity = Vector2.ZERO
 	await frames(20)
 
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	var directions := {}
 	var spawned := {}
 	Input.action_press("aim_up")
@@ -239,7 +239,7 @@ func test_shooting_up_passes_one_way_platforms() -> void:
 	await frames(5)
 	var deaths := []
 	turret.died.connect(func(): deaths.append(true))
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	Input.action_press("aim_up")
 	Input.action_press("shoot")
 	for i in 150: # 炮台 6 血，射速 0.15 秒一发，再加上子弹飞行时间
@@ -254,7 +254,7 @@ func test_solid_ceiling_still_stops_upward_shots() -> void:
 	await reset_scene()
 	# 单向平台放行，实心方块照样要挡住。CrawlBlock（x 296..352，y 120..148）是实心的，
 	# 直接在它正下方的缝里生成一颗向上的子弹。
-	var bullet: Bullet = player.primary_weapon.projectile.instantiate()
+	var bullet: Bullet = player.weapons[0].projectile.instantiate()
 	bullet.direction = Vector2.UP
 	main.add_child(bullet)
 	bullet.global_position = Vector2(324, 156)

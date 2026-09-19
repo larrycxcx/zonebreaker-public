@@ -4,7 +4,7 @@ extends SceneTree
 ##   & $godot --headless --path . --script res://tests/run_tests.gd
 ##   & $godot --headless --path . --script res://tests/run_tests.gd -- crouch
 ##
-## 加 `-- <名字>`（player / enemies / enemy_types / enemy_aim / chaser / flyer / crouch / sprint / walls / gamepad / aiming / weapons / audio）只跑指定的一组，不加就全跑。全部通过退出码为 0，有失败为 1。
+## 加 `-- <名字>`（player / enemies / enemy_types / enemy_aim / chaser / flyer / crouch / sprint / walls / gamepad / aiming / weapons / grenade / audio）只跑指定的一组，不加就全跑。全部通过退出码为 0，有失败为 1。
 
 const SUITES := {
 	"player": "res://tests/test_player.gd",
@@ -19,6 +19,7 @@ const SUITES := {
 	"gamepad": "res://tests/test_gamepad.gd",
 	"aiming": "res://tests/test_aiming.gd",
 	"weapons": "res://tests/test_weapons.gd",
+	"grenade": "res://tests/test_grenade.gd",
 	"audio": "res://tests/test_audio.gd",
 }
 

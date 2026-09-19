@@ -194,7 +194,7 @@ func test_turret_takes_six_hits() -> void:
 	turret.died.connect(func(): deaths.append(true))
 	for i in 6:
 		player._invincible_timer = 1000.0
-		player._primary.cooldown_left = 0.0
+		player.current_slot().cooldown_left = 0.0
 		player._shoot(Vector2.RIGHT)
 		await frames(20)
 		if i == 4:

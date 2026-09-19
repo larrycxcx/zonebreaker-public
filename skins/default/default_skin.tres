@@ -15,6 +15,10 @@
 [ext_resource type="AudioStream" path="res://skins/default/sfx/chaser_alert.wav" id="chaser_alert"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/bullet_impact.wav" id="bullet_impact"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/game_over.wav" id="game_over"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/grenade_throw.wav" id="grenade_throw"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/grenade_bounce.wav" id="grenade_bounce"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/explosion.wav" id="explosion"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/weapon_switch.wav" id="weapon_switch"]
 
 [resource]
 script = ExtResource("script")
@@ -33,5 +37,9 @@ sounds = Dictionary[StringName, AudioStream]({
 &"enemy_prone": ExtResource("enemy_prone"),
 &"chaser_alert": ExtResource("chaser_alert"),
 &"bullet_impact": ExtResource("bullet_impact"),
-&"game_over": ExtResource("game_over")
+&"game_over": ExtResource("game_over"),
+&"grenade_throw": ExtResource("grenade_throw"),
+&"grenade_bounce": ExtResource("grenade_bounce"),
+&"explosion": ExtResource("explosion"),
+&"weapon_switch": ExtResource("weapon_switch")
 })

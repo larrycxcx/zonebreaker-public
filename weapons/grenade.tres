@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="Weapon" format=3]
+
+[ext_resource type="Script" path="res://scripts/weapons/weapon.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/grenade.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+display_name = "手雷"
+projectile = ExtResource("2")
+cooldown = 0.5
+automatic = false
+max_ammo = -1
+fire_event = &"grenade_throw"
+hud_color = Color(0.45, 0.65, 0.3, 1)

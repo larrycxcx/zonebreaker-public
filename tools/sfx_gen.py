@@ -189,6 +189,25 @@ SOUNDS = {
     "flyer_shoot": ("E 往下开火：从高处往下落的音调", [
         voice("triangle", freq=1500, freq_end=380, duration=0.2, vibrato_depth=0.06, vibrato_speed=30, crush=2),
     ], 0.55),
+    # ---- 手雷 ----
+    "grenade_throw": ("扔出手雷：短促的「嗖」", [
+        voice("noise", freq=900, freq_end=3500, duration=0.14, attack=0.03, volume=0.7, seed=12),
+        voice("triangle", freq=300, freq_end=520, duration=0.08, crush=2, volume=0.5),
+    ], 0.4),
+    "grenade_bounce": ("手雷落地弹一下：清脆的「叮」", [
+        voice("triangle", freq=1100, freq_end=800, duration=0.06, crush=2),
+        voice("noise", freq=6000, duration=0.02, volume=0.4, seed=13),
+    ], 0.45),
+    "explosion": ("手雷爆炸：比敌人死亡更大、更长", [
+        voice("noise", freq=1600, freq_end=90, duration=0.65, seed=14),
+        voice("square", freq=220, freq_end=40, duration=0.5, duty=0.5, volume=0.6),
+        voice("noise", freq=5000, freq_end=1500, duration=0.08, volume=0.6, seed=15),
+    ], 0.85),
+    "weapon_switch": ("切换武器：短促的「咔哒」", [
+        voice("square", freq=1400, freq_end=1800, duration=0.035, duty=0.25),
+        voice("square", freq=900, duration=0.04, duty=0.25, offset=0.045),
+        voice("noise", freq=7000, duration=0.015, volume=0.5, seed=16),
+    ], 0.4),
     "stamina_exhausted": ("体力耗尽：两声往下的「累了」", [
         voice("triangle", freq=NOTE["E5"], duration=0.1, crush=2),
         voice("triangle", freq=NOTE["A4"], duration=0.16, offset=0.11, crush=2),

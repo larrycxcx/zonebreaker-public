@@ -93,7 +93,7 @@ func test_walls_stop_player_bullets() -> void:
 	player.facing = 1
 	player._visual.scale.x = 1
 	await frames(3)
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	player._shoot(Vector2.RIGHT)
 	var passed := false
 	for i in 30:

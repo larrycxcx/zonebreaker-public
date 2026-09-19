@@ -25,6 +25,10 @@ const SOUND_EVENTS := {
 	&"chaser_alert": "D 发现玩家、开始冲锋",
 	&"bullet_impact": "任何子弹撞到墙、地面、矮通道等实心物体",
 	&"game_over": "玩家死亡后出现 GAME OVER",
+	&"grenade_throw": "玩家扔出一颗手雷",
+	&"grenade_bounce": "手雷撞到地面或墙弹起来",
+	&"explosion": "手雷爆炸",
+	&"weapon_switch": "玩家切换武器",
 }
 
 ## 在编辑器里显示的名字。

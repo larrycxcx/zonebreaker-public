@@ -149,7 +149,7 @@ func test_prone_shooting_rules() -> void:
 	await frames(5)
 
 	# 趴着爬行：不能开枪。
-	player._primary.cooldown_left = 0.0
+	player.current_slot().cooldown_left = 0.0
 	Input.action_press("move_right")
 	Input.action_press("shoot")
 	await frames(30)

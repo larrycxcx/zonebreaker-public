@@ -14,3 +14,5 @@ extends Resource
 @export var max_ammo := -1
 ## 发射时报告的事件名，素材包按它找声音（见 SkinPack.SOUND_EVENTS）。
 @export var fire_event := &"player_shoot"
+## HUD 上表示这把武器的小色块（占位美术，第 4 步换成图标）。
+@export var hud_color := Color(0.7, 0.7, 0.75)

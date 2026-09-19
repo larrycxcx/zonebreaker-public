@@ -45,8 +45,6 @@ signal shot_fired
 
 ## 趴下后的碰撞体高度，和玩家一样。站着开的枪会从头顶飞过去。
 const PRONE_HEIGHT := 4.0
-## 物理层 1（world）：地面、平台、墙。
-const WORLD_LAYER := 1
 ## 玩家所在方向偏离水平线的角度在这个区间里才斜着打（子弹固定走 45°）；更平的算水平、更陡的不打。
 const DIAGONAL_MIN_ANGLE := 22.5
 const DIAGONAL_MAX_ANGLE := 67.5
@@ -178,23 +176,9 @@ func _show_aim() -> void:
 			gun.rotation = 0.0
 
 
-## 从枪口到 `point` 之间有没有实心障碍（墙、地面、矮通道）挡着。
-## 单向平台不挡视线——子弹能穿过去，视线也一样，规则保持一致。
+## 从枪口到 `point` 之间有没有实心障碍（墙、地面、矮通道）挡着；单向平台不挡。规则见 Sight。
 func has_line_of_sight(point: Vector2) -> bool:
-	var space := get_world_2d().direct_space_state
-	var query := PhysicsRayQueryParameters2D.create(_sight_origin(), point, WORLD_LAYER)
-	var ignored: Array[RID] = []
-	# 一条射线最多穿过几块单向平台，给个上限防止意外死循环。
-	for i in 8:
-		query.exclude = ignored
-		var hit := space.intersect_ray(query)
-		if hit.is_empty():
-			return true
-		var platform := hit["collider"] as Platform
-		if platform == null or not platform.one_way:
-			return false
-		ignored.append(hit["rid"])
-	return false
+	return Sight.is_clear(get_world_2d().direct_space_state, _sight_origin(), point)
 
 
 ## 视线从哪里发出：有枪口就是枪口（看得见才打得着），没有就是身体中心。
