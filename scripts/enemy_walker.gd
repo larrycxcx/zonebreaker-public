@@ -35,7 +35,15 @@ func _physics_process(delta: float) -> void:
 ## 巡逻时脚下没路（悬空）或前方被挡住就该掉头。
 ## is_on_wall() 是必要的补充：矮天花板挡住的是身体上半部分，WallCheck 那条射线打不到。
 func _should_turn_around() -> bool:
-	return is_on_floor() and (not _floor_check.is_colliding() or _wall_check.is_colliding() or is_on_wall())
+	return is_on_floor() and (not _floor_check.is_colliding() or _wall_ahead() or is_on_wall())
+
+
+## 正前方有没有挡路的东西。单向平台的侧面不算：横着本来就能穿过去（玩家也一样）。
+func _wall_ahead() -> bool:
+	if not _wall_check.is_colliding():
+		return false
+	var platform := _wall_check.get_collider() as Platform
+	return platform == null or not platform.one_way
 
 
 ## 只打正前方的玩家：背后的够不着也不回头。

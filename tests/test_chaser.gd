@@ -1,5 +1,5 @@
 extends GameTest
-## 敌人 D（冲锋型）：不开枪不趴下、巡逻用普通速度、150px 内看见玩家就用 1.7 倍速冲过去、
+## 敌人 D（冲锋型）：不开枪不趴下、巡逻用普通速度、150px 内看见玩家就用 135 的冲锋速度（和玩家奔跑一样快）冲过去、
 ## 靠碰撞伤人、能跳墙跳平台、墙挡视线、追丢后会放弃。
 
 const GROUND_ENEMY_Y := 153.0
@@ -23,9 +23,10 @@ func _setup_chaser(x: float, facing: int, keep_walls := false) -> EnemyChaser:
 ## 追击中每帧结束时，D 都应该面朝它正在追的位置（画面就是在这之后画的）。
 ## 光看「最后追没追到」不够：如果追击时也按巡逻规则在悬崖/墙前掉头，
 ## 它下一帧会重新转回来、照样追到，但画面上会看到它背对着玩家冲过来。
+## 例外：玩家在正下方、它正走向平台边缘准备下去的时候（_drop_direction != 0），朝向由那个方向决定。
 func _facing_wrong_way(d: EnemyChaser) -> bool:
 	var offset_x := d._last_seen.x - d.global_position.x
-	return d.is_chasing and absf(offset_x) > 4.0 and d.facing != signi(offset_x)
+	return d.is_chasing and d._drop_direction == 0 and absf(offset_x) > 4.0 and d.facing != signi(offset_x)
 
 
 func _put_player(x: float, y := 152.0) -> void:
@@ -42,7 +43,7 @@ func test_d_is_configured() -> void:
 	check("D has no gun", d.bullet_scene == null and d.get_node_or_null("Visual/Muzzle") == null)
 	check("D never goes prone", not d.can_go_prone)
 	check("D patrols at the normal enemy speed", d.move_speed == walker.move_speed, "%.1f vs %.1f" % [d.move_speed, walker.move_speed])
-	check("D charges 70% faster", is_equal_approx(d.charge_speed_scale, 1.7))
+	check("D charges at 135, as fast as the player sprints", d.charge_speed == 135.0 and is_equal_approx(d.charge_speed, player.move_speed * player.sprint_speed_scale), "%.1f" % d.charge_speed)
 	check("D notices the player within 150px", d.detect_range == 150.0)
 	check("D jumps like the player", d.jump_velocity == player.jump_velocity)
 
@@ -59,7 +60,7 @@ func test_d_charges_when_it_sees_the_player() -> void:
 	_put_player(150.0)
 	await frames(5)
 	check("D starts chasing", d.is_chasing)
-	check("D charges at 1.7x its patrol speed", is_equal_approx(d.velocity.x, -d.move_speed * 1.7), "%.1f" % d.velocity.x)
+	check("D charges at 135", is_equal_approx(d.velocity.x, -135.0), "%.1f" % d.velocity.x)
 
 
 func test_d_turns_around_for_a_player_behind_it() -> void:
@@ -175,6 +176,7 @@ func test_d_charges_off_its_platform() -> void:
 			reached_ground = true
 			break
 	check("D drops off its platform to chase the player", reached_ground, "D at %s" % d.global_position)
+	check("D lands near the player instead of overshooting", absf(d.global_position.x - player.global_position.x) < 50.0, "D at x=%.1f, player at x=%.1f" % [d.global_position.x, player.global_position.x])
 	check("D does not turn away at the platform edge", wrong_way_frames == 0, "%d frames facing away" % wrong_way_frames)
 
 
@@ -193,3 +195,48 @@ func test_d_gives_up_after_losing_the_player() -> void:
 	check("D gives up within its 2s memory", gave_up_at >= 0 and gave_up_at <= 125, "after %d frames" % gave_up_at)
 	await frames(10)
 	check("and goes back to patrol speed", is_equal_approx(absf(d.velocity.x), d.move_speed), "%.1f" % absf(d.velocity.x))
+
+
+func test_d_gets_down_when_the_player_is_right_below() -> void:
+	# D 站在 Platform1（单向，x 80..128，顶面 y=128）正中间，玩家就在它正下方的地面上。
+	# 单向平台不挡视线，D 一直看得见玩家；它必须自己走下平台，而不是停在头顶干等。
+	await reset_scene(true)
+	keep_only_enemies(["ChaserD"])
+	var d: EnemyChaser = main.get_node("Enemies/ChaserD")
+	d.global_position = Vector2(104, 121)
+	d.velocity = Vector2.ZERO
+	_put_player(104.0)
+	var reached_ground_at := -1
+	var hurt := false
+	for i in 180:
+		await tree.physics_frame
+		if reached_ground_at < 0 and d.is_on_floor() and d.global_position.y > 150.0:
+			reached_ground_at = i
+		hurt = hurt or player.health < player.max_health
+		if hurt:
+			break
+	check("D walks off the platform to get to the player below", reached_ground_at >= 0, "D at %s" % d.global_position)
+	check("and then reaches the player", hurt)
+	check("it lands close to the player", absf(d.global_position.x - 104.0) < 30.0, "x=%.1f" % d.global_position.x)
+
+
+func test_one_way_platform_sides_do_not_make_d_jump() -> void:
+	# D 站在 Wall2 顶上（x 400..408，顶面 y=132），正前方是 Platform5（单向，x 420..468，y 124..132）的侧面，
+	# 高度正好对着它的前方检测射线。单向平台横着能穿过去，D 应该直接走过去追玩家，而不是当成墙起跳。
+	await reset_scene(true, true)
+	keep_only_enemies(["ChaserD"])
+	var d: EnemyChaser = main.get_node("Enemies/ChaserD")
+	d.global_position = Vector2(404, 125)
+	d.velocity = Vector2.ZERO
+	d.facing = 1
+	d._apply_facing()
+	_put_player(480.0)
+	var ever_rose := false
+	for i in 90:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		ever_rose = ever_rose or d.velocity.y < 0.0
+		if d.is_on_floor() and d.global_position.y > 150.0:
+			break
+	check("D does not jump at the side of a one-way platform", not ever_rose)
+	check("D gets down to the player", d.global_position.y > 150.0, "D at %s" % d.global_position)
