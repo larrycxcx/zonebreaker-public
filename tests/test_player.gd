@@ -165,10 +165,11 @@ func test_w_aims_instead_of_jumping() -> void:
 	await frames(2)
 	check("gun goes back down after releasing W", player._gun.visible and not player._gun_up.visible)
 
-	var jump_keys := InputMap.action_get_events("jump").map(func(e): return (e as InputEventKey).physical_keycode)
-	check("jump is bound to Space and Up only", jump_keys.size() == 2 and jump_keys.has(KEY_SPACE) and jump_keys.has(KEY_UP), str(jump_keys))
-	var aim_keys := InputMap.action_get_events("aim_up").map(func(e): return (e as InputEventKey).physical_keycode)
-	check("aim_up is bound to W", aim_keys == [KEY_W], str(aim_keys))
+	# 只看键盘绑定；手柄绑定在 test_gamepad.gd 里查。
+	var jump_keys := keyboard_keys("jump")
+	check("on the keyboard, jump is Space and Up only", jump_keys.size() == 2 and jump_keys.has(KEY_SPACE) and jump_keys.has(KEY_UP), str(jump_keys))
+	var aim_keys := keyboard_keys("aim_up")
+	check("on the keyboard, aim_up is W", aim_keys == [KEY_W], str(aim_keys))
 
 
 func test_shooting_straight_up() -> void:

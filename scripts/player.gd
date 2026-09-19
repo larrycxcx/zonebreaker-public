@@ -147,7 +147,8 @@ func _handle_jump(delta: float) -> void:
 
 
 func _handle_horizontal(delta: float) -> void:
-	var direction := Input.get_axis("move_left", "move_right")
+	# 手柄摇杆推过死区（0.3）就按全速走，不按推的幅度调速——像素风横版的习惯；键盘本来就只有 0 和 1。
+	var direction := signf(Input.get_axis("move_left", "move_right"))
 	_update_sprint(delta, direction)
 	var control := 1.0 if is_on_floor() else air_control
 	var speed := move_speed * _speed_scale()

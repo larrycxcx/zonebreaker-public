@@ -71,6 +71,15 @@ func free_scene() -> void:
 	player = null
 
 
+## 某个动作绑定的键盘按键（physical_keycode），忽略手柄绑定。
+func keyboard_keys(action: StringName) -> Array:
+	var keys := []
+	for event in InputMap.action_get_events(action):
+		if event is InputEventKey:
+			keys.append((event as InputEventKey).physical_keycode)
+	return keys
+
+
 ## 按碰撞层收集场上还活着的子弹（4 = 玩家子弹，16 = 敌人子弹）。
 ## 子弹命中后立刻消失，所以判断「有没有开火」要逐帧采样，不能事后再数。
 func bullets(layer: int, node: Node = null) -> Array:
