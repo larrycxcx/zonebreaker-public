@@ -5,6 +5,7 @@
 [node name="EnemyWalkerB" instance=ExtResource("1")]
 burst_min = 2
 burst_max = 3
+can_aim_diagonally = true
 
 [node name="Body" parent="Visual" index="0"]
 color = Color(0.95, 0.55, 0.2, 1)

@@ -5,6 +5,7 @@
 [node name="EnemyWalkerC" instance=ExtResource("1")]
 detect_range = 200.0
 can_go_prone = true
+can_aim_diagonally = true
 
 [node name="Body" parent="Visual" index="0"]
 color = Color(0.6, 0.15, 0.25, 1)

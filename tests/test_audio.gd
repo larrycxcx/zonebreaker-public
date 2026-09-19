@@ -141,20 +141,35 @@ func test_walker_shot() -> void:
 	check("walkers do not use the turret or flyer sound", not events.has(&"turret_shoot") and not events.has(&"flyer_shoot"))
 
 
-func test_turret_shot_and_prone() -> void:
+func test_turret_shot() -> void:
 	await reset_scene(true)
 	var turret: EnemyTurret = _only("Turret1")
 	turret.global_position = Vector2(500, 153)
+	player.global_position = Vector2(430, 152)
+	for i in 30:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+	expect_events([&"turret_shoot"], "a turret firing")
+	check("the turret does not use the walker sound", not events.has(&"enemy_shoot"))
+
+
+func test_enemy_prone_event() -> void:
+	# 只有 C 会跟着玩家趴下（炮台不会）。
+	await reset_scene(true)
+	var c: EnemyWalker = _only("WalkerC")
+	c.global_position = Vector2(500, 153)
+	c.move_speed = 0.0
+	c.facing = -1
+	c._apply_facing()
 	player.global_position = Vector2(430, 152)
 	Input.action_press("crouch")
 	for i in 60:
 		player._invincible_timer = 1000.0
 		await tree.physics_frame
-	expect_events([&"turret_shoot", &"enemy_prone"], "a turret firing at a player who lies down")
+	expect_events([&"enemy_prone"], "C lying down with the player")
 	check("enemy_prone is reported once, not every frame", events.count(&"enemy_prone") == 1, str(events.count(&"enemy_prone")))
-	check("the turret does not use the walker sound", not events.has(&"enemy_shoot"))
 	# set_prone() 是公开方法：对已经趴着的敌人再调一次，不能再报告一遍。
-	turret.set_prone(true)
+	c.set_prone(true)
 	check("set_prone on an already prone enemy does not report again", events.count(&"enemy_prone") == 1, str(events.count(&"enemy_prone")))
 
 

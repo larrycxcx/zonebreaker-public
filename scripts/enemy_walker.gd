@@ -3,6 +3,7 @@ extends Enemy
 ## 巡逻敌人：左右走，撞墙或走到平台边缘时掉头，碰到玩家造成伤害，
 ## 并且会朝自己正前方开火（不会回头瞄准，转向完全由巡逻决定）。
 ## 正前方的玩家趴下时，它会停下来趴着开枪，玩家站起来后它也站起来继续巡逻。
+## 能斜射的（B、C）遇到正前方斜上/斜下的玩家时停下来瞄准开火，玩家回到水平方向或离开后继续巡逻。
 
 @export var move_speed := 30.0
 @export_enum("左:-1", "右:1") var start_direction := -1
@@ -19,17 +20,20 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_apply_gravity(delta)
-	# 趴下时停在原地开枪。
-	velocity.x = 0.0 if is_prone else move_speed * facing
+	# 趴下、斜向瞄准时都站在原地开枪。
+	var standing_still := is_prone or is_aiming_diagonally()
+	velocity.x = 0.0 if standing_still else move_speed * facing
 	move_and_slide()
 
-	if not is_prone and _should_turn_around():
+	if not standing_still and _should_turn_around():
 		facing = -facing
 		_apply_facing()
 
 	var target := _target_in_front()
-	update_prone(delta, target)
-	try_shoot(delta, target)
+	var ready := update_aim(delta, target)
+	# 只在玩家和自己差不多高时才跟着趴下；斜着往下打的时候保持站立。
+	update_prone(delta, target if not is_aiming_diagonally() else null)
+	try_shoot(delta, ready)
 
 
 ## 巡逻时脚下没路（悬空）或前方被挡住就该掉头。

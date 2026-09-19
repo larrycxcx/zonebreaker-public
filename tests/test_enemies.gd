@@ -257,33 +257,40 @@ func _place_enemy(enemy: Enemy, pos: Vector2) -> void:
 		(enemy as EnemyWalker)._apply_facing()
 
 
-func test_turret_goes_prone_when_the_player_does() -> void:
+## 把 C 摆在 x=500 朝左站定（不巡逻），玩家在它正前方 70px。
+func _setup_c_facing_player() -> EnemyWalker:
 	await reset_scene(true)
-	keep_only_enemies(["Turret1"])
-	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
+	keep_only_enemies(["WalkerC"])
+	var c: EnemyWalker = main.get_node("Enemies/WalkerC")
 	await frames(10)
-	_place_enemy(turret, Vector2(500, 153))
+	_place_enemy(c, Vector2(500, 153))
+	c.move_speed = 0.0
 	player.global_position = Vector2(430, 152)
 	player.velocity = Vector2.ZERO
 	await frames(10)
-	check("turret stands while the player stands", not turret.is_prone)
+	return c
+
+
+func test_c_goes_prone_when_the_player_does() -> void:
+	var c := await _setup_c_facing_player()
+	check("C stands while the player stands", not c.is_prone)
 
 	Input.action_press("crouch")
 	await frames(15) # 0.25 秒，还在 0.4 秒的反应时间内
-	check("turret waits a moment before going prone", not turret.is_prone)
+	check("C waits a moment before going prone", not c.is_prone)
 	await frames(15)
-	check("turret goes prone after the reaction time", turret.is_prone)
-	var shape_height := (turret._shape.shape as RectangleShape2D).size.y
-	check("prone turret is as low as a prone player", shape_height == Enemy.PRONE_HEIGHT, str(shape_height))
-	check("prone turret keeps its feet on the ground", turret.is_on_floor(), str(turret.global_position))
-	check("prone muzzle drops to skim the ground", turret._muzzle.global_position.y > 156.0 and turret._muzzle.global_position.y < 159.0, "y=%.1f" % turret._muzzle.global_position.y)
+	check("C goes prone after the reaction time", c.is_prone)
+	var shape_height := (c._shape.shape as RectangleShape2D).size.y
+	check("prone C is as low as a prone player", shape_height == Enemy.PRONE_HEIGHT, str(shape_height))
+	check("prone C keeps its feet on the ground", c.is_on_floor(), str(c.global_position))
+	check("prone muzzle drops to skim the ground", c._muzzle.global_position.y > 156.0 and c._muzzle.global_position.y < 159.0, "y=%.1f" % c._muzzle.global_position.y)
 
 	Input.action_release("crouch")
 	await frames(2)
-	check("turret stands up as soon as the player does", not turret.is_prone and (turret._shape.shape as RectangleShape2D).size.y == 14.0)
+	check("C stands up as soon as the player does", not c.is_prone and (c._shape.shape as RectangleShape2D).size.y == 14.0)
 
 
-func test_prone_enemy_hits_a_prone_player() -> void:
+func test_turret_never_lies_down() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["Turret1"])
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
@@ -291,14 +298,30 @@ func test_prone_enemy_hits_a_prone_player() -> void:
 	_place_enemy(turret, Vector2(500, 153))
 	player.global_position = Vector2(430, 152)
 	player.velocity = Vector2.ZERO
+	check("turrets cannot go prone", not turret.can_go_prone)
+	var shots := [0]
+	turret.shot_fired.connect(func(): shots[0] += 1)
 	Input.action_press("crouch")
-	# 第一发在炮台趴下之前打出，从头顶飞过；之后炮台趴下，下一发贴地打过来。
+	var ever_prone := false
 	for i in 150:
+		await tree.physics_frame
+		ever_prone = ever_prone or turret.is_prone
+	check("a turret stays upright when the player lies down", not ever_prone)
+	# 于是在同一高度趴下能完全躲开炮台：它站着水平开的枪从趴着的玩家头顶飞过。
+	check("the turret keeps firing", shots[0] >= 2, str(shots[0]))
+	check("and every shot flies over the prone player", player.health == player.max_health, str(player.health))
+
+
+func test_prone_enemy_hits_a_prone_player() -> void:
+	var c := await _setup_c_facing_player()
+	Input.action_press("crouch")
+	# 第一发在 C 趴下之前打出，从头顶飞过；之后 C 趴下，下一发贴地打过来。
+	for i in 180:
 		await tree.physics_frame
 		if player.health < 3:
 			break
 	check("lying down no longer dodges a prone enemy", player.health < 3, str(player.health))
-	check("the hit came while both were prone", player.is_crouching and turret.is_prone)
+	check("the hit came while both were prone", player.is_crouching and c.is_prone)
 
 
 func test_type_c_stops_and_lies_down_to_shoot() -> void:
@@ -340,15 +363,10 @@ func test_type_c_ignores_a_prone_player_behind_it() -> void:
 
 
 func test_standing_shots_fly_over_a_prone_enemy() -> void:
-	await reset_scene(true)
-	keep_only_enemies(["Turret1"])
-	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
-	await frames(10)
-	_place_enemy(turret, Vector2(500, 153))
-	await frames(5)
+	var c := await _setup_c_facing_player()
 	# 玩家站着时敌人不会主动趴下，这里直接让它趴下并冻结 AI，只验证高度关系。
-	turret.set_prone(true)
-	turret.set_physics_process(false)
+	c.set_prone(true)
+	c.set_physics_process(false)
 	player.global_position = Vector2(440, 152)
 	player.velocity = Vector2.ZERO
 	player.facing = 1
@@ -357,7 +375,7 @@ func test_standing_shots_fly_over_a_prone_enemy() -> void:
 	player._fire_timer = 0.0
 	player._shoot(Vector2.RIGHT)
 	await frames(40)
-	check("a standing shot flies over a prone enemy", turret.health == turret.max_health, str(turret.health))
+	check("a standing shot flies over a prone enemy", c.health == c.max_health, str(c.health))
 
 	# 对照组：玩家也趴下（不动）开枪，就打得中。
 	Input.action_press("crouch")
@@ -367,7 +385,7 @@ func test_standing_shots_fly_over_a_prone_enemy() -> void:
 	await frames(2)
 	Input.action_release("shoot")
 	await frames(40)
-	check("a prone shot hits a prone enemy", is_instance_valid(turret) and turret.health < turret.max_health, str(turret.health) if is_instance_valid(turret) else "dead")
+	check("a prone shot hits a prone enemy", not is_instance_valid(c) or c.health < c.max_health, str(c.health) if is_instance_valid(c) else "dead")
 
 
 func test_player_invincibility_frames() -> void:

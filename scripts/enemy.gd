@@ -17,7 +17,7 @@ signal shot_fired
 @export var bullet_scene: PackedScene
 @export var fire_interval := 1.4
 @export var detect_range := 150.0
-## 和玩家的高度差在这个范围内才会开火（子弹只走水平方向）。
+## 和玩家的高度差在这个范围内就水平开火。
 @export var vertical_tolerance := 20.0
 ## 每次开火连发几颗，在 [burst_min, burst_max] 里随机取。都为 1 就是单发。
 ## fire_interval 从一轮连发的第一颗开始算。
@@ -27,6 +27,15 @@ signal shot_fired
 @export var burst_gap := 0.15
 ## 开枪时报告的事件名（素材包按它找声音）：巡逻兵 enemy_shoot，炮台 turret_shoot，E flyer_shoot。
 @export var shoot_event := &"enemy_shoot"
+
+@export_group("Diagonal")
+## 能不能站定斜上/斜下开枪（B、C、炮台）。玩家不在同一高度、而在斜上/斜下方向时，
+## 巡逻兵会停下脚步、炮台转向，瞄准 diagonal_aim_time 秒后朝 45° 开火；玩家回到水平方向就恢复原样。
+@export var can_aim_diagonally := false
+## 转到斜向后先瞄准多久才开第一枪（像魂斗罗的炮台要转过来），给玩家反应的时间。
+@export var diagonal_aim_time := 0.3
+## 瞄准时要转动的枪管（占位美术），留空就不转。放在场景里设置，换皮肤时不用改代码。
+@export var gun_visual: NodePath
 
 @export_group("Prone")
 ## 玩家在射程内趴下时，敌人也跟着趴下打低处。默认关闭，即只会站着开枪。
@@ -38,17 +47,36 @@ signal shot_fired
 const PRONE_HEIGHT := 4.0
 ## 物理层 1（world）：地面、平台、墙。
 const WORLD_LAYER := 1
+## 玩家所在方向偏离水平线的角度在这个区间里才斜着打（子弹固定走 45°）；更平的算水平、更陡的不打。
+const DIAGONAL_MIN_ANGLE := 22.5
+const DIAGONAL_MAX_ANGLE := 67.5
+## 斜向出膛点，相对身体中心（朝右时；朝左 x 取反）。由代码算，不挂在 Visual 下。
+## 斜下的 y 不能太大：站在地上时子弹一出膛就会嵌进地面。
+const DIAGONAL_UP_MUZZLE := Vector2(10, -8)
+const DIAGONAL_DOWN_MUZZLE := Vector2(10, 3)
+
+## 瞄准方向。
+enum Aim { LEVEL, DIAGONAL_UP, DIAGONAL_DOWN }
 
 var health := 0
 var is_prone := false
+var aim := Aim.LEVEL
+## 最近一颗子弹的方向（测试和以后的枪口闪光可以读）。
+var last_shot_direction := Vector2.ZERO
 ## 面朝方向，同时决定子弹飞行方向：-1 向左，1 向右。
 var facing := -1
 
 var _fire_timer := 0.0
 var _burst_left := 0
 var _burst_timer := 0.0
+## 一轮连发开始时锁定的方向和瞄准：剩下的子弹沿用它们。
+## 否则水平连发打到一半玩家跳上平台，剩下的子弹会直接斜着打出去，跳过斜向的瞄准时间。
+var _burst_direction := Vector2.ZERO
+var _burst_aim := Aim.LEVEL
 var _prone_timer := 0.0
 var _stand_height := 0.0
+## 当前瞄准方向已经保持了多久。
+var _aim_timer := 0.0
 
 @onready var _visual: Node2D = $Visual
 ## 枪口。新敌人把它直接挂在本体下（`Muzzle`），和外观无关（见 CLAUDE.md「皮肤与素材包」）；
@@ -87,17 +115,67 @@ func die() -> void:
 	queue_free()
 
 
-## 射程和高度容差内、并且看得见的玩家，否则返回 null。
+## 打得着、并且看得见的玩家，否则返回 null（「打得着」见 aim_for()）。
 func find_target() -> Node2D:
 	var player := get_tree().get_first_node_in_group("player") as Player
 	if player == null:
 		return null
-	var offset := player.global_position - global_position
-	if absf(offset.x) > detect_range or absf(offset.y) > vertical_tolerance:
+	if aim_for(player) < 0:
 		return null
 	if not has_line_of_sight(player.body_center()):
 		return null
 	return player
+
+
+## 对着这个目标该用哪个瞄准方向；打不着返回 -1。
+## 水平：水平距离在射程内、高度差在 vertical_tolerance 内（原来的规则）。
+## 斜向（can_aim_diagonally 才有）：直线距离在射程内，偏离水平线 22.5°~67.5°。
+func aim_for(target: Node2D) -> int:
+	var offset := target.global_position - global_position
+	if absf(offset.x) <= detect_range and absf(offset.y) <= vertical_tolerance:
+		return Aim.LEVEL
+	if not can_aim_diagonally or offset.length() > detect_range:
+		return -1
+	var angle := rad_to_deg(atan2(absf(offset.y), absf(offset.x)))
+	if angle < DIAGONAL_MIN_ANGLE or angle > DIAGONAL_MAX_ANGLE:
+		return -1
+	return Aim.DIAGONAL_UP if offset.y < 0.0 else Aim.DIAGONAL_DOWN
+
+
+## 子类每帧拿当前目标调用：更新瞄准方向，返回这一帧可以开火的目标。
+## 刚转到斜向时要先瞄准 diagonal_aim_time 秒，这段时间返回 null（不开火）。
+func update_aim(delta: float, target: Node2D) -> Node2D:
+	var wanted: int = Aim.LEVEL if target == null else aim_for(target)
+	if wanted < 0:
+		wanted = Aim.LEVEL
+		target = null
+	if wanted != aim:
+		aim = wanted as Aim
+		_aim_timer = 0.0
+		_show_aim()
+	else:
+		_aim_timer += delta
+	if target != null and aim != Aim.LEVEL and _aim_timer < diagonal_aim_time:
+		return null
+	return target
+
+
+func is_aiming_diagonally() -> bool:
+	return aim != Aim.LEVEL
+
+
+## 占位美术：把枪管转到瞄准方向。
+func _show_aim() -> void:
+	var gun := get_node_or_null(gun_visual) as Control
+	if gun == null:
+		return
+	match aim:
+		Aim.DIAGONAL_UP:
+			gun.rotation = -PI / 4.0
+		Aim.DIAGONAL_DOWN:
+			gun.rotation = PI / 4.0
+		_:
+			gun.rotation = 0.0
 
 
 ## 从枪口到 `point` 之间有没有实心障碍（墙、地面、矮通道）挡着。
@@ -124,8 +202,8 @@ func _sight_origin() -> Vector2:
 	return _muzzle.global_position if _muzzle != null else global_position
 
 
-## 冷却好了就朝 `facing` 方向开一轮火（单发或连发）。`target` 传 null 表示这一帧不该开始新的一轮。
-## 一轮连发开始后会打完，即使中途玩家离开了射程。
+## 冷却好了就朝当前瞄准方向开一轮火（单发或连发）。`target` 传 null 表示这一帧不该开始新的一轮。
+## 一轮连发开始后会按开始时的方向打完，即使中途玩家离开了射程或换了方位。
 func try_shoot(delta: float, target: Node2D) -> void:
 	_fire_timer -= delta
 	if _burst_left > 0:
@@ -138,6 +216,8 @@ func try_shoot(delta: float, target: Node2D) -> void:
 	if target == null or bullet_scene == null or _fire_timer > 0.0:
 		return
 	_fire_timer = fire_interval
+	_burst_direction = shoot_direction()
+	_burst_aim = aim
 	_fire_one()
 	_burst_left = randi_range(burst_min, maxi(burst_min, burst_max)) - 1
 	_burst_timer = burst_gap
@@ -146,16 +226,30 @@ func try_shoot(delta: float, target: Node2D) -> void:
 ## 子弹挂在敌人的父节点下，这样敌人死了子弹还能继续飞。
 func _fire_one() -> void:
 	var bullet := bullet_scene.instantiate() as Bullet
-	bullet.direction = shoot_direction()
+	bullet.direction = _burst_direction
+	last_shot_direction = bullet.direction
 	get_parent().add_child(bullet)
-	bullet.global_position = _muzzle.global_position
+	bullet.global_position = _muzzle_position()
 	shot_fired.emit()
 	GameEvents.report(shoot_event, self)
 
 
-## 子弹往哪边飞。地面敌人朝面向水平开火；飞行敌人覆盖成向下。
+## 子弹往哪边飞：按瞄准方向，水平或 45° 斜上/斜下；飞行敌人覆盖成向下。
 func shoot_direction() -> Vector2:
+	match aim:
+		Aim.DIAGONAL_UP:
+			return Vector2(facing, -1).normalized()
+		Aim.DIAGONAL_DOWN:
+			return Vector2(facing, 1).normalized()
 	return Vector2(facing, 0)
+
+
+## 出膛点（按这一轮锁定的瞄准）：水平用枪口（老的地面敌人在 Visual/Muzzle，趴下时跟着压低）；斜向由代码按身体中心算。
+func _muzzle_position() -> Vector2:
+	if _burst_aim == Aim.LEVEL:
+		return _muzzle.global_position
+	var offset := DIAGONAL_UP_MUZZLE if _burst_aim == Aim.DIAGONAL_UP else DIAGONAL_DOWN_MUZZLE
+	return global_position + Vector2(offset.x * signf(_burst_direction.x), offset.y)
 
 
 ## 子类每帧拿当前瞄准的目标调用：目标趴着就隔 prone_reaction_time 跟着趴下，否则马上站起来。

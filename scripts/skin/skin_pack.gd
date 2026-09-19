@@ -21,7 +21,7 @@ const SOUND_EVENTS := {
 	&"flyer_shoot": "E 往下开火",
 	&"enemy_hit": "敌人被打中但没死",
 	&"enemy_death": "敌人被消灭",
-	&"enemy_prone": "敌人（C、炮台）跟着玩家趴下",
+	&"enemy_prone": "敌人 C 跟着玩家趴下（炮台不会趴下）",
 	&"chaser_alert": "D 发现玩家、开始冲锋",
 	&"bullet_impact": "任何子弹撞到墙、地面、矮通道等实心物体",
 	&"game_over": "玩家死亡后出现 GAME OVER",

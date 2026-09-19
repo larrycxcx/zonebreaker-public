@@ -14,7 +14,8 @@ script = ExtResource("1")
 max_health = 6
 shoot_event = &"turret_shoot"
 detect_range = 200.0
-can_go_prone = true
+can_aim_diagonally = true
+gun_visual = NodePath("Visual/Barrel")
 bullet_scene = ExtResource("2")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
