@@ -1,5 +1,5 @@
 extends GameTest
-## 敌人 D（冲锋型）：不开枪不趴下、巡逻用普通速度、150px 内看见玩家就用 135 的冲锋速度（和玩家奔跑一样快）冲过去、
+## 敌人 D（冲锋型）：不开枪不趴下、巡逻用普通速度、150px 内看见玩家就用 88 的冲锋速度（比玩家走路略慢）冲过去、
 ## 靠碰撞伤人、能跳墙跳平台、墙挡视线、追丢后会放弃。
 
 const GROUND_ENEMY_Y := 153.0
@@ -43,7 +43,8 @@ func test_d_is_configured() -> void:
 	check("D has no gun", d.bullet_scene == null and d.get_node_or_null("Visual/Muzzle") == null)
 	check("D never goes prone", not d.can_go_prone)
 	check("D patrols at the normal enemy speed", d.move_speed == walker.move_speed, "%.1f vs %.1f" % [d.move_speed, walker.move_speed])
-	check("D charges at 135, as fast as the player sprints", d.charge_speed == 135.0 and is_equal_approx(d.charge_speed, player.move_speed * player.sprint_speed_scale), "%.1f" % d.charge_speed)
+	check("D charges at 88", d.charge_speed == 88.0, "%.1f" % d.charge_speed)
+	check("D charges a little slower than the player walks", d.charge_speed < player.move_speed, "%.1f vs %.1f" % [d.charge_speed, player.move_speed])
 	check("D notices the player within 150px", d.detect_range == 150.0)
 	check("D jumps like the player", d.jump_velocity == player.jump_velocity)
 
@@ -60,7 +61,7 @@ func test_d_charges_when_it_sees_the_player() -> void:
 	_put_player(150.0)
 	await frames(5)
 	check("D starts chasing", d.is_chasing)
-	check("D charges at 135", is_equal_approx(d.velocity.x, -135.0), "%.1f" % d.velocity.x)
+	check("D charges at 88", is_equal_approx(d.velocity.x, -88.0), "%.1f" % d.velocity.x)
 
 
 func test_d_turns_around_for_a_player_behind_it() -> void:
@@ -240,3 +241,33 @@ func test_one_way_platform_sides_do_not_make_d_jump() -> void:
 			break
 	check("D does not jump at the side of a one-way platform", not ever_rose)
 	check("D gets down to the player", d.global_position.y > 150.0, "D at %s" % d.global_position)
+
+
+## D 冲锋时，玩家往反方向跑，隔 1 秒前后比较双方的距离。
+func _gap_after_running_away(sprint: bool) -> Array:
+	var d := await _setup_chaser(380.0, 1)
+	_put_player(420.0)
+	await frames(5)
+	var chasing := d.is_chasing
+	Input.action_press("move_right")
+	if sprint:
+		Input.action_press("sprint")
+	await frames(20) # 先让双方都加速到稳定速度
+	var gap_before := player.global_position.x - d.global_position.x
+	await frames(60)
+	var gap_after := player.global_position.x - d.global_position.x
+	release_all_input()
+	return [chasing, gap_before, gap_after]
+
+
+func test_walking_away_keeps_ahead_of_d() -> void:
+	var r := await _gap_after_running_away(false)
+	check("D was chasing", r[0])
+	check("walking away, D does not close the gap", r[2] >= r[1], "%.1f -> %.1f" % [r[1], r[2]])
+
+
+func test_sprinting_away_outruns_d() -> void:
+	var r := await _gap_after_running_away(true)
+	check("D was chasing", r[0])
+	# 奔跑 135 对冲锋 88，一秒拉开约 47px。
+	check("sprinting away opens a clear gap", r[2] - r[1] > 40.0, "%.1f -> %.1f" % [r[1], r[2]])
