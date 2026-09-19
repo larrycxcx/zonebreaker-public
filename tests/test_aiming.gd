@@ -34,7 +34,7 @@ func aim_with(actions: Array, hold := 3) -> Player.Aim:
 
 ## 开一枪，返回这颗子弹（没开出来返回 null）。
 func fire_once() -> Bullet:
-	player._fire_timer = 0.0
+	player._primary.cooldown_left = 0.0
 	Input.action_press("shoot")
 	await frames(1)
 	Input.action_release("shoot")
@@ -172,7 +172,7 @@ func test_straight_down_from_the_air() -> void:
 func test_walking_while_firing_diagonally() -> void:
 	await start()
 	press(["aim_up", "move_right", "shoot"])
-	player._fire_timer = 0.0
+	player._primary.cooldown_left = 0.0
 	var directions := {}
 	for i in 30:
 		await tree.physics_frame
@@ -214,7 +214,7 @@ func test_diagonal_up_hits_a_flyer() -> void:
 		player.global_position = Vector2(100, 152)
 		player.velocity = Vector2.ZERO
 		press(["aim_up", "move_right"])
-		player._fire_timer = 0.0
+		player._primary.cooldown_left = 0.0
 		Input.action_press("shoot")
 		await frames(1)
 		release(["shoot", "move_right", "aim_up"])
@@ -239,7 +239,7 @@ func test_shooting_down_through_a_platform() -> void:
 	Input.action_press("jump")
 	await frames(6)
 	Input.action_press("aim_down")
-	player._fire_timer = 0.0
+	player._primary.cooldown_left = 0.0
 	Input.action_press("shoot")
 	for i in 40:
 		player._invincible_timer = 1000.0
@@ -267,7 +267,7 @@ func test_diagonal_down_from_a_ledge() -> void:
 	player._visual.scale.x = 1
 	Input.action_press("aim_down")
 	await frames(2)
-	player._fire_timer = 0.0
+	player._primary.cooldown_left = 0.0
 	Input.action_press("shoot")
 	await frames(2)
 	Input.action_release("shoot")

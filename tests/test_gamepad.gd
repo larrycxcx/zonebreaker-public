@@ -155,7 +155,7 @@ func test_running_with_a_slightly_diagonal_stick() -> void:
 
 func test_stick_up_and_x_shoots_straight_up() -> void:
 	await start()
-	player._fire_timer = 0.0
+	player._primary.cooldown_left = 0.0
 	joy_axis(JOY_AXIS_LEFT_Y, -0.8)
 	joy_button(JOY_BUTTON_X, true)
 	await frames(2)
@@ -167,7 +167,7 @@ func test_stick_up_and_x_shoots_straight_up() -> void:
 
 func test_x_and_rt_both_fire_sideways() -> void:
 	await start()
-	player._fire_timer = 0.0
+	player._primary.cooldown_left = 0.0
 	joy_button(JOY_BUTTON_X, true)
 	await frames(2)
 	joy_button(JOY_BUTTON_X, false)
@@ -195,7 +195,7 @@ func test_prone_shooting_rules_on_the_gamepad() -> void:
 	await start()
 	joy_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)
 	await frames(5)
-	player._fire_timer = 0.0
+	player._primary.cooldown_left = 0.0
 	# 按住 LT 趴下再推摇杆：趴着爬行，不能开枪。
 	joy_axis(JOY_AXIS_LEFT_X, 0.9)
 	joy_button(JOY_BUTTON_X, true)

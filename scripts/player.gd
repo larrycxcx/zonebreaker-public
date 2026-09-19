@@ -6,7 +6,6 @@ signal health_changed(health: int, max_health: int)
 signal died
 signal stamina_changed(stamina: float, max_stamina: float)
 
-@export var bullet_scene: PackedScene
 
 @export_group("Health")
 @export var max_health := 3
@@ -50,8 +49,9 @@ signal stamina_changed(stamina: float, max_stamina: float)
 ## 否则一直按着奔跑键时，体力会在 0 附近刚回一点就被用掉，人物一顿一顿地时快时慢。
 @export_range(0.0, 1.0) var stamina_recover_ratio := 0.25
 
-@export_group("Shooting")
-@export var fire_cooldown := 0.15
+@export_group("Weapons")
+## 主武器（J 开火，跟着 8 方向瞄准）。换武器 = 换这里的资源文件（weapons/*.tres）。
+@export var primary_weapon: Weapon
 
 ## 瞄准方向（魂斗罗式）。W + 左右 = 边走边斜上，只按 W = 原地正上；
 ## S + 左右 = 边走边斜下，只按 S：地面上朝前斜下、空中朝正下；W、S 同时按互相抵消；趴下时一律水平。
@@ -78,7 +78,8 @@ var stamina := 0.0
 
 var _coyote_timer := 0.0
 var _jump_buffer_timer := 0.0
-var _fire_timer := 0.0
+## 主武器槽：冷却和弹药都在里面。
+var _primary: WeaponSlot
 var _invincible_timer := 0.0
 var _dead := false
 var _exhausted := false
@@ -99,6 +100,7 @@ var _stamina_regen_timer := 0.0
 
 
 func _ready() -> void:
+	_primary = WeaponSlot.new(primary_weapon)
 	health = max_health
 	health_changed.emit(health, max_health)
 	stamina = max_stamina
@@ -261,15 +263,15 @@ func _head_blocked() -> bool:
 	return false
 
 
-## J 朝当前瞄准方向开火（瞄准规则见 Aim）。趴着不动只能水平开枪（子弹贴地飞），趴着爬行时不能开枪。
+## J 用主武器朝当前瞄准方向开火（瞄准规则见 Aim）。趴着不动只能水平开枪（子弹贴地飞），趴着爬行时不能开枪。
 func _handle_shoot(delta: float) -> void:
-	_fire_timer -= delta
+	_primary.tick(delta)
 	var moving := Input.get_axis("move_left", "move_right") != 0.0
 	_update_aim(moving)
 	var crawling := is_crouching and moving
-	if crawling or _fire_timer > 0.0 or not Input.is_action_pressed("shoot"):
+	var pressed := Input.is_action_pressed("shoot") if primary_weapon.automatic else Input.is_action_just_pressed("shoot")
+	if crawling or not pressed or not _primary.is_ready():
 		return
-	_fire_timer = fire_cooldown
 	_shoot(aim_vector())
 
 
@@ -306,12 +308,15 @@ func aim_vector() -> Vector2:
 	return Vector2(facing, 0)
 
 
+## 换主武器（以后拾取武器升级就调这个）：冷却清零、弹药补满。
+func equip_primary(weapon: Weapon) -> void:
+	primary_weapon = weapon
+	_primary.equip(weapon)
+
+
+## 用主武器朝 direction 开一次火（不看冷却；_handle_shoot 先检查过了，测试也直接调它）。
 func _shoot(direction: Vector2) -> void:
-	var bullet := bullet_scene.instantiate() as Bullet
-	bullet.direction = direction
-	get_parent().add_child(bullet)
-	bullet.global_position = _muzzle_position(direction)
-	GameEvents.report(&"player_shoot", self)
+	_primary.fire(get_parent(), _muzzle_position(direction), direction, self)
 
 
 ## 出膛点。水平和正上方还用 Visual 下的老 Marker（水平枪口趴下时跟着压低，是现有高度规则的一部分，第 4 步统一迁移）；

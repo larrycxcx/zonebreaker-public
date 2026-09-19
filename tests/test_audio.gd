@@ -77,7 +77,7 @@ func test_player_events() -> void:
 	await frames(3)
 	Input.action_release("jump")
 	await frames(60)
-	player._fire_timer = 0.0
+	player._primary.cooldown_left = 0.0
 	Input.action_press("shoot") # 贴着左墙往左打
 	await frames(2)
 	Input.action_release("shoot")
@@ -120,7 +120,7 @@ func test_enemy_hit_and_death() -> void:
 	await frames(5)
 	for i in 2:
 		player._invincible_timer = 1000.0
-		player._fire_timer = 0.0
+		player._primary.cooldown_left = 0.0
 		player._shoot(Vector2.RIGHT)
 		await frames(20)
 	expect_events([&"enemy_hit", &"enemy_death"], "shooting a 2-health walker twice")

@@ -80,7 +80,7 @@ func test_bullets_kill_the_walker() -> void:
 	player.facing = 1
 	player._visual.scale.x = 1
 	await frames(2)
-	player._fire_timer = 0.0
+	player._primary.cooldown_left = 0.0
 	player._shoot(Vector2(player.facing, 0))
 	for i in 30:
 		await tree.physics_frame
@@ -372,7 +372,7 @@ func test_standing_shots_fly_over_a_prone_enemy() -> void:
 	player.facing = 1
 	player._visual.scale.x = 1
 	await frames(3)
-	player._fire_timer = 0.0
+	player._primary.cooldown_left = 0.0
 	player._shoot(Vector2.RIGHT)
 	await frames(40)
 	check("a standing shot flies over a prone enemy", c.health == c.max_health, str(c.health))
@@ -380,7 +380,7 @@ func test_standing_shots_fly_over_a_prone_enemy() -> void:
 	# 对照组：玩家也趴下（不动）开枪，就打得中。
 	Input.action_press("crouch")
 	await frames(5)
-	player._fire_timer = 0.0
+	player._primary.cooldown_left = 0.0
 	Input.action_press("shoot")
 	await frames(2)
 	Input.action_release("shoot")

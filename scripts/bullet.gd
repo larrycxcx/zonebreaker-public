@@ -13,6 +13,11 @@ var direction := Vector2.RIGHT
 var _age := 0.0
 
 
+## 武器槽发射时调用（在加入场景树之前）。
+func launch(direction_: Vector2) -> void:
+	direction = direction_
+
+
 func _ready() -> void:
 	# 外形是横着的细条，按飞行方向转过去（向上打时变成竖条）。
 	# direction 在 add_child 之前就设好了，所以这里读到的是最终值。
