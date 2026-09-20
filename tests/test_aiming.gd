@@ -114,14 +114,14 @@ func test_lying_down_ignores_aiming() -> void:
 func test_gun_follows_the_aim() -> void:
 	await start()
 	var guns := {
-		Player.Aim.FORWARD: player._gun, Player.Aim.UP: player._gun_up, Player.Aim.DIAGONAL_UP: player._gun_diagonal_up,
-		Player.Aim.DIAGONAL_DOWN: player._gun_diagonal_down,
+		Player.Aim.FORWARD: art(player, "Gun"), Player.Aim.UP: art(player, "GunUp"),
+		Player.Aim.DIAGONAL_UP: art(player, "GunDiagonalUp"), Player.Aim.DIAGONAL_DOWN: art(player, "GunDiagonalDown"),
 	}
 	for setup in [[], ["aim_up"], ["aim_up", "move_right"], ["aim_down"]]:
 		press(setup)
 		await frames(2)
 		var shown := guns.keys().filter(func(a): return guns[a].visible)
-		check("exactly the %s gun is shown for %s" % [Player.Aim.keys()[player.aim], setup], shown == [player.aim] and not player._gun_down.visible, str(shown))
+		check("exactly the %s gun is shown for %s" % [Player.Aim.keys()[player.aim], setup], shown == [player.aim] and not art(player, "GunDown").visible, str(shown))
 		release(setup)
 		await frames(2)
 

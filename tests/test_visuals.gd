@@ -19,13 +19,13 @@ func actors() -> Array:
 	return found
 
 
-## 让它朝某个方向，并按各自的方式刷新外观。
+## 让它朝某个方向。玩法只通过外观层的接口说「我朝这边」，剩下的它自己画。
 func face(actor: Node, facing: int) -> void:
 	actor.facing = facing
-	if actor is Player:
-		VisualFlip.apply(actor._visual_bases, facing)
-	else:
+	if actor is Enemy:
 		(actor as Enemy)._apply_visual_facing()
+	else:
+		(actor.get_node("Visual") as Appearance).face(facing)
 
 
 ## Visual 下所有的外观方块。
@@ -131,3 +131,76 @@ func test_muzzle_height_comes_from_the_collision_box() -> void:
 	await frames(2)
 	check("going prone lowers it", c.level_muzzle_position().y > standing + 3.0,
 		"%.1f -> %.1f" % [standing, c.level_muzzle_position().y])
+
+
+# ---------------------------------------------------------------- 外观接口（第 4 步）
+
+func test_every_character_has_an_appearance_layer() -> void:
+	# 玩法和「长什么样」之间只有这一个接口
+	await reset_scene(true)
+	for actor in actors():
+		check("%s's Visual is an Appearance" % actor.name, actor.get_node("Visual") is Appearance)
+
+
+func test_gameplay_runs_on_a_replaced_appearance() -> void:
+	# 把玩家和敌人的外观整个换成「什么都不画」的替身：游戏照常跑、判定分毫不差，
+	# 而且能看到玩法确实是通过接口（朝向/姿势/瞄准/受击/闪烁）跟外观打交道的。
+	await reset_scene(true)
+	keep_only_enemies(["WalkerC"])
+	var c: Enemy = main.get_node("Enemies/WalkerC")
+	c.move_speed = 0.0
+	c.bullet_scene = null # 别让它开枪：挨一枪会被击飞，下面就趴不下去了
+	c.max_health = 10
+	c.health = 10
+	c.global_position = Vector2(300, 153)
+	player.global_position = Vector2(240, 152)
+	player.velocity = Vector2.ZERO
+	player.facing = 1
+	await frames(10)
+	# 换皮肤之前先记下判定点（相对身体的偏移）
+	var player_muzzle := player._muzzle_position(Vector2.RIGHT) - player.global_position
+	var enemy_muzzle := c.level_muzzle_position() - c.global_position
+
+	var stub := load("res://tests/stub_appearance.gd")
+	player.get_node("Visual").set_script(stub)
+	c.get_node("Visual").set_script(stub)
+	await frames(2)
+
+	check("judgement points are unchanged: player", player._muzzle_position(Vector2.RIGHT) - player.global_position == player_muzzle,
+		str(player._muzzle_position(Vector2.RIGHT) - player.global_position))
+	check("judgement points are unchanged: enemy", c.level_muzzle_position() - c.global_position == enemy_muzzle,
+		str(c.level_muzzle_position() - c.global_position))
+
+	# 照常玩：走、开枪打中敌人、趴下、挨一下
+	Input.action_press("move_right")
+	await frames(6)
+	Input.action_release("move_right")
+	check("still moves", player.global_position.x > 240.0, str(player.global_position.x))
+	player._shoot(Vector2.RIGHT)
+	for i in 40:
+		await frames(1)
+		if c.health < 10:
+			break
+	check("still shoots and hits", c.health < 10, str(c.health))
+	Input.action_press("crouch")
+	await frames(6)
+	check("still lies down", player.is_crouching and (player._shape.shape as RectangleShape2D).size.y == Player.CROUCH_HEIGHT)
+	Input.action_release("crouch")
+	await frames(6)
+	player.take_damage(1)
+	await frames(2)
+	check("still takes damage", player.health < player.max_health, str(player.health))
+
+	# 敌人这边也走一遍：趴下、转身
+	c.set_prone(true)
+	c.facing = -c.facing
+	c._apply_visual_facing()
+	await frames(2)
+
+	var player_calls: Array = player.get_node("Visual").calls
+	var enemy_calls: Array = c.get_node("Visual").calls
+	for call_name in ["face", "aim", "pose", "kick", "blink"]:
+		check("the player's logic calls appearance.%s()" % call_name, player_calls.has(call_name), str(player_calls))
+	for call_name in ["face", "aim", "pose", "flash_hit"]:
+		check("the enemy's logic calls appearance.%s()" % call_name, enemy_calls.has(call_name), str(enemy_calls))
+	release_all_input()

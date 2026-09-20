@@ -155,7 +155,7 @@ func test_running_with_a_slightly_diagonal_stick() -> void:
 	check("slightly down-right keeps walking upright", not player.is_crouching and is_equal_approx(player.velocity.x, player.move_speed), "crouching %s, vx %.1f" % [player.is_crouching, player.velocity.x])
 	joy_axis(JOY_AXIS_LEFT_Y, -0.4)
 	await frames(5)
-	check("slightly up-right does not raise the gun", player._gun.visible and not player._gun_up.visible)
+	check("slightly up-right does not raise the gun", art(player, "Gun").visible and not art(player, "GunUp").visible)
 	joy_neutral()
 
 

@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/boss_a.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_bullet.tscn" id="2"]
 [ext_resource type="Texture2D" path="res://skins/default/portraits/boss_a.png" id="3"]
+[ext_resource type="Script" path="res://scripts/appearance.gd" id="99"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 resource_local_to_scene = true
@@ -23,12 +24,13 @@ detect_range = 220.0
 burst_min = 3
 burst_max = 3
 shoot_event = &"turret_shoot"
-gun_visual = NodePath("Visual/Gun")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_1")
 
 [node name="Visual" type="Node2D" parent="."]
+script = ExtResource("99")
+turning_gun = NodePath("Gun")
 
 [node name="Body" type="ColorRect" parent="Visual"]
 offset_left = -12.0

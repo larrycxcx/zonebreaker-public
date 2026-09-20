@@ -45,7 +45,7 @@ func _watch(enemy: Enemy, frame_count: int, invincible := true) -> Dictionary:
 
 ## 枪管（占位美术）实际指着哪个方向：枪管按「朝右」摆，朝左时整块镜像过去，所以本地 +x 指向身体。
 func gun_direction(e: Enemy) -> Vector2:
-	var gun: Control = e.get_node(e.gun_visual)
+	var gun := turning_gun(e)
 	return (Vector2.RIGHT if e.facing > 0 else Vector2.LEFT).rotated(gun.rotation)
 
 
@@ -168,7 +168,7 @@ func test_walker_resumes_patrol_after_the_player_leaves() -> void:
 	var w := await _watch(b, 60)
 	check("B goes back to level aim", not b.is_aiming_diagonally())
 	check("and walks on at patrol speed", w["moved"] > 10.0, "moved %.1f" % w["moved"])
-	check("the gun is level again", is_equal_approx(b.get_node(b.gun_visual).rotation, 0.0))
+	check("the gun is level again", is_equal_approx(turning_gun(b).rotation, 0.0))
 
 
 func test_walker_does_not_aim_diagonally_behind_it() -> void:

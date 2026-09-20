@@ -35,9 +35,6 @@ signal shot_fired
 @export var can_aim_diagonally := false
 ## 转到斜向后先瞄准多久才开第一枪（像魂斗罗的炮台要转过来），给玩家反应的时间。
 @export var diagonal_aim_time := 0.3
-## 瞄准时要转动的枪管（占位美术），留空就不转。放在场景里设置，换皮肤时不用改代码。
-@export var gun_visual: NodePath
-
 @export_group("Prone")
 ## 玩家在射程内趴下时，敌人也跟着趴下打低处。默认关闭，即只会站着开枪。
 @export var can_go_prone := false
@@ -80,10 +77,9 @@ var _prone_timer := 0.0
 var _stand_height := 0.0
 ## 当前瞄准方向已经保持了多久。
 var _aim_timer := 0.0
-## Visual 下每个子节点朝右时的横向位置，翻转时按它镜像（见 VisualFlip）。
-var _visual_bases := {}
 
-@onready var _visual: Node2D = $Visual
+## 外观层。玩法只调它的接口，不碰方块和颜色（见 appearance.gd）。
+@onready var _visual: Appearance = $Visual
 ## 枪口 Marker，挂在**本体**下（不在 `Visual` 里）：它只给出「伸出去多远」这个偏移，
 ## 实际出膛高度按碰撞体中心算（见 `level_muzzle_position()`），所以和外观长什么样、压没压扁都无关。
 ## 不开枪的敌人（D）没有枪口。
@@ -94,7 +90,6 @@ var _visual_bases := {}
 func _ready() -> void:
 	add_to_group(GROUP)
 	health = max_health
-	_visual_bases = VisualFlip.capture(_visual)
 	_apply_visual_facing()
 	_stand_height = (_shape.shape as RectangleShape2D).size.y
 
@@ -179,18 +174,14 @@ func is_aiming_diagonally() -> bool:
 	return aim != Aim.LEVEL
 
 
-## 按当前朝向摆放外观。**不要用负的 scale 翻转**，原因见 VisualFlip。
+## 朝向或瞄准方向变了就告诉外观层一声，它自己决定怎么画。
 func _apply_visual_facing() -> void:
-	VisualFlip.apply(_visual_bases, facing)
+	_visual.face(facing)
 	_show_aim()
 
 
-## 占位美术：把枪管转到开火方向。
 func _show_aim() -> void:
-	var gun := get_node_or_null(gun_visual) as Control
-	if gun == null:
-		return
-	VisualFlip.aim_gun(gun, facing, shoot_direction())
+	_visual.aim(shoot_direction())
 
 
 ## 从枪口到 `point` 之间有没有实心障碍（墙、地面、矮通道）挡着；单向平台不挡。规则见 Sight。
@@ -283,8 +274,8 @@ func update_prone(delta: float, target: Node2D) -> void:
 		set_prone(true)
 
 
-## 和玩家下蹲同一套做法：碰撞体压低并下移让脚底不动，Visual 整体压扁，
-## 枪口是 Visual 的子节点，会跟着降到贴地的高度。
+## 和玩家下蹲同一套做法：碰撞体压低并下移让脚底不动，外观整体压扁。
+## 出膛点按碰撞体中心算（level_muzzle_position），所以枪口自己就跟着贴地，和外观压不压扁无关。
 func set_prone(value: bool) -> void:
 	if value and not is_prone:
 		GameEvents.report(&"enemy_prone", self)
@@ -293,14 +284,11 @@ func set_prone(value: bool) -> void:
 	var lowered := (_stand_height - height) / 2.0
 	(_shape.shape as RectangleShape2D).size.y = height
 	_shape.position.y = lowered
-	_visual.scale.y = height / _stand_height
-	_visual.position.y = lowered
+	_visual.pose(height / _stand_height, lowered)
 
 
 func _flash() -> void:
-	_visual.modulate = Color(2.0, 2.0, 2.0)
-	var tween := create_tween()
-	tween.tween_property(_visual, "modulate", Color.WHITE, 0.12)
+	_visual.flash_hit()
 
 
 func _apply_gravity(delta: float) -> void:

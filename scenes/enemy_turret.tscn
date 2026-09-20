@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/enemy_turret.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_bullet.tscn" id="2"]
+[ext_resource type="Script" path="res://scripts/appearance.gd" id="99"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 resource_local_to_scene = true
@@ -15,13 +16,14 @@ max_health = 6
 shoot_event = &"turret_shoot"
 detect_range = 200.0
 can_aim_diagonally = true
-gun_visual = NodePath("Visual/Barrel")
 bullet_scene = ExtResource("2")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_1")
 
 [node name="Visual" type="Node2D" parent="."]
+script = ExtResource("99")
+turning_gun = NodePath("Barrel")
 
 [node name="Body" type="ColorRect" parent="Visual"]
 offset_left = -7.0

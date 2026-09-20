@@ -98,6 +98,17 @@ func free_scene() -> void:
 	player = null
 
 
+## 角色外观里叫这个名字的方块（枪、枪管之类）。外观都挂在 `Visual` 上的 Appearance 里。
+func art(actor: Node, art_name: String) -> CanvasItem:
+	return actor.get_node("Visual").get_node_or_null(NodePath(art_name)) as CanvasItem
+
+
+## 敌人身上那根会跟着瞄准转的枪管（外观层的 turning_gun 指定）。
+func turning_gun(enemy: Enemy) -> Control:
+	var appearance: Appearance = enemy.get_node("Visual")
+	return appearance.get_node_or_null(appearance.turning_gun) as Control
+
+
 ## 某个动作绑定的键盘按键（physical_keycode），忽略手柄绑定。
 func keyboard_keys(action: StringName) -> Array:
 	var keys := []

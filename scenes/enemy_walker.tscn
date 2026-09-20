@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/enemy_walker.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_bullet.tscn" id="2"]
+[ext_resource type="Script" path="res://scripts/appearance.gd" id="99"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 resource_local_to_scene = true
@@ -14,7 +15,6 @@ script = ExtResource("1")
 bullet_scene = ExtResource("2")
 fire_interval = 2.2
 detect_range = 110.0
-gun_visual = NodePath("Visual/Gun")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_1")
@@ -29,6 +29,8 @@ target_position = Vector2(9, 0)
 collision_mask = 1
 
 [node name="Visual" type="Node2D" parent="."]
+script = ExtResource("99")
+turning_gun = NodePath("Gun")
 
 [node name="Body" type="ColorRect" parent="Visual"]
 offset_left = -6.0

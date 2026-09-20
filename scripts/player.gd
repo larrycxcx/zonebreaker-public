@@ -106,10 +106,6 @@ var current_weapon := 0
 ## 每把武器一个槽，各自记冷却和弹药：切走再切回来，冷却和弹药都还在。
 var _slots: Array[WeaponSlot] = []
 var _ultimate := WeaponSlot.new()
-## Visual 下每个子节点朝右时的横向位置，翻转时按它镜像（见 VisualFlip）。
-var _visual_bases := {}
-## 外观本来该在的位置（趴下时整体下移），和后坐力的临时偏移分开记，免得互相打架。
-var _visual_base := Vector2.ZERO
 var _recoil := Vector2.ZERO
 ## 正在穿过的那块单向平台（跳下平台时临时忽略它的碰撞）。
 var _dropping_platform: Platform
@@ -121,12 +117,8 @@ var _dead := false
 var _exhausted := false
 var _stamina_regen_timer := 0.0
 
-@onready var _visual: Node2D = $Visual
-@onready var _gun: ColorRect = $Visual/Gun
-@onready var _gun_up: ColorRect = $Visual/GunUp
-@onready var _gun_diagonal_up: ColorRect = $Visual/GunDiagonalUp
-@onready var _gun_diagonal_down: ColorRect = $Visual/GunDiagonalDown
-@onready var _gun_down: ColorRect = $Visual/GunDown
+## 外观层。玩法只调它的接口（朝向/姿势/瞄准/受击/闪烁/死亡/后坐力），不碰方块和颜色。
+@onready var _visual: Appearance = $Visual
 @onready var _hurtbox: Area2D = $Hurtbox
 @onready var _shape: CollisionShape2D = $CollisionShape2D
 @onready var _hurtbox_shape: CollisionShape2D = $Hurtbox/CollisionShape2D
@@ -148,7 +140,6 @@ func _ready() -> void:
 	var headroom := STAND_HEIGHT - CROUCH_HEIGHT
 	(_head_check.shape as RectangleShape2D).size.y = headroom
 	_head_check.position.y = -STAND_HEIGHT / 2.0 + headroom / 2.0
-	_visual_bases = VisualFlip.capture(_visual)
 
 
 func _physics_process(delta: float) -> void:
@@ -258,7 +249,7 @@ func _handle_horizontal(delta: float) -> void:
 	var speed := move_speed * _speed_scale()
 	if direction != 0.0:
 		facing = signi(direction)
-		VisualFlip.apply(_visual_bases, facing)
+		_visual.face(facing)
 		velocity.x = move_toward(velocity.x, direction * speed, acceleration * control * delta)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, friction * control * delta)
@@ -328,10 +319,7 @@ func _set_crouching(value: bool) -> void:
 	_shape.position.y = lowered
 	(_hurtbox_shape.shape as RectangleShape2D).size.y = HURTBOX_STAND_HEIGHT - (STAND_HEIGHT - height)
 	_hurtbox_shape.position.y = lowered
-	# 占位美术直接纵向压扁；第 4 步换成精灵图后这里改成切换动画。
-	_visual.scale.y = height / STAND_HEIGHT
-	_visual_base.y = lowered
-	_visual.position = _visual_base + _recoil
+	_visual.pose(height / STAND_HEIGHT, lowered)
 
 
 ## 碰撞体中心的世界坐标。趴下时比 global_position 低 6px，敌人的视线要瞄这里。
@@ -378,11 +366,7 @@ func _update_aim(moving: bool) -> void:
 	else:
 		aim = Aim.DOWN
 	# 占位美术：按瞄准方向显示对应的那根枪。
-	_gun.visible = aim == Aim.FORWARD
-	_gun_up.visible = aim == Aim.UP
-	_gun_diagonal_up.visible = aim == Aim.DIAGONAL_UP
-	_gun_diagonal_down.visible = aim == Aim.DIAGONAL_DOWN
-	_gun_down.visible = aim == Aim.DOWN
+	_visual.aim(aim_vector())
 
 
 ## 当前瞄准方向对应的子弹方向（单位向量）。
@@ -452,6 +436,7 @@ func _shoot(direction: Vector2) -> void:
 	last_muzzle_position = _muzzle_position(direction)
 	last_shot_direction = direction
 	_recoil = -direction * RECOIL_DISTANCE
+	_visual.kick(_recoil)
 	current_slot().fire(get_parent(), last_muzzle_position, direction, self)
 
 
@@ -474,7 +459,7 @@ func _update_recoil(delta: float) -> void:
 	if _recoil == Vector2.ZERO:
 		return
 	_recoil = _recoil.move_toward(Vector2.ZERO, RECOIL_RECOVER * delta)
-	_visual.position = _visual_base + _recoil
+	_visual.kick(_recoil)
 
 
 func _update_invincibility(delta: float) -> void:
@@ -482,10 +467,10 @@ func _update_invincibility(delta: float) -> void:
 		return
 	_invincible_timer -= delta
 	if _invincible_timer <= 0.0:
-		_visual.modulate.a = 1.0
+		_visual.blink(1.0)
 	else:
 		# 每 0.05 秒切换一次显隐，做出闪烁效果。
-		_visual.modulate.a = 0.3 if int(_invincible_timer / 0.05) % 2 == 0 else 1.0
+		_visual.blink(0.3 if int(_invincible_timer / 0.05) % 2 == 0 else 1.0)
 
 
 ## 站在/贴着敌人身上时持续判定，无敌帧结束后会再次受伤。
@@ -518,6 +503,6 @@ func take_damage(amount: int, source_position := Vector2.INF) -> void:
 func _die() -> void:
 	_dead = true
 	health = 0
-	_visual.modulate = Color(0.5, 0.5, 0.5, 1.0)
+	_visual.show_dead()
 	died.emit()
 	GameEvents.report(&"player_death", self)

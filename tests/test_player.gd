@@ -163,10 +163,10 @@ func test_w_aims_instead_of_jumping() -> void:
 	await frames(20)
 	check("W does not make the player jump", player.is_on_floor() and absf(player.global_position.y - y_before) < 0.5, "%.2f" % (player.global_position.y - y_before))
 	check("W alone does not fire", bullets(4).size() == 0, str(bullets(4).size()))
-	check("gun is raised while holding W", player._gun_up.visible and not player._gun.visible)
+	check("gun is raised while holding W", art(player, "GunUp").visible and not art(player, "Gun").visible)
 	Input.action_release("aim_up")
 	await frames(2)
-	check("gun goes back down after releasing W", player._gun.visible and not player._gun_up.visible)
+	check("gun goes back down after releasing W", art(player, "Gun").visible and not art(player, "GunUp").visible)
 
 	# 只看键盘绑定；手柄绑定在 test_gamepad.gd 里查。
 	var jump_keys := keyboard_keys("jump")
@@ -228,7 +228,7 @@ func test_w_while_moving_aims_diagonally_up() -> void:
 	Input.action_press("aim_up")
 	Input.action_press("move_right")
 	await frames(20)
-	check("W + move walks and raises the gun diagonally", player.global_position.x > x_before + 15.0 and player._gun_diagonal_up.visible and not player._gun_up.visible, "%.1f -> %.1f" % [x_before, player.global_position.x])
+	check("W + move walks and raises the gun diagonally", player.global_position.x > x_before + 15.0 and art(player, "GunDiagonalUp").visible and not art(player, "GunUp").visible, "%.1f -> %.1f" % [x_before, player.global_position.x])
 
 func test_shooting_up_passes_one_way_platforms() -> void:
 	# Turret2 站在 Platform2（x 160..208，y 100..108）上。从正下方往上打，
