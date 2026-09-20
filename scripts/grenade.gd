@@ -20,8 +20,6 @@ extends CharacterBody2D
 ## 爆炸中心（和直接砸中）的伤害，以及范围边缘的伤害，中间按距离线性过渡。
 @export var max_damage := 3
 @export var min_damage := 1
-## 爆炸的样子（占位美术），只管显示。
-@export var explosion_scene: PackedScene
 
 ## 场上的手雷都在这个组里（Boss A 躲手雷时靠它找）。
 const GROUP := &"grenades"
@@ -100,11 +98,6 @@ func explode(direct_hit: Node2D = null) -> void:
 		# 隔着墙炸不到：从爆炸中心到目标之间要没有实心物体。
 		if Sight.is_clear(space, global_position, victim.global_position):
 			victim.take_damage(damage_at(victim, direct_hit), global_position)
-	if explosion_scene != null:
-		var effect := explosion_scene.instantiate() as Node2D
-		effect.set(&"radius", blast_radius)
-		get_parent().add_child(effect)
-		effect.global_position = global_position
 	queue_free()
 
 

@@ -6,12 +6,15 @@ extends Node2D
 ## 由这里决定画什么、画在哪。特效场景在关卡里用导出属性指定，第 4 步换素材包时整套替换。
 ## 特效都是纯显示的 Node2D，没有碰撞，挂在自己下面，关卡一卸载就跟着没了。
 
+## 下面这些是**默认**特效：当前素材包里有同名的特效就用包里的（见 `SkinPack.EFFECT_KEYS`）。
 ## 开枪时在枪口闪一下。
 @export var muzzle_flash_scene: PackedScene
 ## 子弹打中角色（玩家或敌人）时的火花。
 @export var hit_spark_scene: PackedScene
 ## 子弹打在墙、地面这种实心物体上时的火花。
 @export var impact_spark_scene: PackedScene
+## 手雷爆炸（大小按爆炸半径缩放）。
+@export var explosion_scene: PackedScene
 
 ## 哪些事件算「开了一枪」。各角色开枪报告的事件名在场景里设置（`Enemy.shoot_event`），
 ## 加新敌人时这里要一起加；`test_fx.gd` 会检查关卡里每个敌人的 shoot_event 都在这张表里。
@@ -30,17 +33,22 @@ func _on_event(event: StringName, source: Node) -> void:
 	if SHOOT_EVENTS.has(event):
 		_flash_muzzle(source)
 	elif HIT_EVENTS.has(event):
-		_spawn(hit_spark_scene, _body_center(source))
+		_spawn(&"hit_spark", hit_spark_scene, _body_center(source))
 	elif event == &"bullet_impact":
 		# 子弹撞到实心物体时报告，它自己的位置就是命中点。
-		_spawn(impact_spark_scene, (source as Node2D).global_position)
+		_spawn(&"impact_spark", impact_spark_scene, (source as Node2D).global_position)
+	elif event == &"explosion":
+		# 手雷炸的时候报告，大小照它的爆炸半径来。
+		var blast := _spawn(&"explosion", explosion_scene, (source as Node2D).global_position)
+		if blast != null:
+			blast.set(&"radius", source.get(&"blast_radius"))
 
 
 ## 枪口闪光：开枪的人自己记着这一枪从哪出膛、朝哪打（last_muzzle_position / last_shot_direction）。
 func _flash_muzzle(source: Node) -> void:
 	var position_: Vector2 = source.get(&"last_muzzle_position")
 	var direction: Vector2 = source.get(&"last_shot_direction")
-	var flash := _spawn(muzzle_flash_scene, position_)
+	var flash := _spawn(&"muzzle_flash", muzzle_flash_scene, position_)
 	if flash != null and direction != Vector2.ZERO:
 		flash.rotation = direction.angle()
 
@@ -52,7 +60,9 @@ func _body_center(source: Node) -> Vector2:
 	return (source as Node2D).global_position
 
 
-func _spawn(scene: PackedScene, position_: Vector2) -> Node2D:
+## 生成一个特效：当前素材包里有这个键就用包里的，没有就用节点上配的默认场景。
+func _spawn(key: StringName, fallback: PackedScene, position_: Vector2) -> Node2D:
+	var scene := Skins.effect(key, fallback)
 	if scene == null:
 		return null
 	var effect := scene.instantiate() as Node2D

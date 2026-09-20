@@ -42,13 +42,15 @@ func release_all_input() -> void:
 ## 玩家一传送过去就会吃接触伤害被击飞，后面一连串断言都会莫名其妙地失败。
 ## 默认也移除 Level/Walls 下的竖墙：墙会挡路、挡子弹、挡视线，而大部分用例测的是和墙无关的机制，
 ## 不该因为关卡里掩体摆放的调整而失败。测墙本身的用例传 keep_walls = true。
-func reset_scene(keep_enemies := false, keep_walls := false) -> void:
+## `skin` 传了就用它加载这一关（角色在 _ready 里按当前包装外观，所以必须在加载之前定好）；
+## 不传就恢复默认包。
+func reset_scene(keep_enemies := false, keep_walls := false, skin: SkinPack = null) -> void:
 	release_all_input()
 	free_scene()
 	# 终极武器会暂停整棵树：用例中途出错、没等到恢复，也不能把暂停带进下一条用例。
 	tree.paused = false
 	# 素材包是全局状态：换过包的用例如果中途出错没换回来，会影响后面所有用例，所以每次都恢复默认包。
-	Skins.use(Skins.default_skin())
+	Skins.use(skin if skin != null else Skins.default_skin())
 	events.clear()
 	if not GameEvents.event_happened.is_connected(_record_event):
 		GameEvents.event_happened.connect(_record_event)

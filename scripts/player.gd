@@ -118,6 +118,8 @@ var _exhausted := false
 var _stamina_regen_timer := 0.0
 
 ## 外观层。玩法只调它的接口（朝向/姿势/瞄准/受击/闪烁/死亡/后坐力），不碰方块和颜色。
+## 素材包里有 `skin_key` 这套外观的话，`_ready` 里会换成它的（见 Skins.build_appearance）。
+@export var skin_key := &"player"
 @onready var _visual: Appearance = $Visual
 @onready var _hurtbox: Area2D = $Hurtbox
 @onready var _shape: CollisionShape2D = $CollisionShape2D
@@ -126,6 +128,7 @@ var _stamina_regen_timer := 0.0
 
 
 func _ready() -> void:
+	_visual = Skins.build_appearance(self, skin_key)
 	for weapon in weapons:
 		_slots.append(WeaponSlot.new(weapon))
 	_ultimate.ammo_changed.connect(func(ammo: int, max_ammo: int) -> void: ultimate_ammo_changed.emit(ammo, max_ammo))

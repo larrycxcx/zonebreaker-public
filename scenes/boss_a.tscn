@@ -13,6 +13,7 @@ size = Vector2(24, 32)
 collision_layer = 8
 collision_mask = 1
 script = ExtResource("1")
+skin_key = &"boss_a"
 display_name = "Boss A"
 portrait = ExtResource("3")
 ultimate_damage_ratio = 0.25

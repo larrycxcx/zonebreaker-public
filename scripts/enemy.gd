@@ -79,6 +79,8 @@ var _stand_height := 0.0
 var _aim_timer := 0.0
 
 ## 外观层。玩法只调它的接口，不碰方块和颜色（见 appearance.gd）。
+## 素材包里有 `skin_key` 这套外观的话，`_ready` 里会换成它的（见 Skins.build_appearance）。
+@export var skin_key := &"walker"
 @onready var _visual: Appearance = $Visual
 ## 枪口 Marker，挂在**本体**下（不在 `Visual` 里）：它只给出「伸出去多远」这个偏移，
 ## 实际出膛高度按碰撞体中心算（见 `level_muzzle_position()`），所以和外观长什么样、压没压扁都无关。
@@ -88,6 +90,7 @@ var _aim_timer := 0.0
 
 
 func _ready() -> void:
+	_visual = Skins.build_appearance(self, skin_key)
 	add_to_group(GROUP)
 	health = max_health
 	_apply_visual_facing()

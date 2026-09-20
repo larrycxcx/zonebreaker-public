@@ -34,11 +34,35 @@ const SOUND_EVENTS := {
 	&"boss_appear": "Boss 出场（第一次进入屏幕）",
 }
 
+## 全部角色外观的键，以及各是谁。做素材的人照这张表准备外观场景（根节点挂 Appearance 脚本）。
+## 自制包只填想替换的；没填的角色用它自己场景里带的默认外观（现在的占位方块）。
+const APPEARANCE_KEYS := {
+	&"player": "玩家",
+	&"walker": "巡逻兵 A/B/C（共用一套，颜色在各自场景里）",
+	&"grenadier": "敌人 F（扔手雷的巡逻兵）",
+	&"turret": "炮台",
+	&"flyer": "敌人 E（飞行）",
+	&"chaser": "敌人 D（追击）",
+	&"boss_a": "Boss A",
+}
+
+## 全部特效的键。没填的用 Fx 节点上配的默认场景。
+const EFFECT_KEYS := {
+	&"muzzle_flash": "开枪时的枪口闪光",
+	&"hit_spark": "子弹打中角色",
+	&"impact_spark": "子弹打在墙、地面上",
+	&"explosion": "手雷爆炸",
+}
+
 ## 在编辑器里显示的名字。
 @export var display_name := ""
 ## 事件名 → 声音。
 @export var sounds: Dictionary[StringName, AudioStream] = {}
-## 这个包里没有的声音去哪里找。自制素材包一般指向默认包；默认包自己留空。
+## 角色外观：皮肤键（`APPEARANCE_KEYS`）→ 外观场景，根节点要挂 `Appearance` 脚本。
+@export var appearances: Dictionary[StringName, PackedScene] = {}
+## 特效：特效键（`EFFECT_KEYS`）→ 场景。
+@export var effects: Dictionary[StringName, PackedScene] = {}
+## 这个包里没有的东西去哪里找。自制素材包一般指向默认包；默认包自己留空。
 @export var fallback: SkinPack
 
 
@@ -48,3 +72,19 @@ func find_sound(event: StringName) -> AudioStream:
 	if stream != null:
 		return stream
 	return fallback.find_sound(event) if fallback != null else null
+
+
+## 找某个角色的外观场景：先看自己，没有再问备用包，都没有返回 null（= 用角色场景里自带的）。
+func find_appearance(key: StringName) -> PackedScene:
+	var scene: PackedScene = appearances.get(key)
+	if scene != null:
+		return scene
+	return fallback.find_appearance(key) if fallback != null else null
+
+
+## 找某个特效的场景，规则同上。
+func find_effect(key: StringName) -> PackedScene:
+	var scene: PackedScene = effects.get(key)
+	if scene != null:
+		return scene
+	return fallback.find_effect(key) if fallback != null else null

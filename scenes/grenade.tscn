@@ -1,7 +1,6 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/grenade.gd" id="1"]
-[ext_resource type="PackedScene" path="res://scenes/explosion.tscn" id="2"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_1"]
 radius = 2.0
@@ -14,7 +13,6 @@ collision_layer = 0
 collision_mask = 1
 motion_mode = 1
 script = ExtResource("1")
-explosion_scene = ExtResource("2")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_1")

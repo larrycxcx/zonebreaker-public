@@ -6,6 +6,7 @@
 
 [node name="EnemyWalkerF" instance=ExtResource("1")]
 script = ExtResource("2")
+skin_key = &"grenadier"
 bullet_scene = null
 detect_range = 150.0
 grenade_scene = ExtResource("3")

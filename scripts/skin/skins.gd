@@ -26,3 +26,35 @@ func default_skin() -> SkinPack:
 
 func sound(event: StringName) -> AudioStream:
 	return current.find_sound(event) if current != null else null
+
+
+## 当前包里某个特效的场景，没有就返回 fallback_（Fx 节点上配的默认值）。
+func effect(key: StringName, fallback_: PackedScene) -> PackedScene:
+	var scene: PackedScene = current.find_effect(key) if current != null else null
+	return scene if scene != null else fallback_
+
+
+## 按皮肤键给 owner 装上外观，返回最终用的那个 `Appearance`。
+## 当前包里没有这个键（或者给的场景不对）就保留角色场景里自带的外观——皮肤包填错不该让游戏崩。
+## 角色在 _ready 里第一时间调它，之后只通过返回的这个对象和外观打交道。
+func build_appearance(owner: Node, key: StringName) -> Appearance:
+	var built_in := owner.get_node_or_null("Visual") as Appearance
+	if key == &"" or current == null:
+		return built_in
+	var scene := current.find_appearance(key)
+	if scene == null:
+		return built_in
+	var replacement := scene.instantiate() as Appearance
+	if replacement == null:
+		push_warning("皮肤包里 %s 的外观根节点没有 Appearance 脚本，继续用默认外观" % key)
+		return built_in
+	replacement.name = "Visual"
+	if built_in != null:
+		var index := built_in.get_index()
+		owner.remove_child(built_in)
+		built_in.queue_free()
+		owner.add_child(replacement)
+		owner.move_child(replacement, index)
+	else:
+		owner.add_child(replacement)
+	return replacement

@@ -12,6 +12,7 @@ size = Vector2(14, 14)
 collision_layer = 8
 collision_mask = 1
 script = ExtResource("1")
+skin_key = &"turret"
 max_health = 6
 shoot_event = &"turret_shoot"
 detect_range = 200.0

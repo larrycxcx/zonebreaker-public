@@ -1,0 +1,151 @@
+extends GameTest
+## 素材包的外观部分：角色外观和特效都能整包替换，而且**只换外观、不改规则**。
+## 音效那半边在 test_audio.gd 里。
+
+const STUB := "res://tests/stub_appearance.gd"
+
+
+## 现做一个素材包：appearances / effects 里填什么由参数决定，其余都回落到默认包。
+func make_skin(appearances := {}, effects := {}) -> SkinPack:
+	var skin := SkinPack.new()
+	skin.display_name = "测试皮肤"
+	skin.fallback = Skins.default_skin()
+	for key in appearances:
+		skin.appearances[key] = appearances[key]
+	for key in effects:
+		skin.effects[key] = effects[key]
+	return skin
+
+
+## 把一个脚本打包成场景（当外观或特效用）。
+func scene_of(script_path: String) -> PackedScene:
+	var node := Node2D.new()
+	node.set_script(load(script_path))
+	var scene := PackedScene.new()
+	scene.pack(node)
+	node.free()
+	return scene
+
+
+func test_keys_cover_everyone() -> void:
+	# 关卡里每个角色都要有皮肤键，而且键都在清单里（做素材的人照清单准备）
+	await reset_scene(true)
+	var actors: Array[Node] = [player]
+	actors.append_array(main.get_node("Enemies").get_children())
+	# 每个角色用的是哪个键要对得上，不能漏填（漏填会退回基类默认的 walker，画面上看不出来）
+	var expected := {
+		"Player": &"player", "WalkerA": &"walker", "WalkerB": &"walker", "WalkerC": &"walker",
+		"WalkerF": &"grenadier", "Turret1": &"turret", "Turret2": &"turret",
+		"FlyerE": &"flyer", "ChaserD": &"chaser", "BossA": &"boss_a",
+	}
+	for actor in actors:
+		var key: StringName = actor.get(&"skin_key")
+		check("%s's key (%s) is in the list" % [actor.name, key], SkinPack.APPEARANCE_KEYS.has(key),
+			str(SkinPack.APPEARANCE_KEYS.keys()))
+		check("%s uses the %s skin" % [actor.name, expected.get(String(actor.name), "?")],
+			key == expected.get(String(actor.name)), str(key))
+
+
+func test_default_skin_leaves_the_built_in_art_alone() -> void:
+	await reset_scene(true)
+	check("the default pack ships no appearance overrides", Skins.default_skin().appearances.is_empty())
+	check("and no effect overrides", Skins.default_skin().effects.is_empty())
+	check("so characters keep the art from their own scene", player.get_node("Visual") is Appearance)
+
+
+func test_a_skin_replaces_a_character_s_appearance() -> void:
+	# 换上只提供「玩家外观」的包：玩家换皮，敌人保持原样
+	await reset_scene(true, false, make_skin({&"player": scene_of(STUB)}))
+	keep_only_enemies(["WalkerA"])
+	await frames(5)
+	var skinned: Node = player.get_node("Visual")
+	check("the player got the skin's appearance", skinned.get_script().resource_path == STUB, str(skinned.get_script()))
+	check("it is still called Visual and sits on the player", skinned.get_parent() == player)
+	check("the enemy kept its own", main.get_node("Enemies/WalkerA/Visual").get_script().resource_path != STUB)
+	# 换皮之后照样能玩，判定一点不变
+	var muzzle := player._muzzle_position(Vector2.RIGHT) - player.global_position
+	check("judgement points unchanged", muzzle == Player.LEVEL_MUZZLE, str(muzzle))
+	Input.action_press("move_right")
+	await frames(6)
+	release_all_input()
+	check("still moves", player.global_position.x > 32.0)
+	check("and the logic drives it through the interface", (skinned.calls as Array).has("face"), str(skinned.calls))
+
+
+func test_a_skin_replaces_an_effect() -> void:
+	# 换上只提供「枪口闪光」的包
+	await reset_scene(false, false, make_skin({}, {&"muzzle_flash": scene_of(STUB)}))
+	player.global_position = Vector2(200, 152)
+	player.velocity = Vector2.ZERO
+	await frames(10)
+	player._shoot(Vector2.RIGHT)
+	await frames(1)
+	var fx: Fx = main.get_node("Fx")
+	var effects := fx.get_children()
+	check("the flash came from the skin", not effects.is_empty() and effects[0].get_script().resource_path == STUB,
+		str(effects.map(func(e): return e.get_script())))
+
+
+func test_missing_entries_fall_back() -> void:
+	# 包里没填的东西一律回落：外观用角色场景自带的，特效用 Fx 上配的默认场景
+	await reset_scene(false, false, make_skin())
+	player.global_position = Vector2(200, 152)
+	await frames(10)
+	check("appearance falls back to the built-in one", player.get_node("Visual").get_script().resource_path.ends_with("appearance.gd"))
+	player._shoot(Vector2.RIGHT)
+	await frames(1)
+	var fx: Fx = main.get_node("Fx")
+	check("effects fall back to the Fx defaults", not fx.get_children().is_empty())
+
+
+func test_a_broken_skin_does_not_break_the_game() -> void:
+	# 皮肤包把外观填成了一个普通场景（根节点没有 Appearance 脚本）：退回默认外观，游戏照常跑
+	var not_an_appearance := PackedScene.new()
+	var node := Node2D.new()
+	not_an_appearance.pack(node)
+	node.free()
+	await reset_scene(false, false, make_skin({&"player": not_an_appearance}))
+	await frames(10)
+	check("kept the built-in appearance", player.get_node("Visual") is Appearance)
+	Input.action_press("move_right")
+	await frames(6)
+	release_all_input()
+	check("and the game still runs", player.global_position.x > 32.0)
+
+
+func test_appearances_fall_back_through_the_chain() -> void:
+	# 包 A 提供玩家外观，包 B 自己什么都没有、fallback 指向 A：用 B 也要拿到 A 的外观
+	var pack_a := make_skin({&"player": scene_of(STUB)})
+	var pack_b := make_skin()
+	pack_b.fallback = pack_a
+	await reset_scene(false, false, pack_b)
+	await frames(5)
+	check("the appearance came from the fallback pack", player.get_node("Visual").get_script().resource_path == STUB,
+		str(player.get_node("Visual").get_script()))
+
+
+func test_the_explosion_is_drawn_by_the_fx_layer() -> void:
+	# 手雷自己不画爆炸，只报告事件；画面归 Fx（所以也能被素材包替换）
+	await reset_scene()
+	player.global_position = Vector2(200, 152)
+	player.velocity = Vector2.ZERO
+	await frames(10)
+	var grenade: Grenade = load("res://scenes/grenade.tscn").instantiate()
+	main.add_child(grenade)
+	grenade.global_position = Vector2(230, 150)
+	await frames(2)
+	var fx: Fx = main.get_node("Fx")
+	for effect in fx.get_children():
+		effect.free()
+	# 故意改成和特效场景默认值（28）不同的半径，否则「没按半径缩放」也看不出来
+	grenade.blast_radius = 40.0
+	var radius := grenade.blast_radius # 爆炸之后它自己就释放了，先记下来
+	grenade.explode()
+	await frames(2)
+	var blasts := fx.get_children().filter(func(e): return e.get("radius") != null)
+	check("an explosion effect appears", not blasts.is_empty(), str(fx.get_children()))
+	if not blasts.is_empty():
+		check("sized by the grenade's blast radius", blasts[0].radius == radius,
+			"%s vs %s" % [blasts[0].radius, radius])
+		check("drawn where it went off", blasts[0].global_position.distance_to(Vector2(230, 150)) < 1.0,
+			str(blasts[0].global_position))
