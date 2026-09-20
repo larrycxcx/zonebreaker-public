@@ -12,6 +12,7 @@ const SUITES := {
 	"enemy_types": "res://tests/test_enemy_types.gd",
 	"enemy_aim": "res://tests/test_enemy_aim.gd",
 	"chaser": "res://tests/test_chaser.gd",
+	"enemy_f": "res://tests/test_enemy_f.gd",
 	"flyer": "res://tests/test_flyer.gd",
 	"crouch": "res://tests/test_crouch.gd",
 	"sprint": "res://tests/test_sprint.gd",

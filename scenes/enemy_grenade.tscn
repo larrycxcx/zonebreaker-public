@@ -1,0 +1,9 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/grenade.tscn" id="1"]
+
+[node name="EnemyGrenade" instance=ExtResource("1")]
+target_layer = 2
+
+[node name="ColorRect" parent="." index="1"]
+color = Color(0.8, 0.45, 0.2, 1)

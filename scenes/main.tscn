@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://scenes/enemy_chaser.tscn" id="9"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_flyer.tscn" id="10"]
 [ext_resource type="PackedScene" path="res://scenes/boss_a.tscn" id="11"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_walker_f.tscn" id="12"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("3")
@@ -102,6 +103,9 @@ position = Vector2(524, 85)
 
 [node name="FlyerE" parent="Enemies" instance=ExtResource("10")]
 position = Vector2(260, 44)
+
+[node name="WalkerF" parent="Enemies" instance=ExtResource("12")]
+position = Vector2(264, 121)
 
 [node name="Turret1" parent="Enemies" instance=ExtResource("5")]
 position = Vector2(580, 153)

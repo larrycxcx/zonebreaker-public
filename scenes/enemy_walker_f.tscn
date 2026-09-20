@@ -1,0 +1,17 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/enemy_walker.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/enemy_grenadier.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_grenade.tscn" id="3"]
+
+[node name="EnemyWalkerF" instance=ExtResource("1")]
+script = ExtResource("2")
+bullet_scene = null
+detect_range = 150.0
+grenade_scene = ExtResource("3")
+
+[node name="Body" parent="Visual" index="0"]
+color = Color(0.45, 0.55, 0.25, 1)
+
+[node name="Gun" parent="Visual" index="2"]
+visible = false
