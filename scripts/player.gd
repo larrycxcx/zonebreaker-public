@@ -75,6 +75,10 @@ const STAND_HEIGHT := 16.0
 ## 敌人子弹离地面只有 6~8px（枪口在敌人身体中线），趴下后必须矮于 6px 才躲得开，取 4px 留 2px 余量。
 const CROUCH_HEIGHT := 4.0
 const HURTBOX_STAND_HEIGHT := 18.0
+## 从单向平台上跳下来时，忽略那块平台多久（秒）。够落下一个身位就行，太长会穿过下一层平台。
+const DROP_THROUGH_TIME := 0.25
+## 跳下来那一下先给一点向下的速度，好立刻脱离地面。
+const DROP_THROUGH_SPEED := 40.0
 
 var facing := 1
 var health := 0
@@ -93,6 +97,9 @@ var _slots: Array[WeaponSlot] = []
 var _ultimate := WeaponSlot.new()
 ## Visual 下每个子节点朝右时的横向位置，翻转时按它镜像（见 VisualFlip）。
 var _visual_bases := {}
+## 正在穿过的那块单向平台（跳下平台时临时忽略它的碰撞）。
+var _dropping_platform: Platform
+var _drop_timer := 0.0
 var _invincible_timer := 0.0
 ## 不闪烁的无敌（终极武器用）。暂停期间玩家的计时也停着，所以它能覆盖整个定格。
 var _shield_timer := 0.0
@@ -140,6 +147,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_apply_gravity(delta)
+	_update_drop_through(delta)
 	_update_crouch()
 	_handle_jump(delta)
 	_handle_horizontal(delta)
@@ -168,6 +176,13 @@ func _handle_jump(delta: float) -> void:
 	else:
 		_jump_buffer_timer -= delta
 
+	# 魂斗罗式跳下平台：站在单向平台上按住「下」再按跳跃，就直接穿下去，而不是起跳。
+	if _jump_buffer_timer > 0.0 and is_on_floor() and Input.is_action_pressed("aim_down"):
+		var platform := _one_way_floor()
+		if platform != null:
+			_drop_through(platform)
+			return
+
 	var can_jump := _jump_buffer_timer > 0.0 and _coyote_timer > 0.0
 	if can_jump and is_crouching:
 		# 蹲着也能跳，但得先站得起来：头顶被挡住就跳不了。
@@ -184,6 +199,42 @@ func _handle_jump(delta: float) -> void:
 
 	if Input.is_action_just_released("jump") and velocity.y < 0.0:
 		velocity.y *= jump_cut
+
+
+## 脚下踩着的单向平台；踩的是实心地面（或者没踩着东西）就返回 null。
+## 用上一次 move_and_slide 的碰撞结果判断，所以只有真正站在平台上时才跳得下去。
+func _one_way_floor() -> Platform:
+	for i in get_slide_collision_count():
+		var collision := get_slide_collision(i)
+		if collision.get_normal().y > -0.7:
+			continue # 不是脚下那一面
+		var platform := collision.get_collider() as Platform
+		if platform != null and platform.one_way:
+			return platform
+	return null
+
+
+## 开始穿过这块平台：临时把它排除在碰撞之外，并往下推一点。
+func _drop_through(platform: Platform) -> void:
+	_dropping_platform = platform
+	_drop_timer = DROP_THROUGH_TIME
+	add_collision_exception_with(platform)
+	velocity.y = maxf(velocity.y, DROP_THROUGH_SPEED)
+	# 跳跃缓冲要清掉，否则刚穿下去就又起跳了。
+	_jump_buffer_timer = 0.0
+	_coyote_timer = 0.0
+
+
+## 时间到就恢复和那块平台的碰撞（这时人已经落到它下面了，不会被顶回去）。
+func _update_drop_through(delta: float) -> void:
+	if _drop_timer <= 0.0:
+		return
+	_drop_timer -= delta
+	if _drop_timer > 0.0:
+		return
+	if _dropping_platform != null and is_instance_valid(_dropping_platform):
+		remove_collision_exception_with(_dropping_platform)
+	_dropping_platform = null
 
 
 func _handle_horizontal(delta: float) -> void:
