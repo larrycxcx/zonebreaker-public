@@ -1,11 +1,11 @@
 extends GameTest
-## 魂斗罗式 8 方向瞄准：W + 左右边走边斜上，只按 W 原地正上；S + 左右边走边斜下，只按 S 地面上斜下、空中正下；
+## 魂斗罗式 16 方向瞄准：W + 左右边走边斜上，只按 W 原地正上；S + 左右边走边斜下，只按 S 地面上斜下、空中正下；
 ## W、S 同时按抵消；趴下（Ctrl / LT）时一律水平。另外确认按键：S/↓ 是向下瞄准，Ctrl/LT 趴下，Alt/LB 奔跑。
 
-const OPEN_X := 200.0
+const OPEN_X := 400.0
 
 
-func start(x := OPEN_X, y := 152.0) -> void:
+func start(x := OPEN_X, y := 304.0) -> void:
 	await reset_scene()
 	player.global_position = Vector2(x, y)
 	player.velocity = Vector2.ZERO
@@ -139,7 +139,7 @@ func test_bullet_directions_and_muzzles() -> void:
 		[["aim_up", "move_left"], Vector2(-diagonal, -diagonal), "diagonal up, facing left"],
 	]
 	for c in cases:
-		player.global_position = Vector2(OPEN_X, 152)
+		player.global_position = Vector2(OPEN_X, 304)
 		press(c[0])
 		await frames(2)
 		var center := player.global_position
@@ -151,7 +151,7 @@ func test_bullet_directions_and_muzzles() -> void:
 			check("%s: drawn along its path" % c[2], is_equal_approx(bullet.rotation, c[1].angle()), "%.3f" % bullet.rotation)
 			var offset: Vector2 = bullet.global_position - center
 			# 出膛点在身体外、朝子弹飞的那一边。
-			check("%s: leaves from the side it flies toward" % c[2], offset.dot(c[1]) > 6.0, str(offset))
+			check("%s: leaves from the side it flies toward" % c[2], offset.dot(c[1]) > 12.0, str(offset))
 			bullet.free()
 		await frames(12)
 
@@ -166,7 +166,7 @@ func test_straight_down_from_the_air() -> void:
 	check("S + J in the air fires one bullet", bullet != null)
 	if bullet != null:
 		check("straight down", bullet.direction == Vector2.DOWN)
-		check("from under the feet", bullet.global_position.y > player.global_position.y + 8.0 and absf(bullet.global_position.x - player.global_position.x) < 2.0, str(bullet.global_position - player.global_position))
+		check("from under the feet", bullet.global_position.y > player.global_position.y + 16.0 and absf(bullet.global_position.x - player.global_position.x) < 4.0, str(bullet.global_position - player.global_position))
 
 
 func test_walking_while_firing_diagonally() -> void:
@@ -200,18 +200,18 @@ func test_diagonal_up_hits_a_flyer() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["FlyerE"])
 	var flyer: EnemyFlyer = main.get_node("Enemies/FlyerE")
-	player.global_position = Vector2(100, 152)
+	player.global_position = Vector2(200, 304)
 	player.velocity = Vector2.ZERO
 	await frames(5)
-	# 斜上 45°：出膛点在身体中心右上 (9, -9)，要升 99px 到 E 的高度，就得往右 99px。
-	flyer.set_anchor(Vector2(100 + 9 + 99, 44))
+	# 斜上 90°：出膛点在身体中心右上 (18, -18)，要升 198px 到 E 的高度，就得往右 198px。
+	flyer.set_anchor(Vector2(200 + 18 + 198, 88))
 	flyer.move_speed = 0.0
 	flyer.wave_amplitude = 0.0
 	var deaths := []
 	flyer.died.connect(func(): deaths.append(true))
 	# 每发都回到原位按住 W + 右开一枪（边走边斜上）；走一帧只挪 1.5px，不影响瞄准线。
-	for shot in 2:
-		player.global_position = Vector2(100, 152)
+	for shot in 4:
+		player.global_position = Vector2(200, 304)
 		player.velocity = Vector2.ZERO
 		press(["aim_up", "move_right"])
 		player.current_slot().cooldown_left = 0.0
@@ -223,16 +223,16 @@ func test_diagonal_up_hits_a_flyer() -> void:
 
 
 func test_shooting_down_through_a_platform() -> void:
-	# 玩家站在 Platform1（单向，x 80..128，顶面 y=128）上起跳往下打，巡逻兵 A 在平台正下方的地面上。
+	# 玩家站在 Platform1（单向，x 160..128，顶面 y=256）上起跳往下打，巡逻兵 A 在平台正下方的地面上。
 	await reset_scene(true)
 	keep_only_enemies(["WalkerA"])
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
-	walker.global_position = Vector2(104, 153)
+	walker.global_position = Vector2(208, 306)
 	walker.move_speed = 0.0
-	player.global_position = Vector2(104, 120)
+	player.global_position = Vector2(208, 240)
 	player.velocity = Vector2.ZERO
 	await frames(10)
-	check("standing on the platform", player.is_on_floor() and player.global_position.y < 125.0, str(player.global_position))
+	check("standing on the platform", player.is_on_floor() and player.global_position.y < 250.0, str(player.global_position))
 	var hits := []
 	walker.died.connect(func(): hits.append(true))
 	var health_before := walker.health
@@ -254,11 +254,11 @@ func test_diagonal_down_from_a_ledge() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["WalkerA"])
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
-	player.global_position = Vector2(120, 120)
+	player.global_position = Vector2(240, 240)
 	player.velocity = Vector2.ZERO
 	await frames(10)
-	# 出膛点在 (129, 124)，45° 往下到巡逻兵身体中线 y=153 要走 29px。
-	walker.global_position = Vector2(129 + 29, 153)
+	# 出膛点在 (258, 248)，90° 往下到巡逻兵身体中线 y=306 要走 58px。
+	walker.global_position = Vector2(258 + 58, 306)
 	walker.move_speed = 0.0
 	walker.facing = 1
 	walker._apply_facing()

@@ -7,7 +7,7 @@
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 resource_local_to_scene = true
-size = Vector2(24, 32)
+size = Vector2(48, 64)
 
 [node name="BossA" type="CharacterBody2D"]
 collision_layer = 8
@@ -21,7 +21,7 @@ max_health = 60
 contact_damage = 1
 bullet_scene = ExtResource("2")
 fire_interval = 1.2
-detect_range = 220.0
+detect_range = 440.0
 burst_min = 3
 burst_max = 3
 shoot_event = &"turret_shoot"
@@ -34,32 +34,32 @@ script = ExtResource("99")
 turning_gun = NodePath("Gun")
 
 [node name="Body" type="ColorRect" parent="Visual"]
-offset_left = -12.0
-offset_top = -16.0
-offset_right = 12.0
-offset_bottom = 16.0
+offset_left = -24.0
+offset_top = -32.0
+offset_right = 24.0
+offset_bottom = 32.0
 mouse_filter = 2
 color = Color(0.55, 0.33, 0.14, 1)
 
 [node name="Helmet" type="ColorRect" parent="Visual"]
-offset_left = -12.0
-offset_top = -16.0
-offset_right = 12.0
-offset_bottom = -9.0
+offset_left = -24.0
+offset_top = -32.0
+offset_right = 24.0
+offset_bottom = -18.0
 mouse_filter = 2
 color = Color(0.3, 0.33, 0.36, 1)
 
 [node name="Visor" type="ColorRect" parent="Visual"]
-offset_left = 2.0
-offset_top = -12.0
-offset_right = 11.0
-offset_bottom = -9.0
+offset_left = 4.0
+offset_top = -24.0
+offset_right = 22.0
+offset_bottom = -18.0
 mouse_filter = 2
 color = Color(1, 0.3, 0.2, 1)
 
 [node name="Gun" type="ColorRect" parent="Visual"]
-offset_top = 7.0
-offset_right = 17.0
-offset_bottom = 11.0
+offset_top = 14.0
+offset_right = 34.0
+offset_bottom = 22.0
 mouse_filter = 2
 color = Color(0.25, 0.25, 0.28, 1)

@@ -10,16 +10,16 @@ signal shot_fired
 @export var max_health := 2
 ## 碰到玩家时对玩家造成的伤害。
 @export var contact_damage := 1
-@export var gravity := 900.0
-@export var max_fall_speed := 400.0
+@export var gravity := 1800.0
+@export var max_fall_speed := 800.0
 
 @export_group("Shooting")
 ## 留空表示这个敌人不会射击。
 @export var bullet_scene: PackedScene
 @export var fire_interval := 1.4
-@export var detect_range := 150.0
+@export var detect_range := 300.0
 ## 和玩家的高度差在这个范围内就水平开火。
-@export var vertical_tolerance := 20.0
+@export var vertical_tolerance := 40.0
 ## 每次开火连发几颗，在 [burst_min, burst_max] 里随机取。都为 1 就是单发。
 ## fire_interval 从一轮连发的第一颗开始算。
 @export_range(1, 10) var burst_min := 1
@@ -42,14 +42,14 @@ signal shot_fired
 @export var prone_reaction_time := 0.4
 
 ## 趴下后的碰撞体高度，和玩家一样。站着开的枪会从头顶飞过去。
-const PRONE_HEIGHT := 4.0
+const PRONE_HEIGHT := 8.0
 ## 玩家所在方向偏离水平线的角度在这个区间里才斜着打（子弹固定走 45°）；更平的算水平、更陡的不打。
 const DIAGONAL_MIN_ANGLE := 22.5
 const DIAGONAL_MAX_ANGLE := 67.5
 ## 斜向出膛点，相对身体中心（朝右时；朝左 x 取反）。由代码算，不挂在 Visual 下。
 ## 斜下的 y 不能太大：站在地上时子弹一出膛就会嵌进地面。
-const DIAGONAL_UP_MUZZLE := Vector2(10, -8)
-const DIAGONAL_DOWN_MUZZLE := Vector2(10, 3)
+const DIAGONAL_UP_MUZZLE := Vector2(20, -16)
+const DIAGONAL_DOWN_MUZZLE := Vector2(20, 6)
 
 ## 瞄准方向。
 enum Aim { LEVEL, DIAGONAL_UP, DIAGONAL_DOWN }

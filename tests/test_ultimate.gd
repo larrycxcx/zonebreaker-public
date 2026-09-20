@@ -1,17 +1,17 @@
 ﻿extends GameTest
-## 终极武器：K / 手柄 Y 瞬时发动，每条命 2 次。
+## 终极武器：K / 手柄 Y 瞬时发动，每条命 4 次。
 ## 发动时清掉所有敌人子弹、整个场景定格 2 秒（玩家和敌人都不能动），玩家无敌到恢复后 0.5 秒；
 ## 定格结束时消灭发动那一刻屏幕内的所有敌人（不管血量），屏幕外的不受影响。
 
 const ENEMY_BULLET_SCENE := "res://scenes/enemy_bullet.tscn"
 
 
-## 玩家站在 x=100（摄像机在关卡最左，屏幕 = x 0..320）。
-## 只留两个炮台（6 血，最耐打）：Turret2 挪到屏幕内，Turret1 留在 x=580 屏幕外。
+## 玩家站在 x=200（摄像机在关卡最左，屏幕 = x 0..320）。
+## 只留两个炮台（12 血，最耐打）：Turret2 挪到屏幕内，Turret1 留在 x=1160 屏幕外。
 func start() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["Turret1", "Turret2"])
-	player.global_position = Vector2(100, 152)
+	player.global_position = Vector2(200, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 
@@ -23,7 +23,7 @@ func use_ultimate() -> void:
 
 
 ## 等定格结束，返回定格持续了多少个物理帧（超过 limit 帧还没结束就返回 -1）。
-func wait_for_unpause(limit := 300) -> int:
+func wait_for_unpause(limit := 600) -> int:
 	for i in limit:
 		if not tree.paused:
 			return i
@@ -51,10 +51,10 @@ func test_freeze_clears_bullets_and_kills_on_screen_enemies() -> void:
 	await start()
 	var near: Enemy = main.get_node("Enemies/Turret2")
 	var far: Enemy = main.get_node("Enemies/Turret1")
-	near.global_position = Vector2(200, 153)
+	near.global_position = Vector2(400, 306)
 	await frames(5)
 	# 屏幕内、屏幕外各放几颗敌人子弹，再放一颗玩家子弹
-	for x in [60.0, 250.0, 500.0]:
+	for x in [120.0, 500.0, 1000.0]:
 		var bullet: Bullet = load(ENEMY_BULLET_SCENE).instantiate()
 		bullet.launch(Vector2.LEFT)
 		main.add_child(bullet)
@@ -100,13 +100,13 @@ func test_freeze_clears_bullets_and_kills_on_screen_enemies() -> void:
 	Input.action_press("move_right")
 	await frames(10)
 	Input.action_release("move_right")
-	check("player moves again after the freeze", player.global_position.x > x0 + 5)
+	check("player moves again after the freeze", player.global_position.x > x0 + 10)
 
 
 func test_flyer_on_screen_is_hit_too() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["FlyerE", "Turret1"])
-	player.global_position = Vector2(100, 152)
+	player.global_position = Vector2(200, 304)
 	await frames(10)
 	var flyer: Enemy = main.get_node("Enemies/FlyerE")
 	await use_ultimate()

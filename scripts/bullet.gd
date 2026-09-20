@@ -4,7 +4,7 @@ extends Area2D
 ## 打谁由场景里的 collision_mask 决定（玩家子弹打 world+enemy，敌人子弹打 world+player）。
 ## 单向平台不挡子弹：玩家能从下面穿过去，子弹也一样，否则站在平台上的敌人从下面永远打不到。
 
-@export var speed := 260.0
+@export var speed := 520.0
 @export var lifetime := 1.2
 @export var damage := 1
 

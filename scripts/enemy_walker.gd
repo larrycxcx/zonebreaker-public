@@ -5,7 +5,7 @@ extends Enemy
 ## 正前方的玩家趴下时，它会停下来趴着开枪，玩家站起来后它也站起来继续巡逻。
 ## 能斜射的（B、C）遇到正前方斜上/斜下的玩家时停下来瞄准开火，玩家回到水平方向或离开后继续巡逻。
 
-@export var move_speed := 30.0
+@export var move_speed := 60.0
 @export_enum("左:-1", "右:1") var start_direction := -1
 
 @onready var _floor_check: RayCast2D = $FloorCheck

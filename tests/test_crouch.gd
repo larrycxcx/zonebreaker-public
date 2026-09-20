@@ -1,10 +1,10 @@
 extends GameTest
 ## 下蹲：碰撞体压低、脚底不动、头顶阻挡、矮通道通行。
 
-## 关卡里的矮通道：x 296..352，天花板底边 y=148，地面 y=160，净空 12px。
-const TUNNEL_X := 324.0
+## 关卡里的矮通道：x 592..704，天花板底边 y=296，地面 y=320，净空 24px。
+const TUNNEL_X := 648.0
 ## 一段没有平台也没有天花板的空地，用来测「头顶没东西」的情况。
-const OPEN_X := 200.0
+const OPEN_X := 400.0
 
 
 func shape_height() -> float:
@@ -18,10 +18,10 @@ func feet_y() -> float:
 
 func test_crouch_and_stand_up() -> void:
 	await reset_scene()
-	player.global_position = Vector2(OPEN_X, 152)
+	player.global_position = Vector2(OPEN_X, 304)
 	player.velocity = Vector2.ZERO
 	await frames(20)
-	check("starts standing", not player.is_crouching and shape_height() == 16.0, str(shape_height()))
+	check("starts standing", not player.is_crouching and shape_height() == Player.STAND_HEIGHT, str(shape_height()))
 	var standing_feet := feet_y()
 
 	Input.action_press("crouch")
@@ -34,13 +34,13 @@ func test_crouch_and_stand_up() -> void:
 
 	Input.action_release("crouch")
 	await frames(3)
-	check("stands up again in the open", not player.is_crouching and shape_height() == 16.0, str(shape_height()))
+	check("stands up again in the open", not player.is_crouching and shape_height() == Player.STAND_HEIGHT, str(shape_height()))
 	check("feet unchanged after standing up", absf(feet_y() - standing_feet) < 0.5, "%.2f" % feet_y())
 
 
 func test_crouch_walk_is_slower() -> void:
 	await reset_scene()
-	player.global_position = Vector2(OPEN_X, 152)
+	player.global_position = Vector2(OPEN_X, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 
@@ -56,7 +56,7 @@ func test_crouch_walk_is_slower() -> void:
 
 func test_cannot_crouch_in_mid_air() -> void:
 	await reset_scene()
-	player.global_position = Vector2(OPEN_X, 100)
+	player.global_position = Vector2(OPEN_X, 200)
 	player.velocity = Vector2.ZERO
 	Input.action_press("crouch")
 	await frames(3)
@@ -67,7 +67,7 @@ func test_cannot_crouch_in_mid_air() -> void:
 
 func test_low_ceiling_keeps_the_player_down() -> void:
 	await reset_scene()
-	player.global_position = Vector2(OPEN_X, 152)
+	player.global_position = Vector2(OPEN_X, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 
@@ -100,24 +100,24 @@ func test_low_ceiling_keeps_the_player_down() -> void:
 		if not player.is_crouching:
 			break
 	Input.action_release("move_right")
-	check("stands up automatically after leaving the tunnel", not player.is_crouching and player.global_position.x > 352.0, str(player.global_position))
+	check("stands up automatically after leaving the tunnel", not player.is_crouching and player.global_position.x > 704.0, str(player.global_position))
 
 
 func test_standing_player_cannot_pass_the_crawl_block() -> void:
 	await reset_scene()
-	player.global_position = Vector2(280, 152)
+	player.global_position = Vector2(560, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	Input.action_press("move_right")
 	await frames(240)
 	Input.action_release("move_right")
-	check("standing player is stopped by the crawl block", player.global_position.x < 300.0, str(player.global_position))
+	check("standing player is stopped by the crawl block", player.global_position.x < 600.0, str(player.global_position))
 
 
 func test_one_way_platform_does_not_block_standing() -> void:
 	await reset_scene()
-	# Platform1：x 80..128，y 128..136。站在它正下方，头顶虽然有平台但可以穿过去。
-	player.global_position = Vector2(104, 152)
+	# Platform1：x 160..256，y 256..272。站在它正下方，头顶虽然有平台但可以穿过去。
+	player.global_position = Vector2(208, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	Input.action_press("crouch")
@@ -130,7 +130,7 @@ func test_one_way_platform_does_not_block_standing() -> void:
 
 func test_jumping_from_a_crouch() -> void:
 	await reset_scene()
-	player.global_position = Vector2(OPEN_X, 152)
+	player.global_position = Vector2(OPEN_X, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	Input.action_press("crouch")
@@ -143,7 +143,7 @@ func test_jumping_from_a_crouch() -> void:
 func test_cannot_fire_while_lying_down() -> void:
 	# 趴下时步枪和手雷都打不出来（以前趴着不动可以贴地水平射，现在取消了）
 	await reset_scene()
-	player.global_position = Vector2(OPEN_X, 152)
+	player.global_position = Vector2(OPEN_X, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	Input.action_press("crouch")
@@ -184,7 +184,7 @@ func test_cannot_fire_while_lying_down() -> void:
 
 func test_cannot_throw_grenades_while_lying_down() -> void:
 	await reset_scene()
-	player.global_position = Vector2(OPEN_X, 152)
+	player.global_position = Vector2(OPEN_X, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	player.switch_weapon()
@@ -235,11 +235,10 @@ func _assert_crouch_dodges(enemy_name: String, enemy_pos: Vector2, facing: int) 
 	await frames(10)
 	enemy.global_position = enemy_pos
 	enemy.facing = facing
-	enemy._visual.scale.x = facing
 	if enemy is EnemyWalker:
 		(enemy as EnemyWalker).move_speed = 0.0
-		(enemy as EnemyWalker)._apply_facing()
-	player.global_position = enemy_pos + Vector2(70 * facing, -1)
+	enemy._apply_visual_facing()
+	player.global_position = enemy_pos + Vector2(140 * facing, -2)
 	player.velocity = Vector2.ZERO
 	Input.action_press("crouch")
 	await frames(10)
@@ -267,8 +266,8 @@ func _assert_crouch_dodges(enemy_name: String, enemy_pos: Vector2, facing: int) 
 
 
 func test_lying_down_dodges_turret_fire() -> void:
-	await _assert_crouch_dodges("Turret1", Vector2(580, 153), -1)
+	await _assert_crouch_dodges("Turret1", Vector2(1160, 306), -1)
 
 
 func test_lying_down_dodges_walker_fire() -> void:
-	await _assert_crouch_dodges("WalkerA", Vector2(250, 153), -1)
+	await _assert_crouch_dodges("WalkerA", Vector2(500, 306), -1)

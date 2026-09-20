@@ -8,7 +8,7 @@
 script = ExtResource("2")
 skin_key = &"grenadier"
 bullet_scene = null
-detect_range = 150.0
+detect_range = 300.0
 grenade_scene = ExtResource("3")
 
 [node name="Body" parent="Visual" index="0"]

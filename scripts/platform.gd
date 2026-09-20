@@ -3,7 +3,7 @@ class_name Platform
 extends StaticBody2D
 ## 矩形地面/平台。原点在左上角，`size` 决定碰撞体和显示方块的大小。
 
-@export var size := Vector2(48, 8):
+@export var size := Vector2(96, 16):
 	set(value):
 		size = value
 		_apply()

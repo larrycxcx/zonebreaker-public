@@ -2,7 +2,7 @@ extends GameTest
 ## 玩家基础操作：移动、跳跃、射击（水平和向上）、单向平台。
 
 ## 出生点附近头顶完全空旷的一段地面（第一个平台从 x=80 开始），用来测向上开枪。
-const OPEN_SKY_X := 50.0
+const OPEN_SKY_X := 100.0
 
 
 func test_input_actions_exist() -> void:
@@ -15,7 +15,7 @@ func test_lands_on_ground() -> void:
 	await reset_scene()
 	await frames(30)
 	check("lands on ground", player.is_on_floor(), str(player.global_position))
-	check("feet rest on ground top", is_equal_approx(player.global_position.y, 152.0), str(player.global_position.y))
+	check("feet rest on ground top", is_equal_approx(player.global_position.y, 304.0), str(player.global_position.y))
 
 
 func test_moves_and_turns() -> void:
@@ -25,7 +25,7 @@ func test_moves_and_turns() -> void:
 
 	Input.action_press("move_right")
 	await frames(30)
-	check("moves right", player.global_position.x > start_x + 20.0, str(player.global_position.x))
+	check("moves right", player.global_position.x > start_x + 40.0, str(player.global_position.x))
 	check("faces right", player.facing == 1 and player._visual.scale.x == 1.0)
 
 	Input.action_release("move_right")
@@ -35,7 +35,7 @@ func test_moves_and_turns() -> void:
 	start_x = player.global_position.x
 	Input.action_press("move_left")
 	await frames(20)
-	check("moves left", player.global_position.x < start_x - 10.0, str(player.global_position.x))
+	check("moves left", player.global_position.x < start_x - 20.0, str(player.global_position.x))
 	# 翻转不用负 scale（会让外观被错误剔除，见 VisualFlip）：枪的方块镜像到身体左边
 	var gun: Control = player._visual.get_node("Gun")
 	check("faces left", player.facing == -1 and player._visual.scale.x == 1.0)
@@ -55,7 +55,7 @@ func test_jump_height_and_short_hop() -> void:
 		top = minf(top, player.global_position.y)
 	Input.action_release("jump")
 	var full_height := ground_y - top
-	check("full jump height ~46px", full_height > 38.0 and full_height < 50.0, "%.1f" % full_height)
+	check("full jump height ~92px", full_height > 76.0 and full_height < 100.0, "%.1f" % full_height)
 	await frames(60)
 	check("lands again after jumping", player.is_on_floor())
 
@@ -81,25 +81,25 @@ func test_no_double_jump() -> void:
 	# 在空中再按一次，不应该获得新的向上速度。
 	Input.action_press("jump")
 	await frames(1)
-	check("cannot jump again in mid-air", player.velocity.y > -100.0, str(player.velocity.y))
+	check("cannot jump again in mid-air", player.velocity.y > -200.0, str(player.velocity.y))
 
 
 func test_one_way_platform() -> void:
 	await reset_scene()
 	# Platform1：x 80..128，顶面 y=128。站到它正下方往上跳。
-	player.global_position = Vector2(100, 152)
+	player.global_position = Vector2(200, 304)
 	player.velocity = Vector2.ZERO
 	await frames(5)
 	Input.action_press("jump")
 	await frames(60)
 	Input.action_release("jump")
 	await frames(30)
-	check("jumps up through a one-way platform and lands on it", player.is_on_floor() and is_equal_approx(player.global_position.y, 120.0), str(player.global_position))
+	check("jumps up through a one-way platform and lands on it", player.is_on_floor() and absf(player.global_position.y - 240.0) < 0.5, str(player.global_position))
 
 
 func test_shooting() -> void:
 	await reset_scene()
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	await frames(20)
 
@@ -115,12 +115,12 @@ func test_shooting() -> void:
 		check("bullet flies the way the player faces", bullet.direction == Vector2.RIGHT)
 		var bullet_x: float = bullet.global_position.x
 		await frames(10)
-		check("bullet travels", is_instance_valid(bullet) and bullet.global_position.x > bullet_x + 30.0)
+		check("bullet travels", is_instance_valid(bullet) and bullet.global_position.x > bullet_x + 60.0)
 
 
 func test_auto_fire_is_rate_limited() -> void:
 	await reset_scene()
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	await frames(20)
 
@@ -134,7 +134,7 @@ func test_auto_fire_is_rate_limited() -> void:
 
 func test_bullets_despawn() -> void:
 	await reset_scene()
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	await frames(20)
 	player.current_slot().cooldown_left = 0.0
@@ -143,7 +143,7 @@ func test_bullets_despawn() -> void:
 	check("bullet disappears after its lifetime", bullets(4).size() == 0, str(bullets(4).size()))
 
 	# 贴着左墙开火：应该马上撞墙消失，而不是等超时。
-	player.global_position = Vector2(30, 152)
+	player.global_position = Vector2(60, 304)
 	player.velocity = Vector2.ZERO
 	player.facing = -1
 	player._visual.scale.x = -1
@@ -156,7 +156,7 @@ func test_bullets_despawn() -> void:
 
 func test_w_aims_instead_of_jumping() -> void:
 	await reset_scene()
-	player.global_position = Vector2(OPEN_SKY_X, 152)
+	player.global_position = Vector2(OPEN_SKY_X, 304)
 	await frames(20)
 	var y_before := player.global_position.y
 	Input.action_press("aim_up")
@@ -177,7 +177,7 @@ func test_w_aims_instead_of_jumping() -> void:
 
 func test_shooting_straight_up() -> void:
 	await reset_scene()
-	player.global_position = Vector2(OPEN_SKY_X, 152)
+	player.global_position = Vector2(OPEN_SKY_X, 304)
 	player.velocity = Vector2.ZERO
 	await frames(20)
 
@@ -194,14 +194,14 @@ func test_shooting_straight_up() -> void:
 		var y0: float = bullet.global_position.y
 		check("bullet flies straight up", bullet.direction == Vector2.UP)
 		check("bullet is turned upright", is_equal_approx(bullet.rotation, -PI / 2.0), "%.3f" % bullet.rotation)
-		check("bullet starts above the head", y0 < player.global_position.y - 8.0 and absf(x0 - player.global_position.x) < 4.0, str(bullet.global_position))
+		check("bullet starts above the head", y0 < player.global_position.y - 16.0 and absf(x0 - player.global_position.x) < 8.0, str(bullet.global_position))
 		await frames(10)
-		check("bullet keeps rising without drifting sideways", is_instance_valid(bullet) and bullet.global_position.y < y0 - 30.0 and is_equal_approx(bullet.global_position.x, x0))
+		check("bullet keeps rising without drifting sideways", is_instance_valid(bullet) and bullet.global_position.y < y0 - 60.0 and is_equal_approx(bullet.global_position.x, x0))
 
 
 func test_holding_aim_and_fire_auto_fires_upward() -> void:
 	await reset_scene()
-	player.global_position = Vector2(OPEN_SKY_X, 152)
+	player.global_position = Vector2(OPEN_SKY_X, 304)
 	player.velocity = Vector2.ZERO
 	await frames(20)
 
@@ -222,13 +222,13 @@ func test_holding_aim_and_fire_auto_fires_upward() -> void:
 func test_w_while_moving_aims_diagonally_up() -> void:
 	# 魂斗罗式：W + 左右是边走边斜上，不再是边走边正上（正上只在原地按 W）。
 	await reset_scene()
-	player.global_position = Vector2(OPEN_SKY_X, 152)
+	player.global_position = Vector2(OPEN_SKY_X, 304)
 	await frames(10)
 	var x_before := player.global_position.x
 	Input.action_press("aim_up")
 	Input.action_press("move_right")
 	await frames(20)
-	check("W + move walks and raises the gun diagonally", player.global_position.x > x_before + 15.0 and art(player, "GunDiagonalUp").visible and not art(player, "GunUp").visible, "%.1f -> %.1f" % [x_before, player.global_position.x])
+	check("W + move walks and raises the gun diagonally", player.global_position.x > x_before + 30.0 and art(player, "GunDiagonalUp").visible and not art(player, "GunUp").visible, "%.1f -> %.1f" % [x_before, player.global_position.x])
 
 func test_shooting_up_passes_one_way_platforms() -> void:
 	# Turret2 站在 Platform2（x 160..208，y 100..108）上。从正下方往上打，
@@ -237,7 +237,7 @@ func test_shooting_up_passes_one_way_platforms() -> void:
 	keep_only_enemies(["Turret2"])
 	var turret: EnemyTurret = main.get_node("Enemies/Turret2")
 	await frames(20)
-	player.global_position = Vector2(turret.global_position.x, 152)
+	player.global_position = Vector2(turret.global_position.x, 304)
 	player.velocity = Vector2.ZERO
 	await frames(5)
 	var deaths := []
@@ -260,6 +260,6 @@ func test_solid_ceiling_still_stops_upward_shots() -> void:
 	var bullet: Bullet = player.weapons[0].projectile.instantiate()
 	bullet.direction = Vector2.UP
 	main.add_child(bullet)
-	bullet.global_position = Vector2(324, 156)
+	bullet.global_position = Vector2(648, 312)
 	await frames(10)
 	check("a solid block stops an upward bullet", not is_instance_valid(bullet), "still flying" if is_instance_valid(bullet) else "")

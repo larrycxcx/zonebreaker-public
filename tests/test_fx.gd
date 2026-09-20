@@ -11,7 +11,7 @@ func effects() -> Array:
 
 
 ## 等出现一个特效，返回它；超时返回 null。
-func wait_for_effect(limit := 60) -> Node2D:
+func wait_for_effect(limit := 120) -> Node2D:
 	for i in limit:
 		await frames(1)
 		if not effects().is_empty():
@@ -53,7 +53,7 @@ func test_every_enemy_shoot_event_makes_a_flash() -> void:
 
 func test_muzzle_flash_when_the_player_fires() -> void:
 	await reset_scene()
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	Input.action_press("shoot")
@@ -70,7 +70,7 @@ func test_muzzle_flash_when_the_player_fires() -> void:
 
 func test_flash_follows_the_aim() -> void:
 	await reset_scene()
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	Input.action_press("aim_up")
@@ -84,8 +84,8 @@ func test_flash_follows_the_aim() -> void:
 
 func test_impact_spark_where_a_bullet_hits_a_wall() -> void:
 	await reset_scene(false, true)
-	var wall := add_wall(300, 30)
-	player.global_position = Vector2(260, 152)
+	var wall := add_wall(600, 60)
+	player.global_position = Vector2(520, 304)
 	player.velocity = Vector2.ZERO
 	player.facing = 1
 	await frames(10)
@@ -95,14 +95,14 @@ func test_impact_spark_where_a_bullet_hits_a_wall() -> void:
 		await frames(1)
 		# 枪口闪光在玩家身上，命中火花在墙那边：按 x 挑出后者
 		for effect in effects():
-			if effect.global_position.x > wall.position.x - 6.0:
+			if effect.global_position.x > wall.position.x - 12.0:
 				hit = effect
 				break
 		if hit != null:
 			break
 	check("a bullet hitting a wall makes a spark", hit != null)
 	if hit != null:
-		check("the spark is at the wall", absf(hit.global_position.x - wall.position.x) < 6.0,
+		check("the spark is at the wall", absf(hit.global_position.x - wall.position.x) < 12.0,
 			"%.1f vs wall at %.1f" % [hit.global_position.x, wall.position.x])
 
 
@@ -113,8 +113,8 @@ func test_hit_spark_on_the_enemy_that_was_shot() -> void:
 	c.move_speed = 0.0
 	c.max_health = 10
 	c.health = 10
-	c.global_position = Vector2(300, 153)
-	player.global_position = Vector2(240, 152)
+	c.global_position = Vector2(600, 306)
+	player.global_position = Vector2(480, 304)
 	player.velocity = Vector2.ZERO
 	player.facing = 1
 	await frames(10)
@@ -125,7 +125,7 @@ func test_hit_spark_on_the_enemy_that_was_shot() -> void:
 	for i in 60:
 		await frames(1)
 		for effect in effects():
-			if effect.global_position.distance_to(c.global_position) < 10.0:
+			if effect.global_position.distance_to(c.global_position) < 20.0:
 				spark = effect
 				break
 		if spark != null:
@@ -136,7 +136,7 @@ func test_hit_spark_on_the_enemy_that_was_shot() -> void:
 
 func test_effects_clean_themselves_up() -> void:
 	await reset_scene()
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	Input.action_press("shoot")
@@ -160,10 +160,10 @@ func test_effects_do_not_touch_gameplay() -> void:
 	keep_only_enemies(["WalkerC"])
 	var c: Enemy = main.get_node("Enemies/WalkerC")
 	c.move_speed = 0.0
-	c.global_position = Vector2(300, 153)
+	c.global_position = Vector2(600, 306)
 	fx().queue_free()
 	await frames(2)
-	player.global_position = Vector2(240, 152)
+	player.global_position = Vector2(480, 304)
 	player.velocity = Vector2.ZERO
 	player.facing = 1
 	await frames(10)

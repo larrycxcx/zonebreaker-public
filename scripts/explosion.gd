@@ -1,7 +1,7 @@
 extends Node2D
 ## 爆炸的占位特效：一个橙色方块，放大淡出后消失。只管显示，伤害由 Grenade 算。
 
-@export var radius := 28.0
+@export var radius := 56.0
 @export var duration := 0.25
 
 @onready var _rect: ColorRect = $ColorRect

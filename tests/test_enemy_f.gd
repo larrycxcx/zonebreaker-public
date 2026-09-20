@@ -9,18 +9,18 @@ const ENEMY_GRENADE := "res://scenes/enemy_grenade.tscn"
 var f: EnemyGrenadier
 
 
-## 只留 F，放到关卡右端那段空地上（x 530..640：头顶没有平台，抛物线不会中途落在平台上，
+## 只留 F，放到关卡右端那段空地上（x 1060..640：头顶没有平台，抛物线不会中途落在平台上，
 ## 也避开了 CrawlBlock 那块实心方块）。关卡里它站在 Platform3 上，测行为时平地更好控制。
-func start(x := 530.0, player_x := 630.0) -> void:
+func start(x := 1060.0, player_x := 1260.0) -> void:
 	await reset_scene(true)
 	keep_only_enemies(["WalkerF"])
 	f = main.get_node("Enemies/WalkerF")
-	f.global_position = Vector2(x, 153)
+	f.global_position = Vector2(x, 306)
 	f.velocity = Vector2.ZERO
 	f.facing = 1
 	f._apply_facing()
 	player.health = 999
-	player.global_position = Vector2(player_x, 152)
+	player.global_position = Vector2(player_x, 304)
 	player.velocity = Vector2.ZERO
 	await frames(5)
 
@@ -32,7 +32,7 @@ func grenades() -> Array:
 
 
 ## 等它扔出一颗手雷，返回那颗；超时返回 null。
-func wait_for_throw(limit := 240) -> Grenade:
+func wait_for_throw(limit := 480) -> Grenade:
 	for i in limit:
 		await frames(1)
 		var thrown := grenades()
@@ -53,7 +53,7 @@ func threw_anything(frame_count := 150) -> bool:
 ## 把玩家钉在原地（否则会被爆炸击退，后面的断言全乱）。
 func pin_player(x: float, frame_count: int) -> void:
 	for i in frame_count:
-		player.global_position = Vector2(x, 152)
+		player.global_position = Vector2(x, 304)
 		player.velocity = Vector2.ZERO
 		await frames(1)
 
@@ -84,7 +84,7 @@ func test_grenade_rules_match_the_players() -> void:
 
 
 func test_patrols_without_jumping() -> void:
-	await start(260, 500) # 玩家在射程外，免得它忙着扔手雷；F 朝右走几步就会撞上 CrawlBlock 掉头
+	await start(520, 1000) # 玩家在射程外，免得它忙着扔手雷；F 朝右走几步就会撞上 CrawlBlock 掉头
 	var moved := false
 	var airborne := false
 	var turned := false
@@ -111,17 +111,17 @@ func test_throws_at_a_player_in_front() -> void:
 
 func test_does_not_throw_backwards_or_out_of_range() -> void:
 	# 背后的玩家：不回头，也不扔
-	await start(530, 430)
+	await start(1060, 860)
 	f.facing = 1
 	f._apply_facing()
 	f.move_speed = 0.0
 	check("no grenade at a player behind it", not await threw_anything())
 	# 太远
-	await start(150, 150 + f.max_throw_distance + 60.0)
+	await start(300, 300 + f.max_throw_distance + 120.0)
 	f.move_speed = 0.0
 	check("no grenade at a player out of reach", not await threw_anything())
 	# 贴脸：手雷会扔过头，所以也不扔
-	await start(150, 150 + f.min_throw_distance - 20.0)
+	await start(300, 300 + f.min_throw_distance - 40.0)
 	f.move_speed = 0.0
 	check("no grenade at a player right in its face", not await threw_anything())
 
@@ -130,7 +130,7 @@ func test_does_not_throw_at_a_player_it_cannot_see() -> void:
 	# 中间隔一堵墙：看不见就不扔（和巡逻兵开枪同一套视线规则）
 	await start()
 	f.move_speed = 0.0
-	add_wall(580, 36)
+	add_wall(1160, 72)
 	# 挡墙之前它已经扔过一颗（冷却从 0 开始），清掉再看
 	for g in grenades():
 		g.free()
@@ -152,7 +152,7 @@ func test_its_grenade_hurts_the_player() -> void:
 	check("setup: thrown", grenade != null)
 	for i in 180:
 		await frames(1)
-		player.global_position = Vector2(630, 152) # 钉住，让它真的挨炸
+		player.global_position = Vector2(1260, 304) # 钉住，让它真的挨炸
 		player.velocity = Vector2.ZERO
 		if not is_instance_valid(grenade):
 			break
@@ -165,14 +165,14 @@ func test_its_grenade_spares_enemies_and_itself() -> void:
 	# 在落点附近放一个同伴，看它会不会被炸到
 	var mate: Enemy = load("res://scenes/enemy_walker_a.tscn").instantiate()
 	main.get_node("Enemies").add_child(mate)
-	mate.global_position = Vector2(622, 153)
+	mate.global_position = Vector2(1244, 306)
 	mate.move_speed = 0.0
 	await frames(5)
 	var mate_health := mate.health
 	var f_health := f.health
 	var grenade := await wait_for_throw()
 	check("setup: thrown", grenade != null)
-	await pin_player(630, 180)
+	await pin_player(1260, 360)
 	check("its own grenade does not hurt the thrower", f.health == f_health, str(f.health))
 	check("and does not hurt other enemies", is_instance_valid(mate) and mate.health == mate_health,
 		str(mate.health) if is_instance_valid(mate) else "dead")
@@ -190,7 +190,7 @@ func test_who_each_grenade_can_hurt() -> void:
 		var before := f.health
 		var grenade: Grenade = load(path).instantiate()
 		main.add_child(grenade)
-		grenade.global_position = f.global_position + Vector2(10, 0)
+		grenade.global_position = f.global_position + Vector2(20, 0)
 		grenade.explode()
 		await frames(2)
 		var hurt: bool = not is_instance_valid(f) or f.health < before

@@ -2,7 +2,7 @@ extends CanvasLayer
 ## 临时 HUD：左上角用小方块显示血量、下面一条体力条、再下面一个色块表示当前武器、一排金色小方块表示终极武器剩余次数，死亡时显示提示；
 ## Boss 出场时右上角显示它的头像和血条（血条从右往左减少，Boss 死了隐藏）。完整 HUD 留到第 5 步。
 
-const PIP_SIZE := Vector2(6, 6)
+const PIP_SIZE := Vector2(12, 12)
 const PIP_FULL := Color(0.9, 0.25, 0.3)
 const PIP_EMPTY := Color(0.25, 0.2, 0.25)
 const STAMINA_READY := Color(0.45, 0.85, 0.4)
@@ -73,7 +73,7 @@ func _on_weapon_switched(_index: int, weapon: Weapon) -> void:
 func _on_ultimate_changed(ammo: int, max_ammo: int) -> void:
 	while _ultimate_pips.size() < max_ammo:
 		var pip := ColorRect.new()
-		pip.custom_minimum_size = Vector2(4, 4)
+		pip.custom_minimum_size = Vector2(8, 8)
 		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_ultimate_row.add_child(pip)
 		_ultimate_pips.append(pip)

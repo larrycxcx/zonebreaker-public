@@ -2,7 +2,7 @@ extends GameTest
 ## 敌人 E（飞行）：不受重力、固定高度波浪巡逻、玩家到正下方才开火并在上空跟随、
 ## 子弹竖直向下且穿过单向平台、实心物体挡视线、跟丢后放弃。
 
-const ALTITUDE := 44.0
+const ALTITUDE := 88.0
 
 
 ## 只留 E，把它放到 pos 作为波浪高度和巡逻中心；玩家先停在远处（不在它下方）。
@@ -12,14 +12,14 @@ func _setup_flyer(pos: Vector2, keep_walls := false) -> EnemyFlyer:
 	var e: EnemyFlyer = main.get_node("Enemies/FlyerE")
 	e.set_anchor(pos)
 	e.velocity = Vector2.ZERO
-	player.global_position = Vector2(pos.x + 200.0 if pos.x < 320.0 else pos.x - 200.0, 152)
+	player.global_position = Vector2(pos.x + 400.0 if pos.x < 640.0 else pos.x - 400.0, 304)
 	player.velocity = Vector2.ZERO
 	await frames(3)
 	return e
 
 
 func _put_player(x: float) -> void:
-	player.global_position = Vector2(x, 152)
+	player.global_position = Vector2(x, 304)
 	player.velocity = Vector2.ZERO
 
 
@@ -39,12 +39,12 @@ func test_e_is_configured() -> void:
 			lowest_top = minf(lowest_top, (node as Platform).position.y)
 	for w in main.get_node("Level/Walls").get_children():
 		lowest_top = minf(lowest_top, (w as Platform).position.y)
-	var body_bottom: float = e.global_position.y + 5.0 + e.wave_amplitude
+	var body_bottom: float = e.global_position.y + 20.0 + e.wave_amplitude
 	check("E flies above every platform and wall", body_bottom < lowest_top, "bottom %.1f vs highest top %.1f" % [body_bottom, lowest_top])
 
 
 func test_e_flies_without_falling() -> void:
-	var e := await _setup_flyer(Vector2(200, ALTITUDE))
+	var e := await _setup_flyer(Vector2(400, ALTITUDE))
 	var lowest := -INF
 	for i in 180:
 		await tree.physics_frame
@@ -53,7 +53,7 @@ func test_e_flies_without_falling() -> void:
 
 
 func test_e_patrols_in_a_wave() -> void:
-	var e := await _setup_flyer(Vector2(200, ALTITUDE))
+	var e := await _setup_flyer(Vector2(400, ALTITUDE))
 	var top := INF
 	var bottom := -INF
 	var x0 := e.global_position.x
@@ -62,31 +62,31 @@ func test_e_patrols_in_a_wave() -> void:
 		top = minf(top, e.global_position.y)
 		bottom = maxf(bottom, e.global_position.y)
 	var swing := bottom - top
-	check("E bobs up and down by twice the wave amplitude", absf(swing - 2.0 * e.wave_amplitude) < 1.0, "%.1f px" % swing)
-	check("the wave is centred on its altitude", absf((top + bottom) / 2.0 - ALTITUDE) < 1.0, "centre %.1f" % ((top + bottom) / 2.0))
+	check("E bobs up and down by twice the wave amplitude", absf(swing - 2.0 * e.wave_amplitude) < 2.0, "%.1f px" % swing)
+	check("the wave is centred on its altitude", absf((top + bottom) / 2.0 - ALTITUDE) < 2.0, "centre %.1f" % ((top + bottom) / 2.0))
 	check("E moves sideways at the normal enemy speed", is_equal_approx(absf(e.velocity.x), e.move_speed), "%.1f" % absf(e.velocity.x))
-	check("and actually travels", absf(e.global_position.x - x0) > 30.0, "%.1f px" % absf(e.global_position.x - x0))
+	check("and actually travels", absf(e.global_position.x - x0) > 60.0, "%.1f px" % absf(e.global_position.x - x0))
 
 
 func test_e_patrols_within_its_range() -> void:
-	var e := await _setup_flyer(Vector2(200, ALTITUDE))
+	var e := await _setup_flyer(Vector2(400, ALTITUDE))
 	var turns := 0
 	var last_facing := e.facing
 	var farthest := 0.0
 	for i in 600: # 10 秒，够来回好几趟
 		await tree.physics_frame
-		farthest = maxf(farthest, absf(e.global_position.x - 200.0))
+		farthest = maxf(farthest, absf(e.global_position.x - 400.0))
 		if e.facing != last_facing:
 			turns += 1
 			last_facing = e.facing
 	check("E turns around at the ends of its patrol", turns >= 2, "%d turns" % turns)
-	check("E stays within its patrol range", farthest <= e.patrol_distance + 2.0, "%.1f px from centre" % farthest)
+	check("E stays within its patrol range", farthest <= e.patrol_distance + 4.0, "%.1f px from centre" % farthest)
 
 
 func test_e_ignores_a_player_not_below_it() -> void:
-	var e := await _setup_flyer(Vector2(200, ALTITUDE))
+	var e := await _setup_flyer(Vector2(400, ALTITUDE))
 	e.move_speed = 0.0 # 停住，免得巡逻时自己飞到玩家头顶
-	_put_player(250.0)
+	_put_player(500.0)
 	var shots := 0
 	for i in 90:
 		player._invincible_timer = 1000.0
@@ -97,9 +97,9 @@ func test_e_ignores_a_player_not_below_it() -> void:
 
 
 func test_e_fires_down_when_the_player_is_below() -> void:
-	var e := await _setup_flyer(Vector2(200, ALTITUDE))
+	var e := await _setup_flyer(Vector2(400, ALTITUDE))
 	e.move_speed = 0.0
-	_put_player(200.0)
+	_put_player(400.0)
 	var shot: Bullet = null
 	for i in 20:
 		await tree.physics_frame
@@ -112,7 +112,7 @@ func test_e_fires_down_when_the_player_is_below() -> void:
 	if shot != null:
 		check("the bullet flies straight down", shot.direction == Vector2.DOWN, str(shot.direction))
 		check("the bullet is turned upright", is_equal_approx(shot.rotation, PI / 2.0), "%.3f" % shot.rotation)
-		check("the bullet starts under E", shot.global_position.y > e.global_position.y and absf(shot.global_position.x - e.global_position.x) < 2.0, str(shot.global_position))
+		check("the bullet starts under E", shot.global_position.y > e.global_position.y and absf(shot.global_position.x - e.global_position.x) < 4.0, str(shot.global_position))
 	var hit := false
 	for i in 90:
 		await tree.physics_frame
@@ -123,12 +123,12 @@ func test_e_fires_down_when_the_player_is_below() -> void:
 
 
 func test_e_follows_the_player_overhead() -> void:
-	var e := await _setup_flyer(Vector2(200, ALTITUDE))
-	_put_player(200.0)
+	var e := await _setup_flyer(Vector2(400, ALTITUDE))
+	_put_player(400.0)
 	await frames(5)
 	check("E is following", e.is_following)
-	# 玩家往右挪 60px：E 以跟随速度飞过去，重新对准后接着开火。
-	_put_player(260.0)
+	# 玩家往右挪 120px：E 以跟随速度飞过去，重新对准后接着开火。
+	_put_player(520.0)
 	var shots := [0]
 	e.shot_fired.connect(func(): shots[0] += 1)
 	await frames(30)
@@ -136,15 +136,15 @@ func test_e_follows_the_player_overhead() -> void:
 	for i in 120:
 		player._invincible_timer = 1000.0
 		await tree.physics_frame
-	check("E ends up right above the player", absf(e.global_position.x - 260.0) <= e.below_width, "x=%.1f" % e.global_position.x)
+	check("E ends up right above the player", absf(e.global_position.x - 520.0) <= e.below_width, "x=%.1f" % e.global_position.x)
 	check("and fires again once it is above", shots[0] > 0, str(shots[0]))
 
 
 func test_e_bullets_pass_through_platforms() -> void:
-	# 玩家站在 Platform1（单向，x 80..128，y 128..136）正下方，E 在它上空。
-	var e := await _setup_flyer(Vector2(104, ALTITUDE))
+	# 玩家站在 Platform1（单向，x 160..256，y 256..272）正下方，E 在它上空。
+	var e := await _setup_flyer(Vector2(208, ALTITUDE))
 	e.move_speed = 0.0
-	_put_player(104.0)
+	_put_player(208.0)
 	var hit := false
 	for i in 120:
 		await tree.physics_frame
@@ -155,10 +155,10 @@ func test_e_bullets_pass_through_platforms() -> void:
 
 
 func test_solid_blocks_hide_the_player_from_e() -> void:
-	# 玩家趴在矮通道（CrawlBlock，实心，x 296..352，y 120..148）里，E 在正上方。
+	# 玩家趴在矮通道（CrawlBlock，实心，x 592..352，y 240..148）里，E 在正上方。
 	var e := await _setup_flyer(Vector2(324, ALTITUDE))
 	e.move_speed = 0.0
-	player.global_position = Vector2(324, 152)
+	player.global_position = Vector2(648, 304)
 	player._set_crouching(true) # 直接趴下放进去，站着会和顶板重叠
 	Input.action_press("crouch")
 	var shots := 0
@@ -171,11 +171,11 @@ func test_solid_blocks_hide_the_player_from_e() -> void:
 
 
 func test_e_gives_up_after_losing_the_player() -> void:
-	var e := await _setup_flyer(Vector2(200, ALTITUDE))
-	_put_player(200.0)
+	var e := await _setup_flyer(Vector2(400, ALTITUDE))
+	_put_player(400.0)
 	await frames(5)
 	check("E is following", e.is_following)
-	_put_player(560.0) # 一下子跑出 follow_range
+	_put_player(1120.0) # 一下子跑出 follow_range
 	var gave_up_at := -1
 	for i in 180:
 		await tree.physics_frame
@@ -190,8 +190,8 @@ func test_e_gives_up_after_losing_the_player() -> void:
 
 
 func test_player_can_shoot_e_down() -> void:
-	var e := await _setup_flyer(Vector2(60, ALTITUDE))
-	_put_player(60.0)
+	var e := await _setup_flyer(Vector2(120, ALTITUDE))
+	_put_player(120.0)
 	var deaths := []
 	e.died.connect(func(): deaths.append(true))
 	Input.action_press("aim_up")

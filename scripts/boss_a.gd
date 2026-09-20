@@ -16,17 +16,17 @@ extends Boss
 
 @export_group("Movement")
 ## 走动速度，以及地盘半径（以出生点为中心，走到边界就折回，不会追出去）。
-@export var roam_speed := 45.0
-@export var roam_range := 80.0
+@export var roam_speed := 90.0
+@export var roam_range := 160.0
 ## 玩家近到这个距离以内就后撤（边退边打），远过 far_range 就压进射程，中间随机游走。
-@export var close_range := 50.0
-@export var far_range := 140.0
+@export var close_range := 100.0
+@export var far_range := 280.0
 ## 后撤时走多快。比玩家走路（90）慢，所以玩家想贴上来总是贴得到，只是要吃它的近距离火力。
-@export var back_off_speed := 60.0
+@export var back_off_speed := 120.0
 ## 多久随机换一次走动方向（秒，在这两个值之间取）。
 @export var turn_time_min := 1.0
 @export var turn_time_max := 2.5
-@export var jump_velocity := -320.0
+@export var jump_velocity := -640.0
 ## 两次跳跃之间隔多久（秒，在这两个值之间取）。
 @export var jump_interval_min := 1.5
 @export var jump_interval_max := 3.0
@@ -39,16 +39,16 @@ extends Boss
 
 @export_group("Grenade dodge")
 ## 落地的手雷离自己多近（水平）时开始躲。手雷爆炸半径 28 + 自己半个身宽，再留点余量。
-@export var dodge_distance := 56.0
+@export var dodge_distance := 112.0
 ## 躲的时候水平移动多快。
-@export var dodge_speed := 110.0
+@export var dodge_speed := 220.0
 
 ## 水平射击的出膛点（相对身体中心，朝右时）：y = 碰撞体底边(16) - 7，和普通敌人离地 7px 一致。
-const LEVEL_MUZZLE := Vector2(15, 9)
+const LEVEL_MUZZLE := Vector2(30, 18)
 ## 其它方向的出膛点：身体中心 + 方向 × 这个伸出量（x、y 分开，适配竖长的身体）。
-const MUZZLE_REACH := Vector2(14, 20)
+const MUZZLE_REACH := Vector2(28, 40)
 ## 碰撞体半高（原点到脚底）。
-const HALF_HEIGHT := 16.0
+const HALF_HEIGHT := 32.0
 
 ## 当前瞄准的方向（8 方向之一），占位美术的枪管按它转。
 var aim_direction := Vector2.LEFT
@@ -180,9 +180,9 @@ func _take_high_ground() -> void:
 func on_high_ground() -> bool:
 	if _high_ground == null or not is_on_floor():
 		return false
-	if global_position.y + HALF_HEIGHT > _high_ground.global_position.y + 2.0:
+	if global_position.y + HALF_HEIGHT > _high_ground.global_position.y + 4.0:
 		return false
-	return global_position.x > _high_ground.global_position.x - 2.0 		and global_position.x < _high_ground.global_position.x + _high_ground.size.x + 2.0
+	return global_position.x > _high_ground.global_position.x - 4.0 		and global_position.x < _high_ground.global_position.x + _high_ground.size.x + 4.0
 
 
 ## 这一跳会不会落到高处那块平台上（按当前水平速度算落点）。
@@ -195,7 +195,7 @@ func _would_land_on_high_ground() -> bool:
 	var landing := global_position.x + velocity.x * air_time
 	var left := _high_ground.global_position.x
 	var right := left + _high_ground.size.x
-	return landing > left - 4.0 and landing < right + 4.0
+	return landing > left - 8.0 and landing < right + 8.0
 
 
 ## 身体在不在平台的正下方（起跳上得去的位置）。
@@ -204,7 +204,7 @@ func _under_high_ground() -> bool:
 		return false
 	var left := _high_ground.global_position.x
 	var right := left + _high_ground.size.x
-	return global_position.x > left + 4.0 and global_position.x < right - 4.0
+	return global_position.x > left + 8.0 and global_position.x < right - 8.0
 
 
 ## 起跳并朝远离手雷的方向移动（靠墙退不了的时候，光靠起跳也能让身体离开爆炸范围）。

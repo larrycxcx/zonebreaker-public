@@ -9,7 +9,7 @@ const ENEMY_BULLET_SCENE := "res://scenes/enemy_bullet.tscn"
 var boss: Boss
 
 
-## 只留 Boss A（x=600），玩家在关卡最左边，Boss 在屏幕外。
+## 只留 Boss A（x=1200），玩家在关卡最左边，Boss 在屏幕外。
 func start(extra := []) -> void:
 	await reset_scene(true)
 	keep_only_enemies(["BossA"] + extra)
@@ -19,7 +19,7 @@ func start(extra := []) -> void:
 
 ## 把玩家放到 x，等摄像机跟过去。
 func go_to(x: float) -> void:
-	player.global_position = Vector2(x, 152)
+	player.global_position = Vector2(x, 304)
 	player.velocity = Vector2.ZERO
 	await frames(5)
 
@@ -75,8 +75,8 @@ func test_classification() -> void:
 func test_dormant_until_on_screen() -> void:
 	await start()
 	# 把射程放大到整个关卡：如果它在屏幕外也在行动，就一定会开火
-	boss.detect_range = 1000.0
-	await go_to(300) # 屏幕 = x 140..460，Boss 在 600
+	boss.detect_range = 2000.0
+	await go_to(600) # 屏幕 = x 280..460，Boss 在 1200
 	await frames(120)
 	check("off screen: not appeared", not boss.has_appeared)
 	check("off screen: no appear event", count(&"boss_appear") == 0)
@@ -89,26 +89,26 @@ func test_appears_once_with_hud_and_sound() -> void:
 	var played := []
 	var on_played := func(event: StringName, _stream: AudioStream) -> void: played.append(event)
 	Sfx.sound_played.connect(on_played)
-	await go_to(560)
+	await go_to(1120)
 	check("on screen: appeared", boss.has_appeared)
 	check("boss_appear reported once", count(&"boss_appear") == 1)
 	check("appear sound played", played.has(&"boss_appear"))
 	Sfx.sound_played.disconnect(on_played)
 	check("HUD bar shown", bar().visible)
-	check("HUD bar in the top-right corner", bar().position.x > 200 and bar().position.y < 20)
+	check("HUD bar in the top-right corner", bar().position.x > 400 and bar().position.y < 40)
 	var portrait: TextureRect = main.get_node("HUD/BossBar/Portrait")
 	check("HUD shows the boss portrait", portrait.texture == boss.portrait)
 	check("health bar full", is_equal_approx(fill_ratio(), 1.0))
 	# 离开再回来不会再出场一次
-	await go_to(40)
-	await go_to(560)
+	await go_to(80)
+	await go_to(1120)
 	check("appears only once", count(&"boss_appear") == 1)
 	check("bar stays up while the boss lives", bar().visible)
 
 
 func test_attacks_after_appearing() -> void:
 	await start()
-	await go_to(460) # 屏幕内、射程内
+	await go_to(920) # 屏幕内、射程内
 	var fired := false
 	for i in 150:
 		await frames(1)
@@ -120,7 +120,7 @@ func test_attacks_after_appearing() -> void:
 
 func test_health_bar_follows_damage() -> void:
 	await start()
-	await go_to(560)
+	await go_to(1120)
 	boss.take_damage(10)
 	check("bar shrinks with damage", bar_shows(boss.max_health - 10), str(fill_ratio()))
 	boss.take_damage(100)
@@ -131,13 +131,13 @@ func test_health_bar_follows_damage() -> void:
 
 func test_ultimate_freezes_clears_and_damages() -> void:
 	await start(["Turret1"])
-	await go_to(460)
+	await go_to(920)
 	var turret: Enemy = main.get_node("Enemies/Turret1")
-	for x in [480.0, 600.0]:
+	for x in [960.0, 1200.0]:
 		var bullet: Bullet = load(ENEMY_BULLET_SCENE).instantiate()
 		bullet.launch(Vector2.LEFT)
 		main.add_child(bullet)
-		bullet.global_position = Vector2(x, 120)
+		bullet.global_position = Vector2(x, 240)
 	await frames(1)
 	var hp := boss.health
 	await use_ultimate()
@@ -159,7 +159,7 @@ func test_ultimate_freezes_clears_and_damages() -> void:
 
 func test_ultimate_can_finish_a_weak_boss() -> void:
 	await start()
-	await go_to(460)
+	await go_to(920)
 	boss.take_damage(boss.max_health - 5)
 	await use_ultimate()
 	await wait_for_unpause()

@@ -66,12 +66,12 @@ func reset_scene(keep_enemies := false, keep_walls := false, skin: SkinPack = nu
 	await frames(2)
 
 
-## 在关卡里临时搭一堵实心竖墙（和关卡里的竖墙同样的做法：platform.tscn，8px 宽，立在地面上），返回它。
+## 在关卡里临时搭一堵实心竖墙（和关卡里的竖墙同样的做法：platform.tscn，16px 宽，立在地面上），返回它。
 ## 测「墙」这个机制本身时用它，不依赖关卡里墙摆在哪、有没有（Wall3 就是为了试 Boss 难度拆掉的）。
 func add_wall(x: float, height: float, wall_name := "TestWall") -> Platform:
 	var w: Platform = load("res://scenes/platform.tscn").instantiate()
 	w.name = wall_name
-	w.position = Vector2(x, 160.0 - height)
+	w.position = Vector2(x, 320.0 - height)
 	w.size = Vector2(8, height)
 	main.get_node("Level/Walls").add_child(w)
 	return w
@@ -120,7 +120,7 @@ func keyboard_keys(action: StringName) -> Array:
 	return keys
 
 
-## 按碰撞层收集场上还活着的子弹（4 = 玩家子弹，16 = 敌人子弹）。
+## 按碰撞层收集场上还活着的子弹（8 = 玩家子弹，32 = 敌人子弹）。
 ## 子弹命中后立刻消失，所以判断「有没有开火」要逐帧采样，不能事后再数。
 func bullets(layer: int, node: Node = null) -> Array:
 	var found := []

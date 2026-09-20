@@ -16,18 +16,18 @@ signal ultimate_ammo_changed(ammo: int, max_ammo: int)
 ## 受伤后的无敌时间，期间闪烁且不再受任何伤害。
 @export var invincible_time := 1.0
 ## 受伤时被顶开的速度（水平方向背离伤害源）。
-@export var hurt_knockback := Vector2(70, -120)
+@export var hurt_knockback := Vector2(140, -240)
 
 @export_group("Movement")
-@export var move_speed := 90.0
-@export var acceleration := 700.0
-@export var friction := 900.0
+@export var move_speed := 180.0
+@export var acceleration := 1400.0
+@export var friction := 1800.0
 @export var air_control := 0.7
 
 @export_group("Jump")
-@export var jump_velocity := -280.0
-@export var gravity := 900.0
-@export var max_fall_speed := 400.0
+@export var jump_velocity := -560.0
+@export var gravity := 1800.0
+@export var max_fall_speed := 800.0
 ## 松开跳跃键时，上升速度乘以这个系数，实现可变跳跃高度。
 @export var jump_cut := 0.5
 ## 离开平台边缘后仍可起跳的时间（土狼时间）。
@@ -68,25 +68,25 @@ enum Aim { FORWARD, UP, DIAGONAL_UP, DIAGONAL_DOWN, DOWN }
 ## 斜下的枪口不能太低：子弹转 45° 后半高约 3px，站在地面上（脚底在 +8）时出膛点要在 +5 以上，否则一出膛就嵌进地里。
 ## 各方向的出膛点，相对身体中心（朝右时；朝左 x 取反）。全部由代码算，不挂在 Visual 下面——
 ## 判定点不能跟着外观走，否则换皮肤、甚至开枪的后坐力位移都会改变子弹从哪飞出去。
-const LEVEL_MUZZLE := Vector2(12, 0)
-const UP_MUZZLE := Vector2(3, -14)
-const DIAGONAL_UP_MUZZLE := Vector2(9, -9)
-const DIAGONAL_DOWN_MUZZLE := Vector2(9, 4)
-const DOWN_MUZZLE := Vector2(0, 11)
+const LEVEL_MUZZLE := Vector2(24, 0)
+const UP_MUZZLE := Vector2(6, -28)
+const DIAGONAL_UP_MUZZLE := Vector2(18, -18)
+const DIAGONAL_DOWN_MUZZLE := Vector2(18, 8)
+const DOWN_MUZZLE := Vector2(0, 22)
 
 ## 站立/蹲下的碰撞体高度。脚底位置不变，只压低头顶。
-const STAND_HEIGHT := 16.0
+const STAND_HEIGHT := 32.0
 ## 敌人子弹离地面只有 6~8px（枪口在敌人身体中线），趴下后必须矮于 6px 才躲得开，取 4px 留 2px 余量。
-const CROUCH_HEIGHT := 4.0
-const HURTBOX_STAND_HEIGHT := 18.0
+const CROUCH_HEIGHT := 8.0
+const HURTBOX_STAND_HEIGHT := 36.0
 ## 开枪时外观往反方向弹开多少像素（后坐力，纯表现，不动身体和判定）。
-const RECOIL_DISTANCE := 2.0
+const RECOIL_DISTANCE := 4.0
 ## 后坐力每秒回复多少像素。
-const RECOIL_RECOVER := 40.0
+const RECOIL_RECOVER := 80.0
 ## 从单向平台上跳下来时，忽略那块平台多久（秒）。够落下一个身位就行，太长会穿过下一层平台。
 const DROP_THROUGH_TIME := 0.25
 ## 跳下来那一下先给一点向下的速度，好立刻脱离地面。
-const DROP_THROUGH_SPEED := 40.0
+const DROP_THROUGH_SPEED := 80.0
 
 var facing := 1
 ## 最近一枪的出膛点和方向（枪口闪光等特效读它，见 fx.gd）。

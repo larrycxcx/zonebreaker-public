@@ -14,16 +14,16 @@ extends EnemyWalker
 ## 两次扔之间至少隔多久。
 @export var throw_interval := 2.5
 ## 玩家在正前方这个水平距离区间内才扔：太近会扔过头，太远够不着。
-@export var min_throw_distance := 40.0
-@export var max_throw_distance := 150.0
+@export var min_throw_distance := 80.0
+@export var max_throw_distance := 300.0
 ## 玩家比自己高过 throw_height_above、或低过 throw_height_below 就不扔（手雷是平抛的，够不着）。
-@export var throw_height_above := 40.0
-@export var throw_height_below := 80.0
+@export var throw_height_above := 80.0
+@export var throw_height_below := 160.0
 ## 扔出去时报告的事件名，默认和玩家扔手雷共用一个声音。
 @export var throw_event := &"grenade_throw"
 
 ## 出手点（相对身体中心，朝右时；朝左 x 取反）。
-const THROW_OFFSET := Vector2(8, -2)
+const THROW_OFFSET := Vector2(16, -4)
 
 var _throw_timer := 0.0
 

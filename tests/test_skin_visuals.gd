@@ -68,14 +68,14 @@ func test_a_skin_replaces_a_character_s_appearance() -> void:
 	Input.action_press("move_right")
 	await frames(6)
 	release_all_input()
-	check("still moves", player.global_position.x > 32.0)
+	check("still moves", player.global_position.x > 64.0)
 	check("and the logic drives it through the interface", (skinned.calls as Array).has("face"), str(skinned.calls))
 
 
 func test_a_skin_replaces_an_effect() -> void:
 	# 换上只提供「枪口闪光」的包
 	await reset_scene(false, false, make_skin({}, {&"muzzle_flash": scene_of(STUB)}))
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	player._shoot(Vector2.RIGHT)
@@ -89,7 +89,7 @@ func test_a_skin_replaces_an_effect() -> void:
 func test_missing_entries_fall_back() -> void:
 	# 包里没填的东西一律回落：外观用角色场景自带的，特效用 Fx 上配的默认场景
 	await reset_scene(false, false, make_skin())
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	await frames(10)
 	check("appearance falls back to the built-in one", player.get_node("Visual").get_script().resource_path.ends_with("appearance.gd"))
 	player._shoot(Vector2.RIGHT)
@@ -110,7 +110,7 @@ func test_a_broken_skin_does_not_break_the_game() -> void:
 	Input.action_press("move_right")
 	await frames(6)
 	release_all_input()
-	check("and the game still runs", player.global_position.x > 32.0)
+	check("and the game still runs", player.global_position.x > 64.0)
 
 
 func test_appearances_fall_back_through_the_chain() -> void:
@@ -127,18 +127,18 @@ func test_appearances_fall_back_through_the_chain() -> void:
 func test_the_explosion_is_drawn_by_the_fx_layer() -> void:
 	# 手雷自己不画爆炸，只报告事件；画面归 Fx（所以也能被素材包替换）
 	await reset_scene()
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	var grenade: Grenade = load("res://scenes/grenade.tscn").instantiate()
 	main.add_child(grenade)
-	grenade.global_position = Vector2(230, 150)
+	grenade.global_position = Vector2(460, 300)
 	await frames(2)
 	var fx: Fx = main.get_node("Fx")
 	for effect in fx.get_children():
 		effect.free()
-	# 故意改成和特效场景默认值（28）不同的半径，否则「没按半径缩放」也看不出来
-	grenade.blast_radius = 40.0
+	# 故意改成和特效场景默认值（56）不同的半径，否则「没按半径缩放」也看不出来
+	grenade.blast_radius = 80.0
 	var radius := grenade.blast_radius # 爆炸之后它自己就释放了，先记下来
 	grenade.explode()
 	await frames(2)
@@ -147,5 +147,5 @@ func test_the_explosion_is_drawn_by_the_fx_layer() -> void:
 	if not blasts.is_empty():
 		check("sized by the grenade's blast radius", blasts[0].radius == radius,
 			"%s vs %s" % [blasts[0].radius, radius])
-		check("drawn where it went off", blasts[0].global_position.distance_to(Vector2(230, 150)) < 1.0,
+		check("drawn where it went off", blasts[0].global_position.distance_to(Vector2(460, 300)) < 4.0,
 			str(blasts[0].global_position))

@@ -9,16 +9,16 @@ extends EnemyWalker
 ## 一开始就躲在墙后它发现不了你，但被它盯上以后翻墙甩不掉它。
 
 ## 冲锋速度。故意比玩家走路（90）慢：玩家走开时它追不上，奔跑能明显拉开距离，有机会甩掉它。
-@export var charge_speed := 75.0
+@export var charge_speed := 150.0
 ## 跳跃力度和玩家一样，所以翻得过所有的墙（墙都比玩家跳跃高度低）。
-@export var jump_velocity := -280.0
+@export var jump_velocity := -560.0
 ## 看丢玩家后，继续往最后看见的位置追多久。
 @export var memory_time := 2.0
 ## 两次起跳之间至少隔多久，免得在够不着的平台下原地连跳。
 @export var jump_cooldown := 0.5
 ## 玩家比自己高出这么多、而且水平距离在 climb_reach 以内时，起跳去够平台。
-@export var climb_height := 20.0
-@export var climb_reach := 24.0
+@export var climb_height := 40.0
+@export var climb_reach := 48.0
 
 var is_chasing := false
 
@@ -79,7 +79,7 @@ func _chase(delta: float, can_see: bool) -> void:
 	# 身体真的往下降了（比开始走时低 2px 以上）或已经到了玩家的高度才取消，一旦取消就不再恢复。
 	# 不能按「离地」取消：走到边缘时 is_on_floor() 会闪一帧 false，它会又站回平台、转头走回去，在平台上来回跑。
 	# 落到另一个仍比玩家高的地方（比如墙顶）时，下面的条件会重新选方向。
-	if _drop_direction != 0 and (offset.y <= climb_height or global_position.y > _drop_start_y + 2.0):
+	if _drop_direction != 0 and (offset.y <= climb_height or global_position.y > _drop_start_y + 4.0):
 		_drop_direction = 0
 	elif _drop_direction == 0 and is_on_floor() and offset.y > climb_height and absf(offset.x) < climb_reach:
 		_drop_direction = facing

@@ -5,19 +5,19 @@ extends Enemy
 ## 玩家在正下方时竖直向下开火。子弹和其它子弹一样穿过单向平台，被地面、墙、矮通道这些实心物体挡住。
 ## 跟随中看不见玩家或玩家水平离开 follow_range 以外，memory_time 秒后放弃，就地继续巡逻。
 
-@export var move_speed := 30.0
+@export var move_speed := 60.0
 ## 跟随玩家时的水平速度。
-@export var follow_speed := 30.0
+@export var follow_speed := 60.0
 @export_enum("左:-1", "右:1") var start_direction := -1
 ## 巡逻范围：巡逻中心左右各多少像素。
-@export var patrol_distance := 90.0
+@export var patrol_distance := 180.0
 ## 波浪的振幅（像素）和周期（秒）。
-@export var wave_amplitude := 8.0
+@export var wave_amplitude := 16.0
 @export var wave_period := 2.0
 ## 玩家和它的水平距离在这个范围内，就算在它「垂直下方」。
-@export var below_width := 10.0
+@export var below_width := 20.0
 ## 跟随时玩家水平离开多远就算跟丢。
-@export var follow_range := 140.0
+@export var follow_range := 280.0
 @export var memory_time := 1.5
 
 var is_following := false

@@ -7,16 +7,16 @@ extends CharacterBody2D
 
 ## 扔出去的速度（沿瞄准方向）和额外的上抛速度：瞄准方向 × throw_speed + 向上 lift。
 ## 往正下方丢（空中按 S）时不加上抛。
-@export var throw_speed := 160.0
-@export var lift := 220.0
-@export var gravity := 700.0
+@export var throw_speed := 320.0
+@export var lift := 440.0
+@export var gravity := 1400.0
 ## 反弹后保留多少速度。
 @export var bounciness := 0.45
 ## 能弹几次，之后再撞到东西就爆炸。
 @export var bounces := 1
 ## 最长多久一定爆炸（秒）。
 @export var fuse := 1.5
-@export var blast_radius := 28.0
+@export var blast_radius := 56.0
 ## 爆炸中心（和直接砸中）的伤害，以及范围边缘的伤害，中间按距离线性过渡。
 @export var max_damage := 3
 @export var min_damage := 1

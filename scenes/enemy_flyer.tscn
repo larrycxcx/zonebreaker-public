@@ -6,7 +6,7 @@
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 resource_local_to_scene = true
-size = Vector2(14, 10)
+size = Vector2(28, 20)
 
 [node name="EnemyFlyer" type="CharacterBody2D"]
 collision_layer = 8
@@ -22,38 +22,38 @@ shoot_event = &"flyer_shoot"
 shape = SubResource("RectangleShape2D_1")
 
 [node name="Muzzle" type="Marker2D" parent="."]
-position = Vector2(0, 6)
+position = Vector2(0, 12)
 
 [node name="Visual" type="Node2D" parent="."]
 script = ExtResource("99")
 
 [node name="WingLeft" type="ColorRect" parent="Visual"]
-offset_left = -10.0
-offset_top = -4.0
-offset_right = -7.0
+offset_left = -20.0
+offset_top = -8.0
+offset_right = -14.0
 offset_bottom = 0.0
 mouse_filter = 2
 color = Color(1, 0.75, 0.9, 1)
 
 [node name="WingRight" type="ColorRect" parent="Visual"]
-offset_left = 7.0
-offset_top = -4.0
-offset_right = 10.0
+offset_left = 14.0
+offset_top = -8.0
+offset_right = 20.0
 offset_bottom = 0.0
 mouse_filter = 2
 color = Color(1, 0.75, 0.9, 1)
 
 [node name="Body" type="ColorRect" parent="Visual"]
-offset_left = -7.0
-offset_top = -5.0
-offset_right = 7.0
-offset_bottom = 5.0
+offset_left = -14.0
+offset_top = -10.0
+offset_right = 14.0
+offset_bottom = 10.0
 mouse_filter = 2
 color = Color(0.95, 0.45, 0.75, 1)
 
 [node name="Eye" type="ColorRect" parent="Visual"]
-offset_left = 1.0
+offset_left = 2.0
 offset_top = 0.0
-offset_right = 4.0
-offset_bottom = 3.0
+offset_right = 8.0
+offset_bottom = 6.0
 mouse_filter = 2

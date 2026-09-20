@@ -6,12 +6,12 @@ extends GameTest
 ##   移动 左摇杆/十字键左右 · 跳跃 A · 开火 RT · 切换武器 X · 向上瞄准 左摇杆上/十字键上 · 向下瞄准 左摇杆下/十字键下
 ##   · 趴下 LT · 奔跑 LB
 
-const OPEN_X := 200.0
+const OPEN_X := 400.0
 
 
 ## 模拟的输入事件默认要等下一轮主循环开始才被处理。如果上一帧卡了一下，这一轮主循环会连续补跑好几个物理帧，
 ## 用例在补帧期间发出事件、只等几帧就检查，事件可能还没被处理——第一次跑这组用例时 A 键跳跃就这样偶发失败过
-## （人为制造卡顿可以 10 次复现 10 次）。所以发完事件立刻 flush，让它在当前物理帧就生效，结果稳定。
+## （人为制造卡顿可以 20 次复现 20 次）。所以发完事件立刻 flush，让它在当前物理帧就生效，结果稳定。
 func joy_button(index: JoyButton, pressed: bool) -> void:
 	var event := InputEventJoypadButton.new()
 	event.device = 0
@@ -41,7 +41,7 @@ func joy_neutral() -> void:
 func start() -> void:
 	joy_neutral()
 	await reset_scene()
-	player.global_position = Vector2(OPEN_X, 152)
+	player.global_position = Vector2(OPEN_X, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 
@@ -94,7 +94,7 @@ func test_half_a_stick_push_walks_at_full_speed() -> void:
 	await start()
 	joy_axis(JOY_AXIS_LEFT_X, 0.45)
 	await frames(30)
-	check("a 45% push walks at full speed", is_equal_approx(player.velocity.x, player.move_speed), "%.1f" % player.velocity.x)
+	check("a 90% push walks at full speed", is_equal_approx(player.velocity.x, player.move_speed), "%.1f" % player.velocity.x)
 	joy_axis(JOY_AXIS_LEFT_X, -0.45)
 	await frames(40)
 	check("same the other way", is_equal_approx(player.velocity.x, -player.move_speed), "%.1f" % player.velocity.x)
@@ -106,7 +106,7 @@ func test_small_stick_drift_is_ignored() -> void:
 	var x0 := player.global_position.x
 	joy_axis(JOY_AXIS_LEFT_X, 0.2) # 死区 0.3 以内：摇杆回中不准时的漂移
 	await frames(30)
-	check("a 20% push does not move the player", absf(player.global_position.x - x0) < 0.5, "moved %.2f" % (player.global_position.x - x0))
+	check("a 40% push does not move the player", absf(player.global_position.x - x0) < 0.5, "moved %.2f" % (player.global_position.x - x0))
 	joy_neutral()
 
 
@@ -122,10 +122,10 @@ func test_stick_down_aims_down_only_past_half() -> void:
 	await start()
 	joy_axis(JOY_AXIS_LEFT_Y, 0.4)
 	await frames(5)
-	check("a 40% push down does not aim down", player.aim == Player.Aim.FORWARD, str(player.aim))
+	check("a 80% push down does not aim down", player.aim == Player.Aim.FORWARD, str(player.aim))
 	joy_axis(JOY_AXIS_LEFT_Y, 0.8)
 	await frames(5)
-	check("an 80% push down aims down (and does not lie down)", player.aim == Player.Aim.DIAGONAL_DOWN and not player.is_crouching, str(player.aim))
+	check("an 160% push down aims down (and does not lie down)", player.aim == Player.Aim.DIAGONAL_DOWN and not player.is_crouching, str(player.aim))
 	joy_neutral()
 	await frames(5)
 	joy_button(JOY_BUTTON_DPAD_DOWN, true)
@@ -210,7 +210,7 @@ func test_rb_switches_while_firing_and_jumping() -> void:
 
 func test_lb_sprints() -> void:
 	await start()
-	player.global_position = Vector2(370, 152) # 矮通道右边的空地，够跑
+	player.global_position = Vector2(740, 304) # 矮通道右边的空地，够跑
 	joy_axis(JOY_AXIS_LEFT_X, 1.0)
 	joy_button(JOY_BUTTON_LEFT_SHOULDER, true)
 	await frames(20)

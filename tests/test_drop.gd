@@ -2,9 +2,9 @@ extends GameTest
 ## 跳下平台（魂斗罗式）：站在单向平台上按住「下」再按跳跃，就从平台上穿下去，而不是起跳。
 ## 实心地面上按同样的键照常起跳。
 
-## Platform1：x 80..128，顶面 y=128。
+## Platform1：x 160..256，顶面 y=256。
 const PLATFORM := "Level/Platform1"
-const PLATFORM_TOP := 128.0
+const PLATFORM_TOP := 256.0
 
 
 func platform() -> Platform:
@@ -14,13 +14,13 @@ func platform() -> Platform:
 ## 站到 Platform1 上（脚底贴着顶面），等它真的踩稳。
 func stand_on_platform() -> void:
 	await reset_scene()
-	player.global_position = Vector2(104, PLATFORM_TOP - 12.0)
+	player.global_position = Vector2(208, PLATFORM_TOP - 24.0)
 	player.velocity = Vector2.ZERO
 	for i in 60:
 		await frames(1)
-		if player.is_on_floor() and player.global_position.y > PLATFORM_TOP - 12.0:
+		if player.is_on_floor() and player.global_position.y > PLATFORM_TOP - 24.0:
 			break
-	check("setup: standing on the platform", player.is_on_floor() and absf(player.global_position.y - (PLATFORM_TOP - 8.0)) < 2.0,
+	check("setup: standing on the platform", player.is_on_floor() and absf(player.global_position.y - (PLATFORM_TOP - 16.0)) < 4.0,
 		"y=%.1f" % player.global_position.y)
 
 
@@ -32,7 +32,7 @@ func tap(action: StringName) -> void:
 
 
 func feet() -> float:
-	return player.global_position.y + 8.0
+	return player.global_position.y + 16.0
 
 
 func test_down_and_jump_drops_through() -> void:
@@ -42,7 +42,7 @@ func test_down_and_jump_drops_through() -> void:
 	var below := false
 	for i in 60:
 		await frames(1)
-		if feet() > PLATFORM_TOP + 2.0:
+		if feet() > PLATFORM_TOP + 4.0:
 			below = true
 			break
 	check("drops through the platform", below, "feet at %.1f, platform at %.1f" % [feet(), PLATFORM_TOP])
@@ -52,7 +52,7 @@ func test_down_and_jump_drops_through() -> void:
 		await frames(1)
 		if player.is_on_floor():
 			break
-	check("lands on the ground below", player.is_on_floor() and player.global_position.y > 140.0, str(player.global_position.y))
+	check("lands on the ground below", player.is_on_floor() and player.global_position.y > 280.0, str(player.global_position.y))
 	Input.action_release("aim_down")
 
 
@@ -65,14 +65,14 @@ func test_jump_alone_still_jumps() -> void:
 		await frames(1)
 		top = minf(top, player.global_position.y)
 	Input.action_release("jump")
-	check("jumping without down goes up", top < start_y - 20.0, "%.1f -> %.1f" % [start_y, top])
-	check("and stays above the platform", feet() <= PLATFORM_TOP + 2.0, "feet at %.1f" % feet())
+	check("jumping without down goes up", top < start_y - 40.0, "%.1f -> %.1f" % [start_y, top])
+	check("and stays above the platform", feet() <= PLATFORM_TOP + 4.0, "feet at %.1f" % feet())
 
 
 func test_down_and_jump_on_solid_ground_jumps() -> void:
 	# 实心地面上按「下 + 跳」照常起跳（地面不是单向平台，跳不下去）
 	await reset_scene()
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	var start_y := player.global_position.y
@@ -83,7 +83,7 @@ func test_down_and_jump_on_solid_ground_jumps() -> void:
 		await frames(1)
 		top = minf(top, player.global_position.y)
 	release_all_input()
-	check("still jumps on solid ground", top < start_y - 20.0, "%.1f -> %.1f" % [start_y, top])
+	check("still jumps on solid ground", top < start_y - 40.0, "%.1f -> %.1f" % [start_y, top])
 	check("and does not sink into the ground", player.global_position.y <= start_y + 1.0, str(player.global_position.y))
 
 
@@ -97,7 +97,7 @@ func test_cannot_drop_through_in_mid_air() -> void:
 	Input.action_press("aim_down")
 	await tap("jump")
 	Input.action_release("aim_down")
-	check("no mid-air jump", player.velocity.y >= before - 10.0, "%.1f -> %.1f" % [before, player.velocity.y])
+	check("no mid-air jump", player.velocity.y >= before - 20.0, "%.1f -> %.1f" % [before, player.velocity.y])
 
 
 func test_the_platform_is_solid_again_afterwards() -> void:
@@ -107,21 +107,21 @@ func test_the_platform_is_solid_again_afterwards() -> void:
 	await tap("jump")
 	for i in 60:
 		await frames(1)
-		if player.is_on_floor() and feet() > PLATFORM_TOP + 2.0:
+		if player.is_on_floor() and feet() > PLATFORM_TOP + 4.0:
 			break
 	Input.action_release("aim_down")
-	check("setup: dropped to the ground", feet() > PLATFORM_TOP + 2.0, "feet at %.1f" % feet())
+	check("setup: dropped to the ground", feet() > PLATFORM_TOP + 4.0, "feet at %.1f" % feet())
 	await frames(20) # 等忽略碰撞的那 0.25 秒走完
 	check("the exception was cleared", player._dropping_platform == null)
 	# 从下面跳回平台上
-	player.global_position = Vector2(104, 152)
+	player.global_position = Vector2(208, 304)
 	player.velocity = Vector2.ZERO
 	await frames(5)
 	Input.action_press("jump")
 	var landed := false
 	for i in 90:
 		await frames(1)
-		if player.is_on_floor() and absf(feet() - PLATFORM_TOP) < 2.0:
+		if player.is_on_floor() and absf(feet() - PLATFORM_TOP) < 4.0:
 			landed = true
 			break
 	Input.action_release("jump")
@@ -139,7 +139,7 @@ func test_dropping_while_lying_down() -> void:
 	var below := false
 	for i in 60:
 		await frames(1)
-		if feet() > PLATFORM_TOP + 2.0:
+		if feet() > PLATFORM_TOP + 4.0:
 			below = true
 			break
 	release_all_input()

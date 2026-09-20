@@ -69,7 +69,7 @@ func test_every_sound_file_is_used() -> void:
 
 func test_player_events() -> void:
 	await reset_scene()
-	player.global_position = Vector2(30, 152)
+	player.global_position = Vector2(60, 304)
 	player.facing = -1
 	player._visual.scale.x = -1
 	await frames(10)
@@ -87,8 +87,8 @@ func test_player_events() -> void:
 
 func test_stamina_event() -> void:
 	await reset_scene()
-	player.global_position = Vector2(370, 152)
-	player.stamina = 3.0
+	player.global_position = Vector2(740, 304)
+	player.stamina = 6.0
 	Input.action_press("sprint")
 	Input.action_press("move_right")
 	await frames(20)
@@ -101,7 +101,7 @@ func test_player_hurt_death_and_game_over() -> void:
 	await frames(5)
 	for i in 3:
 		player._invincible_timer = 0.0
-		player.take_damage(1, player.global_position + Vector2(20, 0))
+		player.take_damage(1, player.global_position + Vector2(40, 0))
 		await frames(2)
 	check("game_over waits for the death sound", not events.has(&"game_over"))
 	await frames(40) # game_over_delay 0.5 秒
@@ -112,9 +112,9 @@ func test_player_hurt_death_and_game_over() -> void:
 func test_enemy_hit_and_death() -> void:
 	await reset_scene(true)
 	var walker: EnemyWalker = _only("WalkerA")
-	walker.global_position = Vector2(250, 153)
+	walker.global_position = Vector2(500, 306)
 	walker.move_speed = 0.0
-	player.global_position = Vector2(210, 152)
+	player.global_position = Vector2(420, 304)
 	player.facing = 1
 	player._visual.scale.x = 1
 	await frames(5)
@@ -129,11 +129,11 @@ func test_enemy_hit_and_death() -> void:
 func test_walker_shot() -> void:
 	await reset_scene(true)
 	var walker: EnemyWalker = _only("WalkerA")
-	walker.global_position = Vector2(250, 153)
+	walker.global_position = Vector2(500, 306)
 	walker.move_speed = 0.0
 	walker.facing = -1
 	walker._apply_facing()
-	player.global_position = Vector2(180, 152)
+	player.global_position = Vector2(360, 304)
 	for i in 30:
 		player._invincible_timer = 1000.0
 		await tree.physics_frame
@@ -144,8 +144,8 @@ func test_walker_shot() -> void:
 func test_turret_shot() -> void:
 	await reset_scene(true)
 	var turret: EnemyTurret = _only("Turret1")
-	turret.global_position = Vector2(500, 153)
-	player.global_position = Vector2(430, 152)
+	turret.global_position = Vector2(1000, 306)
+	player.global_position = Vector2(860, 304)
 	for i in 30:
 		player._invincible_timer = 1000.0
 		await tree.physics_frame
@@ -157,11 +157,11 @@ func test_enemy_prone_event() -> void:
 	# 只有 C 会跟着玩家趴下（炮台不会）。
 	await reset_scene(true)
 	var c: EnemyWalker = _only("WalkerC")
-	c.global_position = Vector2(500, 153)
+	c.global_position = Vector2(1000, 306)
 	c.move_speed = 0.0
 	c.facing = -1
 	c._apply_facing()
-	player.global_position = Vector2(430, 152)
+	player.global_position = Vector2(860, 304)
 	Input.action_press("crouch")
 	for i in 60:
 		player._invincible_timer = 1000.0
@@ -176,9 +176,9 @@ func test_enemy_prone_event() -> void:
 func test_flyer_shot() -> void:
 	await reset_scene(true)
 	var flyer: EnemyFlyer = _only("FlyerE")
-	flyer.set_anchor(Vector2(200, 44))
+	flyer.set_anchor(Vector2(400, 88))
 	flyer.move_speed = 0.0
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	for i in 20:
 		player._invincible_timer = 1000.0
 		await tree.physics_frame
@@ -188,11 +188,11 @@ func test_flyer_shot() -> void:
 func test_chaser_alert() -> void:
 	await reset_scene(true)
 	var d: EnemyChaser = _only("ChaserD")
-	d.global_position = Vector2(250, 153)
-	player.global_position = Vector2(560, 152)
+	d.global_position = Vector2(500, 306)
+	player.global_position = Vector2(1120, 304)
 	await frames(10)
 	check("no alert while D has not seen the player", not events.has(&"chaser_alert"))
-	player.global_position = Vector2(180, 152)
+	player.global_position = Vector2(360, 304)
 	for i in 30:
 		player._invincible_timer = 1000.0
 		await tree.physics_frame
@@ -202,7 +202,7 @@ func test_chaser_alert() -> void:
 
 func test_grenade_events() -> void:
 	await reset_scene()
-	player.global_position = Vector2(100, 152)
+	player.global_position = Vector2(200, 304)
 	await frames(10)
 	player.switch_weapon()
 	player.current_slot().cooldown_left = 0.0
@@ -226,7 +226,7 @@ func test_ultimate_events() -> void:
 func test_boss_appear_event() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["BossA"])
-	player.global_position = Vector2(560, 152)
+	player.global_position = Vector2(1120, 304)
 	await frames(10)
 	expect_events([&"boss_appear"], "a boss coming on screen")
 

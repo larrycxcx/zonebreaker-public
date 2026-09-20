@@ -6,9 +6,9 @@
 const GRENADE_SCENE := "res://scenes/grenade.tscn"
 
 
-func start(x := 100.0) -> void:
+func start(x := 200.0) -> void:
 	await reset_scene()
-	player.global_position = Vector2(x, 152)
+	player.global_position = Vector2(x, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 
@@ -61,7 +61,7 @@ func track(grenade: Grenade) -> Dictionary:
 ## 把一个巡逻兵摆在地面 x 处、站定不动、血量调高，用来量伤害。
 func dummy(walker_name: String, x: float, health := 10) -> EnemyWalker:
 	var w: EnemyWalker = main.get_node("Enemies/" + walker_name)
-	w.global_position = Vector2(x, 153)
+	w.global_position = Vector2(x, 306)
 	w.move_speed = 0.0
 	w.max_health = health
 	w.health = health
@@ -155,17 +155,17 @@ func test_forward_throw_arcs_bounces_once_then_explodes() -> void:
 		if first_landing_x < 0.0 and info["bounces"] == 1:
 			first_landing_x = grenade.global_position.x
 	info["disconnect"].call()
-	check("it rises first (an arc)", start_y - highest > 20.0, "rose %.1f px" % (start_y - highest))
-	check("it lands 50-130px ahead", first_landing_x > 150.0 and first_landing_x < 230.0, "x=%.1f" % first_landing_x)
+	check("it rises first (an arc)", start_y - highest > 40.0, "rose %.1f px" % (start_y - highest))
+	check("it lands 100-260px ahead", first_landing_x > 300.0 and first_landing_x < 460.0, "x=%.1f" % first_landing_x)
 	check("bounces exactly once", info["bounces"] == 1, str(info["bounces"]))
-	check("then explodes on the ground", info["exploded_at"] != null and info["exploded_at"].y > 150.0, str(info["exploded_at"]))
+	check("then explodes on the ground", info["exploded_at"] != null and info["exploded_at"].y > 300.0, str(info["exploded_at"]))
 
 
 func test_direct_hit_explodes_at_once() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["WalkerA"])
-	var walker := dummy("WalkerA", 200, 2)
-	var grenade := spawn_grenade(Vector2(200, 120), Vector2(0, 120))
+	var walker := dummy("WalkerA", 400, 2)
+	var grenade := spawn_grenade(Vector2(400, 240), Vector2(0, 240))
 	var info := track(grenade)
 	var deaths := []
 	walker.died.connect(func(): deaths.append(true))
@@ -174,7 +174,7 @@ func test_direct_hit_explodes_at_once() -> void:
 		if info["exploded_at"] != null:
 			break
 	info["disconnect"].call()
-	check("dropping onto an enemy explodes on contact", info["exploded_at"] != null and info["exploded_at"].y < 150.0, str(info["exploded_at"]))
+	check("dropping onto an enemy explodes on contact", info["exploded_at"] != null and info["exploded_at"].y < 300.0, str(info["exploded_at"]))
 	check("without bouncing first", info["bounces"] == 0, str(info["bounces"]))
 	check("a direct hit does full damage (kills a 2-health walker)", deaths.size() == 1)
 
@@ -182,7 +182,7 @@ func test_direct_hit_explodes_at_once() -> void:
 func test_fuse_forces_the_explosion() -> void:
 	await start()
 	# 悬空不动的手雷（没有重力、不碰任何东西）：1.5 秒到了也要炸。
-	var grenade := spawn_grenade(Vector2(100, 60), Vector2.ZERO, 0.0)
+	var grenade := spawn_grenade(Vector2(400, 240), Vector2.ZERO, 0.0)
 	var info := track(grenade)
 	var frame := 0
 	while info["exploded_at"] == null and frame < 150:
@@ -197,15 +197,15 @@ func test_fuse_forces_the_explosion() -> void:
 func test_damage_falls_off_with_distance() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["WalkerA", "WalkerB", "WalkerC", "ChaserD"])
-	var at_centre := dummy("WalkerA", 300)
-	var half_way := dummy("WalkerB", 300 + 14)
-	var near_edge := dummy("WalkerC", 300 - 26)
+	var at_centre := dummy("WalkerA", 600)
+	var half_way := dummy("WalkerB", 600 + 28)
+	var near_edge := dummy("WalkerC", 600 - 52)
 	var d: EnemyChaser = main.get_node("Enemies/ChaserD")
-	d.global_position = Vector2(300 + 45, 153)
+	d.global_position = Vector2(600 + 90, 306)
 	d.set_physics_process(false)
 	var d_health := d.health
 	await frames(2)
-	var grenade := spawn_grenade(Vector2(300, 153), Vector2.ZERO, 0.0)
+	var grenade := spawn_grenade(Vector2(600, 306), Vector2.ZERO, 0.0)
 	await frames(1)
 	grenade.explode()
 	await frames(1)
@@ -218,11 +218,11 @@ func test_damage_falls_off_with_distance() -> void:
 func test_walls_block_the_blast() -> void:
 	await reset_scene(true, true)
 	keep_only_enemies(["WalkerA", "WalkerB"])
-	# Wall2：x 400..408，高 28。爆炸在墙左边，两个巡逻兵离爆炸一样远（20px），一个在墙这边、一个在墙后面。
-	var same_side := dummy("WalkerA", 375)
-	var behind_wall := dummy("WalkerB", 415)
+	# Wall2：x 800..408，高 56。爆炸在墙左边，两个巡逻兵离爆炸一样远（40px），一个在墙这边、一个在墙后面。
+	var same_side := dummy("WalkerA", 750)
+	var behind_wall := dummy("WalkerB", 830)
 	await frames(2)
-	var grenade := spawn_grenade(Vector2(395, 153), Vector2.ZERO, 0.0)
+	var grenade := spawn_grenade(Vector2(790, 306), Vector2.ZERO, 0.0)
 	await frames(1)
 	grenade.explode()
 	await frames(1)
@@ -233,7 +233,7 @@ func test_walls_block_the_blast() -> void:
 func test_walls_bounce_grenades() -> void:
 	await reset_scene(false, true)
 	# 贴着 Wall2 左边往右扔：手雷撞墙弹回来，不会穿过去。
-	player.global_position = Vector2(385, 152)
+	player.global_position = Vector2(770, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	var grenade := await throw_one()
@@ -243,7 +243,7 @@ func test_walls_bounce_grenades() -> void:
 		await tree.physics_frame
 		if not is_instance_valid(grenade):
 			break
-		crossed = crossed or grenade.global_position.x > 408.0
+		crossed = crossed or grenade.global_position.x > 816.0
 	info["disconnect"].call()
 	check("the grenade never gets through the wall", not crossed)
 	check("it bounced off something", info["bounces"] >= 1, str(info["bounces"]))
@@ -261,10 +261,10 @@ func test_grenades_never_hurt_the_player() -> void:
 func test_the_blast_reaches_a_prone_enemy() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["WalkerC"])
-	var c := dummy("WalkerC", 300)
+	var c := dummy("WalkerC", 600)
 	c.set_prone(true)
 	await frames(2)
-	var grenade := spawn_grenade(Vector2(315, 150), Vector2.ZERO, 0.0)
+	var grenade := spawn_grenade(Vector2(630, 300), Vector2.ZERO, 0.0)
 	await frames(1)
 	grenade.explode()
 	await frames(1)
@@ -274,14 +274,14 @@ func test_the_blast_reaches_a_prone_enemy() -> void:
 # ---------------------------------------------------------------- 实战
 
 func test_lob_over_a_wall_onto_the_turret() -> void:
-	# 在 Turret1（x=580）前面搭一堵 36px 高的墙（x 540..548）。玩家在墙左边往前扔，手雷越过墙砸到炮台。
+	# 在 Turret1（x=1160）前面搭一堵 72px 高的墙（x 1080..548）。玩家在墙左边往前扔，手雷越过墙砸到炮台。
 	await reset_scene(true)
 	keep_only_enemies(["Turret1"])
-	# BossPlatform（x 496..552，y=124）会接住抛过去的手雷，这条用例只关心墙，先挪开它。
+	# BossPlatform（x 992..552，y=248）会接住抛过去的手雷，这条用例只关心墙，先挪开它。
 	main.get_node("Level/BossPlatform").free()
-	add_wall(540, 36)
+	add_wall(1080, 72)
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
-	player.global_position = Vector2(470, 152)
+	player.global_position = Vector2(940, 304)
 	player.velocity = Vector2.ZERO
 	player.facing = 1
 	player._visual.scale.x = 1
@@ -291,15 +291,15 @@ func test_lob_over_a_wall_onto_the_turret() -> void:
 	for i in 90:
 		player._invincible_timer = 1000.0
 		await tree.physics_frame
-		if is_instance_valid(grenade) and grenade.global_position.x > 548.0:
+		if is_instance_valid(grenade) and grenade.global_position.x > 1096.0:
 			crossed = true
 	check("the grenade clears the wall", crossed)
 	check("and hits the turret behind it (6 -> 3)", turret.health == 3, str(turret.health))
 
 
 func test_one_way_platforms_up_through_down_onto() -> void:
-	# 站在 Platform1（单向，x 80..128，顶面 y=128）正下方往正上方扔：穿过平台飞上去，落回来时落在平台上面炸。
-	await start(104)
+	# 站在 Platform1（单向，x 160..128，顶面 y=256）正下方往正上方扔：穿过平台飞上去，落回来时落在平台上面炸。
+	await start(208)
 	Input.action_press("aim_up")
 	await frames(2)
 	var grenade := await throw_one()
@@ -309,7 +309,7 @@ func test_one_way_platforms_up_through_down_onto() -> void:
 		await tree.physics_frame
 		if not is_instance_valid(grenade):
 			break
-		went_above = went_above or grenade.global_position.y < 120.0
+		went_above = went_above or grenade.global_position.y < 240.0
 	info["disconnect"].call()
 	check("it flies up through the platform", went_above)
-	check("and lands on top of it", info["exploded_at"] != null and info["exploded_at"].y < 130.0, str(info["exploded_at"]))
+	check("and lands on top of it", info["exploded_at"] != null and info["exploded_at"].y < 260.0, str(info["exploded_at"]))

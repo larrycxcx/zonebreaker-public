@@ -34,8 +34,8 @@ func test_bigger_events_shake_harder() -> void:
 	await frames(5)
 	var shot: float = ScreenShake.SHAKES[&"player_shoot"]
 	var blast: float = ScreenShake.SHAKES[&"ultimate_blast"]
-	check("firing barely shakes", shot <= 1.0, str(shot))
-	check("the ultimate shakes hard", blast >= 3.0, str(blast))
+	check("firing barely shakes", shot <= 2.0, str(shot))
+	check("the ultimate shakes hard", blast >= 6.0, str(blast))
 	check("an explosion shakes more than a shot", ScreenShake.SHAKES[&"explosion"] > shot)
 	# 强度直接反映在抖动幅度上
 	camera()._strength = 0.0
@@ -50,13 +50,13 @@ func test_bigger_events_shake_harder() -> void:
 func test_shake_does_not_move_the_camera_itself() -> void:
 	# 抖动只改 offset：摄像机跟随玩家的位置和关卡边界都不受影响
 	await reset_scene()
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	await frames(5)
 	var position_ := camera().position
 	await report(&"explosion")
 	await frames(3)
 	check("camera position untouched", camera().position == position_, str(camera().position))
-	check("limits untouched", camera().limit_left == 0 and camera().limit_right == 640)
+	check("limits untouched", camera().limit_left == 0 and camera().limit_right == 1280)
 
 
 func test_shake_can_be_turned_off() -> void:
@@ -76,7 +76,7 @@ func test_shake_runs_during_the_ultimate_freeze() -> void:
 
 func test_firing_kicks_the_visual_back() -> void:
 	await reset_scene()
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	player.facing = 1
 	await frames(10)
@@ -95,7 +95,7 @@ func test_firing_kicks_the_visual_back() -> void:
 
 func test_the_kick_follows_the_shot_direction() -> void:
 	await reset_scene()
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	player._shoot(Vector2.UP)
@@ -106,7 +106,7 @@ func test_the_kick_follows_the_shot_direction() -> void:
 func test_recoil_does_not_break_lying_down() -> void:
 	# 趴下会把整个 Visual 下移，后坐力是加在那个位置上的偏移，两者不能打架
 	await reset_scene()
-	player.global_position = Vector2(200, 152)
+	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	# 开枪之后立刻趴下：这一帧「趴下的下移」和「后坐力的偏移」必须同时生效，谁也别把谁抹掉

@@ -2,12 +2,12 @@ extends GameTest
 ## 武器结构：玩家的武器是一个资源文件（Weapon），运行时状态在武器槽（WeaponSlot）里。
 ## 这组用例确认「只换武器文件就能改变开火行为」——射速、连发/单发、弹药上限、音效事件都来自武器，不在玩家代码里。
 
-const OPEN_X := 200.0
+const OPEN_X := 400.0
 
 
 func start() -> void:
 	await reset_scene()
-	player.global_position = Vector2(OPEN_X, 152)
+	player.global_position = Vector2(OPEN_X, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 
@@ -56,12 +56,12 @@ func test_fire_rate_comes_from_the_weapon() -> void:
 func test_semi_automatic_weapons_need_a_press_per_shot() -> void:
 	await start()
 	player.equip_weapon(0, make_weapon(0.05, false))
-	var held := await hold_fire(60)
+	var held := await hold_fire(120)
 	check("holding fire shoots once", held == 1, str(held))
 	await frames(5)
 	var taps := 0
 	for i in 3:
-		taps += await hold_fire(3)
+		taps += await hold_fire(6)
 		await frames(5)
 	check("each new press shoots again", taps == 3, str(taps))
 
@@ -83,7 +83,7 @@ func test_limited_ammo_runs_out() -> void:
 func test_the_fire_event_comes_from_the_weapon() -> void:
 	await start()
 	player.equip_weapon(0, make_weapon(0.15, true, -1, &"custom_fire"))
-	await hold_fire(3)
+	await hold_fire(6)
 	check("the weapon's own event is reported", events.has(&"custom_fire") and not events.has(&"player_shoot"), str(events))
 
 

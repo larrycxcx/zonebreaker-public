@@ -7,20 +7,20 @@ extends Camera2D
 
 ## 各事件抖多少像素。玩家自己开枪只抖一点点，爆炸和终极武器最狠。
 const SHAKES := {
-	&"player_shoot": 0.6,
-	&"player_hurt": 2.0,
-	&"player_death": 3.0,
-	&"enemy_death": 1.0,
-	&"explosion": 3.0,
-	&"boss_appear": 2.0,
-	&"ultimate_start": 2.5,
-	&"ultimate_blast": 4.0,
+	&"player_shoot": 1.2,
+	&"player_hurt": 4.0,
+	&"player_death": 6.0,
+	&"enemy_death": 2.0,
+	&"explosion": 6.0,
+	&"boss_appear": 4.0,
+	&"ultimate_start": 5.0,
+	&"ultimate_blast": 8.0,
 }
 
 ## 整体强度倍率：试玩觉得晃得难受就调小，设 0 就完全不抖。
 @export var strength_scale := 1.0
 ## 每秒衰减多少像素（越大停得越快）。
-@export var decay := 14.0
+@export var decay := 28.0
 
 var _strength := 0.0
 

@@ -3,7 +3,7 @@
 [ext_resource type="PackedScene" path="res://scenes/enemy_walker.tscn" id="1"]
 
 [node name="EnemyWalkerC" instance=ExtResource("1")]
-detect_range = 200.0
+detect_range = 400.0
 can_go_prone = true
 can_aim_diagonally = true
 

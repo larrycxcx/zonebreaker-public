@@ -55,7 +55,7 @@ func test_visual_rects_stay_valid() -> void:
 				check("%s/%s facing %d: rect has positive size" % [actor.name, rect.name, facing],
 					r.size.x > 0.0 and r.size.y > 0.0, str(r))
 				check("%s/%s facing %d: rect sits on the body" % [actor.name, rect.name, facing],
-					r.grow(2.0).has_point(actor.global_position) or actor.global_position.distance_to(r.get_center()) < 24.0,
+					r.grow(4.0).has_point(actor.global_position) or actor.global_position.distance_to(r.get_center()) < 48.0,
 					"%s vs body at %s" % [r, actor.global_position])
 
 
@@ -123,17 +123,17 @@ func test_muzzle_height_comes_from_the_collision_box() -> void:
 	c.set_physics_process(false) # 冻结 AI：玩家没趴下，它每帧都会把自己重新站起来
 	var standing := c.level_muzzle_position().y
 	c.get_node("Visual").hide()
-	c.get_node("Visual").position = Vector2(0, -100) # 把外观挪走也不该影响判定
+	c.get_node("Visual").position = Vector2(0, -200) # 把外观挪走也不该影响判定
 	await frames(2)
 	check("hiding the art does not move the muzzle", is_equal_approx(c.level_muzzle_position().y, standing),
 		"%.1f vs %.1f" % [c.level_muzzle_position().y, standing])
 	c.set_prone(true)
 	await frames(2)
-	check("going prone lowers it", c.level_muzzle_position().y > standing + 3.0,
+	check("going prone lowers it", c.level_muzzle_position().y > standing + 6.0,
 		"%.1f -> %.1f" % [standing, c.level_muzzle_position().y])
 
 
-# ---------------------------------------------------------------- 外观接口（第 4 步）
+# ---------------------------------------------------------------- 外观接口（第 8 步）
 
 func test_every_character_has_an_appearance_layer() -> void:
 	# 玩法和「长什么样」之间只有这一个接口
@@ -152,8 +152,8 @@ func test_gameplay_runs_on_a_replaced_appearance() -> void:
 	c.bullet_scene = null # 别让它开枪：挨一枪会被击飞，下面就趴不下去了
 	c.max_health = 10
 	c.health = 10
-	c.global_position = Vector2(300, 153)
-	player.global_position = Vector2(240, 152)
+	c.global_position = Vector2(600, 306)
+	player.global_position = Vector2(480, 304)
 	player.velocity = Vector2.ZERO
 	player.facing = 1
 	await frames(10)
@@ -175,7 +175,7 @@ func test_gameplay_runs_on_a_replaced_appearance() -> void:
 	Input.action_press("move_right")
 	await frames(6)
 	Input.action_release("move_right")
-	check("still moves", player.global_position.x > 240.0, str(player.global_position.x))
+	check("still moves", player.global_position.x > 480.0, str(player.global_position.x))
 	player._shoot(Vector2.RIGHT)
 	for i in 40:
 		await frames(1)

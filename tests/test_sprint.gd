@@ -1,13 +1,13 @@
 extends GameTest
 ## 奔跑与体力：加速、消耗、耗尽后的恢复门槛、停下后自动回复、HUD 体力条。
 
-## 矮通道右边到右墙之间有 280px 的空地，够跑一段测速度。
-const RUNWAY_X := 370.0
+## 矮通道右边到右墙之间有 560px 的空地，够跑一段测速度。
+const RUNWAY_X := 740.0
 
 
 func start_on_runway() -> void:
 	await reset_scene()
-	player.global_position = Vector2(RUNWAY_X, 152)
+	player.global_position = Vector2(RUNWAY_X, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
 
@@ -96,7 +96,7 @@ func test_exhausted_player_must_recover_before_sprinting_again() -> void:
 	for i in 240:
 		await tree.physics_frame
 		# 别撞上右墙：贴墙时速度为 0，看不出是不是真的在跑。
-		if player.global_position.x > 600.0:
+		if player.global_position.x > 1200.0:
 			player.global_position.x = RUNWAY_X
 		if player.is_exhausted():
 			# 跑光的那一帧本身是在奔跑中用掉最后一点体力，is_sprinting 仍为真，属于正常交接；
