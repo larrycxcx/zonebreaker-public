@@ -34,7 +34,7 @@ func joy_axis(axis: JoyAxis, value: float) -> void:
 func joy_neutral() -> void:
 	for axis in [JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y, JOY_AXIS_TRIGGER_LEFT, JOY_AXIS_TRIGGER_RIGHT]:
 		joy_axis(axis, 0.0)
-	for button in [JOY_BUTTON_A, JOY_BUTTON_X, JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT]:
+	for button in [JOY_BUTTON_A, JOY_BUTTON_X, JOY_BUTTON_RIGHT_SHOULDER, JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT]:
 		joy_button(button, false)
 
 
@@ -69,7 +69,10 @@ func test_gamepad_layout() -> void:
 	check("jump: A", has_button("jump", JOY_BUTTON_A))
 	check("shoot: RT", has_axis("shoot", JOY_AXIS_TRIGGER_RIGHT, true))
 	check("X is no longer a fire button", not has_button("shoot", JOY_BUTTON_X))
-	check("switch weapon: X", has_button("switch_weapon", JOY_BUTTON_X))
+	check("switch weapon: RB", has_button("switch_weapon", JOY_BUTTON_RIGHT_SHOULDER))
+	# 换武器挪到食指上（RB），拇指不用离开 A；X 空出来留给以后的动作
+	var game_actions := InputMap.get_actions().filter(func(a): return not String(a).begins_with("ui_"))
+	check("X is free now", game_actions.all(func(a): return not has_button(a, JOY_BUTTON_X)), str(game_actions.filter(func(a): return has_button(a, JOY_BUTTON_X))))
 	check("ultimate: Y", has_button("ultimate", JOY_BUTTON_Y))
 	check("aim up: left stick up / d-pad up", has_axis("aim_up", JOY_AXIS_LEFT_Y, false) and has_button("aim_up", JOY_BUTTON_DPAD_UP))
 	check("aim down: left stick down / d-pad down", has_axis("aim_down", JOY_AXIS_LEFT_Y, true) and has_button("aim_down", JOY_BUTTON_DPAD_DOWN))
@@ -177,18 +180,31 @@ func test_rt_fires_sideways() -> void:
 	joy_neutral()
 
 
-func test_x_switches_weapons() -> void:
+func test_rb_switches_weapons() -> void:
 	await start()
 	check("starts with the rifle", player.current_weapon == 0)
-	joy_button(JOY_BUTTON_X, true)
+	joy_button(JOY_BUTTON_RIGHT_SHOULDER, true)
 	await frames(2)
-	check("X switches to the next weapon", player.current_weapon == 1)
-	joy_button(JOY_BUTTON_X, false)
+	check("RB switches to the next weapon", player.current_weapon == 1)
+	joy_button(JOY_BUTTON_RIGHT_SHOULDER, false)
 	await frames(2)
-	joy_button(JOY_BUTTON_X, true)
+	joy_button(JOY_BUTTON_RIGHT_SHOULDER, true)
 	await frames(2)
-	check("pressing X again cycles back", player.current_weapon == 0)
+	check("pressing RB again cycles back", player.current_weapon == 0)
 	check("switching does not fire anything", bullets(4).is_empty())
+	joy_neutral()
+
+
+func test_rb_switches_while_firing_and_jumping() -> void:
+	# 换武器挪到食指上的理由：拇指按着 A 跳、食指扣着 RT 开火时，照样能换武器
+	await start()
+	joy_button(JOY_BUTTON_A, true)
+	joy_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)
+	await frames(6)
+	check("setup: jumping and firing", not player.is_on_floor() and not bullets(4).is_empty())
+	joy_button(JOY_BUTTON_RIGHT_SHOULDER, true)
+	await frames(2)
+	check("RB still switches mid-air while holding fire", player.current_weapon == 1)
 	joy_neutral()
 
 
