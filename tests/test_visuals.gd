@@ -83,14 +83,51 @@ func part_center(child: Node) -> float:
 	return (child as Node2D).position.x
 
 
-func test_muzzles_follow_facing() -> void:
-	# 枪口跟着换边，子弹才会从正确的一侧飞出去
+func test_no_judgement_points_under_visual() -> void:
+	# 判定点（枪口、检测射线、受击框……）一律挂在本体上，不能放进 Visual：
+	# 放进去的话，换皮肤、压扁外观、甚至开枪的后坐力位移都会跟着改变游戏规则。
 	await reset_scene(true)
 	for actor in actors():
-		var muzzle := actor.get_node_or_null("Visual/Muzzle") as Marker2D
-		if muzzle == null:
-			continue
+		for child in actor.get_node("Visual").get_children():
+			var judgement: bool = child is Marker2D or child is RayCast2D or child is ShapeCast2D or child is CollisionObject2D
+			check("%s/Visual/%s is art, not a judgement point" % [actor.name, child.name], not judgement,
+				child.get_class())
+
+
+func test_muzzles_follow_facing() -> void:
+	# 出膛点要跟着朝向换边，子弹才会从正确的一侧飞出去。
+	# 看的是真正用来生成子弹的那个点（按碰撞体算出来的），不是某个 Marker 摆在哪。
+	await reset_scene(true)
+	for actor in actors():
 		for facing in [-1, 1]:
 			face(actor, facing)
 			await frames(1)
-			check("%s: muzzle is in front when facing %d" % [actor.name, facing], signf(muzzle.position.x) == float(facing), str(muzzle.position))
+			var reach := 0.0
+			if actor is Player:
+				reach = (actor as Player)._muzzle_position(Vector2(facing, 0)).x - actor.global_position.x
+			elif (actor as Enemy)._muzzle == null or is_zero_approx((actor as Enemy)._muzzle.position.x):
+				continue # D 没有枪口，E 是朝正下方开火
+			else:
+				reach = (actor as Enemy).level_muzzle_position().x - actor.global_position.x
+			check("%s: fires from its front when facing %d" % [actor.name, facing], signf(reach) == float(facing),
+				"%.1f" % reach)
+
+
+func test_muzzle_height_comes_from_the_collision_box() -> void:
+	# 趴下把碰撞体压低，出膛点必须跟着下来——这条规则要依赖碰撞体，而不是依赖占位方块被压扁。
+	# 所以这里把外观整个藏起来再测一遍：结果必须一模一样。
+	await reset_scene(true)
+	keep_only_enemies(["WalkerC"])
+	var c: Enemy = main.get_node("Enemies/WalkerC")
+	await frames(5)
+	c.set_physics_process(false) # 冻结 AI：玩家没趴下，它每帧都会把自己重新站起来
+	var standing := c.level_muzzle_position().y
+	c.get_node("Visual").hide()
+	c.get_node("Visual").position = Vector2(0, -100) # 把外观挪走也不该影响判定
+	await frames(2)
+	check("hiding the art does not move the muzzle", is_equal_approx(c.level_muzzle_position().y, standing),
+		"%.1f vs %.1f" % [c.level_muzzle_position().y, standing])
+	c.set_prone(true)
+	await frames(2)
+	check("going prone lowers it", c.level_muzzle_position().y > standing + 3.0,
+		"%.1f -> %.1f" % [standing, c.level_muzzle_position().y])

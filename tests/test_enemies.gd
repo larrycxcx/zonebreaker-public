@@ -200,7 +200,7 @@ func test_walker_and_turret_shoot_at_the_same_height() -> void:
 	# 仍然能抓到「枪口摆错一整个像素」这种真正的设计错误。
 	var body_gap := absf(walker.global_position.y - turret.global_position.y)
 	check("both rest on the ground within a sub-pixel", body_gap < 0.5, "%.3f px" % body_gap)
-	var muzzle_gap := absf(walker._muzzle.global_position.y - turret._muzzle.global_position.y)
+	var muzzle_gap := absf(walker.level_muzzle_position().y - turret.level_muzzle_position().y)
 	check("muzzles line up within a sub-pixel", muzzle_gap < 0.5, "%.3f px" % muzzle_gap)
 
 	# 光看 Marker 位置不够，还要确认真打出来的子弹高度一致。
@@ -283,7 +283,9 @@ func test_c_goes_prone_when_the_player_does() -> void:
 	var shape_height := (c._shape.shape as RectangleShape2D).size.y
 	check("prone C is as low as a prone player", shape_height == Enemy.PRONE_HEIGHT, str(shape_height))
 	check("prone C keeps its feet on the ground", c.is_on_floor(), str(c.global_position))
-	check("prone muzzle drops to skim the ground", c._muzzle.global_position.y > 156.0 and c._muzzle.global_position.y < 159.0, "y=%.1f" % c._muzzle.global_position.y)
+	# 出膛点按碰撞体中心算，所以趴下压低碰撞体时它自己就跟着贴地了（不再依赖占位方块被压扁）
+	var prone_muzzle := c.level_muzzle_position().y
+	check("prone muzzle drops to skim the ground", prone_muzzle > 156.0 and prone_muzzle < 159.0, "y=%.1f" % prone_muzzle)
 
 	Input.action_release("crouch")
 	await frames(2)

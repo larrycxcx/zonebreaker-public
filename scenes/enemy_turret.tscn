@@ -39,5 +39,5 @@ offset_bottom = 1.0
 mouse_filter = 2
 color = Color(0.35, 0.3, 0.4, 1)
 
-[node name="Muzzle" type="Marker2D" parent="Visual"]
+[node name="Muzzle" type="Marker2D" parent="."]
 position = Vector2(13, 0)

@@ -84,16 +84,11 @@ var _aim_timer := 0.0
 var _visual_bases := {}
 
 @onready var _visual: Node2D = $Visual
-## 枪口。新敌人把它直接挂在本体下（`Muzzle`），和外观无关（见 CLAUDE.md「皮肤与素材包」）；
-## 老的地面敌人还在 `Visual/Muzzle`，本地 y 坐标为 0——各种地面敌人的碰撞体底边都在原点下方 7px，
-## 所以站在同一地面上时出膛高度一致。第 4 步统一挪到本体下。不开枪的敌人（D）没有枪口。
-@onready var _muzzle: Marker2D = _find_muzzle()
+## 枪口 Marker，挂在**本体**下（不在 `Visual` 里）：它只给出「伸出去多远」这个偏移，
+## 实际出膛高度按碰撞体中心算（见 `level_muzzle_position()`），所以和外观长什么样、压没压扁都无关。
+## 不开枪的敌人（D）没有枪口。
+@onready var _muzzle: Marker2D = get_node_or_null("Muzzle") as Marker2D
 @onready var _shape: CollisionShape2D = $CollisionShape2D
-
-
-func _find_muzzle() -> Marker2D:
-	var muzzle := get_node_or_null("Muzzle") as Marker2D
-	return muzzle if muzzle != null else get_node_or_null("Visual/Muzzle") as Marker2D
 
 
 func _ready() -> void:
@@ -203,9 +198,9 @@ func has_line_of_sight(point: Vector2) -> bool:
 	return Sight.is_clear(get_world_2d().direct_space_state, _sight_origin(), point)
 
 
-## 视线从哪里发出：有枪口就是枪口（看得见才打得着），没有就是身体中心。
+## 视线从哪里发出：枪口（看得见才打得着）。没有枪口的（D）就从身体中心发出。
 func _sight_origin() -> Vector2:
-	return _muzzle.global_position if _muzzle != null else global_position
+	return level_muzzle_position()
 
 
 ## 冷却好了就朝当前瞄准方向开一轮火（单发或连发）。`target` 传 null 表示这一帧不该开始新的一轮。
@@ -251,12 +246,26 @@ func shoot_direction() -> Vector2:
 	return Vector2(facing, 0)
 
 
-## 出膛点（按这一轮锁定的瞄准）：水平用枪口（老的地面敌人在 Visual/Muzzle，趴下时跟着压低）；斜向由代码按身体中心算。
+## 出膛点（按这一轮锁定的瞄准）：水平用枪口，斜向由代码按身体中心算。
 func _muzzle_position() -> Vector2:
 	if _burst_aim == Aim.LEVEL:
-		return _muzzle.global_position
+		return level_muzzle_position()
 	var offset := DIAGONAL_UP_MUZZLE if _burst_aim == Aim.DIAGONAL_UP else DIAGONAL_DOWN_MUZZLE
 	return global_position + Vector2(offset.x * signf(_burst_direction.x), offset.y)
+
+
+## 碰撞体中心的世界坐标。趴下时碰撞体压低、中心跟着下来，所以判定点都按它算。
+func body_center() -> Vector2:
+	return _shape.global_position
+
+
+## 水平方向的出膛点（E 的竖直向下也走这里）：**碰撞体中心** + 枪口 Marker 的偏移，朝左时 x 取反。
+## 按碰撞体算而不是直接读 Marker 的世界坐标，是为了让「趴下时子弹贴地飞」这条规则
+## 依赖碰撞体高度、而不是依赖占位方块被压扁——换成精灵图以后规则不会跟着变。
+func level_muzzle_position() -> Vector2:
+	if _muzzle == null:
+		return body_center()
+	return body_center() + Vector2(_muzzle.position.x * facing, _muzzle.position.y)
 
 
 ## 子类每帧拿当前瞄准的目标调用：目标趴着就隔 prone_reaction_time 跟着趴下，否则马上站起来。

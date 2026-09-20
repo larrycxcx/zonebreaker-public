@@ -66,6 +66,10 @@ enum Aim { FORWARD, UP, DIAGONAL_UP, DIAGONAL_DOWN, DOWN }
 
 ## 斜向和正下方的出膛点，相对身体中心（朝右时；朝左时 x 取反）。按约定由代码算、不挂在 Visual 下，和外观无关。
 ## 斜下的枪口不能太低：子弹转 45° 后半高约 3px，站在地面上（脚底在 +8）时出膛点要在 +5 以上，否则一出膛就嵌进地里。
+## 各方向的出膛点，相对身体中心（朝右时；朝左 x 取反）。全部由代码算，不挂在 Visual 下面——
+## 判定点不能跟着外观走，否则换皮肤、甚至开枪的后坐力位移都会改变子弹从哪飞出去。
+const LEVEL_MUZZLE := Vector2(12, 0)
+const UP_MUZZLE := Vector2(3, -14)
 const DIAGONAL_UP_MUZZLE := Vector2(9, -9)
 const DIAGONAL_DOWN_MUZZLE := Vector2(9, 4)
 const DOWN_MUZZLE := Vector2(0, 11)
@@ -118,8 +122,6 @@ var _exhausted := false
 var _stamina_regen_timer := 0.0
 
 @onready var _visual: Node2D = $Visual
-@onready var _muzzle: Marker2D = $Visual/Muzzle
-@onready var _muzzle_up: Marker2D = $Visual/MuzzleUp
 @onready var _gun: ColorRect = $Visual/Gun
 @onready var _gun_up: ColorRect = $Visual/GunUp
 @onready var _gun_diagonal_up: ColorRect = $Visual/GunDiagonalUp
@@ -453,16 +455,16 @@ func _shoot(direction: Vector2) -> void:
 	current_slot().fire(get_parent(), last_muzzle_position, direction, self)
 
 
-## 出膛点。水平和正上方还用 Visual 下的老 Marker（水平枪口趴下时跟着压低，是现有高度规则的一部分，第 4 步统一迁移）；
-## 斜向和正下方按新约定由代码算。
+## 出膛点：身体原点（= 站立碰撞体的中心）+ 该方向的常量偏移，朝左时 x 取反。
+## 趴下时不能开火，所以不需要「趴下的出膛点」——玩家这边的高度规则只看站姿。
 func _muzzle_position(direction: Vector2) -> Vector2:
+	var offset := LEVEL_MUZZLE
 	if direction == Vector2.UP:
-		return _muzzle_up.global_position
-	if direction.y == 0.0:
-		return _muzzle.global_position
-	if direction == Vector2.DOWN:
-		return global_position + DOWN_MUZZLE
-	var offset := DIAGONAL_UP_MUZZLE if direction.y < 0.0 else DIAGONAL_DOWN_MUZZLE
+		offset = UP_MUZZLE
+	elif direction == Vector2.DOWN:
+		offset = DOWN_MUZZLE
+	elif direction.y != 0.0:
+		offset = DIAGONAL_UP_MUZZLE if direction.y < 0.0 else DIAGONAL_DOWN_MUZZLE
 	return global_position + Vector2(offset.x * facing, offset.y)
 
 
