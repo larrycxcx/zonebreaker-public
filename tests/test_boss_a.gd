@@ -35,6 +35,12 @@ func hold_still() -> void:
 	boss._burst_left = 0
 
 
+## 移走 Boss 区域那块平台（只测手雷、不关心地形的用例用）。
+func clear_high_ground() -> void:
+	boss._high_ground = null
+	main.get_node("Level/BossPlatform").free()
+
+
 func shape_size(body: Node) -> Vector2:
 	return ((body.get_node("CollisionShape2D") as CollisionShape2D).shape as RectangleShape2D).size
 
@@ -215,6 +221,7 @@ func test_ignores_a_grenade_in_the_air() -> void:
 func test_grenade_lands_and_is_dodged() -> void:
 	# 真的扔一颗：落在 Boss 前面、弹向它，Boss 躲开，不掉血
 	await start(440)
+	clear_high_ground() # 这条只测躲手雷，别让抛物线打在平台上
 	hold_still()
 	player.facing = 1
 	player.switch_weapon()
@@ -238,6 +245,7 @@ func test_grenade_lands_and_is_dodged() -> void:
 func test_grenade_in_the_air_hits_directly() -> void:
 	# 近一点扔：还在空中就砸到 Boss 身上，Boss 不躲，吃满伤害
 	await start(490)
+	clear_high_ground()
 	hold_still()
 	player.facing = 1
 	player.switch_weapon()
@@ -276,3 +284,119 @@ func test_a_wall_bounce_is_not_landing() -> void:
 	check("setup: bounced off the right wall", bounced)
 	check("a wall bounce does not count as landing", not grenade.landed)
 	grenade.queue_free()
+
+
+# ---------------------------------------------------------------- 抢高处（BossPlatform）
+
+func platform() -> Platform:
+	return main.get_node("Level/BossPlatform")
+
+
+## 让玩家趴在 x 处（趴着不能开枪，只需要按住 Ctrl）。
+func lie_down_at(x: float) -> void:
+	player.global_position = Vector2(x, 152)
+	player.velocity = Vector2.ZERO
+	Input.action_press("crouch")
+	await frames(8)
+
+
+## 等 Boss 站上平台，返回用了多少帧（超时返回 -1）。
+func wait_until_high(limit := 400) -> int:
+	for i in limit:
+		await frames(1)
+		if boss.on_high_ground():
+			return i
+	return -1
+
+
+func test_boss_platform_setup() -> void:
+	await start()
+	var p := platform()
+	check("the level has a platform in the boss area", p != null and p.one_way)
+	check("the boss knows about it", boss._high_ground == p)
+	var height := 160.0 - p.global_position.y
+	check("the boss can jump onto it", height < 57.0, "%.0fpx high, boss jumps ~57px" % height)
+	check("the player can jump onto it too", height < 46.0, "%.0fpx high, player jumps ~46px" % height)
+	check("it is beside the roaming area, not above it", p.global_position.x + p.size.x < boss._home.x - boss.roam_range,
+		"platform ends at %.0f, roaming starts at %.0f" % [p.global_position.x + p.size.x, boss._home.x - boss.roam_range])
+
+
+func test_level_shots_miss_a_prone_player() -> void:
+	# 前提：玩家趴下时，Boss 站在地上打的水平子弹会从头顶飞过。
+	# 这条只看「站在地上水平打」的情况：取消它上高处的能力，也不让它随机跳
+	#（跳在空中时趴着的玩家就成了斜下方的目标，它照样打得到——那是另一条用例的事）。
+	await start()
+	boss._high_ground = null
+	boss.jump_interval_min = 999.0
+	boss.jump_interval_max = 999.0
+	boss._jump_timer = 999.0
+	await lie_down_at(520)
+	var over := 0
+	for i in 200:
+		await frames(1)
+		for b in bullets(16):
+			if b.direction.y == 0.0 and b.global_position.y < 156.0:
+				over += 1
+	check("level shots fly over the prone player", over > 0)
+	check("the prone player is not hit by them", player.health == 999, str(player.health))
+	release_all_input()
+
+
+func test_climbs_when_the_player_lies_down() -> void:
+	await start()
+	check("stays on the ground while the player stands", not boss.on_high_ground())
+	await lie_down_at(470)
+	var took := await wait_until_high()
+	check("climbs onto the platform", took > 0, "gave up after 400 frames")
+	check("only after the player has been prone a moment", boss.high_ground_delay > 0.0)
+	# 上去之后站定不动
+	var x := boss.global_position.x
+	await frames(30)
+	check("holds position up there", absf(boss.global_position.x - x) < 2.0 and boss.on_high_ground())
+	release_all_input()
+
+
+func test_fires_diagonally_down_from_the_platform_and_hits() -> void:
+	await start()
+	# 趴在平台中心左下方 45° 附近：Boss 在上面往斜下打正好打得到
+	var p := platform()
+	var center := p.global_position.x + p.size.x / 2.0
+	await lie_down_at(center - 48.0)
+	check("climbed up", await wait_until_high() > 0)
+	player.health = 3
+	var down := 0
+	for i in 300:
+		await frames(1)
+		if boss.last_shot_direction.y > 0.0 and boss.last_shot_direction.x != 0.0:
+			down += 1
+		if player.health < 3:
+			break
+	check("fires diagonally down from up there", down > 0, str(boss.last_shot_direction))
+	check("and hits the prone player", player.health < 3, str(player.health))
+	check("the player was still lying down", player.is_crouching)
+	release_all_input()
+
+
+func test_comes_back_down_when_the_player_stands_up() -> void:
+	await start()
+	await lie_down_at(470)
+	check("climbed up", await wait_until_high() > 0)
+	Input.action_release("crouch")
+	await frames(10)
+	var down := false
+	for i in 300:
+		await frames(1)
+		if not boss.on_high_ground() and boss.is_on_floor():
+			down = true
+			break
+	check("leaves the platform once the player stands up", down)
+	check("back in its roaming range", absf(boss.global_position.x - boss._home.x) <= boss.roam_range + 8.0, str(boss.global_position.x))
+
+
+func test_does_not_climb_for_a_standing_player() -> void:
+	await start(470)
+	var high := false
+	for i in 400:
+		await frames(1)
+		high = high or boss.on_high_ground()
+	check("never climbs while the player stays on their feet", not high)
