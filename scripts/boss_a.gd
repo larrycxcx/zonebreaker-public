@@ -2,21 +2,27 @@ class_name BossA
 extends Boss
 ## Boss A：体型大、会跳、不会趴下，主要靠射击攻击；不主动追击，碰到玩家照样造成接触伤害（基类规则）。
 ##
-## - 移动：以出生点为中心在 ±roam_range 内来回走动（随机改变方向），隔一段随机时间跳一下。
-##   走动和玩家在哪里无关，所以不会追过来；只有面朝方向跟着玩家转。
+## - 移动：在以出生点为中心的 ±roam_range 地盘里「找开火位置」，由**和玩家的水平距离**决定往哪走：
+##   贴得太近（< close_range）就边退边打，离得太远（> far_range）就压进射程，不远不近就随机来回游走。
+##   **永远不走出自己的地盘**，所以它不会像敌人 D 那样追着玩家跑（追击是 D 的定位，它靠射击）。
+##   另外隔一段随机时间跳一下。
 ## - 射击：朝玩家方向取最接近的 8 方向之一（水平、斜上、正上、斜下、正下），走动中、空中都照样开火。
 ##   水平子弹的出膛高度和普通敌人一样离地 7px（趴下的玩家能躲开站着射出的水平子弹，规则不变）。
 ## - 抢高处：玩家趴下时，它站在地上打的水平子弹会从玩家头顶飞过（高度规则），这时它会跳上 high_ground 指定的平台，
-##   居高临下斜着往下打。玩家一站起来它就不想待在上面了，平时的走动会把它拉回出生点，自然从平台边沿掉下来
-##   （所以那块平台要放在巡逻范围之外，test_boss_a.gd 里守着这一条）。
+##   居高临下斜着往下打。玩家一站起来它就不想占着高处了，走位规则会把它带到平台边沿、自己掉下来。
 ##   平时（玩家没趴下）它**不会**跳上那块平台：在平台正下方时随机跳跃会跳过这一次。
 ## - 躲手雷：已经落过地（Grenade.landed）、正贴着地面弹跳的手雷进入 dodge_distance 时，起跳并朝远离它的方向移动；
 ##   还在空中飞、没落过地的手雷不躲（可以直接砸中它）。
 
 @export_group("Movement")
-## 平时走动的速度和范围（以出生点为中心）。
-@export var roam_speed := 35.0
-@export var roam_range := 32.0
+## 走动速度，以及地盘半径（以出生点为中心，走到边界就折回，不会追出去）。
+@export var roam_speed := 45.0
+@export var roam_range := 80.0
+## 玩家近到这个距离以内就后撤（边退边打），远过 far_range 就压进射程，中间随机游走。
+@export var close_range := 50.0
+@export var far_range := 140.0
+## 后撤时走多快。比玩家走路（90）慢，所以玩家想贴上来总是贴得到，只是要吃它的近距离火力。
+@export var back_off_speed := 60.0
 ## 多久随机换一次走动方向（秒，在这两个值之间取）。
 @export var turn_time_min := 1.0
 @export var turn_time_max := 2.5
@@ -90,8 +96,7 @@ func _boss_process(delta: float) -> void:
 	elif wants_high_ground:
 		_take_high_ground()
 	else:
-		# 平时的走动会把它拉回出生点附近，平台在巡逻范围外，所以它自己就会走到边沿掉下来。
-		_roam(delta)
+		_reposition(delta, target)
 	move_and_slide()
 	if is_on_wall():
 		_roam_dir = -_roam_dir
@@ -109,24 +114,44 @@ func _boss_process(delta: float) -> void:
 	try_shoot(delta, target)
 
 
-## 在出生点附近走来走去，隔一阵跳一下。
-func _roam(delta: float) -> void:
+## 按和玩家的距离找开火位置：太近后撤、太远压上、不远不近随机游走；越过地盘边界就折回来。
+func _reposition(delta: float, target: Node2D) -> void:
 	_turn_timer -= delta
 	if _turn_timer <= 0.0:
 		_roam_dir = -_roam_dir
 		_turn_timer = randf_range(turn_time_min, turn_time_max)
+	var speed := roam_speed
+	var dir := float(_roam_dir)
+	if target != null:
+		var offset := target.global_position.x - global_position.x
+		var toward := signf(offset)
+		if toward == 0.0:
+			toward = float(facing)
+		if absf(offset) < close_range:
+			dir = -toward
+			speed = back_off_speed
+		elif absf(offset) > far_range:
+			dir = toward
+	# 地盘边界优先于上面所有的判断：宁可被玩家贴脸，也不追出去。
 	if global_position.x > _home.x + roam_range:
-		_roam_dir = -1
+		dir = -1.0
+		speed = roam_speed
 	elif global_position.x < _home.x - roam_range:
-		_roam_dir = 1
-	velocity.x = roam_speed * _roam_dir
+		dir = 1.0
+		speed = roam_speed
+	_roam_dir = signi(dir)
+	velocity.x = speed * dir
 	if is_on_floor():
 		_jump_timer -= delta
 		if _jump_timer <= 0.0:
 			# 平时不跳上高处那块平台：只有玩家趴下时才上去。
-			if not _under_high_ground():
+			if _would_land_on_high_ground():
+				# 这一跳会落到平台上，先不跳；过一小会儿再试，而不是等满整个间隔
+				#（否则它在平台附近来回走时会很久都不跳一下）。
+				_jump_timer = 0.2
+			else:
 				velocity.y = jump_velocity
-			_jump_timer = randf_range(jump_interval_min, jump_interval_max)
+				_jump_timer = randf_range(jump_interval_min, jump_interval_max)
 
 
 ## 玩家趴下、并且自己还在地面上打不着它时，就想上高处去。玩家站起来就不想了。
@@ -151,11 +176,26 @@ func _take_high_ground() -> void:
 		velocity.y = jump_velocity
 
 
-## 是不是正站在那块平台上。
+## 是不是正站在那块平台上（高度和水平位置都要对上：光看高度的话站在别的平台上也会算进来）。
 func on_high_ground() -> bool:
 	if _high_ground == null or not is_on_floor():
 		return false
-	return global_position.y + HALF_HEIGHT <= _high_ground.global_position.y + 2.0
+	if global_position.y + HALF_HEIGHT > _high_ground.global_position.y + 2.0:
+		return false
+	return global_position.x > _high_ground.global_position.x - 2.0 		and global_position.x < _high_ground.global_position.x + _high_ground.size.x + 2.0
+
+
+## 这一跳会不会落到高处那块平台上（按当前水平速度算落点）。
+## 不能只看「现在是不是在平台正下方」：空中还会横着飘一段，在边上起跳照样会落上去，
+## 而在平台下方朝外走时起跳反而落在地上。范围划太宽的话它几乎就不跳了。
+func _would_land_on_high_ground() -> bool:
+	if _high_ground == null or on_high_ground():
+		return false
+	var air_time := 2.0 * absf(jump_velocity) / gravity
+	var landing := global_position.x + velocity.x * air_time
+	var left := _high_ground.global_position.x
+	var right := left + _high_ground.size.x
+	return landing > left - 4.0 and landing < right + 4.0
 
 
 ## 身体在不在平台的正下方（起跳上得去的位置）。

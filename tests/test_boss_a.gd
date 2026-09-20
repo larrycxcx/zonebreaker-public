@@ -41,6 +41,16 @@ func clear_high_ground() -> void:
 	main.get_node("Level/BossPlatform").free()
 
 
+## 把 Boss 摆到 x、玩家摆到它左边 distance 处（Boss 会走动，扔手雷的用例需要固定的距离）。
+## 摆在 600：从那里往左 110~160px 是一段没有平台的空地，抛物线不会中途落在平台上。
+func park_boss_and_player(distance: float, x := 600.0) -> void:
+	boss.global_position = Vector2(x, 144)
+	boss.velocity = Vector2.ZERO
+	player.global_position = Vector2(x - distance, 152)
+	player.velocity = Vector2.ZERO
+	await frames(5)
+
+
 func shape_size(body: Node) -> Vector2:
 	return ((body.get_node("CollisionShape2D") as CollisionShape2D).shape as RectangleShape2D).size
 
@@ -96,6 +106,91 @@ func test_roams_near_home_without_chasing() -> void:
 	check("stays near home, does not chase the player", far <= boss.roam_range + 8.0, "%.1f px from home" % far)
 	check("jumps", airborne)
 	check("jumps high", home - home + (144.0 - top) > 30.0, "%.1f px" % (144.0 - top))
+
+
+## 把玩家钉在 x 处若干帧（Boss 会撞它、打它，不钉住位置会被推开），返回最后两者的水平距离。
+func pin_player_at(x: float, frame_count := 120) -> float:
+	for i in frame_count:
+		player.global_position = Vector2(x, 152)
+		player.velocity = Vector2.ZERO
+		player._invincible_timer = 1000.0
+		await frames(1)
+	return absf(boss.global_position.x - x)
+
+
+func test_backs_off_when_the_player_gets_close() -> void:
+	# 贴脸时边退边打。逐帧看：只要玩家在 close_range 以内，它就不该朝玩家这边走
+	#（只看最后的距离不行，随机游走本来也会走开）。
+	await start()
+	var spot := boss.global_position.x - 20.0
+	var toward := 0
+	var close_frames := 0
+	for i in 120:
+		player.global_position = Vector2(spot, 152)
+		player.velocity = Vector2.ZERO
+		player._invincible_timer = 1000.0
+		await frames(1)
+		var offset := spot - boss.global_position.x
+		if absf(offset) < boss.close_range and boss.is_on_floor():
+			close_frames += 1
+			if signf(boss.velocity.x) == signf(offset):
+				toward += 1
+	check("setup: the player did get close", close_frames > 10, str(close_frames))
+	check("never walks into a player in its face", toward == 0, "%d of %d frames" % [toward, close_frames])
+	check("ends up out of arm's reach", absf(boss.global_position.x - spot) > boss.close_range - 10.0,
+		"%.1f px apart" % absf(boss.global_position.x - spot))
+	check("back-off is slower than the player walks", boss.back_off_speed < player.move_speed, "%.0f vs %.0f" % [boss.back_off_speed, player.move_speed])
+
+
+func test_steps_closer_when_the_player_is_far() -> void:
+	# 远处（但在射程内）会压上来找开火位置
+	await start()
+	var spot := boss._home.x - 200.0
+	var before := absf(boss.global_position.x - spot)
+	await pin_player_at(spot, 180)
+	# 最后 60 帧一直待在交战距离上：随机游走的话会晃回远处去
+	var worst := 0.0
+	var gap := 0.0
+	for i in 60:
+		player.global_position = Vector2(spot, 152)
+		player.velocity = Vector2.ZERO
+		player._invincible_timer = 1000.0
+		await frames(1)
+		gap = absf(boss.global_position.x - spot)
+		worst = maxf(worst, gap)
+	check("closes in on a distant player", gap < before - 30.0, "%.1f -> %.1f" % [before, gap])
+	check("and keeps that range instead of drifting back", worst <= boss.far_range + 30.0, "worst %.1f" % worst)
+	check("stops around its preferred range", gap > boss.close_range, "%.1f" % gap)
+	check("never leaves its ground to chase", boss.global_position.x >= boss._home.x - boss.roam_range - 8.0, str(boss.global_position.x))
+
+
+func test_cornered_at_the_edge_of_its_ground() -> void:
+	# 被逼到地盘边上就不再后退（宁可被贴脸也不退出去）。
+	# 关卡右墙正好在地盘边界外侧，光靠墙也能挡住，所以这里把地盘临时收窄，测的是边界本身。
+	await start()
+	boss.roam_range = 40.0
+	var edge := boss._home.x + boss.roam_range
+	# 玩家在它左边逼近，它只能往右退，右边就是地盘边界
+	boss.global_position = Vector2(edge - 10.0, 144)
+	await pin_player_at(edge - 45.0, 180)
+	check("holds the edge of its ground", boss.global_position.x <= edge + 8.0,
+		"%.1f, edge at %.1f" % [boss.global_position.x, edge])
+	check("and stays cornered there instead of fleeing past it", boss.global_position.x > edge - 30.0,
+		"%.1f, edge at %.1f" % [boss.global_position.x, edge])
+
+
+func test_ground_is_wider_than_before() -> void:
+	await start()
+	check("the boss ground covers most of the boss area", boss.roam_range >= 70.0, str(boss.roam_range))
+	# 玩家远在射程外：它自己随机游走，应该用上比老范围（±32）宽得多的地方，但不越界
+	player.global_position = Vector2(boss._home.x - 300.0, 152)
+	player.velocity = Vector2.ZERO
+	var reach := 0.0
+	for i in 600:
+		await frames(1)
+		reach = maxf(reach, absf(boss.global_position.x - boss._home.x))
+	check("wanders across more than the old 32px range", reach > 40.0, "%.1f px from home" % reach)
+	check("but never a step beyond its ground", reach <= boss.roam_range + 8.0, "%.1f px from home" % reach)
 
 
 func test_never_lies_down() -> void:
@@ -220,9 +315,10 @@ func test_ignores_a_grenade_in_the_air() -> void:
 
 func test_grenade_lands_and_is_dodged() -> void:
 	# 真的扔一颗：落在 Boss 前面、弹向它，Boss 躲开，不掉血
-	await start(440)
+	await start()
 	clear_high_ground() # 这条只测躲手雷，别让抛物线打在平台上
 	hold_still()
+	await park_boss_and_player(160.0) # 手雷平地扔出去约 110px，落在 Boss 前面
 	player.facing = 1
 	player.switch_weapon()
 	Input.action_press("shoot")
@@ -244,9 +340,10 @@ func test_grenade_lands_and_is_dodged() -> void:
 
 func test_grenade_in_the_air_hits_directly() -> void:
 	# 近一点扔：还在空中就砸到 Boss 身上，Boss 不躲，吃满伤害
-	await start(490)
+	await start()
 	clear_high_ground()
 	hold_still()
+	await park_boss_and_player(110.0)
 	player.facing = 1
 	player.switch_weapon()
 	Input.action_press("shoot")
@@ -317,8 +414,10 @@ func test_boss_platform_setup() -> void:
 	var height := 160.0 - p.global_position.y
 	check("the boss can jump onto it", height < 57.0, "%.0fpx high, boss jumps ~57px" % height)
 	check("the player can jump onto it too", height < 46.0, "%.0fpx high, player jumps ~46px" % height)
-	check("it is beside the roaming area, not above it", p.global_position.x + p.size.x < boss._home.x - boss.roam_range,
-		"platform ends at %.0f, roaming starts at %.0f" % [p.global_position.x + p.size.x, boss._home.x - boss.roam_range])
+	check("it is inside the boss's ground, so it can reach it", p.global_position.x > boss._home.x - boss.roam_range
+		and p.global_position.x + p.size.x < boss._home.x + boss.roam_range,
+		"platform %.0f..%.0f, ground %.0f..%.0f" % [p.global_position.x, p.global_position.x + p.size.x,
+		boss._home.x - boss.roam_range, boss._home.x + boss.roam_range])
 
 
 func test_level_shots_miss_a_prone_player() -> void:
@@ -393,10 +492,39 @@ func test_comes_back_down_when_the_player_stands_up() -> void:
 	check("back in its roaming range", absf(boss.global_position.x - boss._home.x) <= boss.roam_range + 8.0, str(boss.global_position.x))
 
 
-func test_does_not_climb_for_a_standing_player() -> void:
+func test_skips_a_jump_that_would_land_on_the_platform() -> void:
+	await start()
+	var p := platform()
+	boss.roam_speed = 0.0 # 站着不动：这一跳的落点就是脚下，必定落到平台上
+	boss.global_position = Vector2(p.global_position.x + p.size.x / 2.0, 144)
+	boss.velocity = Vector2.ZERO
+	player.global_position = Vector2(boss.global_position.x - 80.0, 152) # 站着，不会触发抢高处
+	player.velocity = Vector2.ZERO
+	await frames(5)
+	check("setup: standing right under the platform", boss.is_on_floor() and not boss.on_high_ground())
+	boss._jump_timer = 0.0
+	await frames(3)
+	check("skips a random jump that would put it on the platform", boss.is_on_floor() and not boss.on_high_ground(),
+		"y=%.1f" % boss.global_position.y)
+	# 走开一点（落点不在平台上）就照常跳
+	boss.global_position = Vector2(p.global_position.x - 60.0, 144)
+	await frames(3)
+	boss._jump_timer = 0.0
+	var jumped := false
+	for i in 20:
+		await frames(1)
+		jumped = jumped or not boss.is_on_floor()
+	check("still jumps normally away from the platform", jumped)
+
+
+func test_does_not_hold_the_high_ground_for_a_standing_player() -> void:
+	# 它只在玩家趴下时才占高处。随机跳跃偶尔会落到平台上（空中还会横着飘一段），
+	# 但那种情况它马上就走下来，不会待在上面。
 	await start(470)
-	var high := false
+	var frames_up := 0
 	for i in 400:
 		await frames(1)
-		high = high or boss.on_high_ground()
-	check("never climbs while the player stays on their feet", not high)
+		if boss.on_high_ground():
+			frames_up += 1
+	# 偶尔一次落到平台上再走下来大约 40 帧；「占着高处」会是几百帧。
+	check("does not hold the high ground while the player stands", frames_up < 120, "%d of 400 frames up there" % frames_up)
