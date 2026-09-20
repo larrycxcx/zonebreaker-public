@@ -12,6 +12,10 @@
 [ext_resource type="PackedScene" path="res://scenes/enemy_flyer.tscn" id="10"]
 [ext_resource type="PackedScene" path="res://scenes/boss_a.tscn" id="11"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_walker_f.tscn" id="12"]
+[ext_resource type="Script" path="res://scripts/fx.gd" id="13"]
+[ext_resource type="PackedScene" path="res://scenes/muzzle_flash.tscn" id="14"]
+[ext_resource type="PackedScene" path="res://scenes/hit_spark.tscn" id="15"]
+[ext_resource type="PackedScene" path="res://scenes/impact_spark.tscn" id="16"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("3")
@@ -116,6 +120,12 @@ position = Vector2(184, 93)
 [node name="BossA" parent="Enemies" instance=ExtResource("11")]
 position = Vector2(550, 144)
 high_ground = NodePath("../../Level/BossPlatform")
+
+[node name="Fx" type="Node2D" parent="."]
+script = ExtResource("13")
+muzzle_flash_scene = ExtResource("14")
+hit_spark_scene = ExtResource("15")
+impact_spark_scene = ExtResource("16")
 
 [node name="Player" parent="." instance=ExtResource("2")]
 position = Vector2(32, 152)

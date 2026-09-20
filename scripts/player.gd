@@ -81,6 +81,9 @@ const DROP_THROUGH_TIME := 0.25
 const DROP_THROUGH_SPEED := 40.0
 
 var facing := 1
+## 最近一枪的出膛点和方向（枪口闪光等特效读它，见 fx.gd）。
+var last_muzzle_position := Vector2.ZERO
+var last_shot_direction := Vector2.RIGHT
 var health := 0
 var is_crouching := false
 var is_sprinting := false
@@ -435,7 +438,9 @@ func equip_weapon(index: int, weapon: Weapon) -> void:
 ## 用当前武器朝 direction 开一次火（不看冷却；_handle_shoot 先检查过了，测试也直接调它）。
 ## 所有武器都从同一套枪口出膛（见 _muzzle_position）。
 func _shoot(direction: Vector2) -> void:
-	current_slot().fire(get_parent(), _muzzle_position(direction), direction, self)
+	last_muzzle_position = _muzzle_position(direction)
+	last_shot_direction = direction
+	current_slot().fire(get_parent(), last_muzzle_position, direction, self)
 
 
 ## 出膛点。水平和正上方还用 Visual 下的老 Marker（水平枪口趴下时跟着压低，是现有高度规则的一部分，第 4 步统一迁移）；

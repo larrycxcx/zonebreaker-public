@@ -63,8 +63,9 @@ const GROUP := &"enemies"
 var health := 0
 var is_prone := false
 var aim := Aim.LEVEL
-## 最近一颗子弹的方向（测试和以后的枪口闪光可以读）。
+## 最近一颗子弹的方向和出膛点（测试和枪口闪光读它，见 fx.gd）。
 var last_shot_direction := Vector2.ZERO
+var last_muzzle_position := Vector2.ZERO
 ## 面朝方向，同时决定子弹飞行方向：-1 向左，1 向右。
 var facing := -1
 
@@ -233,8 +234,9 @@ func _fire_one() -> void:
 	var bullet := bullet_scene.instantiate() as Bullet
 	bullet.direction = _burst_direction
 	last_shot_direction = bullet.direction
+	last_muzzle_position = _muzzle_position()
 	get_parent().add_child(bullet)
-	bullet.global_position = _muzzle_position()
+	bullet.global_position = last_muzzle_position
 	shot_fired.emit()
 	GameEvents.report(shoot_event, self)
 
