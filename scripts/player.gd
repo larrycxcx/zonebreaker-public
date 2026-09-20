@@ -75,6 +75,10 @@ const STAND_HEIGHT := 16.0
 ## 敌人子弹离地面只有 6~8px（枪口在敌人身体中线），趴下后必须矮于 6px 才躲得开，取 4px 留 2px 余量。
 const CROUCH_HEIGHT := 4.0
 const HURTBOX_STAND_HEIGHT := 18.0
+## 开枪时外观往反方向弹开多少像素（后坐力，纯表现，不动身体和判定）。
+const RECOIL_DISTANCE := 2.0
+## 后坐力每秒回复多少像素。
+const RECOIL_RECOVER := 40.0
 ## 从单向平台上跳下来时，忽略那块平台多久（秒）。够落下一个身位就行，太长会穿过下一层平台。
 const DROP_THROUGH_TIME := 0.25
 ## 跳下来那一下先给一点向下的速度，好立刻脱离地面。
@@ -100,6 +104,9 @@ var _slots: Array[WeaponSlot] = []
 var _ultimate := WeaponSlot.new()
 ## Visual 下每个子节点朝右时的横向位置，翻转时按它镜像（见 VisualFlip）。
 var _visual_bases := {}
+## 外观本来该在的位置（趴下时整体下移），和后坐力的临时偏移分开记，免得互相打架。
+var _visual_base := Vector2.ZERO
+var _recoil := Vector2.ZERO
 ## 正在穿过的那块单向平台（跳下平台时临时忽略它的碰撞）。
 var _dropping_platform: Platform
 var _drop_timer := 0.0
@@ -158,6 +165,7 @@ func _physics_process(delta: float) -> void:
 	_handle_ultimate()
 	_handle_switch()
 	_handle_shoot(delta)
+	_update_recoil(delta)
 	_update_invincibility(delta)
 	_shield_timer -= delta
 	_check_contact_damage()
@@ -320,7 +328,8 @@ func _set_crouching(value: bool) -> void:
 	_hurtbox_shape.position.y = lowered
 	# 占位美术直接纵向压扁；第 4 步换成精灵图后这里改成切换动画。
 	_visual.scale.y = height / STAND_HEIGHT
-	_visual.position.y = lowered
+	_visual_base.y = lowered
+	_visual.position = _visual_base + _recoil
 
 
 ## 碰撞体中心的世界坐标。趴下时比 global_position 低 6px，敌人的视线要瞄这里。
@@ -440,6 +449,7 @@ func equip_weapon(index: int, weapon: Weapon) -> void:
 func _shoot(direction: Vector2) -> void:
 	last_muzzle_position = _muzzle_position(direction)
 	last_shot_direction = direction
+	_recoil = -direction * RECOIL_DISTANCE
 	current_slot().fire(get_parent(), last_muzzle_position, direction, self)
 
 
@@ -454,6 +464,15 @@ func _muzzle_position(direction: Vector2) -> Vector2:
 		return global_position + DOWN_MUZZLE
 	var offset := DIAGONAL_UP_MUZZLE if direction.y < 0.0 else DIAGONAL_DOWN_MUZZLE
 	return global_position + Vector2(offset.x * facing, offset.y)
+
+
+## 后坐力：开枪那一下外观往反方向弹开，然后弹回原位。
+## 只改 Visual 的位置，身体、碰撞体、枪口、子弹全都不受影响。
+func _update_recoil(delta: float) -> void:
+	if _recoil == Vector2.ZERO:
+		return
+	_recoil = _recoil.move_toward(Vector2.ZERO, RECOIL_RECOVER * delta)
+	_visual.position = _visual_base + _recoil
 
 
 func _update_invincibility(delta: float) -> void:

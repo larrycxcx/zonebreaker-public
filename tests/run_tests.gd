@@ -27,6 +27,7 @@ const SUITES := {
 	"boss_a": "res://tests/test_boss_a.gd",
 	"visuals": "res://tests/test_visuals.gd",
 	"fx": "res://tests/test_fx.gd",
+	"feel": "res://tests/test_feel.gd",
 	"audio": "res://tests/test_audio.gd",
 }
 
