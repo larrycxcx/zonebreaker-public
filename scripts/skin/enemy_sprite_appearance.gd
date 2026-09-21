@@ -10,11 +10,11 @@ extends Appearance
 ##   死了 → death（播一遍停住）
 ##   正在播的一次性动作 → fire() 的开火、flash_hit() 的受伤
 ##   趴着 → prone 第 1 帧（开火时整组播一遍）
-##   斜着瞄准 → attack_up / attack_down 第 1 帧（举着枪等开火）
+##   斜着瞄准 → attack_up / attack_down 第 1 帧（举着枪等开火；E 一直朝正下方，那不算「斜着」）
 ##   在走 → walk；站着 → idle
 
-## 每帧的大小和锚点（帧里对应敌人身体原点的那个像素），必须和 tools/enemy_build.py 一致。
-## 比玩家的帧宽：倒地时人扑在身前，56 宽装不下。
+## 地面敌人每帧的大小和锚点（帧里对应敌人身体原点的那个像素），必须和 tools/enemy_build.py 一致。
+## 比玩家的帧宽：倒地时人扑在身前，56 宽装不下。飞的 E 不一样，在它自己的场景里改 frame_size / anchor。
 const FRAME_W := 80
 const FRAME_H := 56
 const ANCHOR_X := 40
@@ -33,10 +33,14 @@ const ATTACK_BY_AIM := {
 	Vector2(1, 0): &"attack_level",
 	Vector2(1, -1): &"attack_up",
 	Vector2(1, 1): &"attack_down",
+	Vector2(0, 1): &"attack_down", # E 竖直向下开火
 }
 
 ## 贴图放在哪个目录下。三种巡逻兵用同一个脚本，只是这个目录不同（换色版）。
 @export_dir var art_dir := "res://skins/cyberpunk/enemies/walker_a"
+## 这套贴图每帧多大、锚点在哪（生成脚本定的，场景里照抄）。
+@export var frame_size := Vector2i(FRAME_W, FRAME_H)
+@export var anchor := Vector2i(ANCHOR_X, ANCHOR_Y)
 
 @onready var _body: Sprite2D = $Body
 
@@ -53,7 +57,7 @@ var _dead_since := 0.0
 func _ready() -> void:
 	# 不调 super()：基类那套按位置镜像子节点的翻转法是给占位方块用的，这里靠换贴图翻转。
 	_body.centered = true
-	_body.offset = Vector2(FRAME_W / 2.0 - ANCHOR_X, FRAME_H / 2.0 - ANCHOR_Y)
+	_body.offset = Vector2(frame_size) / 2.0 - Vector2(anchor)
 	_refresh()
 
 
@@ -137,13 +141,17 @@ func clip() -> StringName:
 		return _once
 	if _prone:
 		return &"prone"
-	if _aim.y != 0.0:
+	if _aiming_diagonally():
 		return _attack_clip()
 	return &"walk" if _motion == Motion.WALK else &"idle"
 
 
 func _attack_clip() -> StringName:
 	return ATTACK_BY_AIM.get(Vector2(absf(signf(_aim.x)), signf(_aim.y)), &"attack_level")
+
+
+func _aiming_diagonally() -> bool:
+	return _aim.x != 0.0 and _aim.y != 0.0
 
 
 func _play_once(name: StringName) -> void:
@@ -163,7 +171,7 @@ func _refresh() -> void:
 		push_warning("敌人贴图缺失：%s" % file)
 		return
 	_body.texture = texture
-	_body.hframes = maxi(1, texture.get_width() / FRAME_W)
+	_body.hframes = maxi(1, texture.get_width() / frame_size.x)
 	_advance()
 
 
@@ -175,7 +183,7 @@ func _advance() -> void:
 		_body.frame = mini(int((_elapsed - _dead_since) * ONCE_FPS), last)
 	elif _once != &"":
 		_body.frame = mini(int((_elapsed - _once_since) * ONCE_FPS), last)
-	elif _prone or _aim.y != 0.0:
+	elif _prone or _aiming_diagonally():
 		_body.frame = 0 # 趴着 / 斜着举枪：停在第一帧，开火时才整组播
 	else:
 		var fps: float = LOOP_FPS.get(clip(), 0.0)

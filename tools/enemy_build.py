@@ -9,10 +9,12 @@
 **帧比玩家宽**：80×56，锚点 (40, 40)——敌人倒地时整个人扑在身前，56 宽装不下，
 左右各留 40px 才够（`EnemySpriteAppearance` 里的 FRAME_W / FRAME_H / ANCHOR 要和这里一致）。
 
-和玩家不同的两点：
+和玩家不同的几点：
 1. **敌人是一整张图**（枪画在身上），不用拼手臂，所以**不逐帧按躯干对齐**：
    整个角色只按待机第一帧的躯干定一次位，其余每一帧保留画师原本的摆位（走路的起伏、倒地的位移都在里面）。
 2. **同一个素材出好几种敌人**：巡逻兵 A/B/C 都是 2 号，靠给衣服换色区分（`VARIANTS`）。
+3. **飞行的 E（5 号无人机）不站在地上**：它的判定框（28×20）以原点为中心，所以锚点对的是**机身中心**，
+   不是脚底；帧也用素材原本的 48×48（锚点 24, 24），放得下攻击时往下劈的闪电和坠毁时往下掉的那一段。
 """
 import os
 import sys
@@ -55,6 +57,18 @@ VARIANTS = {
 	"walker_b": {SHIRT[0]: (0xa8, 0x4a, 0x12), SHIRT[1]: (0xf0, 0x8c, 0x2c)},
 	"walker_c": {SHIRT[0]: (0x8e, 0x16, 0x2a), SHIRT[1]: (0xd8, 0x3c, 0x4c)},
 }
+
+
+# 敌人 E（5 号无人机）。Idle 和 Walk 两组画得一模一样（悬停时螺旋桨转），只取 Idle；
+# Attack 是往正下方放电，正好是 E 竖直向下开火。
+FLYER_CLIPS = {
+	"idle": ("Idle.png", [0, 1, 2, 3]),
+	"attack_down": ("Attack.png", [0, 1, 2, 3]),
+	"hurt": ("Hurt.png", [0, 1]),
+	"death": ("Death.png", [0, 1, 2, 3]),
+}
+FLYER_FRAME = 48
+FLYER_ANCHOR = (24, 24)
 
 
 def palette_of(folder):
@@ -113,22 +127,11 @@ def place(content, anchor_x, where):
 
 def mirror(frame):
 	"""按锚点那一列左右镜像，锚点自己不动（和玩家同一个做法）。"""
-	out = sb.blank(FRAME_W, FRAME_H)
-	for y, row in enumerate(frame):
-		for x, c in enumerate(row):
-			sx = 2 * ANCHOR[0] - x
-			if c[3] > 8 and 0 <= sx < FRAME_W:
-				out[y][sx] = c
-	return out
+	return mirror_about(frame, ANCHOR[0])
 
 
 def save(folder, name, frames, write):
-	strip = sb.blank(FRAME_W * len(frames), FRAME_H)
-	for index, frame in enumerate(frames):
-		sb.blit(strip, frame, index * FRAME_W, 0, "%s/%s" % (folder, name))
-	if write:
-		sb.write_png(os.path.join(OUT, folder, name), strip)
-	print("  %s/%s  %d 帧" % (folder, name, len(frames)))
+	save_frames(folder, name, frames, FRAME_W, FRAME_H, write)
 
 
 def build_walkers(write):
@@ -148,12 +151,63 @@ def build_walkers(write):
 			save(variant, "%s_l.png" % name, [mirror(f) for f in right], write)
 
 
+def build_flyer(write):
+	"""E：整组按待机第一帧的机身（螺旋桨以下）定一次位，机身中心对准锚点。"""
+	folder = os.path.join(PACK, "5")
+	clips = {name: frames_of(os.path.join(folder, f), idx) for name, (f, idx) in FLYER_CLIPS.items()}
+	first = clips["idle"][0]
+	# 机身 = 螺旋桨下面那一截：从最宽的那几行（螺旋桨）往下数，跳过桅杆
+	rows = [y for y, row in enumerate(first) if any(c[3] > 8 for c in row)]
+	widths = {y: sum(1 for c in first[y] if c[3] > 8) for y in rows}
+	rotor_bottom = max(y for y in rows if widths[y] == max(widths.values()))
+	body = [(x, y) for y in rows if y > rotor_bottom and widths[y] > 6 for x, c in enumerate(first[y]) if c[3] > 8]
+	xs = [x for x, _ in body]
+	top = min(y for y in rows)
+	bottom = max(y for y in rows)
+	# 横向：机身中心；纵向：整个飞行器（含螺旋桨）的中心——判定框 28×20 就是把螺旋桨算在里面的
+	dx = FLYER_ANCHOR[0] - int(round((min(xs) + max(xs)) / 2.0))
+	dy = FLYER_ANCHOR[1] - int(round((top + bottom) / 2.0))
+	for name, frames in clips.items():
+		right = []
+		for f in frames:
+			out = sb.blank(FLYER_FRAME, FLYER_FRAME)
+			sb.blit(out, f, dx, dy, "flyer %s" % name)
+			right.append(out)
+		left = [mirror_about(f, FLYER_ANCHOR[0]) for f in right]
+		save_frames("flyer", "%s_r.png" % name, right, FLYER_FRAME, FLYER_FRAME, write)
+		save_frames("flyer", "%s_l.png" % name, left, FLYER_FRAME, FLYER_FRAME, write)
+
+
+def mirror_about(frame, column):
+	out = sb.blank(len(frame[0]), len(frame))
+	for y, row in enumerate(frame):
+		for x, c in enumerate(row):
+			sx = 2 * column - x
+			if c[3] > 8:
+				if 0 <= sx < len(row):
+					out[y][sx] = c
+				else:
+					sb._clipped.append("镜像后出界：(%d, %d)" % (x, y))
+	return out
+
+
+def save_frames(folder, name, frames, width, height, write):
+	strip = sb.blank(width * len(frames), height)
+	for index, frame in enumerate(frames):
+		sb.blit(strip, frame, index * width, 0, "%s/%s" % (folder, name))
+	if write:
+		sb.write_png(os.path.join(OUT, folder, name), strip)
+	print("  %s/%s  %d 帧" % (folder, name, len(frames)))
+
+
 def main():
 	write = "--check" not in sys.argv
 	if not os.path.isdir(PACK):
 		sys.exit("找不到敌人素材包 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(PACK))
 	print("巡逻兵 A/B/C（2 号）：")
 	build_walkers(write)
+	print("飞行的 E（5 号）：")
+	build_flyer(write)
 	if sb._clipped:
 		print("\n有内容被画布切掉了：")
 		for line in sb._clipped[:20]:

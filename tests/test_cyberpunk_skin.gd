@@ -540,12 +540,13 @@ func test_lying_down_still_dodges_with_the_sprite_skin() -> void:
 
 
 func test_the_pack_only_overrides_what_has_been_drawn() -> void:
-	# 这套包目前有玩家和三种巡逻兵的贴图，其余敌人和音效都回落到默认包（还是占位方块）
+	# 这套包目前有玩家、三种巡逻兵和飞行的 E 的贴图，其余敌人和音效都回落到默认包（还是占位方块）
 	var pack := skin()
 	# StringName 排序不按字母（按内部指针），先转成普通字符串再比
 	var drawn := pack.appearances.keys().map(func(k: StringName) -> String: return String(k))
 	drawn.sort()
-	check("it overrides the player and the three walkers", drawn == ["player", "walker_a", "walker_b", "walker_c"],
+	check("it overrides the player, the three walkers and the flyer",
+		drawn == ["flyer", "player", "walker_a", "walker_b", "walker_c"],
 		str(drawn))
 	check("it ships no effects of its own", pack.effects.is_empty())
 	check("and falls back to the default pack", pack.fallback == Skins.default_skin())

@@ -22,7 +22,7 @@ shoot_event = &"flyer_shoot"
 shape = SubResource("RectangleShape2D_1")
 
 [node name="Muzzle" type="Marker2D" parent="."]
-position = Vector2(0, 12)
+position = Vector2(0, 11)
 
 [node name="Visual" type="Node2D" parent="."]
 script = ExtResource("99")

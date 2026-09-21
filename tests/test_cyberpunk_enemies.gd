@@ -1,5 +1,5 @@
 extends GameTest
-## 赛博朋克皮肤包的敌人贴图（目前是巡逻兵 A/B/C，素材 2 号换色）。
+## 赛博朋克皮肤包的敌人贴图（目前是巡逻兵 A/B/C，素材 2 号换色；飞行的 E，素材 5 号无人机）。
 ##
 ## 和玩家那组（test_cyberpunk_skin.gd）守的是同一类东西：贴图齐全、左右严格镜像、脚底落在地面线上、
 ## 子弹从画面上的枪口出来，以及最要紧的——**换皮肤不改变规则**：同一个敌人用方块和用精灵图，
@@ -306,3 +306,202 @@ func test_dying_leaves_a_body_that_falls_and_fades() -> void:
 			gone_at = i
 			break
 	check("then fades out and removes itself", gone_at > 30, "第 %d 帧消失" % gone_at)
+
+
+# ---------------------------------------------------------------- 飞行的 E（5 号无人机）
+# 它不站在地上：判定框 28×20 以原点为中心，所以贴图对的是机身中心，帧也是另一种尺寸（48×48，锚点 24, 24）。
+
+const E_CLIPS := [&"idle", &"attack_down", &"hurt", &"death"]
+const E_SIZE := 48
+const E_ANCHOR := 24
+## 素材里往下劈的闪电（E 的子弹在画面上从这里出来）。
+const BOLT := Color8(91, 236, 241)
+
+
+func e_image(clip: StringName, side := "r") -> Image:
+	return (load("%s/flyer/%s_%s.png" % [ART, clip, side]) as Texture2D).get_image()
+
+
+## E 某一帧看得见的像素（本体坐标）；only_bolt 只要闪电，否则只要机身（不算闪电）。
+func e_ink(img: Image, frame: int, only_bolt := false) -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	for y in E_SIZE:
+		for x in E_SIZE:
+			var c := img.get_pixel(frame * E_SIZE + x, y)
+			if c.a <= 0.03 or c.is_equal_approx(BOLT) != only_bolt:
+				continue
+			out.append(Vector2(x - E_ANCHOR, y - E_ANCHOR))
+	return out
+
+
+## 只留 E、以 x 上空为巡逻中心，玩家先放在远处（不在它下方）。
+func place_e(pack: SkinPack, x := 400.0) -> EnemyFlyer:
+	await reset_scene(true, false, pack)
+	keep_only_enemies(["FlyerE"])
+	var e: EnemyFlyer = main.get_node("Enemies/FlyerE")
+	e.set_anchor(Vector2(x, 88))
+	player.global_position = Vector2(x + 400.0, 304)
+	player.velocity = Vector2.ZERO
+	await frames(3)
+	return e
+
+
+func test_every_clip_is_there_for_the_flyer() -> void:
+	for clip: StringName in E_CLIPS:
+		for side in ["r", "l"]:
+			var path := "%s/flyer/%s_%s.png" % [ART, clip, side]
+			var texture := load(path) as Texture2D
+			check("flyer %s_%s exists" % [clip, side], texture != null, path)
+			if texture != null:
+				check("flyer %s_%s is one row of %dx%d frames" % [clip, side, E_SIZE, E_SIZE],
+					texture.get_height() == E_SIZE and texture.get_width() % E_SIZE == 0,
+					"%d x %d" % [texture.get_width(), texture.get_height()])
+	var scene: EnemySpriteAppearance = (load("res://scenes/skins/cyberpunk_flyer.tscn") as PackedScene).instantiate()
+	check("the flyer scene uses the flyer frame size", scene.frame_size == Vector2i(E_SIZE, E_SIZE)
+		and scene.anchor == Vector2i(E_ANCHOR, E_ANCHOR), "%s / %s" % [scene.frame_size, scene.anchor])
+	scene.free()
+
+
+func test_the_flyer_facings_are_mirrors() -> void:
+	for clip: StringName in E_CLIPS:
+		var right := e_image(clip, "r")
+		var left := e_image(clip, "l")
+		var same := right.get_size() == left.get_size()
+		if same:
+			for y in right.get_height():
+				for x in right.get_width():
+					var f := x / E_SIZE
+					var m := f * E_SIZE + 2 * E_ANCHOR - (x - f * E_SIZE)
+					if m < f * E_SIZE or m >= (f + 1) * E_SIZE:
+						continue
+					var a := right.get_pixel(x, y)
+					var b := left.get_pixel(m, y)
+					if a.a != b.a or (a.a > 0.0 and a != b):
+						same = false
+		check("flyer %s: left is the mirror of right around the anchor" % clip, same)
+
+
+func test_the_flyer_art_sits_on_its_hitbox() -> void:
+	# 判定框 28×20 以原点为中心：悬停那几帧的飞行器（含螺旋桨）要落在框里，而且居中。
+	# 素材的悬停动画自己会上下浮动 3px，纵向留这点余量
+	var box := Vector2(28, 20)
+	var bob := 3.0
+	var img := e_image(&"idle")
+	for f in img.get_width() / E_SIZE:
+		var points := e_ink(img, f)
+		var r := Rect2(points[0], Vector2.ZERO)
+		for p in points:
+			r = r.expand(p)
+		r.size += Vector2.ONE
+		check("idle frame %d is inside the hitbox" % (f + 1),
+			r.position.x >= -box.x / 2.0 and r.end.x <= box.x / 2.0
+			and r.position.y >= -box.y / 2.0 - bob and r.end.y <= box.y / 2.0 + bob, str(r))
+		check("idle frame %d is centred on it" % (f + 1),
+			absf(r.get_center().x) <= 1.5 and absf(r.get_center().y) <= bob, str(r.get_center()))
+
+
+func test_the_flyer_shoots_from_the_bolt_in_the_art() -> void:
+	# 放电那几帧：闪电从机身底下劈出来，E 的子弹也要从那里出来。
+	# 只看前 3 帧：第 4 帧闪电已经散成火花，没有「起点」。机身在浮动，起点跟着上下差 4px，出膛点取中间
+	var e := await place_e(skin())
+	e.set_physics_process(false)
+	e._burst_aim = Enemy.Aim.LEVEL
+	e._burst_direction = Vector2.DOWN
+	var rule := e._muzzle_position() - e.global_position
+	var img := e_image(&"attack_down")
+	var starts: Array[Vector2] = []
+	for f in 3:
+		var bolt := e_ink(img, f, true)
+		if bolt.is_empty():
+			continue
+		var top := INF
+		for p in bolt:
+			top = minf(top, p.y)
+		var nearest := Vector2(INF, top)
+		for p in bolt:
+			if p.y == top and absf(p.x) < absf(nearest.x):
+				nearest = p
+		starts.append(nearest)
+	check("the bolt is drawn in the attack frames", starts.size() == 3, str(starts))
+	for s in starts:
+		check("the bolt starts where the shots leave (%s)" % s, s.distance_to(rule) <= 3.0,
+			"贴图 %s，出膛点 %s" % [s, rule])
+
+
+func measure_e(pack: SkinPack) -> Dictionary:
+	var e := await place_e(pack)
+	var out := {}
+	out["muzzle"] = e.level_muzzle_position() - e.global_position
+	out["box"] = (e._shape.shape as RectangleShape2D).size
+	var start := e.global_position
+	for i in 40:
+		await tree.physics_frame
+	out["travel"] = (e.global_position - start).snappedf(0.01)
+	return out
+
+
+func test_the_flyer_skin_changes_nothing_about_the_rules() -> void:
+	var blocks := await measure_e(Skins.default_skin())
+	var sprites := await measure_e(skin())
+	# 先确认真的在飞：停着不动的话「两种皮肤飞得一样」比的是两个 0
+	check("the flyer really moves in this test",
+		absf(blocks["travel"].x) > 20.0 and absf(blocks["travel"].y) > 1.0, str(blocks["travel"]))
+	for key: String in blocks:
+		check("flyer %s is the same with either skin" % key, blocks[key] == sprites[key],
+			"方块 %s，精灵图 %s" % [blocks[key], sprites[key]])
+
+
+func test_the_flyer_wears_the_drone() -> void:
+	await reset_scene(true, false, skin())
+	var visual: Node = main.get_node("Enemies/FlyerE/Visual")
+	check("E wears the sprite appearance", visual is EnemySpriteAppearance, str(visual))
+	if visual is EnemySpriteAppearance:
+		check("E uses the drone art", (visual as EnemySpriteAppearance).art_dir.ends_with("/flyer"),
+			(visual as EnemySpriteAppearance).art_dir)
+
+
+func test_the_flyer_hovers_and_zaps() -> void:
+	# E 一直朝正下方瞄准，但那不是「举着枪等开火」：平时要显示悬停，只有开火那一下才放电
+	var e := await place_e(skin())
+	var visual: EnemySpriteAppearance = e.get_node("Visual")
+	var body: Sprite2D = visual.get_node("Body")
+	await frames(5)
+	check("patrolling: hovers", visual.clip() == &"idle", str(visual.clip()))
+	var frames_seen := {}
+	for i in 30:
+		await frames(1)
+		frames_seen[body.frame] = true
+	check("and the rotor spins", frames_seen.size() > 1, str(frames_seen.keys()))
+	e.move_speed = 0.0
+	e.set_anchor(Vector2(400, 88))
+	player.global_position = Vector2(400, 304)
+	var zapped := false
+	for i in 60:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		if visual.clip() == &"attack_down":
+			zapped = true
+			break
+	check("E zaps when it fires", zapped)
+	check("and a bullet really left", not bullets(16).is_empty())
+	var back := false
+	for i in 30:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		if visual.clip() == &"idle":
+			back = true
+			break
+	check("then goes back to hovering", back)
+	e.take_damage(1)
+	check("getting hit plays the hurt clip", visual.clip() == &"hurt", str(visual.clip()))
+
+
+func test_a_shot_down_flyer_falls_and_fades() -> void:
+	var e := await place_e(skin())
+	var visual: EnemySpriteAppearance = e.get_node("Visual")
+	e.take_damage(e.health)
+	await frames(1)
+	check("E itself is gone at once", not is_instance_valid(e))
+	check("the wreck stays behind in the effects layer", is_instance_valid(visual) and visual.get_parent() is Fx)
+	if is_instance_valid(visual):
+		check("and plays the crash", visual.clip() == &"death", str(visual.clip()))
