@@ -16,13 +16,28 @@ extends StaticBody2D
 	set(value):
 		one_way = value
 		_apply()
+## 素材包里用哪种地形画它（`SkinPack.APPEARANCE_KEYS` 里的 terrain_*）。只管长什么样，和规则无关。
+## 留空就按平台自己的性质挑：单向平台是浮空的 `terrain_ledge`，其余是石砖 `terrain_stone`。
+@export var skin_key := &""
 
 @onready var _shape: CollisionShape2D = $CollisionShape2D
-@onready var _rect: ColorRect = $ColorRect
+@onready var _rect: ColorRect = $Visual/ColorRect
+
+var _visual: Node
 
 
 func _ready() -> void:
+	# 编辑器里（@tool）素材包单例没在跑，显示场景自带的色块就好
+	if not Engine.is_editor_hint():
+		_visual = Skins.build_appearance(self, terrain_key())
 	_apply()
+
+
+## 实际用的地形键（`skin_key` 留空时按单向与否自动挑）。
+func terrain_key() -> StringName:
+	if skin_key != &"":
+		return skin_key
+	return &"terrain_ledge" if one_way else &"terrain_stone"
 
 
 func _apply() -> void:
@@ -34,3 +49,5 @@ func _apply() -> void:
 	_shape.one_way_collision = one_way
 	_rect.size = size
 	_rect.color = color
+	if _visual != null and _visual.has_method(&"fit"):
+		_visual.call(&"fit", size)

@@ -34,6 +34,11 @@ func effect(key: StringName, fallback_: PackedScene) -> PackedScene:
 	return scene if scene != null else fallback_
 
 
+## 当前包的关卡背景场景，没有返回 null。
+func backdrop() -> PackedScene:
+	return current.find_backdrop() if current != null else null
+
+
 ## 按皮肤键给 owner 装上外观，返回最终用的那个 `Appearance`。
 ## 当前包里没有这个键（或者给的场景不对）就保留角色场景里自带的外观——皮肤包填错不该让游戏崩。
 ## 角色在 _ready 里第一时间调它，之后只通过返回的这个对象和外观打交道。

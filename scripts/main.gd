@@ -10,7 +10,19 @@ extends Node2D
 
 
 func _ready() -> void:
+	_add_backdrop()
 	_player.died.connect(_on_player_died)
+
+
+## 当前素材包有背景就放到最底下（第一个子节点最先画）。纯显示，没有就用项目的清屏色。
+func _add_backdrop() -> void:
+	var scene := Skins.backdrop()
+	if scene == null:
+		return
+	var backdrop := scene.instantiate()
+	backdrop.name = "Backdrop"
+	add_child(backdrop)
+	move_child(backdrop, 0)
 
 
 func _on_player_died() -> void:

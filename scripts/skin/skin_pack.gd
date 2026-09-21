@@ -54,6 +54,10 @@ const APPEARANCE_KEYS := {
 	&"flyer_bullet": "E 往下打的子弹",
 	&"player_grenade": "玩家的手雷",
 	&"enemy_grenade": "F 打出来的手雷",
+	# 地形（平台 platform.tscn 用；外观场景根节点挂 TerrainAppearance 这类有 fit(大小) 的外观）
+	&"terrain_ground": "地面",
+	&"terrain_ledge": "浮空的单向平台",
+	&"terrain_stone": "墙、矮通道顶块这类实心块",
 }
 
 ## 全部特效的键。没填的用 Fx 节点上配的默认场景。
@@ -72,6 +76,8 @@ const EFFECT_KEYS := {
 @export var appearances: Dictionary[StringName, PackedScene] = {}
 ## 特效：特效键（`EFFECT_KEYS`）→ 场景。
 @export var effects: Dictionary[StringName, PackedScene] = {}
+## 关卡背景（视差滚动的几层画，纯显示）。留空就没有背景，用项目的清屏色。
+@export var backdrop: PackedScene
 ## 这个包里没有的东西去哪里找。自制素材包一般指向默认包；默认包自己留空。
 @export var fallback: SkinPack
 
@@ -90,6 +96,13 @@ func find_appearance(key: StringName) -> PackedScene:
 	if scene != null:
 		return scene
 	return fallback.find_appearance(key) if fallback != null else null
+
+
+## 找背景场景：先看自己，没有再问备用包。
+func find_backdrop() -> PackedScene:
+	if backdrop != null:
+		return backdrop
+	return fallback.find_backdrop() if fallback != null else null
 
 
 ## 找某个特效的场景，规则同上。

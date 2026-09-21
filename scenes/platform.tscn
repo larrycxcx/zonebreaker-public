@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/platform.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/appearance.gd" id="2"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 resource_local_to_scene = true
@@ -15,7 +16,10 @@ script = ExtResource("1")
 position = Vector2(48, 8)
 shape = SubResource("RectangleShape2D_1")
 
-[node name="ColorRect" type="ColorRect" parent="."]
+[node name="Visual" type="Node2D" parent="."]
+script = ExtResource("2")
+
+[node name="ColorRect" type="ColorRect" parent="Visual"]
 offset_right = 96.0
 offset_bottom = 16.0
 mouse_filter = 2
