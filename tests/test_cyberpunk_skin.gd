@@ -64,7 +64,7 @@ func test_the_two_facings_are_mirrors_of_each_other() -> void:
 	# 朝左那套是按锚点那一列镜像出来的，两边必须严丝合缝地对称。
 	# 对不上就说明生成脚本把某一边切掉了一块——画面上表现为转身时角色少一截、或者整体挪了一格。
 	# 只比看得见的像素：导入器的「修复 alpha 边缘」会给全透明像素填上邻居的颜色，那不对称也无所谓。
-	for base in ["body_idle", "body_run", "arms_level", "arms_up"]:
+	for base in ["body_idle", "body_run", "body_crouch", "arms_level", "arms_up"]:
 		var right := (load("%s/%s_r.png" % [ART_DIR, base]) as Texture2D).get_image()
 		var left := (load("%s/%s_l.png" % [ART_DIR, base]) as Texture2D).get_image()
 		check("%s: both facings are the same size" % base, right.get_size() == left.get_size(),
@@ -124,6 +124,30 @@ func test_the_art_sits_on_the_collision_box() -> void:
 	check("the level gun reaches out in front of the body",
 		arms.position.x - SpriteAppearance.ANCHOR_X < 0 and arms.end.x - SpriteAppearance.ANCHOR_X > 12,
 		"x %d..%d（锚点 %d）" % [arms.position.x, arms.end.x, SpriteAppearance.ANCHOR_X])
+
+
+func test_the_prone_art_stays_under_enemy_fire() -> void:
+	# 趴下躲子弹是规则，**画面也得说得通**：整张趴姿贴图要藏在敌人站着开枪的子弹下面，
+	# 否则玩家会看见子弹从背上穿过去却没掉血，会以为是穿模。
+	# 判定框只有 8px，贴图可以比它高一点（人躺着本来就有厚度），但不能高过子弹。
+	# 这张趴姿是自己画的（art_src/），高度由 tools/skin_build.py 的 PRONE_SIZE 决定，改大了这里会报。
+	await reset_scene(true, false, skin())
+	keep_only_enemies(["Turret1"])
+	var turret: Enemy = main.get_node("Enemies/Turret1")
+	await stand_at(400)
+	var ground := player.global_position.y + Player.STAND_HEIGHT / 2.0
+	var bullet_height := ground - turret.level_muzzle_position().y
+	check("the turret fires from above the ground", bullet_height > 0.0, "%.1f" % bullet_height)
+	var box := ink_box(load("%s/body_crouch_r.png" % ART_DIR) as Texture2D)
+	var art_height := float(FRAME - box.position.y)
+	check("the prone art is shorter than the enemy's line of fire",
+		art_height < bullet_height, "贴图高 %.0fpx，子弹离地 %.0fpx" % [art_height, bullet_height])
+	check("and it is still taller than the hitbox, like a body lying down",
+		art_height >= Player.CROUCH_HEIGHT, "贴图高 %.0fpx，判定框 %d" % [art_height, Player.CROUCH_HEIGHT])
+	# 趴姿的脚底也要落在地上，和站姿同一条线
+	var sole := box.end.y - SpriteAppearance.ANCHOR_Y
+	check("the prone art lies on the ground", absf(sole - Player.STAND_HEIGHT / 2.0) <= 1.0,
+		"脚底在原点下方 %.0fpx" % sole)
 
 
 # ---------------------------------------------------------------- 接上去以后

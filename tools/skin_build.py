@@ -27,6 +27,7 @@ import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "..", "art_in", "default")
+OWN = os.path.join(HERE, "..", "art_src")
 OUT = os.path.join(HERE, "..", "skins", "cyberpunk", "player")
 
 CHARACTER = "1 Biker"
@@ -52,8 +53,16 @@ BODIES = {
 	"walk": ("Walk2", [0, 1, 2, 3, 4, 5]),
 	"run": ("Run2", [0, 1, 2, 3, 4, 5]),
 	"air": ("Jump2", [1, 2]),
-	"crouch": ("Sitdown1", [2]),
 }
+
+# 趴下那一帧**不在素材包里**：CraftPix 那套只有单膝跪姿（27px 高），而趴下的判定框只有 8px，
+# 画面上的人会比判定框高一大截。这张是自己画的，放在 art_src/（我们自己的源文件，进仓库）。
+# 它是按大图画的，这里缩到 PRONE_SIZE 再把颜色贴回角色自己的调色板。
+# **高度是有规矩的**：整张图必须完全藏在敌人站着开枪的子弹下面（离地 12~16px），
+# 否则画面上看着被打中、判定却没中。30×10 正好留 2px 余量，改大之前先看 test_cyberpunk_skin.gd。
+PRONE = "biker_prone.png"
+PRONE_SIZE = (30, 10)
+PRONE_NUDGE = 0   # 横向微调（正数往前挪）；默认按贴图中心对齐身体原点
 
 # 瞄准方向 → (手臂编号, 用哪张枪, 是否上下翻转, 旋转角度, 握枪那只手在 32×32 格子里的位置, 子弹飞的方向)。
 # 手臂 1~5 是后手臂（画在枪后面），6~10 是同样 5 个方向的前手臂（画在枪前面）。
@@ -234,6 +243,68 @@ def place(content, anchor_x, where):
 	return out
 
 
+def palette():
+	"""角色自己的调色板，按用得多的排前面。自己画的图要贴回这套颜色，免得和素材包其它帧不搭。"""
+	_, _, pixels = read_png(os.path.join(SRC, "1 Characters", CHARACTER, "Idle1.png"))
+	seen = {}
+	for row in pixels:
+		for color in row:
+			if color[3] > 8:
+				seen[color[:3]] = seen.get(color[:3], 0) + 1
+	return sorted(seen, key=lambda c: -seen[c])
+
+
+def resample(pixels, box, size, colors):
+	"""把 box 这块内容按面积平均缩到 size，每个像素贴到最近的调色板颜色。"""
+	x0, y0, x1, y1 = box
+	out = []
+	for ty in range(size[1]):
+		row = []
+		for tx in range(size[0]):
+			ax = x0 + (x1 - x0 + 1) * tx / size[0]
+			bx = x0 + (x1 - x0 + 1) * (tx + 1) / size[0]
+			ay = y0 + (y1 - y0 + 1) * ty / size[1]
+			by = y0 + (y1 - y0 + 1) * (ty + 1) / size[1]
+			total = [0.0, 0.0, 0.0]
+			seen = 0
+			solid = 0
+			for y in range(int(ay), max(int(ay) + 1, int(by))):
+				for x in range(int(ax), max(int(ax) + 1, int(bx))):
+					seen += 1
+					if pixels[y][x][3] > 8:
+						solid += 1
+						for i in range(3):
+							total[i] += pixels[y][x][i]
+			if solid * 2 < seen:      # 一半以上是透明的就算透明，边缘才不会糊出一圈
+				row.append((0, 0, 0, 0))
+				continue
+			mean = [total[i] / solid for i in range(3)]
+			near = min(colors, key=lambda c: sum((c[i] - mean[i]) ** 2 for i in range(3)))
+			row.append((near[0], near[1], near[2], 255))
+		out.append(row)
+	return out
+
+
+def ink_box(pixels):
+	xs, ys = [], []
+	for y, row in enumerate(pixels):
+		for x, color in enumerate(row):
+			if color[3] > 8:
+				xs.append(x)
+				ys.append(y)
+	return (min(xs), min(ys), max(xs), max(ys))
+
+
+def build_prone(write):
+	_, _, pixels = read_png(os.path.join(OWN, PRONE))
+	art = resample(pixels, ink_box(pixels), PRONE_SIZE, palette())
+	frame = blank(FRAME, FRAME)
+	# 横向大致对着身体原点，纵向让脚底和站姿一样落在原点下方 16px
+	blit(frame, art, ANCHOR[0] - PRONE_SIZE[0] // 2 + PRONE_NUDGE, ANCHOR[1] + 16 - PRONE_SIZE[1], "crouch")
+	save_strip("body_crouch_r.png", [frame], write)
+	save_strip("body_crouch_l.png", [mirror(frame)], write)
+
+
 def build_bodies(write):
 	for name, (source, frames) in BODIES.items():
 		path = os.path.join(SRC, "1 Characters", CHARACTER, source + ".png")
@@ -311,6 +382,8 @@ def main():
 		sys.exit("找不到原始素材包 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(SRC))
 	print("身体（%s，无手臂版）：" % CHARACTER)
 	build_bodies(write)
+	print("趴姿（自己画的 art_src/%s，缩到 %dx%d）：" % (PRONE, PRONE_SIZE[0], PRONE_SIZE[1]))
+	build_prone(write)
 	print("手臂 + %d 号枪：" % GUN)
 	check_hands()
 	build_arms(write)
