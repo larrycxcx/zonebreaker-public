@@ -19,6 +19,7 @@
 朝左的图是**按锚点所在的那一列镜像**出来的，所以左右两套图的锚点完全重合，
 运行时不需要 flip_h、也不用负的 scale（负 scale 会让角色被错误剔除，见 CLAUDE.md 踩过的坑）。
 """
+import math
 import os
 import struct
 import sys
@@ -54,16 +55,27 @@ BODIES = {
 	"crouch": ("Sitdown1", [2]),
 }
 
-# 瞄准方向 → (手臂编号, 用哪张枪, 是否上下翻转, 旋转角度, 枪在 32×32 格子里的位置)。
+# 瞄准方向 → (手臂编号, 用哪张枪, 是否上下翻转, 旋转角度, 握枪那只手在 32×32 格子里的位置, 子弹飞的方向)。
 # 手臂 1~5 是后手臂（画在枪后面），6~10 是同样 5 个方向的前手臂（画在枪前面）。
-# 枪只有水平（`_1`）和斜下（`_2`）两张：斜上是把斜下那张上下翻过来，正上/正下是把水平那张转 90°。
+# 枪只有水平（`_1`）和斜下 45°（`_2`）两张：斜上是把斜下那张上下翻过来，正上/正下是把水平那张转 90°。
+#
+# **枪放在哪里由「手在哪里」决定，不要自己推**：素材里手臂不是绕一个固定点转的，
+# 画师每个方向都把整条胳膊挪了位置，按「握把固定在格子中心」推出来的落点五个方向里错四个。
+# 手的位置是从 Hands.psd 量的：前手臂那组里的 `Deep_shadows` 图层就是从枪另一侧露出来的那只手。
+# **正下方那张是例外**：它没有这块小方块，因为前面那条胳膊只是垂着、根本没握枪——
+# 握枪的是后面那条（`1.png`，在身体右侧），所以这一档量的是后手臂的下端。
 AIMS = {
-	"down":      (1, "1", False,  90, (14, 3)),
-	"diag_down": (2, "2", False,   0, (6, 6)),
-	"level":     (3, "1", False,   0, (3, 13)),
-	"diag_up":   (4, "2", True,    0, (6, 8)),
-	"up":        (5, "1", False, -90, (13, 6)),
+	"down":      (1, "1", False,  90, (16.5, 25.0), (0, 1)),
+	"diag_down": (2, "2", False,   0, (14.5, 24.0), (1, 1)),
+	"level":     (3, "1", False,   0, (19.5, 17.0), (1, 0)),
+	"diag_up":   (4, "2", True,    0, (19.0, 5.5), (1, -1)),
+	"up":        (5, "1", False, -90, (16.0, 2.5), (0, -1)),
 }
+
+# 前握把在枪身上的位置：从枪托那头算起 66% 处，再往枪管下方挪 1px。
+# 这两个数是按水平那张（唯一一眼就能看出对不对的）量出来的，其它方向沿用同一套。
+GRIP_ALONG = 0.66
+GRIP_ACROSS = 1.0
 
 _clipped = []
 
@@ -234,21 +246,54 @@ def build_bodies(write):
 		save_strip("body_%s_l.png" % name, [mirror(f) for f in right], write)
 
 
+def grip_in(gun, aim):
+	"""转好向的枪身上，前握把落在图里的哪个位置（图自己的坐标）。"""
+	length = math.hypot(aim[0], aim[1])
+	axis = (aim[0] / length, aim[1] / length)
+	perp = (-axis[1], axis[0])
+	points = [(x, y) for y, row in enumerate(gun) for x, color in enumerate(row) if color[3] > 8]
+	along = [x * axis[0] + y * axis[1] for x, y in points]
+	across = [x * perp[0] + y * perp[1] for x, y in points]
+	a = min(along) + GRIP_ALONG * (max(along) - min(along))
+	c = (min(across) + max(across)) / 2.0 + GRIP_ACROSS
+	return (axis[0] * a + perp[0] * c, axis[1] * a + perp[1] * c)
+
+
 def build_arms(write):
 	hands = os.path.join(SRC, "3 Hands", CHARACTER)
-	for name, (pose, variant, flip_v, degrees, cell_pos) in AIMS.items():
+	for name, (pose, variant, flip_v, degrees, hand, aim) in AIMS.items():
 		frame = blank(CELL, CELL)
 		_, _, back = read_png(os.path.join(hands, "%d.png" % pose))
 		blit(frame, back, ARM_INSET, ARM_INSET, "%s 的后手臂" % name)
 		_, _, gun = read_png(os.path.join(SRC, "2 Guns", "%d_%s.png" % (GUN, variant)))
 		if flip_v:
 			gun = gun[::-1]
-		blit(frame, rotate(gun, degrees), ARM_INSET + cell_pos[0], ARM_INSET + cell_pos[1], "%s 的枪" % name)
+		gun = rotate(gun, degrees)
+		# 让枪的前握把正好落在那只手上
+		grip = grip_in(gun, aim)
+		blit(frame, gun, ARM_INSET + int(round(hand[0] - grip[0])), ARM_INSET + int(round(hand[1] - grip[1])),
+			"%s 的枪" % name)
 		_, _, front = read_png(os.path.join(hands, "%d.png" % (pose + 5)))
 		blit(frame, front, ARM_INSET, ARM_INSET, "%s 的前手臂" % name)
 		right = place(frame, ARM_BASELINE, "arms_%s" % name)
 		save_strip("arms_%s_r.png" % name, [right], write)
 		save_strip("arms_%s_l.png" % name, [mirror(right)], write)
+
+
+def check_hands():
+	"""量出来的手必须真的落在某条胳膊上，不然就是素材换了、数字没跟着改。"""
+	hands = os.path.join(SRC, "3 Hands", CHARACTER)
+	for name, entry in AIMS.items():
+		pose, hand = entry[0], entry[4]
+		x, y = int(round(hand[0])), int(round(hand[1]))
+		on = []
+		for index in (pose, pose + 5):
+			_, _, arm = read_png(os.path.join(hands, "%d.png" % index))
+			if any(arm[y + dy][x + dx][3] > 8 for dy in (-1, 0, 1) for dx in (-1, 0, 1)):
+				on.append(index)
+		if not on:
+			_clipped.append("%s：握枪的手 (%g, %g) 不在 %d.png 和 %d.png 上"
+				% (name, hand[0], hand[1], pose, pose + 5))
 
 
 def save_strip(name, frames, write):
@@ -267,6 +312,7 @@ def main():
 	print("身体（%s，无手臂版）：" % CHARACTER)
 	build_bodies(write)
 	print("手臂 + %d 号枪：" % GUN)
+	check_hands()
 	build_arms(write)
 	if _clipped:
 		print("\n有内容被画布切掉了：")
