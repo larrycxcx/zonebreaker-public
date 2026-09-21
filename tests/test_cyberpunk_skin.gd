@@ -540,13 +540,14 @@ func test_lying_down_still_dodges_with_the_sprite_skin() -> void:
 
 
 func test_the_pack_only_overrides_what_has_been_drawn() -> void:
-	# 这套包目前有玩家和除 Boss 以外所有敌人的贴图，其余敌人和音效都回落到默认包（还是占位方块）
+	# 这套包目前有玩家、除 Boss 以外所有敌人、所有子弹和手雷的贴图，其余敌人和音效都回落到默认包（还是占位方块）
 	var pack := skin()
 	# StringName 排序不按字母（按内部指针），先转成普通字符串再比
 	var drawn := pack.appearances.keys().map(func(k: StringName) -> String: return String(k))
 	drawn.sort()
-	check("it overrides the player and every enemy but the boss",
-		drawn == ["chaser", "flyer", "grenadier", "player", "turret", "walker_a", "walker_b", "walker_c"],
+	check("it overrides the player, every enemy but the boss, and every projectile",
+		drawn == ["chaser", "enemy_bullet", "enemy_grenade", "flyer", "flyer_bullet", "grenadier", "player",
+			"player_bullet", "player_grenade", "turret", "turret_bullet", "walker_a", "walker_b", "walker_c"],
 		str(drawn))
 	check("it ships no effects of its own", pack.effects.is_empty())
 	check("and falls back to the default pack", pack.fallback == Skins.default_skin())

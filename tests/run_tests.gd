@@ -31,6 +31,7 @@ const SUITES := {
 	"skin_visuals": "res://tests/test_skin_visuals.gd",
 	"cyberpunk": "res://tests/test_cyberpunk_skin.gd",
 	"cyberpunk_enemies": "res://tests/test_cyberpunk_enemies.gd",
+	"cyberpunk_projectiles": "res://tests/test_cyberpunk_projectiles.gd",
 	"audio": "res://tests/test_audio.gd",
 }
 

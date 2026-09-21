@@ -26,6 +26,8 @@ const GROUP := &"grenades"
 ## 这颗手雷打谁：玩家扔的填 enemy 层（8），敌人 F 扔的填 player 层（2）。
 ## 直接命中和爆炸都只找这一层，所以谁也炸不到自己人、炸不到自己。
 @export_flags_2d_physics var target_layer := 8
+## 素材包里用哪一项画它（`SkinPack.APPEARANCE_KEYS`）。只管长什么样，玩家和 F 的手雷规则完全一样。
+@export var skin_key := &""
 
 var exploded := false
 ## 撞到过地面/平台顶面（弹起来过）。之后它就是「在地上」贴地弹跳的手雷，Boss A 会躲；撞墙反弹不算。
@@ -47,6 +49,7 @@ func launch(direction: Vector2) -> void:
 
 func _ready() -> void:
 	add_to_group(GROUP)
+	Skins.build_appearance(self, skin_key)
 	_contact.collision_mask = target_layer
 	_contact.body_entered.connect(_on_contact)
 

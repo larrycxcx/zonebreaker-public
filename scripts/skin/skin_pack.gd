@@ -47,6 +47,13 @@ const APPEARANCE_KEYS := {
 	&"flyer": "敌人 E（飞行）",
 	&"chaser": "敌人 D（追击）",
 	&"boss_a": "Boss A",
+	# 发射物（外观根节点同样挂 Appearance；子弹会收到 aim(飞行方向)，素材包按方向挑贴图，见 ProjectileAppearance）
+	&"player_bullet": "玩家的子弹",
+	&"enemy_bullet": "敌人的子弹（巡逻兵、Boss）",
+	&"turret_bullet": "炮台的炮弹",
+	&"flyer_bullet": "E 往下打的子弹",
+	&"player_grenade": "玩家的手雷",
+	&"enemy_grenade": "F 打出来的手雷",
 }
 
 ## 全部特效的键。没填的用 Fx 节点上配的默认场景。

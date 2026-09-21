@@ -7,6 +7,8 @@ extends Area2D
 @export var speed := 520.0
 @export var lifetime := 1.2
 @export var damage := 1
+## 素材包里用哪一项画它（`SkinPack.APPEARANCE_KEYS`，和角色同一套）。只管长什么样，和规则无关。
+@export var skin_key := &""
 
 var direction := Vector2.RIGHT
 
@@ -22,6 +24,10 @@ func _ready() -> void:
 	# 外形是横着的细条，按飞行方向转过去（向上打时变成竖条）。
 	# direction 在 add_child 之前就设好了，所以这里读到的是最终值。
 	rotation = direction.angle()
+	# 占位的细条跟着本体一起转；素材包的贴图按方向挑一张现成的（见 ProjectileAppearance）
+	var visual := Skins.build_appearance(self, skin_key)
+	if visual != null:
+		visual.aim(direction)
 	body_entered.connect(_on_body_entered)
 
 

@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/enemy_flyer.gd" id="1"]
-[ext_resource type="PackedScene" path="res://scenes/enemy_bullet.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/flyer_bullet.tscn" id="2"]
 [ext_resource type="Script" path="res://scripts/appearance.gd" id="99"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
