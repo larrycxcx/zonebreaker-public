@@ -540,20 +540,20 @@ func test_lying_down_still_dodges_with_the_sprite_skin() -> void:
 
 
 func test_the_pack_only_overrides_what_has_been_drawn() -> void:
-	# 这套包目前有玩家、三种巡逻兵和飞行的 E 的贴图，其余敌人和音效都回落到默认包（还是占位方块）
+	# 这套包目前有玩家和除 Boss 以外所有敌人的贴图，其余敌人和音效都回落到默认包（还是占位方块）
 	var pack := skin()
 	# StringName 排序不按字母（按内部指针），先转成普通字符串再比
 	var drawn := pack.appearances.keys().map(func(k: StringName) -> String: return String(k))
 	drawn.sort()
-	check("it overrides the player, the three walkers and the flyer",
-		drawn == ["flyer", "player", "walker_a", "walker_b", "walker_c"],
+	check("it overrides the player and every enemy but the boss",
+		drawn == ["chaser", "flyer", "grenadier", "player", "turret", "walker_a", "walker_b", "walker_c"],
 		str(drawn))
 	check("it ships no effects of its own", pack.effects.is_empty())
 	check("and falls back to the default pack", pack.fallback == Skins.default_skin())
 	check("so it still has sounds", pack.find_sound(&"player_shoot") != null)
 	await reset_scene(true, false, pack)
-	keep_only_enemies(["Turret1"])
+	keep_only_enemies(["BossA"])
 	await frames(5)
-	var turret_art: Node = main.get_node("Enemies/Turret1/Visual")
-	check("an enemy with no art yet keeps its placeholder blocks", turret_art is Appearance
-		and not (turret_art is SpriteAppearance) and not (turret_art is EnemySpriteAppearance))
+	var unpainted: Node = main.get_node("Enemies/BossA/Visual")
+	check("an enemy with no art yet keeps its placeholder blocks", unpainted is Appearance
+		and not (unpainted is SpriteAppearance) and not (unpainted is EnemySpriteAppearance))

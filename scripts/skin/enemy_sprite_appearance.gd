@@ -10,7 +10,10 @@ extends Appearance
 ##   死了 → death（播一遍停住）
 ##   正在播的一次性动作 → fire() 的开火、flash_hit() 的受伤
 ##   趴着 → prone 第 1 帧（开火时整组播一遍）
-##   斜着瞄准 → attack_up / attack_down 第 1 帧（举着枪等开火；E 一直朝正下方，那不算「斜着」）
+##   斜着瞄准 → 有 idle_up / idle_down 就循环播它（炮台：斜着的炮管照样上下浮动），
+##              没有就停在 attack_up / attack_down 第 1 帧（巡逻兵举着枪等开火）；E 一直朝正下方，那不算「斜着」
+## 受伤同理：斜着瞄准时有 hurt_up / hurt_down 就用它，免得挨一下炮管就跳回水平。
+##   冲（D 追击）→ run；在空中 → air；没有这两组就退回 walk
 ##   在走 → walk；站着 → idle
 
 ## 地面敌人每帧的大小和锚点（帧里对应敌人身体原点的那个像素），必须和 tools/enemy_build.py 一致。
@@ -21,7 +24,7 @@ const ANCHOR_X := 40
 const ANCHOR_Y := 40
 
 ## 循环动作的速度（帧/秒）。
-const LOOP_FPS := {&"idle": 6.0, &"walk": 10.0}
+const LOOP_FPS := {&"idle": 6.0, &"idle_up": 6.0, &"idle_down": 6.0, &"walk": 10.0, &"run": 12.0}
 ## 一次性动作的速度。
 const ONCE_FPS := 12.0
 ## 倒地播完后在地上躺多久、再用多久淡出。
@@ -52,6 +55,8 @@ var _elapsed := 0.0
 var _once := &""
 var _once_since := 0.0
 var _dead_since := 0.0
+## 这套贴图有没有某个动作（按名字缓存，免得每帧问文件系统）。
+var _has := {}
 
 
 func _ready() -> void:
@@ -109,7 +114,7 @@ func fire() -> void:
 
 ## 挨了一下：播一遍受伤（素材的第 2 帧是整个人闪红）。
 func flash_hit() -> void:
-	_play_once(&"hurt")
+	_play_once(_aimed(&"hurt"))
 
 
 ## 死了：本体马上会被删掉，所以外观把自己挪到特效层下面，播完倒地、躺一会儿、淡出后自己消失。
@@ -142,8 +147,16 @@ func clip() -> StringName:
 	if _prone:
 		return &"prone"
 	if _aiming_diagonally():
-		return _attack_clip()
-	return &"walk" if _motion == Motion.WALK else &"idle"
+		var idle := _aimed(&"idle")
+		return idle if idle != &"idle" else _attack_clip()
+	match _motion:
+		Motion.WALK:
+			return &"walk"
+		Motion.RUN:
+			return _first([&"run", &"walk"])
+		Motion.JUMP, Motion.FALL:
+			return _first([&"air", &"run", &"walk"])
+	return &"idle"
 
 
 func _attack_clip() -> StringName:
@@ -152,6 +165,28 @@ func _attack_clip() -> StringName:
 
 func _aiming_diagonally() -> bool:
 	return _aim.x != 0.0 and _aim.y != 0.0
+
+
+## 这套贴图里有的第一个动作（最后一个当兜底，不查）。
+func _first(names: Array[StringName]) -> StringName:
+	for name in names.slice(0, -1):
+		if _exists(name):
+			return name
+	return names[-1]
+
+
+func _exists(name: StringName) -> bool:
+	if not _has.has(name):
+		_has[name] = ResourceLoader.exists("%s/%s_r.png" % [art_dir, name])
+	return _has[name]
+
+
+## 斜着瞄准时这个动作的斜向版本（`hurt` → `hurt_up`），贴图里没有就还是原来那个。
+func _aimed(name: StringName) -> StringName:
+	if not _aiming_diagonally():
+		return name
+	var variant := StringName("%s_%s" % [name, "up" if _aim.y < 0.0 else "down"])
+	return variant if _exists(variant) else name
 
 
 func _play_once(name: StringName) -> void:
@@ -183,7 +218,7 @@ func _advance() -> void:
 		_body.frame = mini(int((_elapsed - _dead_since) * ONCE_FPS), last)
 	elif _once != &"":
 		_body.frame = mini(int((_elapsed - _once_since) * ONCE_FPS), last)
-	elif _prone or _aiming_diagonally():
+	elif _prone or (_aiming_diagonally() and clip() == _attack_clip()):
 		_body.frame = 0 # 趴着 / 斜着举枪：停在第一帧，开火时才整组播
 	else:
 		var fps: float = LOOP_FPS.get(clip(), 0.0)

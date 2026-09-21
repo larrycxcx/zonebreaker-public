@@ -1,5 +1,5 @@
 extends GameTest
-## 赛博朋克皮肤包的敌人贴图（目前是巡逻兵 A/B/C，素材 2 号换色；飞行的 E，素材 5 号无人机）。
+## 赛博朋克皮肤包的敌人贴图（目前是巡逻兵 A/B/C，素材 2 号换色；飞行的 E，素材 5 号无人机；炮台，素材 6 号加手改的斜炮管；D 滑板手 3 号；F 球棒手 1 号）。
 ##
 ## 和玩家那组（test_cyberpunk_skin.gd）守的是同一类东西：贴图齐全、左右严格镜像、脚底落在地面线上、
 ## 子弹从画面上的枪口出来，以及最要紧的——**换皮肤不改变规则**：同一个敌人用方块和用精灵图，
@@ -505,3 +505,381 @@ func test_a_shot_down_flyer_falls_and_fades() -> void:
 	check("the wreck stays behind in the effects layer", is_instance_valid(visual) and visual.get_parent() is Fx)
 	if is_instance_valid(visual):
 		check("and plays the crash", visual.clip() == &"death", str(visual.clip()))
+
+
+# ---------------------------------------------------------------- 炮台（6 号履带炮塔）
+# 素材只有水平炮管，斜上 / 斜下是手改的，由生成脚本移植到攻击、受伤帧上。
+
+const T_CLIPS := [&"idle", &"idle_up", &"idle_down", &"attack_level", &"attack_up", &"attack_down",
+	&"hurt", &"hurt_up", &"hurt_down", &"death"]
+
+
+func t_image(clip: StringName, side := "r") -> Image:
+	return image(&"turret", clip, side)
+
+
+## 只留一座炮台，摆在右边空地上朝左；玩家在 player_x（默认在射程外）。
+func place_turret(pack: SkinPack, player_x := 400.0) -> EnemyTurret:
+	await reset_scene(true, false, pack)
+	keep_only_enemies(["Turret1"])
+	var t: EnemyTurret = main.get_node("Enemies/Turret1")
+	t.global_position = Vector2(1000, 304)
+	t.facing = -1
+	t._apply_visual_facing()
+	player.global_position = Vector2(player_x, 304)
+	player.velocity = Vector2.ZERO
+	for i in 10:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+	return t
+
+
+func test_every_clip_is_there_for_the_turret() -> void:
+	for clip: StringName in T_CLIPS:
+		for side in ["r", "l"]:
+			var path := "%s/turret/%s_%s.png" % [ART, clip, side]
+			var texture := load(path) as Texture2D
+			check("turret %s_%s exists" % [clip, side], texture != null, path)
+			if texture != null:
+				check("turret %s_%s is one row of %dx%d frames" % [clip, side, FW, FH],
+					texture.get_height() == FH and texture.get_width() % FW == 0,
+					"%d x %d" % [texture.get_width(), texture.get_height()])
+
+
+func test_the_turret_facings_are_mirrors() -> void:
+	for clip: StringName in [&"idle", &"attack_up", &"hurt_down", &"death"]:
+		var right := t_image(clip, "r")
+		var left := t_image(clip, "l")
+		var same := right.get_size() == left.get_size()
+		if same:
+			for y in right.get_height():
+				for x in right.get_width():
+					var f := x / FW
+					var m := f * FW + 2 * AX - (x - f * FW)
+					if m < f * FW or m >= (f + 1) * FW:
+						continue
+					var a := right.get_pixel(x, y)
+					var b := left.get_pixel(m, y)
+					if a.a != b.a or (a.a > 0.0 and a != b):
+						same = false
+		check("turret %s: left is the mirror of right around the anchor" % clip, same)
+
+
+func test_the_turret_stands_on_the_ground() -> void:
+	# 履带底落在原点下方 16px（碰撞体 32 高），不管炮管朝哪
+	for clip: StringName in [&"idle", &"idle_up", &"idle_down", &"attack_up", &"attack_down"]:
+		var img := t_image(clip)
+		for f in img.get_width() / FW:
+			var lowest := -INF
+			for p in ink(img, f):
+				lowest = maxf(lowest, p.y)
+			check("turret %s frame %d stands on the ground" % [clip, f + 1], absf(lowest + 1.0 - 16.0) <= 1.0,
+				"最低处在原点下方 %.0fpx" % (lowest + 1.0))
+
+
+func test_turret_shots_leave_from_the_barrel_in_the_art() -> void:
+	var t := await place_turret(skin())
+	t.set_physics_process(false)
+	t.facing = 1
+	for case in [[Enemy.Aim.LEVEL, &"attack_level", Vector2.RIGHT],
+			[Enemy.Aim.DIAGONAL_UP, &"attack_up", Vector2(1, -1)],
+			[Enemy.Aim.DIAGONAL_DOWN, &"attack_down", Vector2(1, 1)]]:
+		t._burst_aim = case[0]
+		t._burst_direction = (case[2] as Vector2).normalized()
+		var rule := t._muzzle_position() - t.global_position
+		# 只看炮管那一侧、履带以上（斜下时履带前端比炮口还往右下）
+		var barrel: Array[Vector2] = []
+		for p in ink(t_image(case[1]), 0):
+			if p.x > 6.0 and p.y < 7.0:
+				barrel.append(p)
+		var art := tip(barrel, case[2])
+		check("turret %s: shots leave from the barrel" % case[1], art.distance_to(rule) <= 3.0,
+			"贴图 %s，出膛点 %s" % [art, rule])
+
+
+func measure_turret(pack: SkinPack) -> Dictionary:
+	var t := await place_turret(pack, 760.0)   # 玩家在射程内、同一高度：炮台转过来开火
+	var out := {}
+	out["level_muzzle"] = t.level_muzzle_position() - t.global_position
+	out["diagonal_up"] = t.diagonal_up_muzzle
+	out["diagonal_down"] = t.diagonal_down_muzzle
+	out["box"] = (t._shape.shape as RectangleShape2D).size
+	var shots := 0
+	for i in 120:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		if not bullets(16).is_empty():
+			shots += 1
+	out["facing"] = t.facing
+	out["fired"] = shots > 0
+	var found := bullets(16)
+	out["shot_y"] = snappedf(found[0].global_position.y, 0.01) if not found.is_empty() else INF
+	return out
+
+
+func test_the_turret_skin_changes_nothing_about_the_rules() -> void:
+	var blocks := await measure_turret(Skins.default_skin())
+	var sprites := await measure_turret(skin())
+	check("the turret really turns and fires in this test", blocks["fired"] and blocks["facing"] == -1, str(blocks))
+	for key: String in blocks:
+		check("turret %s is the same with either skin" % key, blocks[key] == sprites[key],
+			"方块 %s，精灵图 %s" % [blocks[key], sprites[key]])
+
+
+func test_the_turret_wears_its_art() -> void:
+	await reset_scene(true, false, skin())
+	for name in ["Turret1", "Turret2"]:
+		var visual: Node = main.get_node("Enemies/%s/Visual" % name)
+		check("%s wears the sprite appearance" % name, visual is EnemySpriteAppearance, str(visual))
+		if visual is EnemySpriteAppearance:
+			check("%s uses the turret art" % name, (visual as EnemySpriteAppearance).art_dir.ends_with("/turret"),
+				(visual as EnemySpriteAppearance).art_dir)
+			var sprite := visual as EnemySpriteAppearance
+			check("%s draws the art at its anchor" % name, sprite.frame_size == Vector2i(FW, FH) and sprite.anchor == Vector2i(AX, AY),
+				"%s / %s" % [sprite.frame_size, sprite.anchor])
+
+
+func test_turret_clips_follow_its_aim() -> void:
+	var t := await place_turret(skin())
+	t.set_physics_process(false)
+	var visual: EnemySpriteAppearance = t.get_node("Visual")
+	var body: Sprite2D = visual.get_node("Body")
+	check("idle: level barrel", visual.clip() == &"idle", str(visual.clip()))
+	# 斜着瞄准：斜炮管照样有待机的上下浮动，不是定住
+	visual.aim(Vector2(-1, -1).normalized())
+	var seen := {}
+	for i in 30:
+		await frames(1)
+		seen[body.frame] = true
+	check("aiming up: the up barrel idles", visual.clip() == &"idle_up" and seen.size() > 1,
+		"%s / 帧 %s" % [visual.clip(), seen.keys()])
+	visual.fire()
+	check("firing up plays the up shot", visual.clip() == &"attack_up", str(visual.clip()))
+	for i in 30:
+		await frames(1)
+	check("and goes back to the up idle", visual.clip() == &"idle_up", str(visual.clip()))
+	# 斜着挨打：用斜炮管那套受伤帧，炮管不会跳回水平
+	visual.flash_hit()
+	check("hit while aiming up keeps the up barrel", visual.clip() == &"hurt_up", str(visual.clip()))
+	visual.aim(Vector2(-1, 1).normalized())
+	await frames(20)
+	check("aiming down: the down barrel idles", visual.clip() == &"idle_down", str(visual.clip()))
+	visual.aim(Vector2.LEFT)
+	await frames(2)
+	check("back to level", visual.clip() == &"idle", str(visual.clip()))
+	visual.flash_hit()
+	check("hit while level: the level hurt", visual.clip() == &"hurt", str(visual.clip()))
+
+
+func test_the_turret_really_fires_its_shot_pose() -> void:
+	var t := await place_turret(skin(), 760.0)
+	var visual: EnemySpriteAppearance = t.get_node("Visual")
+	var fired := false
+	for i in 200:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		if visual.clip() == &"attack_level":
+			fired = true
+			break
+	check("the turret shows its shot pose when it fires", fired)
+	check("and a bullet really left", not bullets(16).is_empty())
+
+
+# ---------------------------------------------------------------- D（3 号滑板手）和 F（1 号球棒手）
+
+const SINGLE_CLIPS := {
+	&"chaser": [&"idle", &"walk", &"run", &"air", &"hurt", &"death"],
+	&"grenadier": [&"idle", &"walk", &"attack_level", &"hurt", &"death"],
+}
+
+
+## 只留一个敌人，摆在右边空地上朝左；玩家在 player_x（默认远在射程外）。
+func place_one(pack: SkinPack, node: String, player_x := 300.0) -> EnemyWalker:
+	await reset_scene(true, false, pack)
+	keep_only_enemies([node])
+	var e: EnemyWalker = main.get_node("Enemies/" + node)
+	e.global_position = Vector2(1000, 304)
+	e.facing = -1
+	e._apply_facing()
+	player.global_position = Vector2(player_x, 304)
+	player.velocity = Vector2.ZERO
+	for i in 10:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+	return e
+
+
+func test_every_clip_is_there_for_d_and_f() -> void:
+	for who: StringName in SINGLE_CLIPS:
+		for clip: StringName in SINGLE_CLIPS[who]:
+			for side in ["r", "l"]:
+				var path := "%s/%s/%s_%s.png" % [ART, who, clip, side]
+				var texture := load(path) as Texture2D
+				check("%s %s_%s exists" % [who, clip, side], texture != null, path)
+				if texture != null:
+					check("%s %s_%s is one row of %dx%d frames" % [who, clip, side, FW, FH],
+						texture.get_height() == FH and texture.get_width() % FW == 0,
+						"%d x %d" % [texture.get_width(), texture.get_height()])
+
+
+func test_d_and_f_facings_are_mirrors() -> void:
+	for who: StringName in SINGLE_CLIPS:
+		for clip: StringName in SINGLE_CLIPS[who]:
+			var right := image(who, clip, "r")
+			var left := image(who, clip, "l")
+			var same := right.get_size() == left.get_size()
+			if same:
+				for y in right.get_height():
+					for x in right.get_width():
+						var f := x / FW
+						var m := f * FW + 2 * AX - (x - f * FW)
+						if m < f * FW or m >= (f + 1) * FW:
+							continue
+						var a := right.get_pixel(x, y)
+						var b := left.get_pixel(m, y)
+						if a.a != b.a or (a.a > 0.0 and a != b):
+							same = false
+			check("%s %s: left is the mirror of right around the anchor" % [who, clip], same)
+
+
+func test_d_and_f_stand_on_the_ground() -> void:
+	for who: StringName in SINGLE_CLIPS:
+		for clip: StringName in SINGLE_CLIPS[who]:
+			if clip == &"air" or clip == &"death":
+				continue # 空中那帧本来就离地；倒地的最后几帧人扑在地上，脚不在最低处
+			var img := image(who, clip)
+			for f in img.get_width() / FW:
+				var lowest := -INF
+				for p in ink(img, f):
+					lowest = maxf(lowest, p.y)
+				check("%s %s frame %d stands on the ground" % [who, clip, f + 1], absf(lowest + 1.0 - 16.0) <= 1.0,
+					"最低处在原点下方 %.0fpx" % (lowest + 1.0))
+
+
+func test_d_and_f_wear_their_art() -> void:
+	await reset_scene(true, false, skin())
+	for pair in [["ChaserD", "/chaser"], ["WalkerF", "/grenadier"]]:
+		var visual: Node = main.get_node("Enemies/%s/Visual" % pair[0])
+		check("%s wears the sprite appearance" % pair[0], visual is EnemySpriteAppearance, str(visual))
+		if visual is EnemySpriteAppearance:
+			var sprite := visual as EnemySpriteAppearance
+			check("%s uses its own art" % pair[0], sprite.art_dir.ends_with(pair[1]), sprite.art_dir)
+			check("%s draws the art at its anchor" % pair[0], sprite.frame_size == Vector2i(FW, FH) and sprite.anchor == Vector2i(AX, AY),
+				"%s / %s" % [sprite.frame_size, sprite.anchor])
+
+
+func test_d_skates_charges_and_jumps() -> void:
+	var d := await place_one(skin(), "ChaserD") as EnemyChaser
+	var visual: EnemySpriteAppearance = d.get_node("Visual")
+	await frames(5)
+	check("patrolling: skates along", visual.clip() == &"walk", str(visual.clip()))
+	# 玩家走进它的视线：冲过来，换成站在板上冲的那组
+	player.global_position = Vector2(820, 304)
+	var charged := false
+	for i in 30:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		if d.is_chasing and visual.clip() == &"run":
+			charged = true
+			break
+	check("charging: rides the board", charged, "%s / chasing %s" % [visual.clip(), d.is_chasing])
+	# 起跳：空中那一帧
+	d.velocity.y = d.jump_velocity
+	var airborne := false
+	for i in 10:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		if not d.is_on_floor() and visual.clip() == &"air":
+			airborne = true
+			break
+	check("jumping: the air pose", airborne, str(visual.clip()))
+	d.take_damage(1)
+	check("getting hit plays the hurt clip", visual.clip() == &"hurt", str(visual.clip()))
+
+
+func measure_d(pack: SkinPack) -> Dictionary:
+	var d := await place_one(pack, "ChaserD") as EnemyChaser
+	var out := {}
+	out["box"] = (d._shape.shape as RectangleShape2D).size
+	var x0 := d.global_position.x
+	for i in 40:
+		await tree.physics_frame
+	out["patrol"] = snappedf(d.global_position.x - x0, 0.01)
+	player.global_position = Vector2(820, 304)
+	x0 = d.global_position.x
+	for i in 40:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+	out["chasing"] = d.is_chasing
+	out["charge"] = snappedf(d.global_position.x - x0, 0.01)
+	return out
+
+
+func test_d_skin_changes_nothing_about_the_rules() -> void:
+	var blocks := await measure_d(Skins.default_skin())
+	var sprites := await measure_d(skin())
+	check("D really patrols and charges in this test",
+		absf(blocks["patrol"]) > 20.0 and blocks["chasing"] and absf(blocks["charge"]) > 60.0, str(blocks))
+	for key: String in blocks:
+		check("D %s is the same with either skin" % key, blocks[key] == sprites[key],
+			"方块 %s，精灵图 %s" % [blocks[key], sprites[key]])
+
+
+func test_f_bats_the_grenade_out_of_the_swing() -> void:
+	# 出手点落在挥棒那一帧的弧光上：画面上手雷是从球棒打到的地方飞出去的
+	var offset := EnemyGrenadier.THROW_OFFSET
+	var near := INF
+	for p in ink(image(&"grenadier", &"attack_level"), 0):
+		near = minf(near, p.distance_to(offset))
+	check("the grenade leaves from the swing", near <= 2.0, "出手点 %s 离弧光最近 %.1fpx" % [offset, near])
+
+
+func test_f_swings_when_it_throws() -> void:
+	var f := await place_one(skin(), "WalkerF", 800.0) as EnemyGrenadier
+	var visual: EnemySpriteAppearance = f.get_node("Visual")
+	var swung := false
+	for i in 120:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		if visual.clip() == &"attack_level":
+			swung = true
+			break
+	check("F swings its bat when it throws", swung)
+	check("and a grenade really flew", not tree.get_nodes_in_group(Grenade.GROUP).is_empty())
+	var back := false
+	for i in 40:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		if visual.clip() != &"attack_level":
+			back = true
+			break
+	check("then goes back to walking", back, str(visual.clip()))
+
+
+func measure_f(pack: SkinPack) -> Dictionary:
+	var f := await place_one(pack, "WalkerF", 800.0) as EnemyGrenadier
+	var out := {}
+	out["box"] = (f._shape.shape as RectangleShape2D).size
+	# 手雷飞一会儿就炸了、被释放，所以一看到就记下位置
+	var thrown: Array = []
+	var first_from := Vector2.INF
+	for i in 90:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		for g: Node2D in tree.get_nodes_in_group(Grenade.GROUP):
+			if not thrown.has(g):
+				if thrown.is_empty():
+					first_from = g.global_position.snappedf(0.01)
+				thrown.append(g)
+	out["throws"] = thrown.size()
+	out["first_from"] = first_from
+	return out
+
+
+func test_f_skin_changes_nothing_about_the_rules() -> void:
+	var blocks := await measure_f(Skins.default_skin())
+	var sprites := await measure_f(skin())
+	check("F really throws in this test", blocks["throws"] > 0, str(blocks))
+	for key: String in blocks:
+		check("F %s is the same with either skin" % key, blocks[key] == sprites[key],
+			"方块 %s，精灵图 %s" % [blocks[key], sprites[key]])

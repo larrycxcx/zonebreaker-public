@@ -184,26 +184,21 @@ func test_walker_does_not_shoot_backwards() -> void:
 	check("walker keeps facing away", walker.facing == -1 and player.health == 3, str(player.health))
 
 
-func test_walker_and_turret_shoot_at_the_same_height() -> void:
+func test_walker_and_turret_level_shots_hit_standing_and_miss_prone() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["WalkerA", "Turret1"])
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
 	await frames(30)
 
-	# 我们真正能保证的不变量：两种敌人的枪口本地偏移完全相同（都是胸口那个高度）。这个要精确。
-	check("muzzle offsets are identical by design", walker._muzzle.position.y == turret._muzzle.position.y, "%s vs %s" % [walker._muzzle.position, turret._muzzle.position])
-
-	# 世界坐标只要求亚像素级一致：巡逻兵在移动，CharacterBody2D 的碰撞安全边距（默认 0.08）
+	# 两种敌人站在同一块地上：世界坐标只要求亚像素级一致——巡逻兵在移动，CharacterBody2D 的碰撞安全边距（默认 0.08）
 	# 会让它悬在地面上方约 0.07px，而站着不动的炮台贴得严丝合缝。
-	# 渲染开了像素对齐，这点差别画面上落在同一行；容差取 0.5px，
-	# 仍然能抓到「枪口摆错一整个像素」这种真正的设计错误。
 	var body_gap := absf(walker.global_position.y - turret.global_position.y)
 	check("both rest on the ground within a sub-pixel", body_gap < 0.5, "%.3f px" % body_gap)
-	var muzzle_gap := absf(walker.level_muzzle_position().y - turret.level_muzzle_position().y)
-	check("muzzles line up within a sub-pixel", muzzle_gap < 0.5, "%.3f px" % muzzle_gap)
 
-	# 光看 Marker 位置不够，还要确认真打出来的子弹高度一致。
+	# 两者的枪口高度不必相同（巡逻兵的枪举在胸口，炮台的炮管按素材低 4px），
+	# 但站着平射的子弹都必须落在同一个区间里：打得中站着的玩家，从趴着的玩家头顶飞过。
+	# 光看 Marker 不够，要看真打出来的子弹。
 	walker.facing = -1
 	turret.facing = -1
 	walker.try_shoot(1998.0, player)
@@ -211,9 +206,13 @@ func test_walker_and_turret_shoot_at_the_same_height() -> void:
 	await frames(1)
 	var shots := bullets(16)
 	check("both actually fired", shots.size() == 2, str(shots.size()))
-	if shots.size() == 2:
-		var shot_gap := absf(shots[0].global_position.y - shots[1].global_position.y)
-		check("the bullets share one firing line", shot_gap < 0.5, "%.3f px" % shot_gap)
+	var ground := turret.global_position.y + 16.0
+	for shot: Node2D in shots:
+		var half := ((shot.get_node("CollisionShape2D") as CollisionShape2D).shape as RectangleShape2D).size.y / 2.0
+		var bottom := ground - (shot.global_position.y + half)
+		var top := ground - (shot.global_position.y - half)
+		check("a level shot passes over a prone player (bottom %.1f px above ground)" % bottom, bottom > Player.CROUCH_HEIGHT)
+		check("a level shot still hits a standing player (top %.1f px above ground)" % top, top < Player.STAND_HEIGHT)
 
 
 func test_enemy_bullets_do_not_hurt_other_enemies() -> void:

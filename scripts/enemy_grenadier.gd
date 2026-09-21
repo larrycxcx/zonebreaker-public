@@ -66,4 +66,5 @@ func _throw() -> void:
 	grenade.call(&"launch", Vector2(facing, 0))
 	get_parent().add_child(grenade)
 	grenade.global_position = global_position + Vector2(THROW_OFFSET.x * facing, THROW_OFFSET.y)
+	_visual.fire()
 	GameEvents.report(throw_event, self)

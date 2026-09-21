@@ -135,9 +135,15 @@ func die() -> void:
 	queue_free()
 
 
-## 告诉外观这一帧是在走还是站着（选走路 / 待机动画）。移动的子类在 move_and_slide 之后调。
-func _report_motion() -> void:
-	_visual.motion(Appearance.Motion.WALK if absf(velocity.x) > 1.0 else Appearance.Motion.IDLE)
+## 告诉外观这一帧在做什么（选待机 / 走 / 跑 / 空中的动画）。移动的子类在 move_and_slide 之后调；
+## `fast` 表示这是在冲（D 追击时），外观有跑的动作就用它。
+func _report_motion(fast := false) -> void:
+	var state := Appearance.Motion.IDLE
+	if not is_on_floor():
+		state = Appearance.Motion.JUMP if velocity.y < 0.0 else Appearance.Motion.FALL
+	elif absf(velocity.x) > 1.0:
+		state = Appearance.Motion.RUN if fast else Appearance.Motion.WALK
+	_visual.motion(state)
 
 
 ## 打得着、并且看得见的玩家，否则返回 null（「打得着」见 aim_for()）。

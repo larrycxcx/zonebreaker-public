@@ -59,6 +59,50 @@ VARIANTS = {
 }
 
 
+# 敌人 D（3 号滑板手）和 F（1 号球棒手）：一个素材出一种敌人，动作直接对上，整个角色按一帧的躯干定一次位。
+# 键是输出的动作名（EnemySpriteAppearance 按它挑），值是 (文件, 取哪几帧)；ANCHOR_CLIP 是拿哪个动作的第 1 帧定位。
+# D：平时踩着滑板溜（walk）；冲锋时站在板上冲（run，素材的 Attack）；跳起来也用板上那组第 1 帧（air）；
+#    素材有两组受伤，用踩在板上的 Hurt2——D 几乎总在板上。Idle 是提着滑板站着，只有被卡住不动时才看得到。
+# F：扔手雷 = 用球棒把手雷打出去。素材 Attack 前 3 帧是准备（和待机几乎一样），第 4 帧是挥棒的弧光，
+#    所以开火动作从第 4 帧开始：手雷飞出去的那一刻画面上正好是球棒打中，扔的时机不用改。
+SINGLES = {
+	"chaser": ("3", "walk", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"run": ("Attack.png", [0, 1, 2, 3]),
+		"air": ("Attack.png", [0]),
+		"hurt": ("Hurt2.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+	"grenadier": ("1", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack.png", [3, 4, 5]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+}
+
+
+# 炮台（6 号，履带炮塔）。素材只有水平炮管；斜上 / 斜下是在 Idle.png 上手改炮管画的
+# （art_in/extra/turret_diag_*.png，含素材包的像素，所以和素材包一样不进仓库），生成时移植到攻击、受伤帧上。
+# Walk 就是履带在滚，炮台不走，不用。
+TURRET_CLIPS = {
+	"idle": ("Idle.png", [0, 1, 2, 3]),
+	"attack_level": ("Attack.png", [0, 1, 2, 3]),
+	"hurt": ("Hurt.png", [0, 1]),
+	"death": ("Death.png", [0, 1, 2, 3]),
+}
+TURRET_DIAG = {"up": "turret_diag_up.png", "down": "turret_diag_down.png"}
+EXTRA = os.path.join(HERE, "..", "art_in", "extra")
+TURRET_BODY_RIGHT = 25        # 机身右边缘（再往右是炮管）；手改只许动这一列往左 2px 以右
+TURRET_BARREL_ROWS = (26, 33)  # 原来水平炮管那几行：斜炮管的颜色贴回这里出现过的那几种
+TURRET_MOUNT_ROWS = (26, 38)   # 炮管装在这一截上：后坐时它整体平移（圆顶挪得更多，是挤压），斜炮管跟着它走
+TURRET_MOUNT_SLACK = 16        # 上面那一截允许差几个像素（后坐时的挤压）
+TURRET_COLUMN_ROWS = (21, 25)  # 圆顶下面的立柱，横向按它居中
+TURRET_OUTLINE_AT = (14, 14)   # 圆顶最上面一个描边像素，取描边色
+
+
 # 敌人 E（5 号无人机）。Idle 和 Walk 两组画得一模一样（悬停时螺旋桨转），只取 Idle；
 # Attack 是往正下方放电，正好是 E 竖直向下开火。
 FLYER_CLIPS = {
@@ -151,6 +195,124 @@ def build_walkers(write):
 			save(variant, "%s_l.png" % name, [mirror(f) for f in right], write)
 
 
+def build_singles(write):
+	for name, (number, anchor_clip, table) in SINGLES.items():
+		folder = os.path.join(PACK, number)
+		clips = {clip: frames_of(os.path.join(folder, f), idx) for clip, (f, idx) in table.items()}
+		anchor_x = sb.torso_center(clips[anchor_clip][0])
+		for clip, frames in clips.items():
+			right = [place(f, anchor_x, "%s %s" % (name, clip)) for f in frames]
+			save(name, "%s_r.png" % clip, right, write)
+			save(name, "%s_l.png" % clip, [mirror(f) for f in right], write)
+
+
+def build_turret(write):
+	"""炮台：水平那几组直接用素材；斜上 / 斜下是把手改的炮管移植到每一帧上（见 TURRET_DIAG）。"""
+	folder = os.path.join(PACK, "6")
+	clips = {name: frames_of(os.path.join(folder, f), idx) for name, (f, idx) in TURRET_CLIPS.items()}
+	idle = clips["idle"]
+	outline = idle[0][TURRET_OUTLINE_AT[1]][TURRET_OUTLINE_AT[0]]
+	for aim, source in TURRET_DIAG.items():
+		drawn = diag_sheet(os.path.join(EXTRA, source), idle)
+		# 攻击帧：炮台后坐时装炮管那一截往后上方平移，斜炮管跟着同样平移
+		clips["attack_" + aim] = [graft(f, drawn[0], mount_offset(f, idle[0])) for f in clips["attack_level"]]
+		clips["idle_" + aim] = [d["frame"] for d in drawn]
+		# 受伤：第 1 帧和待机一样；第 2 帧整个炮台闪成一片黄，新炮管也要涂成同一种闪光色
+		hurt = clips["hurt"]
+		flash_color = most_common(hurt[1], skip=[outline])
+		clips["hurt_" + aim] = [graft(hurt[0], drawn[0], (0, 0)), flashed(hurt[1], drawn[1], outline, flash_color)]
+	# 横向按炮塔立柱（圆顶下面那一截）居中，炮管、履带都不算
+	column = [x for y in range(*TURRET_COLUMN_ROWS) for x, c in enumerate(idle[0][y]) if c[3] > 8]
+	anchor_x = (min(column) + max(column)) / 2.0
+	for name, frames in clips.items():
+		right = [place(f, anchor_x, "turret %s" % name) for f in frames]
+		save("turret", "%s_r.png" % name, right, write)
+		save("turret", "%s_l.png" % name, [mirror(f) for f in right], write)
+
+
+def diag_sheet(path, idle):
+	"""读一张手改的斜炮管图（在 Idle.png 上只改炮管那一块）：返回每一帧的「改了哪些像素」和清理后的整帧。
+	改动必须只在炮管那一侧，机身一个像素都不能动——否则没法移植到攻击 / 受伤帧上，直接报错。"""
+	width, height, pixels = sb.read_png(path)
+	assert width == CELL * len(idle), "%s 应该和 Idle.png 一样宽（%d），实际 %d" % (path, CELL * len(idle), width)
+	assert not any(c[3] > 8 for row in pixels[CELL:] for c in row), "%s 在第 %d 行以下还有内容" % (path, CELL)
+	barrel_colors = sorted({c[:3] for y in range(*TURRET_BARREL_ROWS) for c in idle[0][y][TURRET_BODY_RIGHT:] if c[3] > 8})
+	out = []
+	for i, original in enumerate(idle):
+		frame = sb.cut(pixels, i * CELL, 0, CELL, CELL)
+		changed = [(x, y) for y in range(CELL) for x in range(CELL)
+			if visible(frame[y][x]) != visible(original[y][x])
+			or (visible(frame[y][x]) and frame[y][x][:3] != original[y][x][:3])]
+		stray = [(x, y) for x, y in changed if x < TURRET_BODY_RIGHT - 2]
+		assert not stray, "%s 第 %d 帧改动了机身：%s" % (path, i + 1, stray[:5])
+		clean = [row[:] for row in original]
+		for x, y in changed:
+			c = frame[y][x]
+			# 编辑器旋转时抗锯齿出来的半透明边和近似色：透明度二值化，颜色贴回炮管原来那几种
+			clean[y][x] = (0, 0, 0, 0) if c[3] < 128 else \
+				min(barrel_colors, key=lambda p: sum((p[k] - c[k]) ** 2 for k in range(3))) + (255,)
+		out.append({"changed": changed, "frame": clean})
+	return out
+
+
+def visible(c):
+	return c[3] >= 128
+
+
+def mount_offset(frame, idle):
+	"""这一帧装炮管的那一截（炮管以左）相对待机第一帧挪了多少。"""
+	best = None
+	for dx in range(-3, 4):
+		for dy in range(-3, 4):
+			miss = 0
+			for y in range(*TURRET_MOUNT_ROWS):
+				for x in range(TURRET_BODY_RIGHT):
+					sx, sy = x + dx, y + dy
+					a = frame[sy][sx] if 0 <= sx < CELL and 0 <= sy < CELL else (0, 0, 0, 0)
+					b = idle[y][x]
+					if (a[3] > 8) != (b[3] > 8) or (a[3] > 8 and a[:3] != b[:3]):
+						miss += 1
+			if best is None or miss < best[0]:
+				best = (miss, dx, dy)
+	# 后坐那帧除了平移还有一点挤压（顶边、炮管根部），允许边上差几个像素；差多了说明素材换了、这套移植不适用
+	assert best[0] <= TURRET_MOUNT_SLACK, "装炮管那一截对不上待机帧（差 %d 个像素），不是单纯平移" % best[0]
+	return best[1], best[2]
+
+
+def graft(frame, drawn, offset):
+	"""把手改的那一块（擦掉的水平炮管 + 新画的斜炮管）按 offset 平移后贴到这一帧上。"""
+	out = [row[:] for row in frame]
+	for x, y in drawn["changed"]:
+		tx, ty = x + offset[0], y + offset[1]
+		if 0 <= tx < CELL and 0 <= ty < CELL:
+			out[ty][tx] = drawn["frame"][y][x]
+	return out
+
+
+def flashed(flash, drawn, outline, flash_color):
+	"""闪光帧：改动的那一块里，外轮廓保持黑色，其余涂成闪光色。"""
+	out = [row[:] for row in flash]
+	frame = drawn["frame"]
+	for x, y in drawn["changed"]:
+		c = frame[y][x]
+		if c[3] <= 8:
+			out[y][x] = (0, 0, 0, 0)
+			continue
+		edge = any(not (0 <= x + dx < CELL and 0 <= y + dy < CELL) or frame[y + dy][x + dx][3] <= 8
+			for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)])
+		out[y][x] = outline if edge and c[:3] == outline[:3] else flash_color
+	return out
+
+
+def most_common(frame, skip):
+	count = {}
+	for row in frame:
+		for c in row:
+			if c[3] > 8 and c not in skip:
+				count[c] = count.get(c, 0) + 1
+	return max(count, key=count.get)
+
+
 def build_flyer(write):
 	"""E：整组按待机第一帧的机身（螺旋桨以下）定一次位，机身中心对准锚点。"""
 	folder = os.path.join(PACK, "5")
@@ -206,6 +368,10 @@ def main():
 		sys.exit("找不到敌人素材包 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(PACK))
 	print("巡逻兵 A/B/C（2 号）：")
 	build_walkers(write)
+	print("D（3 号）和 F（1 号）：")
+	build_singles(write)
+	print("炮台（6 号）：")
+	build_turret(write)
 	print("飞行的 E（5 号）：")
 	build_flyer(write)
 	if sb._clipped:

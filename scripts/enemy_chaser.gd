@@ -53,6 +53,7 @@ func _physics_process(delta: float) -> void:
 		_drop_direction = 0
 		velocity.x = move_speed * facing
 	move_and_slide()
+	_report_motion(is_chasing)
 
 	# 巡逻时和巡逻兵一样在悬崖、墙前掉头；追击时不掉头，悬崖直接跳下去，墙跳过去。
 	if not is_chasing and _should_turn_around():
