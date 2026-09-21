@@ -70,6 +70,11 @@ func hold(_look: StringName) -> void:
 	pass
 
 
+## 开了一枪（每颗子弹一次）。占位方块不用管；精灵图版播一遍开火动作。
+func fire() -> void:
+	pass
+
+
 ## 现在在做什么（站/走/跑/上升/下落）。占位方块只有一个样子，不用管；精灵图版据此选动画。
 func motion(_state: Motion) -> void:
 	pass

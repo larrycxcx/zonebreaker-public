@@ -24,6 +24,7 @@ func _physics_process(delta: float) -> void:
 	var standing_still := is_prone or is_aiming_diagonally()
 	velocity.x = 0.0 if standing_still else move_speed * facing
 	move_and_slide()
+	_report_motion()
 
 	if not standing_still and _should_turn_around():
 		facing = -facing

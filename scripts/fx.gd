@@ -18,12 +18,15 @@ extends Node2D
 
 ## 哪些事件算「开了一枪」。各角色开枪报告的事件名在场景里设置（`Enemy.shoot_event`），
 ## 加新敌人时这里要一起加；`test_fx.gd` 会检查关卡里每个敌人的 shoot_event 都在这张表里。
+## 特效层所在的分组。倒地的敌人要找个地方播完死亡动画（本体已经删了），就挂到这里来。
+const GROUP := &"fx"
 const SHOOT_EVENTS: Array[StringName] = [&"player_shoot", &"enemy_shoot", &"turret_shoot", &"flyer_shoot"]
 ## 这些事件表示「有人挨打了」，在被打的那个身上画火花。
 const HIT_EVENTS: Array[StringName] = [&"enemy_hit", &"player_hurt"]
 
 
 func _ready() -> void:
+	add_to_group(GROUP)
 	GameEvents.event_happened.connect(_on_event)
 
 

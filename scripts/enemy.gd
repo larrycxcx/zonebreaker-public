@@ -46,7 +46,7 @@ const PRONE_HEIGHT := 12.0
 ## 玩家所在方向偏离水平线的角度在这个区间里才斜着打（子弹固定走 45°）；更平的算水平、更陡的不打。
 const DIAGONAL_MIN_ANGLE := 22.5
 const DIAGONAL_MAX_ANGLE := 67.5
-## 斜向出膛点，相对身体中心（朝右时；朝左 x 取反）。由代码算，不挂在 Visual 下。
+## 斜向出膛点的默认值，相对身体中心（朝右时；朝左 x 取反）。由代码算，不挂在 Visual 下。
 ## 斜下的 y 不能太大：站在地上时子弹一出膛就会嵌进地面。
 const DIAGONAL_UP_MUZZLE := Vector2(20, -23)
 const DIAGONAL_DOWN_MUZZLE := Vector2(20, -1)
@@ -79,6 +79,11 @@ var _stand_height := 0.0
 var _aim_timer := 0.0
 
 ## 外观层。玩法只调它的接口，不碰方块和颜色（见 appearance.gd）。
+## 斜向出膛点，每种敌人在自己场景里配（和水平枪口的 Muzzle Marker 一样）：
+## 有了正式贴图就按贴图上枪管的位置设，这样子弹从画面上的枪口出来。默认值见上面两个常量。
+@export var diagonal_up_muzzle := DIAGONAL_UP_MUZZLE
+@export var diagonal_down_muzzle := DIAGONAL_DOWN_MUZZLE
+
 ## 素材包里有 `skin_key` 这套外观的话，`_ready` 里会换成它的（见 Skins.build_appearance）。
 @export var skin_key := &"walker"
 @onready var _visual: Appearance = $Visual
@@ -125,7 +130,14 @@ func is_on_screen() -> bool:
 func die() -> void:
 	died.emit()
 	GameEvents.report(&"enemy_death", self)
+	# 本体马上就删了；外观要不要留下来播倒地动画，由外观自己决定（见 Appearance.show_dead）
+	_visual.show_dead()
 	queue_free()
+
+
+## 告诉外观这一帧是在走还是站着（选走路 / 待机动画）。移动的子类在 move_and_slide 之后调。
+func _report_motion() -> void:
+	_visual.motion(Appearance.Motion.WALK if absf(velocity.x) > 1.0 else Appearance.Motion.IDLE)
 
 
 ## 打得着、并且看得见的玩家，否则返回 null（「打得着」见 aim_for()）。
@@ -226,6 +238,7 @@ func _fire_one() -> void:
 	last_muzzle_position = _muzzle_position()
 	get_parent().add_child(bullet)
 	bullet.global_position = last_muzzle_position
+	_visual.fire()
 	shot_fired.emit()
 	GameEvents.report(shoot_event, self)
 
@@ -244,7 +257,7 @@ func shoot_direction() -> Vector2:
 func _muzzle_position() -> Vector2:
 	if _burst_aim == Aim.LEVEL:
 		return level_muzzle_position()
-	var offset := DIAGONAL_UP_MUZZLE if _burst_aim == Aim.DIAGONAL_UP else DIAGONAL_DOWN_MUZZLE
+	var offset := diagonal_up_muzzle if _burst_aim == Aim.DIAGONAL_UP else diagonal_down_muzzle
 	return global_position + Vector2(offset.x * signf(_burst_direction.x), offset.y)
 
 

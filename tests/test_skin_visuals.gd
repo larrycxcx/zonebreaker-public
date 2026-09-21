@@ -34,7 +34,7 @@ func test_keys_cover_everyone() -> void:
 	actors.append_array(main.get_node("Enemies").get_children())
 	# 每个角色用的是哪个键要对得上，不能漏填（漏填会退回基类默认的 walker，画面上看不出来）
 	var expected := {
-		"Player": &"player", "WalkerA": &"walker", "WalkerB": &"walker", "WalkerC": &"walker",
+		"Player": &"player", "WalkerA": &"walker_a", "WalkerB": &"walker_b", "WalkerC": &"walker_c",
 		"WalkerF": &"grenadier", "Turret1": &"turret", "Turret2": &"turret",
 		"FlyerE": &"flyer", "ChaserD": &"chaser", "BossA": &"boss_a",
 	}

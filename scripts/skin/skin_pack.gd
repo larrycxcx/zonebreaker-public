@@ -38,7 +38,10 @@ const SOUND_EVENTS := {
 ## 自制包只填想替换的；没填的角色用它自己场景里带的默认外观（现在的占位方块）。
 const APPEARANCE_KEYS := {
 	&"player": "玩家",
-	&"walker": "巡逻兵 A/B/C（共用一套，颜色在各自场景里）",
+	&"walker": "巡逻兵的基础场景（关卡里不直接放，放的是下面三种）",
+	&"walker_a": "巡逻兵 A（只打水平）",
+	&"walker_b": "巡逻兵 B（连发，会斜射）",
+	&"walker_c": "巡逻兵 C（射程远，会斜射、会趴下）",
 	&"grenadier": "敌人 F（扔手雷的巡逻兵）",
 	&"turret": "炮台",
 	&"flyer": "敌人 E（飞行）",
