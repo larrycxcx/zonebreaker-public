@@ -51,7 +51,7 @@ func test_freeze_clears_bullets_and_kills_on_screen_enemies() -> void:
 	await start()
 	var near: Enemy = main.get_node("Enemies/Turret2")
 	var far: Enemy = main.get_node("Enemies/Turret1")
-	near.global_position = Vector2(400, 306)
+	near.global_position = Vector2(400, 304)
 	await frames(5)
 	# 屏幕内、屏幕外各放几颗敌人子弹，再放一颗玩家子弹
 	for x in [120.0, 500.0, 1000.0]:

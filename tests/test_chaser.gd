@@ -155,7 +155,7 @@ func test_d_jumps_up_onto_a_platform() -> void:
 	for i in 240:
 		player._invincible_timer = 1000.0
 		await tree.physics_frame
-		if d.is_on_floor() and absf(d.global_position.y - 242.0) < 1.5:
+		if d.is_on_floor() and absf(d.global_position.y - 240.0) < 1.5:
 			landed = true
 			break
 	check("D jumps up and lands on the player's platform", landed, "D at %s" % d.global_position)
@@ -204,7 +204,7 @@ func test_d_gets_down_when_the_player_is_right_below() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["ChaserD"])
 	var d: EnemyChaser = main.get_node("Enemies/ChaserD")
-	d.global_position = Vector2(208, 242)
+	d.global_position = Vector2(208, 240)
 	d.velocity = Vector2.ZERO
 	_put_player(208.0)
 	var reached_ground_at := -1
@@ -213,9 +213,9 @@ func test_d_gets_down_when_the_player_is_right_below() -> void:
 		await tree.physics_frame
 		if reached_ground_at < 0 and d.is_on_floor() and d.global_position.y > 300.0:
 			reached_ground_at = i
+		# 不能一碰到玩家就跳出：D 是边往下掉边撞上玩家的，那时它还没落地，
+		# 提前 break 会让「它确实自己下来了」这条断言永远看不到落地那一帧。
 		hurt = hurt or player.health < player.max_health
-		if hurt:
-			break
 	check("D walks off the platform to get to the player below", reached_ground_at >= 0, "D at %s" % d.global_position)
 	check("and then reaches the player", hurt)
 	check("it lands close to the player", absf(d.global_position.x - 208.0) < 60.0, "x=%.1f" % d.global_position.x)

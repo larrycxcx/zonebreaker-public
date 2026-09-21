@@ -71,7 +71,7 @@ one_way = true
 
 [node name="CrawlBlock" parent="Level" instance=ExtResource("1")]
 position = Vector2(592, 240)
-size = Vector2(112, 56)
+size = Vector2(112, 50)
 color = Color(0.22, 0.22, 0.3, 1)
 
 [node name="Walls" type="Node2D" parent="Level"]
@@ -94,30 +94,30 @@ one_way = true
 [node name="Enemies" type="Node2D" parent="."]
 
 [node name="WalkerA" parent="Enemies" instance=ExtResource("4")]
-position = Vector2(440, 306)
+position = Vector2(440, 304)
 
 [node name="WalkerB" parent="Enemies" instance=ExtResource("7")]
-position = Vector2(704, 178)
+position = Vector2(704, 176)
 start_direction = 1
 
 [node name="WalkerC" parent="Enemies" instance=ExtResource("8")]
-position = Vector2(940, 306)
+position = Vector2(940, 304)
 start_direction = 1
 
 [node name="ChaserD" parent="Enemies" instance=ExtResource("9")]
-position = Vector2(1048, 170)
+position = Vector2(1048, 168)
 
 [node name="FlyerE" parent="Enemies" instance=ExtResource("10")]
 position = Vector2(520, 88)
 
 [node name="WalkerF" parent="Enemies" instance=ExtResource("12")]
-position = Vector2(528, 242)
+position = Vector2(528, 240)
 
 [node name="Turret1" parent="Enemies" instance=ExtResource("5")]
-position = Vector2(1160, 306)
+position = Vector2(1160, 304)
 
 [node name="Turret2" parent="Enemies" instance=ExtResource("5")]
-position = Vector2(368, 186)
+position = Vector2(368, 184)
 
 [node name="BossA" parent="Enemies" instance=ExtResource("11")]
 position = Vector2(1100, 288)

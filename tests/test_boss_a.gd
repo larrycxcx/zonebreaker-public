@@ -251,7 +251,7 @@ func test_level_shots_fly_at_standing_height() -> void:
 			break
 	check("fired a level shot from the ground", not shots.is_empty())
 	if not shots.is_empty():
-		check("level shot leaves 14px above the ground", absf((320.0 - shots[0]) - 14.0) < 0.5, str(320.0 - shots[0]))
+		check("level shot leaves 22px above the ground", absf((320.0 - shots[0]) - 22.0) < 0.5, str(320.0 - shots[0]))
 
 
 func test_fires_while_moving_and_in_the_air() -> void:

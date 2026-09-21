@@ -194,7 +194,7 @@ func test_shooting_straight_up() -> void:
 		var y0: float = bullet.global_position.y
 		check("bullet flies straight up", bullet.direction == Vector2.UP)
 		check("bullet is turned upright", is_equal_approx(bullet.rotation, -PI / 2.0), "%.3f" % bullet.rotation)
-		check("bullet starts above the head", y0 < player.global_position.y - 16.0 and absf(x0 - player.global_position.x) < 8.0, str(bullet.global_position))
+		check("bullet starts above the head", y0 < player.global_position.y - 16.0 and absf(x0 - player.global_position.x) < 12.0, str(bullet.global_position))
 		await frames(10)
 		check("bullet keeps rising without drifting sideways", is_instance_valid(bullet) and bullet.global_position.y < y0 - 60.0 and is_equal_approx(bullet.global_position.x, x0))
 

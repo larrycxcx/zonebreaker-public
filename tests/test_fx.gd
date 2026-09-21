@@ -113,7 +113,7 @@ func test_hit_spark_on_the_enemy_that_was_shot() -> void:
 	c.move_speed = 0.0
 	c.max_health = 10
 	c.health = 10
-	c.global_position = Vector2(600, 306)
+	c.global_position = Vector2(600, 304)
 	player.global_position = Vector2(480, 304)
 	player.velocity = Vector2.ZERO
 	player.facing = 1
@@ -160,7 +160,7 @@ func test_effects_do_not_touch_gameplay() -> void:
 	keep_only_enemies(["WalkerC"])
 	var c: Enemy = main.get_node("Enemies/WalkerC")
 	c.move_speed = 0.0
-	c.global_position = Vector2(600, 306)
+	c.global_position = Vector2(600, 304)
 	fx().queue_free()
 	await frames(2)
 	player.global_position = Vector2(480, 304)

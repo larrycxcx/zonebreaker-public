@@ -42,14 +42,14 @@ signal shot_fired
 @export var prone_reaction_time := 0.4
 
 ## 趴下后的碰撞体高度，和玩家一样。站着开的枪会从头顶飞过去。
-const PRONE_HEIGHT := 8.0
+const PRONE_HEIGHT := 12.0
 ## 玩家所在方向偏离水平线的角度在这个区间里才斜着打（子弹固定走 45°）；更平的算水平、更陡的不打。
 const DIAGONAL_MIN_ANGLE := 22.5
 const DIAGONAL_MAX_ANGLE := 67.5
 ## 斜向出膛点，相对身体中心（朝右时；朝左 x 取反）。由代码算，不挂在 Visual 下。
 ## 斜下的 y 不能太大：站在地上时子弹一出膛就会嵌进地面。
-const DIAGONAL_UP_MUZZLE := Vector2(20, -16)
-const DIAGONAL_DOWN_MUZZLE := Vector2(20, 6)
+const DIAGONAL_UP_MUZZLE := Vector2(20, -22)
+const DIAGONAL_DOWN_MUZZLE := Vector2(20, 0)
 
 ## 瞄准方向。
 enum Aim { LEVEL, DIAGONAL_UP, DIAGONAL_DOWN }
@@ -259,7 +259,10 @@ func body_center() -> Vector2:
 func level_muzzle_position() -> Vector2:
 	if _muzzle == null:
 		return body_center()
-	return body_center() + Vector2(_muzzle.position.x * facing, _muzzle.position.y)
+	# 站着时枪举在胸口（Marker 的 y 是个负数）；**趴着时不抬**，枪落回碰撞体中心贴着地面。
+	# 不这么分开的话，趴下碰撞体只剩 12px 高、中心离地才 6px，再减掉胸口那一截枪口就跑到地面以下了。
+	var lift := 0.0 if is_prone else _muzzle.position.y
+	return body_center() + Vector2(_muzzle.position.x * facing, lift)
 
 
 ## 子类每帧拿当前瞄准的目标调用：目标趴着就隔 prone_reaction_time 跟着趴下，否则马上站起来。

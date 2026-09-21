@@ -1,7 +1,8 @@
 extends GameTest
 ## 下蹲：碰撞体压低、脚底不动、头顶阻挡、矮通道通行。
 
-## 关卡里的矮通道：x 592..704，天花板底边 y=296，地面 y=320，净空 24px。
+## 关卡里的矮通道：x 592..704，天花板底边 y=290，地面 y=320，净空 30px。
+## 净空卡在两个数之间：要小于站立高度 32（站着过不去），又要大于站姿子弹的高度 27（子弹照旧穿得过去）。
 const TUNNEL_X := 648.0
 ## 一段没有平台也没有天花板的空地，用来测「头顶没东西」的情况。
 const OPEN_X := 400.0
@@ -101,6 +102,26 @@ func test_low_ceiling_keeps_the_player_down() -> void:
 			break
 	Input.action_release("move_right")
 	check("stands up automatically after leaving the tunnel", not player.is_crouching and player.global_position.x > 704.0, str(player.global_position))
+
+
+func test_a_standing_shot_flies_through_the_crawl_tunnel() -> void:
+	# 净空卡在两个数中间：要小于站立高度 32（人过不去），又要大于站姿子弹的高度 27（子弹过得去）。
+	# 枪抬到胸口以后这个窗口只剩几个像素，窄到值得单独守一条——
+	# 净空调小或者出膛点再抬高，矮通道就会变成一堵挡子弹的墙。
+	await reset_scene()
+	player.global_position = Vector2(540, 304)
+	player.velocity = Vector2.ZERO
+	player.facing = 1
+	await frames(10)
+	check("standing, not crouching", not player.is_crouching and player.is_on_floor())
+	player.current_slot().cooldown_left = 0.0
+	player._shoot(Vector2.RIGHT)
+	var passed := false
+	for i in 90:
+		await tree.physics_frame
+		for bullet in bullets(4):
+			passed = passed or bullet.global_position.x > 710.0
+	check("a standing shot clears the tunnel instead of hitting its ceiling", passed)
 
 
 func test_standing_player_cannot_pass_the_crawl_block() -> void:
@@ -266,8 +287,8 @@ func _assert_crouch_dodges(enemy_name: String, enemy_pos: Vector2, facing: int) 
 
 
 func test_lying_down_dodges_turret_fire() -> void:
-	await _assert_crouch_dodges("Turret1", Vector2(1160, 306), -1)
+	await _assert_crouch_dodges("Turret1", Vector2(1160, 304), -1)
 
 
 func test_lying_down_dodges_walker_fire() -> void:
-	await _assert_crouch_dodges("WalkerA", Vector2(500, 306), -1)
+	await _assert_crouch_dodges("WalkerA", Vector2(500, 304), -1)

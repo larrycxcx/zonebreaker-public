@@ -13,6 +13,14 @@ const FRAME := 56
 ## 生成出来应该有的贴图：每个动作、每个瞄准方向，各一套朝左朝右。
 const BODY_CLIPS := ["idle", "walk", "run", "air", "crouch"]
 const AIM_CLIPS := ["up", "diag_up", "level", "diag_down", "down"]
+## 每个瞄准贴图对应的子弹方向（和 Player.aim_vector() 那一套一致）。
+const AIM_DIRECTIONS := {
+	&"level": Vector2(1, 0),
+	&"up": Vector2(0, -1),
+	&"diag_up": Vector2(1, -1),
+	&"diag_down": Vector2(1, 1),
+	&"down": Vector2(0, 1),
+}
 
 
 func skin() -> SkinPack:
@@ -142,8 +150,11 @@ func test_the_prone_art_stays_under_enemy_fire() -> void:
 	var art_height := float(FRAME - box.position.y)
 	check("the prone art is shorter than the enemy's line of fire",
 		art_height < bullet_height, "贴图高 %.0fpx，子弹离地 %.0fpx" % [art_height, bullet_height])
+	# 贴图和判定框要贴得很近：矮了，躺着看起来没有厚度；高太多，子弹会明显从身上穿过去却不算中。
 	check("and it is still taller than the hitbox, like a body lying down",
 		art_height >= Player.CROUCH_HEIGHT, "贴图高 %.0fpx，判定框 %d" % [art_height, Player.CROUCH_HEIGHT])
+	check("but not so much taller that shots visibly pass through the body",
+		art_height <= Player.CROUCH_HEIGHT + 3.0, "贴图高 %.0fpx，判定框 %d" % [art_height, Player.CROUCH_HEIGHT])
 	# 趴姿的脚底也要落在地上，和站姿同一条线
 	var sole := box.end.y - SpriteAppearance.ANCHOR_Y
 	check("the prone art lies on the ground", absf(sole - Player.STAND_HEIGHT / 2.0) <= 1.0,
@@ -253,6 +264,44 @@ func test_turning_swaps_the_texture_and_never_flips_the_node() -> void:
 	check("the body draws a sane rect", rect.size.x > 0.0 and rect.size.y > 0.0, str(rect))
 
 
+## 贴图里枪口（沿瞄准方向最远的那一撮像素）在角色本体坐标里的位置。
+func gun_tip(clip: StringName, aim: Vector2) -> Vector2:
+	var image := (load("%s/arms_%s_r.png" % [ART_DIR, clip]) as Texture2D).get_image()
+	var direction := aim.normalized()
+	var points: Array[Vector2] = []
+	var far := -1e9
+	for y in FRAME:
+		for x in FRAME:
+			if image.get_pixel(x, y).a <= 0.03:
+				continue
+			var p := Vector2(x, y) - Vector2(SpriteAppearance.ANCHOR_X, SpriteAppearance.ANCHOR_Y)
+			points.append(p)
+			far = maxf(far, p.dot(direction))
+	var tip := Vector2.ZERO
+	var count := 0
+	for p in points:
+		if p.dot(direction) >= far - 1.5:
+			tip += p
+			count += 1
+	return tip / maxf(count, 1.0)
+
+
+func test_bullets_leave_from_the_gun_in_the_art() -> void:
+	# 出膛点是规则、贴图是画面，两者本来可以各走各的——但那样玩家会看见子弹从肚子里飞出来。
+	# 所以这条把它们绑在一起：五个方向上，子弹出膛的地方都要落在贴图里枪口那几个像素上。
+	# 贴图重画、或者谁去动了 Player 那几个 MUZZLE 常量，这里都会报。
+	# （2026-09 抬出膛点那次就是为了这个：原先水平方向差了 9px，子弹从腰上出来。）
+	await reset_scene(false, false, skin())
+	await stand_at(400)
+	player.facing = 1
+	for clip: StringName in [&"level", &"up", &"diag_up", &"diag_down", &"down"]:
+		var aim: Vector2 = AIM_DIRECTIONS[clip]
+		var art := gun_tip(clip, aim)
+		var rule := player._muzzle_position(aim.normalized()) - player.global_position
+		check("%s: bullets leave from the barrel in the art" % clip, art.distance_to(rule) <= 2.0,
+			"贴图枪口 %s，出膛点 %s，差 %.1fpx" % [art, rule, art.distance_to(rule)])
+
+
 # ---------------------------------------------------------------- 换皮肤不改变规则
 
 ## 同一段操作，分别用默认包和赛博朋克包跑一遍，把关心的数字收集起来。
@@ -315,7 +364,7 @@ func test_lying_down_still_dodges_with_the_sprite_skin() -> void:
 	var turret: Enemy = main.get_node("Enemies/Turret1")
 	turret.can_go_prone = false
 	await frames(10)
-	turret.global_position = Vector2(1160, 306)
+	turret.global_position = Vector2(1160, 304)
 	turret.facing = -1
 	turret._apply_visual_facing()
 	player.global_position = Vector2(1020, 304)

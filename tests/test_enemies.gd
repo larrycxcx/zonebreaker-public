@@ -46,9 +46,9 @@ func test_walker_turns_at_ledges() -> void:
 
 func test_walker_turns_at_the_crawl_block() -> void:
 	await reset_scene(true)
-	# 矮通道（x 592..352，净空 24px）比巡逻兵矮，它得掉头而不是卡在那里推墙。
+	# 矮通道（x 592..704，净空 30px）比巡逻兵（32px 高）矮，它得掉头而不是卡在那里推墙。
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
-	walker.global_position = Vector2(540, 306)
+	walker.global_position = Vector2(540, 304)
 	walker.facing = 1
 	walker._apply_facing()
 	var turned := false
@@ -145,7 +145,7 @@ func test_walker_shoots_at_the_player() -> void:
 	await frames(20)
 
 	# 站到巡逻兵正前方、同高度，射程之内。
-	walker.global_position = Vector2(400, 306)
+	walker.global_position = Vector2(400, 304)
 	walker.facing = -1
 	walker._apply_facing()
 	player.global_position = Vector2(280, 304)
@@ -168,7 +168,7 @@ func test_walker_does_not_shoot_backwards() -> void:
 	await frames(20)
 
 	# 玩家在身后：巡逻兵不该回头瞄准，转向只由巡逻决定。
-	walker.global_position = Vector2(400, 306)
+	walker.global_position = Vector2(400, 304)
 	walker.facing = -1
 	walker._apply_facing()
 	player.global_position = Vector2(520, 304)
@@ -191,7 +191,7 @@ func test_walker_and_turret_shoot_at_the_same_height() -> void:
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
 	await frames(30)
 
-	# 我们真正能保证的不变量：两种敌人的枪口本地偏移完全相同（都是 y=0）。这个要精确。
+	# 我们真正能保证的不变量：两种敌人的枪口本地偏移完全相同（都是胸口那个高度）。这个要精确。
 	check("muzzle offsets are identical by design", walker._muzzle.position.y == turret._muzzle.position.y, "%s vs %s" % [walker._muzzle.position, turret._muzzle.position])
 
 	# 世界坐标只要求亚像素级一致：巡逻兵在移动，CharacterBody2D 的碰撞安全边距（默认 0.08）
@@ -225,10 +225,10 @@ func test_enemy_bullets_do_not_hurt_other_enemies() -> void:
 
 	# 把另一只巡逻兵直接摆在枪口前面，玩家挪到远处不干扰。
 	player.global_position = Vector2(1200, 304)
-	shooter.global_position = Vector2(480, 306)
+	shooter.global_position = Vector2(480, 304)
 	shooter.facing = -1
 	shooter._apply_facing()
-	victim.global_position = Vector2(400, 306)
+	victim.global_position = Vector2(400, 304)
 	victim.facing = -1
 	victim._apply_facing()
 	victim.move_speed = 0.0
@@ -263,7 +263,7 @@ func _setup_c_facing_player() -> EnemyWalker:
 	keep_only_enemies(["WalkerC"])
 	var c: EnemyWalker = main.get_node("Enemies/WalkerC")
 	await frames(10)
-	_place_enemy(c, Vector2(1000, 306))
+	_place_enemy(c, Vector2(1000, 304))
 	c.move_speed = 0.0
 	player.global_position = Vector2(860, 304)
 	player.velocity = Vector2.ZERO
@@ -289,7 +289,7 @@ func test_c_goes_prone_when_the_player_does() -> void:
 
 	Input.action_release("crouch")
 	await frames(2)
-	check("C stands up as soon as the player does", not c.is_prone and (c._shape.shape as RectangleShape2D).size.y == 28.0)
+	check("C stands up as soon as the player does", not c.is_prone and (c._shape.shape as RectangleShape2D).size.y == 32.0)
 
 
 func test_turret_never_lies_down() -> void:
@@ -297,7 +297,7 @@ func test_turret_never_lies_down() -> void:
 	keep_only_enemies(["Turret1"])
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
 	await frames(10)
-	_place_enemy(turret, Vector2(1000, 306))
+	_place_enemy(turret, Vector2(1000, 304))
 	player.global_position = Vector2(860, 304)
 	player.velocity = Vector2.ZERO
 	check("turrets cannot go prone", not turret.can_go_prone)
@@ -331,7 +331,7 @@ func test_type_c_stops_and_lies_down_to_shoot() -> void:
 	keep_only_enemies(["WalkerC"])
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerC")
 	await frames(10)
-	_place_enemy(walker, Vector2(500, 306))
+	_place_enemy(walker, Vector2(500, 304))
 	player.global_position = Vector2(360, 304) # 在巡逻兵正前方（左边）
 	player.velocity = Vector2.ZERO
 	Input.action_press("crouch")
@@ -352,7 +352,7 @@ func test_type_c_ignores_a_prone_player_behind_it() -> void:
 	keep_only_enemies(["WalkerC"])
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerC")
 	await frames(10)
-	_place_enemy(walker, Vector2(400, 306))
+	_place_enemy(walker, Vector2(400, 304))
 	player.global_position = Vector2(500, 304) # 在背后（右边）
 	player.velocity = Vector2.ZERO
 	Input.action_press("crouch")

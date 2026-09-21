@@ -166,7 +166,7 @@ func test_straight_down_from_the_air() -> void:
 	check("S + J in the air fires one bullet", bullet != null)
 	if bullet != null:
 		check("straight down", bullet.direction == Vector2.DOWN)
-		check("from under the feet", bullet.global_position.y > player.global_position.y + 16.0 and absf(bullet.global_position.x - player.global_position.x) < 4.0, str(bullet.global_position - player.global_position))
+		check("from the gun at the hip, beside the body", bullet.global_position.y > player.global_position.y and absf(bullet.global_position.x - player.global_position.x) < 20.0, str(bullet.global_position - player.global_position))
 
 
 func test_walking_while_firing_diagonally() -> void:
@@ -227,7 +227,7 @@ func test_shooting_down_through_a_platform() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["WalkerA"])
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
-	walker.global_position = Vector2(208, 306)
+	walker.global_position = Vector2(208, 304)
 	walker.move_speed = 0.0
 	player.global_position = Vector2(208, 240)
 	player.velocity = Vector2.ZERO

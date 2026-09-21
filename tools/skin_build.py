@@ -35,8 +35,14 @@ CHARACTER = "1 Biker"
 GUN = 1
 
 CELL = 48          # 素材每帧的边长
-ARM_CELL = 32      # 手臂/枪格子的边长，居中放在角色帧里
-ARM_INSET = (CELL - ARM_CELL) // 2
+ARM_CELL = 32      # 手臂/枪格子的边长
+# 手臂格子放在角色帧里的位置。横向居中，**纵向要往下 3px**：
+# 居中（8, 8）看着自然，其实没依据——那样胳膊会从脖子上长出来、枪管落在身高的 74%。
+# 肩膀的真实位置是量出来的：`Idle1` 减 `Idle2` 差出来的就是素材自带的胳膊，它的根部在帧内 y=26~28；
+# 前手臂（`8.png`）的根部在格子内 y≈16，所以格子要放在 y=11 上，根部才落到 27。
+# 这么放之后枪管在身高的 66%，和素材包宣传图里那只握枪的手一致（量出来 64%）。
+ARM_INSET_X = (CELL - ARM_CELL) // 2
+ARM_INSET_Y = 11
 FRAME = 56         # 输出帧的边长
 ANCHOR = (28, 40)  # 输出帧里对应角色身体原点的那个点
 # 素材帧里锚点的高度：脚底在帧底边（y=48），要落在身体原点下方 16px。
@@ -61,7 +67,7 @@ BODIES = {
 # **高度是有规矩的**：整张图必须完全藏在敌人站着开枪的子弹下面（离地 12~16px），
 # 否则画面上看着被打中、判定却没中。30×10 正好留 2px 余量，改大之前先看 test_cyberpunk_skin.gd。
 PRONE = "biker_prone.png"
-PRONE_SIZE = (30, 10)
+PRONE_SIZE = (34, 13)
 PRONE_NUDGE = 0   # 横向微调（正数往前挪）；默认按贴图中心对齐身体原点
 
 # 瞄准方向 → (手臂编号, 用哪张枪, 是否上下翻转, 旋转角度, 握枪那只手在 32×32 格子里的位置, 子弹飞的方向)。
@@ -335,17 +341,17 @@ def build_arms(write):
 	for name, (pose, variant, flip_v, degrees, hand, aim) in AIMS.items():
 		frame = blank(CELL, CELL)
 		_, _, back = read_png(os.path.join(hands, "%d.png" % pose))
-		blit(frame, back, ARM_INSET, ARM_INSET, "%s 的后手臂" % name)
+		blit(frame, back, ARM_INSET_X, ARM_INSET_Y, "%s 的后手臂" % name)
 		_, _, gun = read_png(os.path.join(SRC, "2 Guns", "%d_%s.png" % (GUN, variant)))
 		if flip_v:
 			gun = gun[::-1]
 		gun = rotate(gun, degrees)
 		# 让枪的前握把正好落在那只手上
 		grip = grip_in(gun, aim)
-		blit(frame, gun, ARM_INSET + int(round(hand[0] - grip[0])), ARM_INSET + int(round(hand[1] - grip[1])),
+		blit(frame, gun, ARM_INSET_X + int(round(hand[0] - grip[0])), ARM_INSET_Y + int(round(hand[1] - grip[1])),
 			"%s 的枪" % name)
 		_, _, front = read_png(os.path.join(hands, "%d.png" % (pose + 5)))
-		blit(frame, front, ARM_INSET, ARM_INSET, "%s 的前手臂" % name)
+		blit(frame, front, ARM_INSET_X, ARM_INSET_Y, "%s 的前手臂" % name)
 		right = place(frame, ARM_BASELINE, "arms_%s" % name)
 		save_strip("arms_%s_r.png" % name, [right], write)
 		save_strip("arms_%s_l.png" % name, [mirror(right)], write)

@@ -102,7 +102,7 @@ func _player_on_platform1() -> void:
 
 
 func test_b_stops_and_fires_diagonally_up() -> void:
-	var b := await _place("WalkerB", Vector2(274, 306))
+	var b := await _place("WalkerB", Vector2(274, 304))
 	_player_on_platform1()
 	var w := await _watch(b, 120)
 	# 发现玩家的那一帧已经先走了一步（瞄准在移动之后判定），之后就站定。
@@ -116,7 +116,7 @@ func test_b_stops_and_fires_diagonally_up() -> void:
 func test_a_burst_keeps_its_direction() -> void:
 	# 水平连发打到一半玩家跳上斜上方的平台：剩下的子弹还是水平的，斜射要等瞄准时间过了才开始。
 	seed(6)
-	var b := await _place("WalkerB", Vector2(274, 306), true)
+	var b := await _place("WalkerB", Vector2(274, 304), true)
 	player.global_position = Vector2(160, 304) # 正前方同一高度
 	var shots := []
 	var record := func() -> void: shots.append(b.last_shot_direction)
@@ -136,7 +136,7 @@ func test_a_burst_keeps_its_direction() -> void:
 
 
 func test_diagonal_fire_waits_for_the_aim_time() -> void:
-	var b := await _place("WalkerB", Vector2(274, 306))
+	var b := await _place("WalkerB", Vector2(274, 304))
 	_player_on_platform1()
 	var w := await _watch(b, 120)
 	var first: int = w["shots"][0]["frame"] if not w["shots"].is_empty() else -1
@@ -145,14 +145,14 @@ func test_diagonal_fire_waits_for_the_aim_time() -> void:
 
 
 func test_diagonal_shots_hit_the_player() -> void:
-	var b := await _place("WalkerB", Vector2(274, 306))
+	var b := await _place("WalkerB", Vector2(274, 304))
 	_player_on_platform1()
 	await _watch(b, 180, false)
 	check("a player standing diagonally above gets hit", player.health < player.max_health, str(player.health))
 
 
 func test_a_does_not_fire_diagonally() -> void:
-	var a := await _place("WalkerA", Vector2(274, 306))
+	var a := await _place("WalkerA", Vector2(274, 304))
 	_player_on_platform1()
 	var w := await _watch(a, 120)
 	check("A keeps walking", w["moved"] > 20.0, "moved %.1f" % w["moved"])
@@ -160,7 +160,7 @@ func test_a_does_not_fire_diagonally() -> void:
 
 
 func test_walker_resumes_patrol_after_the_player_leaves() -> void:
-	var b := await _place("WalkerB", Vector2(274, 306))
+	var b := await _place("WalkerB", Vector2(274, 304))
 	_player_on_platform1()
 	await _watch(b, 80)
 	check("B is aiming", b.is_aiming_diagonally())
@@ -173,7 +173,7 @@ func test_walker_resumes_patrol_after_the_player_leaves() -> void:
 
 func test_walker_does_not_aim_diagonally_behind_it() -> void:
 	# 巡逻兵只打正前方：玩家在斜后方时照常巡逻。
-	var b := await _place("WalkerB", Vector2(142, 306)) # 朝左
+	var b := await _place("WalkerB", Vector2(142, 304)) # 朝左
 	_player_on_platform1() # 玩家在它右上方，也就是身后
 	var w := await _watch(b, 80)
 	check("no diagonal aim at a player behind", w["shots"].is_empty() and not b.is_aiming_diagonally())
@@ -183,7 +183,7 @@ func test_c_fires_down_at_a_prone_player() -> void:
 	# C 站在 Platform6（x 1000..548，顶面 y=184）上，玩家趴在左下方地面。子弹固定走 90°：
 	# 出膛点 (1028, 176)，要到趴下身体的高度（y≈316）得往左 140px，所以玩家放在 x=888。
 	# （放在正好 90° 的 x=914 反而打不中：那条线经过的是站立身体的高度，从趴着的玩家头顶掠过。）
-	var c := await _place("WalkerC", Vector2(1048, 170), true)
+	var c := await _place("WalkerC", Vector2(1048, 168), true)
 	player.global_position = Vector2(888, 304)
 	player.velocity = Vector2.ZERO
 	Input.action_press("crouch")
@@ -213,7 +213,7 @@ func test_c_fires_down_at_a_prone_player() -> void:
 
 func test_turret_fires_diagonally_up() -> void:
 	# 炮台在地面，玩家站在 Platform5（x 840..468，顶面 y=248）上，在它左上方 90°。
-	var turret := await _place("Turret1", Vector2(1000, 306))
+	var turret := await _place("Turret1", Vector2(1000, 304))
 	player.global_position = Vector2(926, 232)
 	player.velocity = Vector2.ZERO
 	var w := await _watch(turret, 180, false)
@@ -224,7 +224,7 @@ func test_turret_fires_diagonally_up() -> void:
 
 
 func test_turret_turns_for_a_diagonal_target_behind_it() -> void:
-	var turret := await _place("Turret1", Vector2(840, 306))
+	var turret := await _place("Turret1", Vector2(840, 304))
 	# 玩家在它右上方（它原本朝左）：炮台会转身。
 	player.global_position = Vector2(926, 232)
 	player.velocity = Vector2.ZERO

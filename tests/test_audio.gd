@@ -119,11 +119,12 @@ func test_player_hurt_death_and_game_over() -> void:
 func test_enemy_hit_and_death() -> void:
 	await reset_scene(true)
 	var walker: EnemyWalker = _only("WalkerA")
-	walker.global_position = Vector2(500, 306)
+	walker.global_position = Vector2(500, 304)
 	walker.move_speed = 0.0
 	player.global_position = Vector2(420, 304)
 	player.facing = 1
 	player._visual.scale.x = 1
+	player._invincible_timer = 1000.0
 	await frames(5)
 	for i in 2:
 		player._invincible_timer = 1000.0
@@ -136,7 +137,7 @@ func test_enemy_hit_and_death() -> void:
 func test_walker_shot() -> void:
 	await reset_scene(true)
 	var walker: EnemyWalker = _only("WalkerA")
-	walker.global_position = Vector2(500, 306)
+	walker.global_position = Vector2(500, 304)
 	walker.move_speed = 0.0
 	walker.facing = -1
 	walker._apply_facing()
@@ -151,7 +152,7 @@ func test_walker_shot() -> void:
 func test_turret_shot() -> void:
 	await reset_scene(true)
 	var turret: EnemyTurret = _only("Turret1")
-	turret.global_position = Vector2(1000, 306)
+	turret.global_position = Vector2(1000, 304)
 	player.global_position = Vector2(860, 304)
 	for i in 30:
 		player._invincible_timer = 1000.0
@@ -164,7 +165,7 @@ func test_enemy_prone_event() -> void:
 	# 只有 C 会跟着玩家趴下（炮台不会）。
 	await reset_scene(true)
 	var c: EnemyWalker = _only("WalkerC")
-	c.global_position = Vector2(1000, 306)
+	c.global_position = Vector2(1000, 304)
 	c.move_speed = 0.0
 	c.facing = -1
 	c._apply_facing()
@@ -195,7 +196,7 @@ func test_flyer_shot() -> void:
 func test_chaser_alert() -> void:
 	await reset_scene(true)
 	var d: EnemyChaser = _only("ChaserD")
-	d.global_position = Vector2(500, 306)
+	d.global_position = Vector2(500, 304)
 	player.global_position = Vector2(1120, 304)
 	await frames(10)
 	check("no alert while D has not seen the player", not events.has(&"chaser_alert"))

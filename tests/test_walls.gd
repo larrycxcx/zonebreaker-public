@@ -178,11 +178,11 @@ func test_line_of_sight_passes_one_way_platforms() -> void:
 	# 只测射线本身：停掉炮台的物理，免得挪到矮通道下面时和顶板重叠被推开。
 	turret.set_physics_process(false)
 	# 从炮台枪口看 Platform1（单向，x 160..256，y 256..272）正上方的一个点：视线要穿过平台。
-	turret.global_position = Vector2(208, 306)
+	turret.global_position = Vector2(208, 304)
 	await frames(3)
 	check("one-way platforms do not block line of sight", turret.has_line_of_sight(Vector2(208, 220)))
 	# 同样的方式看 CrawlBlock（实心，x 296..352，y 120..148）上方：会被挡住。
-	turret.global_position = Vector2(648, 306)
+	turret.global_position = Vector2(648, 304)
 	await frames(3)
 	check("solid blocks do block line of sight", not turret.has_line_of_sight(Vector2(648, 220)))
 

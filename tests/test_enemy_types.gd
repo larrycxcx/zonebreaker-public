@@ -15,7 +15,7 @@ func _setup_duel(enemy_name: String) -> Enemy:
 	var enemy: Enemy = main.get_node("Enemies/" + enemy_name)
 	player.global_position = Vector2(PARKED_X, 304)
 	await frames(5)
-	enemy.global_position = Vector2(900, 306)
+	enemy.global_position = Vector2(900, 304)
 	enemy.facing = -1
 	enemy._visual.scale.x = -1
 	if enemy is EnemyWalker:
@@ -161,7 +161,7 @@ func test_turret_range_is_200() -> void:
 	keep_only_enemies(["Turret1"])
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
 	await frames(5)
-	turret.global_position = Vector2(1000, 306)
+	turret.global_position = Vector2(1000, 304)
 	var shots := [0]
 	turret.shot_fired.connect(func(): shots[0] += 1)
 	player.global_position = Vector2(580, 304) # 210px，射程外
@@ -182,7 +182,7 @@ func test_turret_takes_six_hits() -> void:
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
 	turret.can_go_prone = false
 	await frames(5)
-	turret.global_position = Vector2(1000, 306)
+	turret.global_position = Vector2(1000, 304)
 	player.global_position = Vector2(880, 304)
 	player.velocity = Vector2.ZERO
 	player.facing = 1

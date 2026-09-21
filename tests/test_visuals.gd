@@ -152,7 +152,7 @@ func test_gameplay_runs_on_a_replaced_appearance() -> void:
 	c.bullet_scene = null # 别让它开枪：挨一枪会被击飞，下面就趴不下去了
 	c.max_health = 10
 	c.health = 10
-	c.global_position = Vector2(600, 306)
+	c.global_position = Vector2(600, 304)
 	player.global_position = Vector2(480, 304)
 	player.velocity = Vector2.ZERO
 	player.facing = 1
