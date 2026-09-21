@@ -65,6 +65,11 @@ func aim(direction: Vector2) -> void:
 	_turn_gun()
 
 
+## 手里拿的是哪把枪（`Weapon.look`）。占位方块只有一根枪，不用管；精灵图版据此换一整套手臂贴图。
+func hold(_look: StringName) -> void:
+	pass
+
+
 ## 现在在做什么（站/走/跑/上升/下落）。占位方块只有一个样子，不用管；精灵图版据此选动画。
 func motion(_state: Motion) -> void:
 	pass

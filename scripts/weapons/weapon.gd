@@ -14,5 +14,8 @@ extends Resource
 @export var max_ammo := -1
 ## 发射时报告的事件名，素材包按它找声音（见 SkinPack.SOUND_EVENTS）。
 @export var fire_event := &"player_shoot"
+## 拿在手里长什么样：外观层按这个键挑枪的贴图（赛博朋克包里 rifle = 步枪、launcher = 榴弹枪）。
+## 只是个名字，和玩法无关——出膛点、射速、发射物都不看它。素材包里没有这个键的贴图就用默认那把，留空同理。
+@export var look := &""
 ## HUD 上表示这把武器的小色块（占位美术，第 4 步换成图标）。
 @export var hud_color := Color(0.7, 0.7, 0.75)

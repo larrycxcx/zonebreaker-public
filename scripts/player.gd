@@ -76,7 +76,8 @@ const DOWN_MUZZLE := Vector2(9, 13)
 
 ## 站立/蹲下的碰撞体高度。脚底位置不变，只压低头顶。
 const STAND_HEIGHT := 32.0
-## 敌人子弹离地面只有 6~8px（枪口在敌人身体中线），趴下后必须矮于 6px 才躲得开，取 4px 留 2px 余量。
+## 趴下的碰撞体高度。敌人站着开的枪离地 21~25px（枪举在胸口），趴下必须矮于 21px 才躲得开；
+## 取 12 是为了和趴姿贴图（12~14px）差不多高，见 CLAUDE.md「所有人按素材对齐」。
 const CROUCH_HEIGHT := 12.0
 const HURTBOX_STAND_HEIGHT := 36.0
 ## 开枪时外观往反方向弹开多少像素（后坐力，纯表现，不动身体和判定）。
@@ -131,6 +132,8 @@ func _ready() -> void:
 	_visual = Skins.build_appearance(self, skin_key)
 	for weapon in weapons:
 		_slots.append(WeaponSlot.new(weapon))
+	if not _slots.is_empty():
+		_visual.hold(current_slot().weapon.look)
 	_ultimate.ammo_changed.connect(func(ammo: int, max_ammo: int) -> void: ultimate_ammo_changed.emit(ammo, max_ammo))
 	if ultimate_weapon != null:
 		_ultimate.equip(ultimate_weapon)
@@ -427,6 +430,7 @@ func switch_weapon() -> void:
 	if _slots.size() < 2:
 		return
 	current_weapon = (current_weapon + 1) % _slots.size()
+	_visual.hold(current_slot().weapon.look)
 	weapon_switched.emit(current_weapon, current_slot().weapon)
 	GameEvents.report(&"weapon_switch", self)
 
@@ -440,6 +444,7 @@ func equip_weapon(index: int, weapon: Weapon) -> void:
 	weapons[index] = weapon
 	_slots[index].equip(weapon)
 	if index == current_weapon:
+		_visual.hold(weapon.look)
 		weapon_switched.emit(current_weapon, weapon)
 
 

@@ -11,3 +11,4 @@ cooldown = 0.15
 automatic = true
 max_ammo = -1
 fire_event = &"player_shoot"
+look = &"rifle"

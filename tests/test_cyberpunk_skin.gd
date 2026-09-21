@@ -13,6 +13,10 @@ const FRAME := 56
 ## 生成出来应该有的贴图：每个动作、每个瞄准方向，各一套朝左朝右。
 const BODY_CLIPS := ["idle", "walk", "run", "air", "crouch", "crawl", "death"]
 const AIM_CLIPS := ["up", "diag_up", "level", "diag_down", "down"]
+## 每种枪（`Weapon.look`）一整套手臂贴图，以及它的枪口和共用出膛点之间最多允许差几像素。
+## 两把枪共用一套出膛点（玩法规则），步枪是按它量出来的所以卡得紧；
+## 榴弹枪粗、枪口中心差 2~3px，而手雷有 8px 大、一出膛就往上抛，这点差别看不出来。
+const GUN_LOOKS := {&"rifle": 2.0, &"launcher": 3.0}
 ## 每个瞄准贴图对应的子弹方向（和 Player.aim_vector() 那一套一致）。
 const AIM_DIRECTIONS := {
 	&"level": Vector2(1, 0),
@@ -54,8 +58,9 @@ func test_every_clip_is_there_and_lines_up() -> void:
 	var names := []
 	for clip in BODY_CLIPS:
 		names.append("body_" + clip)
-	for clip in AIM_CLIPS:
-		names.append("arms_" + clip)
+	for look: StringName in GUN_LOOKS:
+		for clip in AIM_CLIPS:
+			names.append("arms_%s_%s" % [look, clip])
 	for base: String in names:
 		for side in ["r", "l"]:
 			var path := "%s/%s_%s.png" % [ART_DIR, base, side]
@@ -72,7 +77,7 @@ func test_the_two_facings_are_mirrors_of_each_other() -> void:
 	# 朝左那套是按锚点那一列镜像出来的，两边必须严丝合缝地对称。
 	# 对不上就说明生成脚本把某一边切掉了一块——画面上表现为转身时角色少一截、或者整体挪了一格。
 	# 只比看得见的像素：导入器的「修复 alpha 边缘」会给全透明像素填上邻居的颜色，那不对称也无所谓。
-	for base in ["body_idle", "body_run", "body_crouch", "body_crawl", "body_death", "arms_level", "arms_up"]:
+	for base in ["body_idle", "body_run", "body_crouch", "body_crawl", "body_death", "arms_rifle_level", "arms_rifle_up", "arms_launcher_level", "arms_launcher_diag_down"]:
 		var right := (load("%s/%s_r.png" % [ART_DIR, base]) as Texture2D).get_image()
 		var left := (load("%s/%s_l.png" % [ART_DIR, base]) as Texture2D).get_image()
 		check("%s: both facings are the same size" % base, right.get_size() == left.get_size(),
@@ -128,7 +133,7 @@ func test_the_art_sits_on_the_collision_box() -> void:
 		check("%s: the torso is centred on the origin" % clip, absf(middle) <= 2.0, "偏了 %.1fpx" % middle)
 		check("%s: the art is not wider than the frame" % clip, box.size.x <= FRAME and box.size.y <= FRAME, str(box))
 	# 手臂和身体用同一个锚点，所以枪一定在身体附近、不会飞出去
-	var arms := ink_box(load("%s/arms_level_r.png" % ART_DIR) as Texture2D)
+	var arms := ink_box(load("%s/arms_rifle_level_r.png" % ART_DIR) as Texture2D)
 	check("the level gun reaches out in front of the body",
 		arms.position.x - SpriteAppearance.ANCHOR_X < 0 and arms.end.x - SpriteAppearance.ANCHOR_X > 12,
 		"x %d..%d（锚点 %d）" % [arms.position.x, arms.end.x, SpriteAppearance.ANCHOR_X])
@@ -215,12 +220,14 @@ func test_dying_plays_the_fall_once_and_stays_down() -> void:
 	await reset_scene(false, false, skin())
 	await stand_at(400)
 	player.take_damage(player.health)
+	# 第一个样本必须在死的那一刻当场取：第 0 帧只显示 0.1 秒，等一帧再看的话，
+	# 无头模式下 _process 可能已经跑过去了，测试会时过时不过。
+	var body: Sprite2D = visual().get_node("Body")
+	var seen: Array[int] = [body.frame]
 	await frames(1)
 	check("the player is dead", player.health == 0)
 	check("dying switches to the death clip", visual().body_clip() == &"death", str(visual().body_clip()))
 	check("the gun is gone with the arms", not visual().get_node("Arms").visible)
-	var body: Sprite2D = visual().get_node("Body")
-	var seen: Array[int] = []
 	for i in 50:
 		await frames(1)
 		if seen.is_empty() or seen[-1] != body.frame:
@@ -356,8 +363,8 @@ func test_turning_swaps_the_texture_and_never_flips_the_node() -> void:
 
 
 ## 贴图里枪口（沿瞄准方向最远的那一撮像素）在角色本体坐标里的位置。
-func gun_tip(clip: StringName, aim: Vector2) -> Vector2:
-	var image := (load("%s/arms_%s_r.png" % [ART_DIR, clip]) as Texture2D).get_image()
+func gun_tip(look: StringName, clip: StringName, aim: Vector2) -> Vector2:
+	var image := (load("%s/arms_%s_%s_r.png" % [ART_DIR, look, clip]) as Texture2D).get_image()
 	var direction := aim.normalized()
 	var points: Array[Vector2] = []
 	var far := -1e9
@@ -385,12 +392,69 @@ func test_bullets_leave_from_the_gun_in_the_art() -> void:
 	await reset_scene(false, false, skin())
 	await stand_at(400)
 	player.facing = 1
-	for clip: StringName in [&"level", &"up", &"diag_up", &"diag_down", &"down"]:
-		var aim: Vector2 = AIM_DIRECTIONS[clip]
-		var art := gun_tip(clip, aim)
-		var rule := player._muzzle_position(aim.normalized()) - player.global_position
-		check("%s: bullets leave from the barrel in the art" % clip, art.distance_to(rule) <= 2.0,
-			"贴图枪口 %s，出膛点 %s，差 %.1fpx" % [art, rule, art.distance_to(rule)])
+	# 每把枪都要守：出膛点只有一套，换哪把枪子弹/手雷都得从那把枪的枪口出来
+	for look: StringName in GUN_LOOKS:
+		var tolerance: float = GUN_LOOKS[look]
+		for clip: StringName in [&"level", &"up", &"diag_up", &"diag_down", &"down"]:
+			var aim: Vector2 = AIM_DIRECTIONS[clip]
+			var art := gun_tip(look, clip, aim)
+			var rule := player._muzzle_position(aim.normalized()) - player.global_position
+			check("%s %s: shots leave from the barrel in the art" % [look, clip], art.distance_to(rule) <= tolerance,
+				"贴图枪口 %s，出膛点 %s，差 %.1fpx（容差 %.0f）" % [art, rule, art.distance_to(rule), tolerance])
+
+
+func test_switching_weapons_swaps_the_gun_in_the_hands() -> void:
+	# 步枪 ↔ 手雷（榴弹枪）随时切换：手里的枪跟着换，其它什么都不变——
+	# 身体动画、瞄准方向、出膛点、判定框都和换之前一样。外观键在武器资源里（Weapon.look）。
+	await reset_scene(false, false, skin())
+	await stand_at(400)
+	var arms: Sprite2D = visual().get_node("Arms")
+	check("starts with the rifle", player.current_slot().weapon.look == &"rifle" and visual().held_look() == &"rifle",
+		str(visual().held_look()))
+	check("rifle art in the hands", arms.texture.resource_path.get_file().begins_with("arms_rifle_"),
+		arms.texture.resource_path)
+	var muzzle := player._muzzle_position(Vector2.RIGHT) - player.global_position
+	var body_clip := visual().body_clip()
+	player.switch_weapon()
+	await frames(1)
+	check("switching to grenades shows the launcher", visual().held_look() == &"launcher", str(visual().held_look()))
+	check("launcher art in the hands", arms.texture.resource_path.get_file().begins_with("arms_launcher_level"),
+		arms.texture.resource_path)
+	check("same muzzle for both guns", player._muzzle_position(Vector2.RIGHT) - player.global_position == muzzle)
+	check("the body does not change", visual().body_clip() == body_clip)
+	# 榴弹枪也跟着瞄准、跟着转身
+	Input.action_press("aim_up")
+	await frames(3)
+	check("the launcher aims too", arms.texture.resource_path.get_file() == "arms_launcher_up_r.png",
+		arms.texture.resource_path)
+	Input.action_release("aim_up")
+	Input.action_press("move_left")
+	await frames(6)
+	release_all_input()
+	check("and turns around with the player", arms.texture.resource_path.get_file() == "arms_launcher_level_l.png",
+		arms.texture.resource_path)
+	player.switch_weapon()
+	await frames(1)
+	check("switching back brings the rifle back", arms.texture.resource_path.get_file() == "arms_rifle_level_l.png",
+		arms.texture.resource_path)
+
+
+func test_a_gun_without_art_falls_back_to_the_rifle() -> void:
+	# 新武器还没画枪，或者这套皮肤没有这把枪的贴图：拿默认那把，不能手里空着、也不能报错
+	await reset_scene(false, false, skin())
+	await stand_at(400)
+	var odd := Weapon.new()
+	odd.look = &"not_drawn_yet"
+	odd.projectile = player.current_slot().weapon.projectile
+	player.equip_weapon(player.current_weapon, odd)
+	await frames(1)
+	check("an unknown gun shows the default one", visual().held_look() == &"rifle", str(visual().held_look()))
+	check("and the hands are still holding it", visual().get_node("Arms").visible and visual().get_node("Arms").texture != null)
+	var blank := Weapon.new()
+	blank.projectile = odd.projectile
+	player.equip_weapon(player.current_weapon, blank)
+	await frames(1)
+	check("a weapon with no look shows the default one too", visual().held_look() == &"rifle", str(visual().held_look()))
 
 
 # ---------------------------------------------------------------- 换皮肤不改变规则

@@ -31,10 +31,14 @@ OWN = os.path.join(HERE, "..", "art_src")
 OUT = os.path.join(HERE, "..", "skins", "cyberpunk", "player")
 
 CHARACTER = "1 Biker"
-# 用哪把枪当步枪的外观（`2 Guns/` 里的编号）。
+# 每种枪的外观用素材包里哪一把（`2 Guns/` 里的编号）。键就是 `Weapon.look`，
+# 每把输出一整套手臂贴图 `arms_<外观>_<方向>_<朝向>.png`，玩家切武器时外观层换一套。
 # **别挑太小的枪**：素材里的后手臂是按「大部分被枪挡住」画的，1 号枪只有 26×7，
-# 斜射时那条粗胳膊会整根露在枪外面，看着像身上挂了根香肠。4 号 29×11，正好压得住。
-GUN = 4
+# 斜射时那条粗胳膊会整根露在枪外面，看着像身上挂了根香肠。
+#   rifle    步枪，4 号（29×11）
+#   launcher 榴弹枪（扔手雷那把），5 号（28×16）：粗炮管一眼就和步枪分得开，长度又和步枪差不多。
+#            两把枪共用一套出膛点（玩法规则），5 号的枪口和出膛点最多差 2.8px，见 test_cyberpunk_skin.gd。
+GUNS = {"rifle": 4, "launcher": 5}
 
 CELL = 48          # 素材每帧的边长
 ARM_CELL = 32      # 手臂/枪格子的边长
@@ -373,12 +377,18 @@ def grip_in(gun, aim):
 
 
 def build_arms(write):
+	for look, gun_number in GUNS.items():
+		print("  %s（%d 号枪）：" % (look, gun_number))
+		build_arms_for(look, gun_number, write)
+
+
+def build_arms_for(look, gun_number, write):
 	hands = os.path.join(SRC, "3 Hands", CHARACTER)
 	for name, (pose, variant, flip_v, degrees, hand, aim) in AIMS.items():
 		frame = blank(CELL, CELL)
 		_, _, back = read_png(os.path.join(hands, "%d.png" % pose))
 		blit(frame, back, ARM_INSET_X, ARM_INSET_Y, "%s 的后手臂" % name)
-		_, _, gun = read_png(os.path.join(SRC, "2 Guns", "%d_%s.png" % (GUN, variant)))
+		_, _, gun = read_png(os.path.join(SRC, "2 Guns", "%d_%s.png" % (gun_number, variant)))
 		if flip_v:
 			gun = gun[::-1]
 		gun = rotate(gun, degrees)
@@ -388,9 +398,9 @@ def build_arms(write):
 			"%s 的枪" % name)
 		_, _, front = read_png(os.path.join(hands, "%d.png" % (pose + 5)))
 		blit(frame, front, ARM_INSET_X, ARM_INSET_Y, "%s 的前手臂" % name)
-		right = place(frame, ARM_BASELINE, "arms_%s" % name)
-		save_strip("arms_%s_r.png" % name, [right], write)
-		save_strip("arms_%s_l.png" % name, [mirror(right)], write)
+		right = place(frame, ARM_BASELINE, "arms_%s_%s" % (look, name))
+		save_strip("arms_%s_%s_r.png" % (look, name), [right], write)
+		save_strip("arms_%s_%s_l.png" % (look, name), [mirror(right)], write)
 
 
 ## 握枪的手离胳膊最远能有多少像素。正下方那档枪夹在两条平行的胳膊中间、不压在任何一条上，
@@ -434,7 +444,7 @@ def main():
 	build_death(write)
 	print("趴姿和爬行（自己画的 art_src/%s，原生分辨率）：" % PRONE)
 	build_prone(write)
-	print("手臂 + %d 号枪：" % GUN)
+	print("手臂 + 枪：")
 	check_hands()
 	build_arms(write)
 	if _clipped:

@@ -23,6 +23,9 @@ const BODY_FPS := {
 	&"run": 14.0,
 	&"crawl": 8.0,
 }
+## 手里的枪没有专门的贴图时（`Weapon.look` 留空，或者这套皮肤没画这把枪）就用这一把。
+const DEFAULT_LOOK := &"rifle"
+
 ## 死亡动画的播放速度：只播一遍，播完停在最后一帧（躺在地上）。
 const DEATH_FPS := 10.0
 
@@ -55,6 +58,7 @@ var _crouched := false
 var _elapsed := 0.0
 var _dead := false
 var _dead_since := 0.0
+var _look := DEFAULT_LOOK
 
 
 func _ready() -> void:
@@ -78,6 +82,20 @@ func face(facing: int) -> void:
 		return
 	_facing = facing
 	_refresh()
+
+
+## 换枪：整套手臂贴图换成这把枪的（`arms_<look>_<方向>_<朝向>.png`）。
+func hold(look: StringName) -> void:
+	var wanted := look if look != &"" else DEFAULT_LOOK
+	if wanted == _look:
+		return
+	_look = wanted
+	_refresh()
+
+
+## 现在显示的是哪把枪的贴图（测试用）：没有这把枪的贴图时是回落后的那把。
+func held_look() -> StringName:
+	return _look if ResourceLoader.exists(_arms_path(_look, &"level", &"r")) else DEFAULT_LOOK
 
 
 func aim(direction: Vector2) -> void:
@@ -138,8 +156,12 @@ func _refresh() -> void:
 	var arms := arms_clip()
 	_arms.visible = arms != &""
 	if _arms.visible:
-		_put(_arms, "arms_%s_%s" % [arms, side])
+		_put(_arms, _arms_path(held_look(), arms, side).get_file().get_basename())
 	_advance()
+
+
+func _arms_path(look: StringName, aim_clip: StringName, side: StringName) -> String:
+	return "%s/arms_%s_%s_%s.png" % [art_dir, look, aim_clip, side]
 
 
 ## 换贴图并按图宽算出有几帧（每帧都是正方形）。

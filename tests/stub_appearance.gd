@@ -15,6 +15,10 @@ func aim(_direction: Vector2) -> void:
 	calls.append("aim")
 
 
+func hold(_look: StringName) -> void:
+	calls.append("hold")
+
+
 func motion(_state: Appearance.Motion) -> void:
 	calls.append("motion")
 
