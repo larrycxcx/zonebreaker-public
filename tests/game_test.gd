@@ -120,7 +120,7 @@ func keyboard_keys(action: StringName) -> Array:
 	return keys
 
 
-## 按碰撞层收集场上还活着的子弹（8 = 玩家子弹，32 = 敌人子弹）。
+## 按碰撞层收集场上还活着的子弹（4 = 玩家子弹，16 = 敌人子弹）。
 ## 子弹命中后立刻消失，所以判断「有没有开火」要逐帧采样，不能事后再数。
 func bullets(layer: int, node: Node = null) -> Array:
 	var found := []

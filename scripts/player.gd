@@ -165,6 +165,16 @@ func _physics_process(delta: float) -> void:
 	_update_invincibility(delta)
 	_shield_timer -= delta
 	_check_contact_damage()
+	_visual.motion(_motion_state())
+
+
+## 这一帧在做什么，交给外观去选动画。趴下不在这里说，它走 `pose()`（见 Appearance.Motion）。
+func _motion_state() -> Appearance.Motion:
+	if not is_on_floor():
+		return Appearance.Motion.FALL if velocity.y > 0.0 else Appearance.Motion.JUMP
+	if absf(velocity.x) < 1.0:
+		return Appearance.Motion.IDLE
+	return Appearance.Motion.RUN if is_sprinting else Appearance.Motion.WALK
 
 
 func _apply_gravity(delta: float) -> void:

@@ -33,8 +33,15 @@ func test_audio_setup() -> void:
 	var players := Sfx.get_children().filter(func(c): return c is AudioStreamPlayer)
 	check("Sfx has a pool of players", players.size() == Sfx.POOL_SIZE, str(players.size()))
 	check("all of them play on the SFX bus", players.all(func(p): return p.bus == &"SFX"))
-	check("the project setting picks the default skin", ProjectSettings.get_setting(Skins.SETTING) == Skins.DEFAULT_SKIN)
-	check("the default skin is loaded", Skins.current != null and Skins.current.resource_path == Skins.DEFAULT_SKIN)
+	# 游戏启动时用哪个包由项目设置决定（现在是赛博朋克包）。不管指向谁，
+	# 声音都必须找得到——找不到就是这个包的 fallback 链断了。
+	var startup := load(ProjectSettings.get_setting(Skins.SETTING)) as SkinPack
+	check("the project setting points at a real skin pack", startup != null,
+		str(ProjectSettings.get_setting(Skins.SETTING)))
+	if startup != null:
+		for event: StringName in SkinPack.SOUND_EVENTS:
+			check("the startup skin can find %s" % event, startup.find_sound(event) != null)
+	check("tests run on the default skin", Skins.current != null and Skins.current.resource_path == Skins.DEFAULT_SKIN)
 
 
 func test_default_skin_has_every_sound() -> void:

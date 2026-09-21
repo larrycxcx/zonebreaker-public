@@ -9,6 +9,16 @@ extends Node2D
 ## 这里只管「看起来怎么样」。判定点（枪口、射线、受击框）一律挂在角色**本体**上、不在 `Visual` 里，
 ## 所以换外观不会改变任何游戏规则（`tests/test_visuals.gd` 守着这条）。
 
+## 角色现在在做什么。玩法每帧算出来告诉外观，外观据此选动画（占位方块只有一个样子，用不上）。
+## 趴下不在这里：由 `pose()` 的高度比例表示，一件事只从一个地方说。
+enum Motion {
+	IDLE,  ## 站着不动
+	WALK,  ## 走
+	RUN,   ## 奔跑（按住 Alt）
+	JUMP,  ## 在空中上升
+	FALL,  ## 在空中下落
+}
+
 ## 按瞄准方向切换的枪（玩家用）：方向 → 子节点名字。场景里没有的就跳过。
 const GUN_BY_AIM := {
 	Vector2(1, 0): "Gun",
@@ -53,6 +63,11 @@ func aim(direction: Vector2) -> void:
 		if gun != null:
 			gun.visible = aim_key == key
 	_turn_gun()
+
+
+## 现在在做什么（站/走/跑/上升/下落）。占位方块只有一个样子，不用管；精灵图版据此选动画。
+func motion(_state: Motion) -> void:
+	pass
 
 
 ## 姿势：身体现在压到原来的几成高（`height_ratio`）、整体下移多少（`lowered`）。

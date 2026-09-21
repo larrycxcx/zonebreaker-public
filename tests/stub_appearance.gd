@@ -15,6 +15,10 @@ func aim(_direction: Vector2) -> void:
 	calls.append("aim")
 
 
+func motion(_state: Appearance.Motion) -> void:
+	calls.append("motion")
+
+
 func pose(_height_ratio: float, _lowered: float) -> void:
 	calls.append("pose")
 
