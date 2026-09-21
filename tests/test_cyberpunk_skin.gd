@@ -11,7 +11,7 @@ const ART_DIR := "res://skins/cyberpunk/player"
 const FRAME := 56
 
 ## 生成出来应该有的贴图：每个动作、每个瞄准方向，各一套朝左朝右。
-const BODY_CLIPS := ["idle", "walk", "run", "air", "crouch", "crawl"]
+const BODY_CLIPS := ["idle", "walk", "run", "air", "crouch", "crawl", "death"]
 const AIM_CLIPS := ["up", "diag_up", "level", "diag_down", "down"]
 ## 每个瞄准贴图对应的子弹方向（和 Player.aim_vector() 那一套一致）。
 const AIM_DIRECTIONS := {
@@ -72,7 +72,7 @@ func test_the_two_facings_are_mirrors_of_each_other() -> void:
 	# 朝左那套是按锚点那一列镜像出来的，两边必须严丝合缝地对称。
 	# 对不上就说明生成脚本把某一边切掉了一块——画面上表现为转身时角色少一截、或者整体挪了一格。
 	# 只比看得见的像素：导入器的「修复 alpha 边缘」会给全透明像素填上邻居的颜色，那不对称也无所谓。
-	for base in ["body_idle", "body_run", "body_crouch", "body_crawl", "arms_level", "arms_up"]:
+	for base in ["body_idle", "body_run", "body_crouch", "body_crawl", "body_death", "arms_level", "arms_up"]:
 		var right := (load("%s/%s_r.png" % [ART_DIR, base]) as Texture2D).get_image()
 		var left := (load("%s/%s_l.png" % [ART_DIR, base]) as Texture2D).get_image()
 		check("%s: both facings are the same size" % base, right.get_size() == left.get_size(),
@@ -180,6 +180,65 @@ func ink_box_in(image: Image, frame: int) -> Rect2i:
 			top = mini(top, y)
 			bottom = maxi(bottom, y)
 	return Rect2i(left, top, right - left + 1, bottom - top + 1)
+
+
+func test_the_death_art_falls_backwards_onto_the_ground() -> void:
+	# 死亡动画保留画师原本的摆位，只按站立那一帧定一次位：人是往后倒的，
+	# 逐帧按躯干重新对齐会把后倒的位移抵消掉，倒地变成原地打转——这条守的就是这个。
+	var image := (load("%s/body_death_r.png" % ART_DIR) as Texture2D).get_image()
+	var count := image.get_width() / FRAME
+	var first := ink_box_in(image, 0)
+	var last := ink_box_in(image, count - 1)
+	var first_mid := (first.position.x + first.end.x) / 2.0
+	var last_mid := (last.position.x + last.end.x) / 2.0
+	check("the body ends up lying down", last.size.x > last.size.y and last.size.y < first.size.y,
+		"第一帧 %s，最后一帧 %s" % [first.size, last.size])
+	# 朝右的人往后倒 = 往左倒：最后一帧的头（最上面那一行）在原点左边
+	var head_x := -1
+	for x in FRAME:
+		if image.get_pixel((count - 1) * FRAME + x, last.position.y).a > 0.03:
+			head_x = x
+			break
+	check("facing right, it falls backwards (head ends up behind the origin)",
+		head_x < SpriteAppearance.ANCHOR_X, "头在 x=%d，原点 x=%d" % [head_x, SpriteAppearance.ANCHOR_X])
+	check("the fall keeps its travel instead of spinning in place", absf(last_mid - first_mid) >= 2.0,
+		"外框中心从 %.1f 到 %.1f" % [first_mid, last_mid])
+	# 每一帧都落在地面那条线上，不陷进地里（最后躺平那几帧尤其要紧）
+	for f in count:
+		var box := ink_box_in(image, f)
+		var sole := box.end.y - SpriteAppearance.ANCHOR_Y
+		check("death frame %d touches the ground" % (f + 1), absf(sole - Player.STAND_HEIGHT / 2.0) <= 1.0,
+			"最低处在原点下方 %.0fpx" % sole)
+
+
+func test_dying_plays_the_fall_once_and_stays_down() -> void:
+	await reset_scene(false, false, skin())
+	await stand_at(400)
+	player.take_damage(player.health)
+	await frames(1)
+	check("the player is dead", player.health == 0)
+	check("dying switches to the death clip", visual().body_clip() == &"death", str(visual().body_clip()))
+	check("the gun is gone with the arms", not visual().get_node("Arms").visible)
+	var body: Sprite2D = visual().get_node("Body")
+	var seen: Array[int] = []
+	for i in 50:
+		await frames(1)
+		if seen.is_empty() or seen[-1] != body.frame:
+			seen.append(body.frame)
+	check("it plays forward through every frame, once", seen == range(body.hframes), str(seen))
+	check("and stays on the last frame, lying down", body.frame == body.hframes - 1, str(body.frame))
+	check("not darkened like the placeholder blocks", visual().modulate == Color.WHITE, str(visual().modulate))
+
+
+func test_dying_while_lying_down_still_plays_the_fall() -> void:
+	await reset_scene(false, false, skin())
+	await stand_at(400)
+	Input.action_press("crouch")
+	await frames(6)
+	player.take_damage(player.health)
+	await frames(2)
+	release_all_input()
+	check("death wins over the prone pose", visual().body_clip() == &"death", str(visual().body_clip()))
 
 
 # ---------------------------------------------------------------- 接上去以后

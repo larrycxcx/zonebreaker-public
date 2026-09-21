@@ -63,6 +63,15 @@ BODIES = {
 	"air": ("Jump2", [1, 2]),
 }
 
+# 死亡动画来自 CraftPix 同系列的另一个包（第三方素材，和 art_in/default 一样不进仓库），
+# 格式和素材包完全一致：一排 6 帧 × 48×48，第 1 帧就是空手站立的 Idle1。
+# **从第 2 帧开始用**：第 1 帧是空手站着，从它播会先出现「枪突然没了、人愣一下」的一拍；
+# 从开始后仰那帧播，枪消失的那一下被倒地的动作盖住。
+# **不按躯干逐帧对齐**：人是往后倒的，逐帧把躯干拉回原点会把后倒的位移抵消掉，变成原地打转。
+# 所以整组只按第 1 帧（站立）的躯干定一次位，后面几帧保留画师原本的摆位。
+DEATH = os.path.join(HERE, "..", "art_in", "extra", "biker_death.png")
+DEATH_FRAMES = [1, 2, 3, 4, 5]
+
 # 趴下和爬行**不在素材包里**（CraftPix 那套只有单膝跪姿），是自己画的，放在 art_src/（进仓库）。
 # `biker_prone.png` 是**原生分辨率**的一排四帧（约 43×14 一帧，帧与帧之间隔着空列），1:1 使用、不缩放。
 # 原图是按 9 倍放大、再存成有损 webp 交过来的，按 9px 的网格逐格取中间那点的众数还原回来的；
@@ -318,6 +327,15 @@ def place_prone(art, where):
 	return frame
 
 
+def build_death(write):
+	_, _, pixels = read_png(DEATH)
+	standing = cut(pixels, 0, 0, CELL, CELL)
+	anchor_x = torso_center(standing)       # 只量一次，整组共用
+	right = [place(cut(pixels, i * CELL, 0, CELL, CELL), anchor_x, "death 第%d帧" % (i + 1)) for i in DEATH_FRAMES]
+	save_strip("body_death_r.png", right, write)
+	save_strip("body_death_l.png", [mirror(f) for f in right], write)
+
+
 def build_prone(write):
 	colors = palette()
 	frames = [restyle(f, colors) for f in prone_frames()]
@@ -412,6 +430,8 @@ def main():
 		sys.exit("找不到原始素材包 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(SRC))
 	print("身体（%s，无手臂版）：" % CHARACTER)
 	build_bodies(write)
+	print("死亡（CraftPix，art_in/extra/）：")
+	build_death(write)
 	print("趴姿和爬行（自己画的 art_src/%s，原生分辨率）：" % PRONE)
 	build_prone(write)
 	print("手臂 + %d 号枪：" % GUN)

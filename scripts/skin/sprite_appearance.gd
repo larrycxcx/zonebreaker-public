@@ -23,6 +23,8 @@ const BODY_FPS := {
 	&"run": 14.0,
 	&"crawl": 8.0,
 }
+## 死亡动画的播放速度：只播一遍，播完停在最后一帧（躺在地上）。
+const DEATH_FPS := 10.0
 
 ## 瞄准方向 → 手臂贴图的名字。键和 `Appearance.GUN_BY_AIM` 用的是同一套（x 取绝对值、y 取符号）。
 const ARMS_BY_AIM := {
@@ -51,6 +53,8 @@ const BODY_BY_MOTION := {
 var _motion := Motion.IDLE
 var _crouched := false
 var _elapsed := 0.0
+var _dead := false
+var _dead_since := 0.0
 
 
 func _ready() -> void:
@@ -99,17 +103,29 @@ func motion(state: Motion) -> void:
 	_refresh()
 
 
-## 当前这一帧身体用的贴图名（测试用）。
+## 死了：播一遍倒地动画，停在最后一帧。不像占位方块那样变暗——倒在地上本身就说明白了。
+## 死亡动画里人是空手的（枪脱手了），所以手臂那张图整个藏起来。
+func show_dead() -> void:
+	if _dead:
+		return
+	_dead = true
+	_dead_since = _elapsed
+	_refresh()
+
+
+## 当前这一帧身体用的贴图名（测试用）。死亡优先于一切（趴着、在空中被打死都一样倒）。
 ## 趴着时：不动用静止那一帧，在挪就播爬行（走和跑都算挪——趴着本来也跑不起来）。
 func body_clip() -> StringName:
+	if _dead:
+		return &"death"
 	if _crouched:
 		return &"crawl" if _motion == Motion.WALK or _motion == Motion.RUN else &"crouch"
 	return BODY_BY_MOTION[_motion]
 
 
-## 当前这一帧手臂用的贴图名；趴下时没有手臂（那张身体图自带手臂）。
+## 当前这一帧手臂用的贴图名；趴下和死亡时没有手臂（那两套身体图自带手臂）。
 func arms_clip() -> StringName:
-	if _crouched:
+	if _crouched or _dead:
 		return &""
 	return ARMS_BY_AIM.get(Vector2(absf(signf(_aim.x)), signf(_aim.y)), &"level")
 
@@ -139,6 +155,9 @@ func _put(sprite: Sprite2D, file: String) -> void:
 ## 按时间推进身体动画；空中那两帧按上升/下落取，不按时间播。
 func _advance() -> void:
 	if _body == null or _body.texture == null:
+		return
+	if _dead:
+		_body.frame = mini(int((_elapsed - _dead_since) * DEATH_FPS), _body.hframes - 1)
 		return
 	if _motion == Motion.FALL and not _crouched:
 		_body.frame = mini(1, _body.hframes - 1)
