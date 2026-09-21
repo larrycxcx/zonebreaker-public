@@ -44,7 +44,7 @@ extends Boss
 @export var dodge_speed := 220.0
 
 ## 水平射击的出膛点（相对身体中心，朝右时）：y = 碰撞体底边(16) - 7，和普通敌人离地 7px 一致。
-const LEVEL_MUZZLE := Vector2(30, 10)
+const LEVEL_MUZZLE := Vector2(30, 9)
 ## 其它方向的出膛点：身体中心 + 方向 × 这个伸出量（x、y 分开，适配竖长的身体）。
 const MUZZLE_REACH := Vector2(28, 40)
 ## 碰撞体半高（原点到脚底）。

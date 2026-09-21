@@ -48,8 +48,8 @@ const DIAGONAL_MIN_ANGLE := 22.5
 const DIAGONAL_MAX_ANGLE := 67.5
 ## 斜向出膛点，相对身体中心（朝右时；朝左 x 取反）。由代码算，不挂在 Visual 下。
 ## 斜下的 y 不能太大：站在地上时子弹一出膛就会嵌进地面。
-const DIAGONAL_UP_MUZZLE := Vector2(20, -22)
-const DIAGONAL_DOWN_MUZZLE := Vector2(20, 0)
+const DIAGONAL_UP_MUZZLE := Vector2(20, -23)
+const DIAGONAL_DOWN_MUZZLE := Vector2(20, -1)
 
 ## 瞄准方向。
 enum Aim { LEVEL, DIAGONAL_UP, DIAGONAL_DOWN }

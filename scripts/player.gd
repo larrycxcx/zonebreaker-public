@@ -68,11 +68,11 @@ enum Aim { FORWARD, UP, DIAGONAL_UP, DIAGONAL_DOWN, DOWN }
 ## 斜下的枪口不能太低：子弹转 45° 后半高约 3px，站在地面上（脚底在 +8）时出膛点要在 +5 以上，否则一出膛就嵌进地里。
 ## 各方向的出膛点，相对身体中心（朝右时；朝左 x 取反）。全部由代码算，不挂在 Visual 下面——
 ## 判定点不能跟着外观走，否则换皮肤、甚至开枪的后坐力位移都会改变子弹从哪飞出去。
-const LEVEL_MUZZLE := Vector2(22, -6)
-const UP_MUZZLE := Vector2(9, -27)
-const DIAGONAL_UP_MUZZLE := Vector2(20, -21)
-const DIAGONAL_DOWN_MUZZLE := Vector2(17, 7)
-const DOWN_MUZZLE := Vector2(13, 12)
+const LEVEL_MUZZLE := Vector2(23, -7)
+const UP_MUZZLE := Vector2(8, -27)
+const DIAGONAL_UP_MUZZLE := Vector2(22, -21)
+const DIAGONAL_DOWN_MUZZLE := Vector2(19, 7)
+const DOWN_MUZZLE := Vector2(9, 13)
 
 ## 站立/蹲下的碰撞体高度。脚底位置不变，只压低头顶。
 const STAND_HEIGHT := 32.0

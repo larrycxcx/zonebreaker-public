@@ -31,8 +31,10 @@ OWN = os.path.join(HERE, "..", "art_src")
 OUT = os.path.join(HERE, "..", "skins", "cyberpunk", "player")
 
 CHARACTER = "1 Biker"
-# 用哪把枪当步枪的外观（`2 Guns/` 里的编号，1 是最像突击步枪的那把）。
-GUN = 1
+# 用哪把枪当步枪的外观（`2 Guns/` 里的编号）。
+# **别挑太小的枪**：素材里的后手臂是按「大部分被枪挡住」画的，1 号枪只有 26×7，
+# 斜射时那条粗胳膊会整根露在枪外面，看着像身上挂了根香肠。4 号 29×11，正好压得住。
+GUN = 4
 
 CELL = 48          # 素材每帧的边长
 ARM_CELL = 32      # 手臂/枪格子的边长
@@ -77,10 +79,11 @@ PRONE_NUDGE = 0   # 横向微调（正数往前挪）；默认按贴图中心对
 # **枪放在哪里由「手在哪里」决定，不要自己推**：素材里手臂不是绕一个固定点转的，
 # 画师每个方向都把整条胳膊挪了位置，按「握把固定在格子中心」推出来的落点五个方向里错四个。
 # 手的位置是从 Hands.psd 量的：前手臂那组里的 `Deep_shadows` 图层就是从枪另一侧露出来的那只手。
-# **正下方那张是例外**：它没有这块小方块，因为前面那条胳膊只是垂着、根本没握枪——
-# 握枪的是后面那条（`1.png`，在身体右侧），所以这一档量的是后手臂的下端。
+# **正下方那张是例外**：它没有这块小方块。那个姿势两条胳膊是两根平行的竖棒，
+# 一根在身体前面（`6.png`，格子 x1..7）、一根在身体外侧（`1.png`，x14..19），
+# **枪夹在两者中间**（x≈11），不是挂在任何一条上——按后手臂末端放会让枪整个飘到身体外面。
 AIMS = {
-	"down":      (1, "1", False,  90, (16.5, 25.0), (0, 1)),
+	"down":      (1, "1", False,  90, (11.0, 25.0), (0, 1)),
 	"diag_down": (2, "2", False,   0, (14.5, 24.0), (1, 1)),
 	"level":     (3, "1", False,   0, (19.5, 17.0), (1, 0)),
 	"diag_up":   (4, "2", True,    0, (19.0, 5.5), (1, -1)),
@@ -357,20 +360,26 @@ def build_arms(write):
 		save_strip("arms_%s_l.png" % name, [mirror(right)], write)
 
 
+## 握枪的手离胳膊最远能有多少像素。正下方那档枪夹在两条平行的胳膊中间、不压在任何一条上，
+## 所以不能要求「正好落在胳膊上」；5px 足够松，又能抓住「数字写错、枪飘到别处」。
+HAND_REACH = 5.0
+
+
 def check_hands():
-	"""量出来的手必须真的落在某条胳膊上，不然就是素材换了、数字没跟着改。"""
+	"""量出来的手必须挨着某条胳膊，不然就是素材换了、数字没跟着改。"""
 	hands = os.path.join(SRC, "3 Hands", CHARACTER)
 	for name, entry in AIMS.items():
 		pose, hand = entry[0], entry[4]
-		x, y = int(round(hand[0])), int(round(hand[1]))
-		on = []
+		best = 1e9
 		for index in (pose, pose + 5):
 			_, _, arm = read_png(os.path.join(hands, "%d.png" % index))
-			if any(arm[y + dy][x + dx][3] > 8 for dy in (-1, 0, 1) for dx in (-1, 0, 1)):
-				on.append(index)
-		if not on:
-			_clipped.append("%s：握枪的手 (%g, %g) 不在 %d.png 和 %d.png 上"
-				% (name, hand[0], hand[1], pose, pose + 5))
+			for y, row in enumerate(arm):
+				for x, color in enumerate(row):
+					if color[3] > 8:
+						best = min(best, math.hypot(x - hand[0], y - hand[1]))
+		if best > HAND_REACH:
+			_clipped.append("%s：握枪的手 (%g, %g) 离 %d.png / %d.png 都有 %.1fpx 远"
+				% (name, hand[0], hand[1], pose, pose + 5, best))
 
 
 def save_strip(name, frames, write):
