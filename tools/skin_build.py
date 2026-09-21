@@ -63,14 +63,18 @@ BODIES = {
 	"air": ("Jump2", [1, 2]),
 }
 
-# 趴下那一帧**不在素材包里**：CraftPix 那套只有单膝跪姿（27px 高），而趴下的判定框只有 8px，
-# 画面上的人会比判定框高一大截。这张是自己画的，放在 art_src/（我们自己的源文件，进仓库）。
-# 它是按大图画的，这里缩到 PRONE_SIZE 再把颜色贴回角色自己的调色板。
-# **高度是有规矩的**：整张图必须完全藏在敌人站着开枪的子弹下面（离地 12~16px），
-# 否则画面上看着被打中、判定却没中。30×10 正好留 2px 余量，改大之前先看 test_cyberpunk_skin.gd。
+# 趴下和爬行**不在素材包里**（CraftPix 那套只有单膝跪姿），是自己画的，放在 art_src/（进仓库）。
+# `biker_prone.png` 是**原生分辨率**的一排四帧（约 43×14 一帧，帧与帧之间隔着空列），1:1 使用、不缩放。
+# 原图是按 9 倍放大、再存成有损 webp 交过来的，按 9px 的网格逐格取中间那点的众数还原回来的；
+# 以后再补图，**直接导出 1 倍大小的 PNG**，就不用再做这一步。
+# **高度是有规矩的**：每一帧都要藏在敌人站着开枪的子弹下面，又要和 12px 的判定框差不多高，
+# test_cyberpunk_skin.gd 逐帧守着。
 PRONE = "biker_prone.png"
-PRONE_SIZE = (34, 13)
-PRONE_NUDGE = 0   # 横向微调（正数往前挪）；默认按贴图中心对齐身体原点
+PRONE_STILL = 1              # 趴着不动用第几帧（从 0 数）
+PRONE_CRAWL = [0, 1, 2, 3]   # 爬行循环用哪几帧、什么顺序：腿伸直 → 收膝 → 再伸直
+# 四帧按**上衣（躯干）中心**对齐：爬的时候前半身基本不动、腿往上收，按躯干对齐人才不会原地前后滑。
+# 躯干放在身体原点前方 5px，这样静止那帧整体大致对着原点（头在前、脚在后，头短脚长）。
+PRONE_TORSO_X = 5
 
 # 瞄准方向 → (手臂编号, 用哪张枪, 是否上下翻转, 旋转角度, 握枪那只手在 32×32 格子里的位置, 子弹飞的方向)。
 # 手臂 1~5 是后手臂（画在枪后面），6~10 是同样 5 个方向的前手臂（画在枪前面）。
@@ -263,55 +267,66 @@ def palette():
 	return sorted(seen, key=lambda c: -seen[c])
 
 
-def resample(pixels, box, size, colors):
-	"""把 box 这块内容按面积平均缩到 size，每个像素贴到最近的调色板颜色。"""
-	x0, y0, x1, y1 = box
+def prone_frames():
+	"""把自己画的那排趴姿按空列切成一帧一帧（原生分辨率，不缩放）。"""
+	_, _, pixels = read_png(os.path.join(OWN, PRONE))
+	width = len(pixels[0])
+	solid = [any(row[x][3] > 8 for row in pixels) for x in range(width)]
+	frames, start = [], None
+	for x in range(width + 1):
+		on = x < width and solid[x]
+		if on and start is None:
+			start = x
+		elif not on and start is not None:
+			frames.append(cut(pixels, start, 0, x - start, len(pixels)))
+			start = None
+	return frames
+
+
+def restyle(art, colors):
+	"""贴回角色自己的调色板，**外轮廓那圈深色换成纯黑**——素材包所有角色的描边都是黑的，
+	自己画的是深紫，贴完调色板会落到头发那个颜色上，和站姿放在一起描边颜色对不上。"""
+	height, width = len(art), len(art[0])
 	out = []
-	for ty in range(size[1]):
-		row = []
-		for tx in range(size[0]):
-			ax = x0 + (x1 - x0 + 1) * tx / size[0]
-			bx = x0 + (x1 - x0 + 1) * (tx + 1) / size[0]
-			ay = y0 + (y1 - y0 + 1) * ty / size[1]
-			by = y0 + (y1 - y0 + 1) * (ty + 1) / size[1]
-			total = [0.0, 0.0, 0.0]
-			seen = 0
-			solid = 0
-			for y in range(int(ay), max(int(ay) + 1, int(by))):
-				for x in range(int(ax), max(int(ax) + 1, int(bx))):
-					seen += 1
-					if pixels[y][x][3] > 8:
-						solid += 1
-						for i in range(3):
-							total[i] += pixels[y][x][i]
-			if solid * 2 < seen:      # 一半以上是透明的就算透明，边缘才不会糊出一圈
-				row.append((0, 0, 0, 0))
+	for row in art:
+		out.append([(0, 0, 0, 0) if c[3] <= 8 else
+			min(colors, key=lambda p: sum((p[i] - c[i]) ** 2 for i in range(3))) + (255,) for c in row])
+	result = [row[:] for row in out]
+	for y in range(height):
+		for x in range(width):
+			c = out[y][x]
+			if c[3] == 0:
 				continue
-			mean = [total[i] / solid for i in range(3)]
-			near = min(colors, key=lambda c: sum((c[i] - mean[i]) ** 2 for i in range(3)))
-			row.append((near[0], near[1], near[2], 255))
-		out.append(row)
-	return out
+			edge = any(not (0 <= y + dy < height and 0 <= x + dx < width) or out[y + dy][x + dx][3] == 0
+				for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+			if edge and 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2] < 45:
+				result[y][x] = (0, 0, 0, 255)
+	return result
 
 
-def ink_box(pixels):
-	xs, ys = [], []
-	for y, row in enumerate(pixels):
-		for x, color in enumerate(row):
-			if color[3] > 8:
-				xs.append(x)
-				ys.append(y)
-	return (min(xs), min(ys), max(xs), max(ys))
+def torso_x(art):
+	"""上衣（粉红那几种颜色）的横向中心。"""
+	xs = [x for row in art for x, c in enumerate(row) if c[3] and c[0] > 160 and c[1] < 90]
+	return sum(xs) / len(xs)
+
+
+def place_prone(art, where):
+	frame = blank(FRAME, FRAME)
+	bottom = max(y for y, row in enumerate(art) if any(c[3] for c in row))
+	# 躯干对准原点前方 PRONE_TORSO_X，最低那一行落在原点下方 16px（和站姿同一条地面线）
+	blit(frame, art, ANCHOR[0] + PRONE_TORSO_X - int(round(torso_x(art))), ANCHOR[1] + 16 - 1 - bottom, where)
+	return frame
 
 
 def build_prone(write):
-	_, _, pixels = read_png(os.path.join(OWN, PRONE))
-	art = resample(pixels, ink_box(pixels), PRONE_SIZE, palette())
-	frame = blank(FRAME, FRAME)
-	# 横向大致对着身体原点，纵向让脚底和站姿一样落在原点下方 16px
-	blit(frame, art, ANCHOR[0] - PRONE_SIZE[0] // 2 + PRONE_NUDGE, ANCHOR[1] + 16 - PRONE_SIZE[1], "crouch")
-	save_strip("body_crouch_r.png", [frame], write)
-	save_strip("body_crouch_l.png", [mirror(frame)], write)
+	colors = palette()
+	frames = [restyle(f, colors) for f in prone_frames()]
+	still = [place_prone(frames[PRONE_STILL], "crouch")]
+	crawl = [place_prone(frames[i], "crawl 第%d帧" % (i + 1)) for i in PRONE_CRAWL]
+	save_strip("body_crouch_r.png", still, write)
+	save_strip("body_crouch_l.png", [mirror(f) for f in still], write)
+	save_strip("body_crawl_r.png", crawl, write)
+	save_strip("body_crawl_l.png", [mirror(f) for f in crawl], write)
 
 
 def build_bodies(write):
@@ -397,7 +412,7 @@ def main():
 		sys.exit("找不到原始素材包 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(SRC))
 	print("身体（%s，无手臂版）：" % CHARACTER)
 	build_bodies(write)
-	print("趴姿（自己画的 art_src/%s，缩到 %dx%d）：" % (PRONE, PRONE_SIZE[0], PRONE_SIZE[1]))
+	print("趴姿和爬行（自己画的 art_src/%s，原生分辨率）：" % PRONE)
 	build_prone(write)
 	print("手臂 + %d 号枪：" % GUN)
 	check_hands()

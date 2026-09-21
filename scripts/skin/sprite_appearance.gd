@@ -21,6 +21,7 @@ const BODY_FPS := {
 	&"idle": 6.0,
 	&"walk": 10.0,
 	&"run": 14.0,
+	&"crawl": 8.0,
 }
 
 ## 瞄准方向 → 手臂贴图的名字。键和 `Appearance.GUN_BY_AIM` 用的是同一套（x 取绝对值、y 取符号）。
@@ -99,8 +100,11 @@ func motion(state: Motion) -> void:
 
 
 ## 当前这一帧身体用的贴图名（测试用）。
+## 趴着时：不动用静止那一帧，在挪就播爬行（走和跑都算挪——趴着本来也跑不起来）。
 func body_clip() -> StringName:
-	return &"crouch" if _crouched else BODY_BY_MOTION[_motion]
+	if _crouched:
+		return &"crawl" if _motion == Motion.WALK or _motion == Motion.RUN else &"crouch"
+	return BODY_BY_MOTION[_motion]
 
 
 ## 当前这一帧手臂用的贴图名；趴下时没有手臂（那张身体图自带手臂）。
