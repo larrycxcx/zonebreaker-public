@@ -37,6 +37,7 @@ const SUITES := {
 	"cyberpunk_fx": "res://tests/test_cyberpunk_fx.gd",
 	"cyberpunk_audio": "res://tests/test_cyberpunk_audio.gd",
 	"progression": "res://tests/test_progression.gd",
+	"status": "res://tests/test_status.gd",
 	"audio": "res://tests/test_audio.gd",
 }
 

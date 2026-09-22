@@ -13,6 +13,11 @@ signal shot_fired
 ## 被消灭时给玩家多少经验、多少钱（Progress 听 enemy_death 发）。
 @export var xp_reward := 10
 @export var money_reward := 5
+## 异常状态抗性：状态名 → 0..1（持续时间 × (1 - 抗性)，1 = 免疫）。机械类敌人以后可以免疫中毒之类。
+@export var resist: Dictionary[StringName, float] = {}
+
+## 身上的异常状态。敌人目前只吃持续伤害；减速、麻痹要改每种敌人的 AI，以后真做麻痹敌人时再接。
+var statuses := StatusEffects.new()
 @export var gravity := 1800.0
 @export var max_fall_speed := 800.0
 
@@ -101,12 +106,34 @@ func _ready() -> void:
 	_visual = Skins.build_appearance(self, skin_key)
 	add_to_group(GROUP)
 	health = max_health
+	statuses.on_damage = take_status_damage
 	_apply_visual_facing()
 	_stand_height = (_shape.shape as RectangleShape2D).size.y
 
 
 ## 被子弹调用（Bullet 通过 has_method("take_damage") 找到它）。
 ## `_source_position` 目前用不到，只为和 Player.take_damage 保持同样的签名。
+## 挂一个异常状态（玩家的子弹、手雷打中时调）。
+func apply_status(effect: StatusEffect) -> void:
+	if health <= 0 or effect == null:
+		return
+	statuses.apply(effect, resist.get(effect.id, 0.0))
+
+
+## 异常状态的持续伤害：直接扣血，扣完照常死（有奖励）。
+func take_status_damage(amount: int) -> void:
+	if health <= 0 or amount <= 0:
+		return
+	health -= amount
+	if health <= 0:
+		die()
+
+
+## 状态计时放在 _process 里：各种敌人的 _physics_process 是子类自己写的，这样不用每个都记得调。
+func _process(delta: float) -> void:
+	statuses.tick(delta)
+
+
 func take_damage(amount: int, _source_position := Vector2.INF) -> void:
 	if health <= 0:
 		return

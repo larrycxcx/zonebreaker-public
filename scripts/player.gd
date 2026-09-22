@@ -116,6 +116,8 @@ var _invincible_timer := 0.0
 ## 不闪烁的无敌（终极武器用）。暂停期间玩家的计时也停着，所以它能覆盖整个定格。
 var _shield_timer := 0.0
 var _dead := false
+## 身上的异常状态（中毒、麻痹……）。持续伤害走 take_status_damage，不触发无敌、不击退。
+var statuses := StatusEffects.new()
 ## 防御属性（挨打时减伤）。
 var _defense := 0.0
 var _exhausted := false
@@ -149,6 +151,7 @@ func _ready() -> void:
 	health = max_health
 	health_changed.emit(health, max_health)
 	Progress.stats_changed.connect(_apply_stats)
+	statuses.on_damage = take_status_damage
 	stamina = max_stamina
 	stamina_changed.emit(stamina, max_stamina)
 	# HeadCheck 正好覆盖「站起来需要多出来的那段空间」：从站立头顶到趴下后的头顶。
@@ -166,6 +169,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_apply_gravity(delta)
+	statuses.tick(delta)
 	_update_drop_through(delta)
 	_update_crouch()
 	_handle_jump(delta)
@@ -270,6 +274,9 @@ func _update_drop_through(delta: float) -> void:
 func _handle_horizontal(delta: float) -> void:
 	# 手柄摇杆推过死区（0.3）就按全速走，不按推的幅度调速——像素风横版的习惯；键盘本来就只有 0 和 1。
 	var direction := signf(Input.get_axis("move_left", "move_right"))
+	# 麻痹之类的状态：动不了
+	if not statuses.can_act():
+		direction = 0.0
 	_update_sprint(delta, direction)
 	var control := 1.0 if is_on_floor() else air_control
 	var speed := move_speed * _speed_scale()
@@ -282,11 +289,12 @@ func _handle_horizontal(delta: float) -> void:
 
 
 func _speed_scale() -> float:
+	var status := statuses.move_scale()
 	if is_crouching:
-		return crouch_speed_scale
+		return crouch_speed_scale * status
 	if is_sprinting:
-		return sprint_speed_scale
-	return 1.0
+		return sprint_speed_scale * status
+	return status
 
 
 ## 按住奔跑键且正在移动时加速并消耗体力；不跑的时候隔一小段时间开始回体力。
@@ -375,7 +383,7 @@ func _handle_shoot(delta: float) -> void:
 	var pressed := Input.is_action_pressed("shoot") if current_slot().weapon.automatic else Input.is_action_just_pressed("shoot")
 	# 趴下时一律不能开火：步枪、手雷都不行，不管在不在爬行。想开枪先站起来。
 	# （终极武器不走这里，任何状态都能发动。）
-	if is_crouching or not pressed or not current_slot().is_ready():
+	if is_crouching or not pressed or not current_slot().is_ready() or not statuses.can_act():
 		return
 	_shoot(aim_vector())
 
@@ -527,6 +535,23 @@ func _apply_stats() -> void:
 		slot.damage_scale = damage
 		slot.cooldown_scale = cooldown
 	health_changed.emit(health, max_health)
+
+
+## 挂一个异常状态（子弹、手雷打中时调）。抗性来自身上的装备（Progress.resistance）。
+func apply_status(effect: StatusEffect) -> void:
+	if _dead or effect == null:
+		return
+	statuses.apply(effect, Progress.resistance(effect.id))
+
+
+## 异常状态的持续伤害：不吃防御、不触发无敌时间、不击退（防它靠抗性）。
+func take_status_damage(amount: int) -> void:
+	if _dead or amount <= 0:
+		return
+	health -= amount
+	health_changed.emit(health, max_health)
+	if health <= 0:
+		_die()
 
 
 ## 被敌人子弹或接触伤害调用。`source_position` 用来决定击退方向。防御按 Balance.damage_taken 减伤。

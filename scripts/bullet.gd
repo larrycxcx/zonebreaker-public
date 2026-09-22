@@ -7,6 +7,8 @@ extends Area2D
 @export var speed := 520.0
 @export var lifetime := 1.2
 @export var damage := 1
+## 打中时顺带挂上的异常状态（留空就没有）。武器带着状态时由武器槽发射时填进来。
+@export var status: StatusEffect
 ## 素材包里用哪一项画它（`SkinPack.APPEARANCE_KEYS`，和角色同一套）。只管长什么样，和规则无关。
 @export var skin_key := &""
 
@@ -49,6 +51,8 @@ func _on_body_entered(body: Node2D) -> void:
 	if body.has_method("take_damage"):
 		# 打中角色的声音由被打的一方报告（enemy_hit / player_hurt 等）。
 		body.take_damage(damage, global_position)
+		if status != null and body.has_method(&"apply_status"):
+			body.apply_status(status)
 	else:
 		GameEvents.report(&"bullet_impact", self)
 	queue_free()

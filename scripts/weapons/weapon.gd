@@ -10,6 +10,8 @@ extends Equipment
 @export var cooldown := 0.15
 ## 伤害倍率：发射物场景里的伤害 × power × 玩家攻击力的倍率。同一种子弹做出强弱不同的枪就改它。
 @export var power := 1.0
+## 打中时挂的异常状态（留空就没有）：发射时填进发射物的 `status`，比如燃烧弹、毒弹。
+@export var status: StatusEffect
 ## 按住开火键就连发（步枪）；关掉则每次都要重新按一下（手雷）。
 @export var automatic := true
 ## 弹药上限，-1 表示无限。

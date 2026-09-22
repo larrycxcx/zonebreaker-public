@@ -45,6 +45,8 @@ func fire(parent: Node, position: Vector2, direction: Vector2, source: Node) -> 
 	# 伤害 = 发射物场景里的伤害 × 武器的 power × 角色的伤害倍率（发射物自己决定怎么乘，手雷有中心和边缘两个数）
 	if projectile.has_method(&"scale_damage"):
 		projectile.call(&"scale_damage", weapon.power * damage_scale)
+	if weapon.status != null and &"status" in projectile:
+		projectile.set(&"status", weapon.status)
 	parent.add_child(projectile)
 	projectile.global_position = position
 	cooldown_left = weapon.cooldown * cooldown_scale

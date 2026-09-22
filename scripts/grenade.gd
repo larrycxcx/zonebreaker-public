@@ -19,6 +19,8 @@ extends CharacterBody2D
 @export var blast_radius := 56.0
 ## 爆炸中心（和直接砸中）的伤害，以及范围边缘的伤害，中间按距离线性过渡。
 @export var max_damage := 3
+## 炸到谁就给谁挂上的异常状态（留空就没有）。
+@export var status: StatusEffect
 @export var min_damage := 1
 
 ## 场上的手雷都在这个组里（Boss A 躲手雷时靠它找）。
@@ -107,6 +109,8 @@ func explode(direct_hit: Node2D = null) -> void:
 		# 隔着墙炸不到：从爆炸中心到目标之间要没有实心物体。
 		if Sight.is_clear(space, global_position, victim.global_position):
 			victim.take_damage(damage_at(victim, direct_hit), global_position)
+			if status != null and victim.has_method(&"apply_status"):
+				victim.apply_status(status)
 	queue_free()
 
 
