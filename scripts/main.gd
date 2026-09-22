@@ -6,14 +6,30 @@ extends Node2D
 ## 声音由 Sfx 单例播放，关卡重载不会把它截断。
 @export var game_over_delay := 0.5
 
+## 2 号玩家出生在 1 号旁边多远。
+@export var second_player_offset := Vector2(-28, 0)
+
 @onready var _player: Player = $Player
 
 
 func _ready() -> void:
+	_add_players()
 	_add_backdrop()
 	# 关卡里的音乐；死了重开时已经在放同一首就接着放，不会从头来（见 Music）
 	Music.play(&"level")
 	_player.died.connect(_on_player_died)
+
+
+## 双人时在 1 号旁边放一个 2 号：同一个玩家场景，`player_index` = 1（读 p2_ 那套输入、用自己那份进度）。
+func _add_players() -> void:
+	if Session.player_count < 2:
+		return
+	var second := (load(_player.scene_file_path) as PackedScene).instantiate() as Player
+	second.name = "Player2"
+	second.player_index = 1
+	add_child(second)
+	move_child(second, _player.get_index() + 1)
+	second.global_position = _player.global_position + second_player_offset
 
 
 ## 当前素材包有背景就放到最底下（第一个子节点最先画）。纯显示，没有就用项目的清屏色。

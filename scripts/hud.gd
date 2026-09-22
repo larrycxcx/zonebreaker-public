@@ -10,6 +10,9 @@ const STAMINA_READY := Color(0.45, 0.85, 0.4)
 const STAMINA_TIRED := Color(0.85, 0.5, 0.25)
 
 var _ultimate_pips: Array[ColorRect] = []
+## 这套 HUD 显示第几号玩家（双人时左右各一套）。
+@export var player_index := 0
+
 var _player: Player
 ## 右上角正在显示的 Boss。
 var _boss: Boss
@@ -37,7 +40,10 @@ func _ready() -> void:
 	GameEvents.boss_appeared.connect(_on_boss_appeared)
 	Progress.progress_changed.connect(_on_progress_changed)
 	_on_progress_changed()
-	var player := get_tree().get_first_node_in_group("player") as Player
+	var player: Player = null
+	for node in get_tree().get_nodes_in_group(&"player"):
+		if (node as Player).player_index == player_index:
+			player = node as Player
 	if player == null:
 		return
 	_player = player

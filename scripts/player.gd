@@ -125,6 +125,9 @@ var _stamina_drain_scale := 1.0
 var _exhausted := false
 var _stamina_regen_timer := 0.0
 
+## 第几号玩家（0 = 1 号，1 = 2 号）：决定读哪一套输入（见 act()）、用哪一份成长进度、哪一套 HUD。
+@export var player_index := 0
+
 ## 外观层。玩法只调它的接口（朝向/姿势/瞄准/受击/闪烁/死亡/后坐力），不碰方块和颜色。
 ## 素材包里有 `skin_key` 这套外观的话，`_ready` 里会换成它的（见 Skins.build_appearance）。
 @export var skin_key := &"player"
@@ -133,6 +136,16 @@ var _stamina_regen_timer := 0.0
 @onready var _shape: CollisionShape2D = $CollisionShape2D
 @onready var _hurtbox_shape: CollisionShape2D = $Hurtbox/CollisionShape2D
 @onready var _head_check: ShapeCast2D = $HeadCheck
+
+
+## 这个玩家的输入动作名：1 号就是动作名本身（`shoot`），2 号加前缀（`p2_shoot`）。读输入一律经过它。
+func act(action: StringName) -> StringName:
+	return action if player_index == 0 else StringName("p%d_%s" % [player_index + 1, action])
+
+
+## 还活着吗（敌人找目标、摄像机跟随、双人的重开判断都看它）。
+func is_alive() -> bool:
+	return not _dead
 
 
 func _ready() -> void:
@@ -207,13 +220,13 @@ func _handle_jump(delta: float) -> void:
 	else:
 		_coyote_timer -= delta
 
-	if Input.is_action_just_pressed("jump"):
+	if Input.is_action_just_pressed(act(&"jump")):
 		_jump_buffer_timer = jump_buffer_time
 	else:
 		_jump_buffer_timer -= delta
 
 	# 魂斗罗式跳下平台：站在单向平台上按住「下」再按跳跃，就直接穿下去，而不是起跳。
-	if _jump_buffer_timer > 0.0 and is_on_floor() and Input.is_action_pressed("aim_down"):
+	if _jump_buffer_timer > 0.0 and is_on_floor() and Input.is_action_pressed(act(&"aim_down")):
 		var platform := _one_way_floor()
 		if platform != null:
 			_drop_through(platform)
@@ -233,7 +246,7 @@ func _handle_jump(delta: float) -> void:
 		_coyote_timer = 0.0
 		GameEvents.report(&"jump", self)
 
-	if Input.is_action_just_released("jump") and velocity.y < 0.0:
+	if Input.is_action_just_released(act(&"jump")) and velocity.y < 0.0:
 		velocity.y *= jump_cut
 
 
@@ -275,7 +288,7 @@ func _update_drop_through(delta: float) -> void:
 
 func _handle_horizontal(delta: float) -> void:
 	# 手柄摇杆推过死区（0.3）就按全速走，不按推的幅度调速——像素风横版的习惯；键盘本来就只有 0 和 1。
-	var direction := signf(Input.get_axis("move_left", "move_right"))
+	var direction := signf(Input.get_axis(act(&"move_left"), act(&"move_right")))
 	# 麻痹之类的状态：动不了
 	if not statuses.can_act():
 		direction = 0.0
@@ -302,7 +315,7 @@ func _speed_scale() -> float:
 ## 按住奔跑键且正在移动时加速并消耗体力；不跑的时候隔一小段时间开始回体力。
 ## 原地按着奔跑键不算奔跑，也不耗体力；趴着不能奔跑。
 func _update_sprint(delta: float, direction: float) -> void:
-	var wants := Input.is_action_pressed("sprint") and direction != 0.0 and not is_crouching
+	var wants := Input.is_action_pressed(act(&"sprint")) and direction != 0.0 and not is_crouching
 	is_sprinting = wants and not _exhausted and stamina > 0.0
 
 	# 先更新 _exhausted 再改体力：stamina_changed 发出时状态已经是最新的，HUD 据此变色。
@@ -337,7 +350,7 @@ func _set_stamina(value: float) -> void:
 
 func _update_crouch() -> void:
 	# 只能在地面上主动蹲；空中松开蹲键会自动站起来。
-	var wants := Input.is_action_pressed("crouch") and is_on_floor()
+	var wants := Input.is_action_pressed(act(&"crouch")) and is_on_floor()
 	if wants == is_crouching:
 		return
 	if wants:
@@ -380,9 +393,9 @@ func _handle_shoot(delta: float) -> void:
 	# 所有武器的冷却都在走：切走的那把也会冷却好。
 	for slot in _slots:
 		slot.tick(delta)
-	var moving := Input.get_axis("move_left", "move_right") != 0.0
+	var moving := Input.get_axis(act(&"move_left"), act(&"move_right")) != 0.0
 	_update_aim(moving)
-	var pressed := Input.is_action_pressed("shoot") if current_slot().weapon.automatic else Input.is_action_just_pressed("shoot")
+	var pressed := Input.is_action_pressed(act(&"shoot")) if current_slot().weapon.automatic else Input.is_action_just_pressed(act(&"shoot"))
 	# 趴下时一律不能开火：步枪、手雷都不行，不管在不在爬行。想开枪先站起来。
 	# （终极武器不走这里，任何状态都能发动。）
 	if is_crouching or not pressed or not current_slot().is_ready() or not statuses.can_act():
@@ -391,8 +404,8 @@ func _handle_shoot(delta: float) -> void:
 
 
 func _update_aim(moving: bool) -> void:
-	var up := Input.is_action_pressed("aim_up")
-	var down := Input.is_action_pressed("aim_down")
+	var up := Input.is_action_pressed(act(&"aim_up"))
+	var down := Input.is_action_pressed(act(&"aim_down"))
 	if is_crouching or up == down:
 		aim = Aim.FORWARD
 	elif up:
@@ -421,7 +434,7 @@ func aim_vector() -> Vector2:
 
 ## K / 手柄 Y 发动终极武器。任何状态（趴着、爬行、空中）都能用；效果见 Ultimate。
 func _handle_ultimate() -> void:
-	if _ultimate.weapon == null or not Input.is_action_just_pressed("ultimate") or not _ultimate.is_ready():
+	if _ultimate.weapon == null or not Input.is_action_just_pressed(act(&"ultimate")) or not _ultimate.is_ready():
 		return
 	_ultimate.fire(get_parent(), global_position, Vector2(facing, 0), self)
 
@@ -441,7 +454,7 @@ func is_invincible() -> bool:
 
 
 func _handle_switch() -> void:
-	if Input.is_action_just_pressed("switch_weapon"):
+	if Input.is_action_just_pressed(act(&"switch_weapon")):
 		switch_weapon()
 
 

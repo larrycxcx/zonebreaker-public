@@ -185,16 +185,30 @@ func _report_motion(fast := false) -> void:
 	_visual.motion(state)
 
 
-## 打得着、并且看得见的玩家，否则返回 null（「打得着」见 aim_for()）。
+## 活着的玩家，按离自己的距离从近到远（单人时就一个，双人时两个）。
+func players_by_distance() -> Array[Player]:
+	var found: Array[Player] = []
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var player := node as Player
+		if player != null and player.is_alive():
+			found.append(player)
+	found.sort_custom(func(a: Player, b: Player) -> bool:
+		return global_position.distance_squared_to(a.global_position) < global_position.distance_squared_to(b.global_position))
+	return found
+
+
+## 要打的玩家：从近到远挑**第一个打得着的**。不是简单挑最近的——双人时最近那个可能躲在墙后，
+## 而远一点的正站在面前。「打不打得着」见 can_target()，每种敌人只改那一个。
 func find_target() -> Node2D:
-	var player := get_tree().get_first_node_in_group("player") as Player
-	if player == null:
-		return null
-	if aim_for(player) < 0:
-		return null
-	if not has_line_of_sight(player.body_center()):
-		return null
-	return player
+	for player in players_by_distance():
+		if can_target(player):
+			return player
+	return null
+
+
+## 这个玩家打不打得着：瞄得到（aim_for）、并且看得见。
+func can_target(player: Player) -> bool:
+	return aim_for(player) >= 0 and has_line_of_sight(player.body_center())
 
 
 ## 这么远够不够得着：在 detect_range 以内，**或者自己有一部分在屏幕里**。

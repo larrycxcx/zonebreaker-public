@@ -46,18 +46,22 @@ func _update_throw(delta: float) -> void:
 ## 正前方、距离和高度都合适、并且看得见的玩家；否则返回 null。
 ## 和巡逻兵开枪一样只打正前方，转向完全由巡逻决定。
 func throw_target() -> Node2D:
-	var player := get_tree().get_first_node_in_group("player") as Player
-	if player == null:
-		return null
+	for player in players_by_distance():
+		if _can_throw_at(player):
+			return player
+	return null
+
+
+func _can_throw_at(player: Player) -> bool:
 	var offset := player.global_position - global_position
 	if signi(offset.x) != facing:
-		return null
+		return false
 	var distance := absf(offset.x)
 	if distance < min_throw_distance or (distance > max_throw_distance and not is_partly_on_screen()):
-		return null
+		return false
 	if offset.y < -throw_height_above or offset.y > throw_height_below:
-		return null
-	return player if has_line_of_sight(player.body_center()) else null
+		return false
+	return has_line_of_sight(player.body_center())
 
 
 ## 手雷挂在自己的父节点下，这样它死了手雷还会照常飞完、照常爆炸。

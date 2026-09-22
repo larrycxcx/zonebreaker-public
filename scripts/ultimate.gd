@@ -39,10 +39,10 @@ func _activate() -> void:
 	targets = enemies_on_screen()
 	for bullet in tree.get_nodes_in_group(ENEMY_BULLETS):
 		bullet.queue_free()
-	var player := tree.get_first_node_in_group("player") as Player
-	if player != null:
-		# 玩家自己的计时在暂停时也停着，所以这段无敌覆盖整个定格，恢复后再持续 grace_time。
-		player.grant_invincibility(grace_time)
+	# 所有玩家都被定住了，所以都给无敌（双人时队友也是）。
+	# 玩家自己的计时在暂停时也停着，所以这段无敌覆盖整个定格，恢复后再持续 grace_time。
+	for node in tree.get_nodes_in_group(&"player"):
+		(node as Player).grant_invincibility(grace_time)
 	tree.paused = true
 	await tree.create_timer(freeze_time, true).timeout
 	tree.paused = false

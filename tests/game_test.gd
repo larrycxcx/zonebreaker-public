@@ -19,6 +19,8 @@ const SHOT := 10
 var tree: SceneTree
 var main: Node
 var player: Player
+## 双人时的 2 号玩家（reset_scene 传 players = 2 才有），单人时是 null。
+var player2: Player
 var results: Array[Dictionary] = []
 ## 这条用例里 GameEvents 报告过的事件名，按先后顺序。reset_scene() 时清空。
 var events: Array[StringName] = []
@@ -49,7 +51,7 @@ func release_all_input() -> void:
 ## 不该因为关卡里掩体摆放的调整而失败。测墙本身的用例传 keep_walls = true。
 ## `skin` 传了就用它加载这一关（角色在 _ready 里按当前包装外观，所以必须在加载之前定好）；
 ## 不传就恢复默认包。
-func reset_scene(keep_enemies := false, keep_walls := false, skin: SkinPack = null) -> void:
+func reset_scene(keep_enemies := false, keep_walls := false, skin: SkinPack = null, players := 1) -> void:
 	release_all_input()
 	free_scene()
 	# 终极武器会暂停整棵树：用例中途出错、没等到恢复，也不能把暂停带进下一条用例。
@@ -59,12 +61,15 @@ func reset_scene(keep_enemies := false, keep_walls := false, skin: SkinPack = nu
 	# 成长进度也是全局状态：每条用例都从新开一局开始（1 级、初始武器），并且不读写玩家的真实存档
 	Progress.persist = false
 	Progress.new_game()
+	# 几个人玩也是全局状态（Session），每条用例都设一遍，默认单人
+	Session.set_player_count(players)
 	events.clear()
 	if not GameEvents.event_happened.is_connected(_record_event):
 		GameEvents.event_happened.connect(_record_event)
 	main = load("res://scenes/main.tscn").instantiate()
 	tree.root.add_child(main)
 	player = main.get_node("Player")
+	player2 = main.get_node_or_null("Player2")
 	if not keep_enemies:
 		for enemy in main.get_node("Enemies").get_children():
 			enemy.free()

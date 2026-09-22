@@ -78,16 +78,11 @@ func _physics_process(delta: float) -> void:
 
 
 ## 能跟随的玩家：在它下方、水平够得着（follow_range 以内，或者自己在屏幕里）、看得见（视线从枪口往下）。
-func find_target() -> Node2D:
-	var player := get_tree().get_first_node_in_group("player") as Player
-	if player == null:
-		return null
+func can_target(player: Player) -> bool:
 	var offset := player.global_position - global_position
 	if offset.y <= 0.0 or (absf(offset.x) > follow_range and not is_partly_on_screen()):
-		return null
-	if not has_line_of_sight(player.body_center()):
-		return null
-	return player
+		return false
+	return has_line_of_sight(player.body_center())
 
 
 func shoot_direction() -> Vector2:

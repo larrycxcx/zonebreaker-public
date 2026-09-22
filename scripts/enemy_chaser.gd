@@ -62,15 +62,8 @@ func _physics_process(delta: float) -> void:
 
 
 ## 直线距离以内、并且看得见的玩家。D 会跳，玩家在头顶平台上也要能发现，所以不用水平射程 + 高度差的判断。
-func find_target() -> Node2D:
-	var player := get_tree().get_first_node_in_group("player") as Player
-	if player == null:
-		return null
-	if not within_reach(global_position.distance_to(player.global_position)):
-		return null
-	if not has_line_of_sight(player.body_center()):
-		return null
-	return player
+func can_target(player: Player) -> bool:
+	return within_reach(global_position.distance_to(player.global_position)) and has_line_of_sight(player.body_center())
 
 
 func _chase(delta: float, can_see: bool) -> void:
