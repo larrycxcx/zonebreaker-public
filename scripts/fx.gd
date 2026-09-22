@@ -47,7 +47,11 @@ func _on_event(event: StringName, source: Node) -> void:
 			blast.set(&"radius", source.get(&"blast_radius"))
 	elif event == &"ultimate_blast":
 		# 终极武器定格结束：在它这一下打的每个敌人身上各炸一团（报告时敌人还没被消灭，读得到位置）。
-		for target: Variant in source.get(&"targets"):
+		# 只有终极武器本身带着 targets；别处（比如测音效时）拿别的对象报告这个事件，就没有要画的
+		var targets: Variant = source.get(&"targets")
+		if not targets is Array:
+			return
+		for target: Variant in targets:
 			if not is_instance_valid(target):
 				continue
 			var at: Vector2 = target.body_center() if target.has_method(&"body_center") else target.global_position
