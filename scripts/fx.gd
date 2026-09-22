@@ -45,6 +45,15 @@ func _on_event(event: StringName, source: Node) -> void:
 		var blast := _spawn(&"explosion", explosion_scene, (source as Node2D).global_position)
 		if blast != null:
 			blast.set(&"radius", source.get(&"blast_radius"))
+	elif event == &"ultimate_blast":
+		# 终极武器定格结束：在它这一下打的每个敌人身上各炸一团（报告时敌人还没被消灭，读得到位置）。
+		for target: Variant in source.get(&"targets"):
+			if not is_instance_valid(target):
+				continue
+			var at: Vector2 = target.body_center() if target.has_method(&"body_center") else target.global_position
+			var blast := _spawn(&"explosion", explosion_scene, at)
+			if blast != null:
+				blast.set(&"radius", source.get(&"blast_radius"))
 
 
 ## 枪口闪光：开枪的人自己记着这一枪从哪出膛、朝哪打（last_muzzle_position / last_shot_direction）。

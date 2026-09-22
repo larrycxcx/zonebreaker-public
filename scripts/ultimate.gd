@@ -6,11 +6,18 @@ extends Node2D
 ## 玩家、敌人、子弹全部定格 freeze_time 秒。时间到了恢复运行，同时对刚才记下的那些敌人调 hit_by_ultimate()：
 ## 普通敌人直接消灭（不管血量），Boss 只受伤害（Boss.ultimate_damage），不会被直接消灭。
 ## 屏幕外的敌人不受影响。以后的动画放在这里，节点设成 PROCESS_MODE_ALWAYS，暂停期间照样播放。
+## 画面不归它管：定格结束报告 ultimate_blast 时，`targets` 里就是这一下要打的敌人（还没被消灭），
+## Fx 据此在每个敌人身上画一团爆炸。
 
 ## 定格多久（秒）。
 @export var freeze_time := 2.0
 ## 恢复行动后玩家还额外无敌多久（秒），免得屏幕外的敌人刚好打过来。
 @export var grace_time := 0.5
+## 每个敌人身上那团爆炸画多大（纯显示，Fx 读它；和手雷一样大）。
+@export var blast_radius := 56.0
+
+## 这一下要打的敌人：发动时记下屏幕内的那些，定格结束报告 ultimate_blast 时 Fx 读它画爆炸。
+var targets: Array[Enemy] = []
 
 ## 敌人子弹所在的组（enemy_bullet.tscn 里设置）。
 const ENEMY_BULLETS := &"enemy_bullets"
@@ -29,7 +36,7 @@ func _ready() -> void:
 
 func _activate() -> void:
 	var tree := get_tree()
-	var targets := enemies_on_screen()
+	targets = enemies_on_screen()
 	for bullet in tree.get_nodes_in_group(ENEMY_BULLETS):
 		bullet.queue_free()
 	var player := tree.get_first_node_in_group("player") as Player

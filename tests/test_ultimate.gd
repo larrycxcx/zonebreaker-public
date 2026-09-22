@@ -185,3 +185,43 @@ func test_sounds_play_during_the_freeze() -> void:
 	await frames(2)
 	Sfx.sound_played.disconnect(on_played)
 	check("blast sound plays", played.has(&"ultimate_blast"))
+
+
+func test_every_enemy_hit_goes_up_in_a_blast() -> void:
+	# 定格结束那一下，屏幕内每个被打的敌人身上各炸一团（纯画面，Fx 画），屏幕外的不炸
+	await reset_scene(true)
+	keep_only_enemies(["WalkerA", "FlyerE", "Turret1"])
+	player.global_position = Vector2(200, 304)
+	await frames(10)
+	# 记下新加进特效层的节点，这一帧结束再读位置（Fx 是先加进场景、再摆位置的）
+	var added: Array[Node2D] = []
+	var fx: Node = main.get_node("Fx")
+	var on_added := func(node: Node) -> void:
+		if node is Node2D:
+			added.append(node as Node2D)
+	fx.child_entered_tree.connect(on_added)
+	await use_ultimate()
+	# 定格期间整棵树暂停：这时记下的位置就是爆炸那一刻敌人所在的位置
+	var on_screen: Array[Vector2] = []
+	var off_screen: Array[Vector2] = []
+	for enemy: Enemy in main.get_node("Enemies").get_children():
+		if enemy.is_on_screen():
+			on_screen.append(enemy.body_center())
+		else:
+			off_screen.append(enemy.body_center())
+	check("setup: some enemies on screen and some off", on_screen.size() >= 2 and off_screen.size() >= 1,
+		"%d / %d" % [on_screen.size(), off_screen.size()])
+	await wait_for_unpause()
+	await frames(1)
+	fx.child_entered_tree.disconnect(on_added)
+	var blasts: Array[Vector2] = []
+	for node in added:
+		if is_instance_valid(node) and node.get(&"radius") != null:
+			blasts.append(node.global_position)
+	for at in on_screen:
+		check("a blast on the enemy at %s" % at, blasts.any(func(b: Vector2) -> bool: return b.distance_to(at) < 2.0), str(blasts))
+	for at in off_screen:
+		check("no blast on the off-screen enemy at %s" % at, not blasts.any(func(b: Vector2) -> bool: return b.distance_to(at) < 2.0))
+	var sized := fx.get_children().filter(func(c: Node) -> bool: return c.get(&"radius") != null)
+	check("the blasts are grenade-sized", not sized.is_empty() and sized.all(func(c: Node) -> bool: return is_equal_approx(c.get(&"radius"), 56.0)),
+		str(sized.map(func(c: Node) -> Variant: return c.get(&"radius"))))
