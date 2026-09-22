@@ -122,9 +122,18 @@ func hit_by_ultimate() -> void:
 
 ## 身体原点在不在屏幕可见范围内（终极武器、Boss 出场用）。
 func is_on_screen() -> bool:
+	return _visible_rect().has_point(global_position)
+
+
+## 判定框有没有**任何一部分**在屏幕里（Boss 出场用：它身子宽，中心还在屏幕外时已经露出一大截、打得到了）。
+func is_partly_on_screen() -> bool:
+	var box := (_shape.shape as RectangleShape2D).size
+	return _visible_rect().intersects(Rect2(body_center() - box / 2.0, box))
+
+
+func _visible_rect() -> Rect2:
 	var viewport := get_viewport()
-	var visible := viewport.get_canvas_transform().affine_inverse() * viewport.get_visible_rect()
-	return visible.has_point(global_position)
+	return viewport.get_canvas_transform().affine_inverse() * viewport.get_visible_rect()
 
 
 func die() -> void:

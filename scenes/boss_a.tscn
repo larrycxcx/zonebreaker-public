@@ -21,7 +21,7 @@ max_health = 60
 contact_damage = 1
 bullet_scene = ExtResource("2")
 fire_interval = 1.6
-detect_range = 440.0
+detect_range = 680.0
 shoot_event = &"turret_shoot"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

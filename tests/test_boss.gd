@@ -174,3 +174,45 @@ func test_ultimate_misses_an_off_screen_boss() -> void:
 	await wait_for_unpause()
 	await frames(2)
 	check("off-screen boss untouched", boss.health == boss.max_health)
+
+
+## 摄像机现在看得到的世界坐标范围。
+func view() -> Rect2:
+	var viewport := main.get_viewport()
+	return viewport.get_canvas_transform().affine_inverse() * viewport.get_visible_rect()
+
+
+func test_appears_as_soon_as_any_part_shows() -> void:
+	# Boss 身子宽：中心还在屏幕外时已经露出一截、玩家打得到了，这时就该出场，不能让玩家白打一个不还手的 Boss
+	await start()
+	await go_to(600)
+	var half := ((boss.get_node("CollisionShape2D") as CollisionShape2D).shape as RectangleShape2D).size.x / 2.0
+	var edge := view().end.x
+	boss.global_position = Vector2(edge + half + 4.0, 296)
+	boss.velocity = Vector2.ZERO
+	await frames(3)
+	check("setup: fully off screen", not boss.is_partly_on_screen())
+	check("fully off screen: still dormant", not boss.has_appeared)
+	boss.global_position = Vector2(edge + half - 12.0, 296)
+	await frames(3)
+	check("setup: its centre is still off screen", not boss.is_on_screen())
+	check("12px of it showing: it appears", boss.has_appeared)
+	check("and the HUD bar is up", bar().visible)
+
+
+func test_a_dormant_boss_wakes_when_hit() -> void:
+	await start()
+	await go_to(600)
+	check("setup: dormant", not boss.has_appeared)
+	boss.take_damage(1)
+	await frames(1)
+	check("getting hit wakes it up", boss.has_appeared)
+	check("the hit still counts", boss.health == boss.max_health - 1, str(boss.health))
+	check("and the HUD shows the right health", bar().visible and bar_shows(boss.max_health - 1))
+	check("it only appeared once", count(&"boss_appear") == 1)
+
+
+func test_its_sight_covers_the_screen() -> void:
+	# 一出场就够得着画面里任何位置的玩家：射程至少一个屏幕宽
+	await start()
+	check("sight reaches across the screen", boss.detect_range >= view().size.x, "%.0f vs %.0f" % [boss.detect_range, view().size.x])
