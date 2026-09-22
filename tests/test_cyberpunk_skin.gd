@@ -325,6 +325,15 @@ func test_walking_shows_the_running_animation() -> void:
 	check("standing still does not lean", standing < 3.0, "前倾 %.1fpx" % standing)
 
 
+func test_hanging_in_the_air_is_one_single_pose() -> void:
+	# 空中只有一个姿势，所以贴图本身就只有一帧——两帧的话运行时总有机会在半空换图。
+	var air := (load("%s/body_air_r.png" % ART_DIR) as Texture2D).get_image()
+	check("the air clip is a single frame", frames_in(air) == 1, "%d 帧" % frames_in(air))
+	# 对照：同一把尺子量走路，量出来是一整组，说明上面那条不是因为读错了图
+	var walk := (load("%s/body_walk_r.png" % ART_DIR) as Texture2D).get_image()
+	check("while walking is a whole cycle", frames_in(walk) > 1, "%d 帧" % frames_in(walk))
+
+
 func test_sprinting_shows_the_dash() -> void:
 	# 冲刺换成素材里的 Dash：身后拖一条残影。速度还是原来的 270，只是看着像在冲。
 	for side in ["r", "l"]:
@@ -390,7 +399,10 @@ func test_clips_follow_what_the_player_is_doing() -> void:
 		if player.velocity.y > 0.0:
 			break
 	await frames(1)
-	check("falling uses the other air frame", visual().get_node("Body").frame != rising,
+	# 整个空中保持同一个姿势：本来上升和下落是两帧，在最高点换图那一下看着别扭（2026-09 试玩）。
+	check("setup: the player really is falling now", player.velocity.y > 0.0 and not player.is_on_floor(),
+		"vy %.1f" % player.velocity.y)
+	check("falling keeps the very same air frame", visual().get_node("Body").frame == rising,
 		"%d vs %d" % [visual().get_node("Body").frame, rising])
 
 	await stand_at(400)
