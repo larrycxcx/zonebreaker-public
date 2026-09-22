@@ -8,7 +8,7 @@ signal ammo_changed(ammo: int, max_ammo: int)
 
 var weapon: Weapon
 var cooldown_left := 0.0
-## 拿着它的角色的伤害倍率和冷却倍率（玩家的攻击、射速属性，见 Balance）。敌人没接武器结构，保持 1。
+## 拿着它的角色的伤害倍率和冷却倍率（玩家的攻击、速度属性，见 Balance）。敌人没接武器结构，保持 1。
 var damage_scale := 1.0
 var cooldown_scale := 1.0
 ## 剩余弹药，-1 表示无限。

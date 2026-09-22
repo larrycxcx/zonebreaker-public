@@ -62,6 +62,10 @@ func test_visual_rects_stay_valid() -> void:
 func test_facing_left_mirrors_facing_right() -> void:
 	# 朝左时的摆位正好是朝右时的镜像（E 的左右翅膀这种对称的一对会互换，也满足这条）
 	await reset_scene(true)
+	# 冻住 AI：敌人在屏幕里看得见玩家就会自己转身去追 / 瞄，会把这里设的朝向盖掉（这条只测外观镜像）
+	for actor in actors():
+		if actor is Enemy:
+			actor.set_physics_process(false)
 	for actor in actors():
 		var moved := false
 		for child in actor.get_node("Visual").get_children():

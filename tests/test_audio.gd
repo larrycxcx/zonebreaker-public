@@ -20,7 +20,12 @@ func expect_events(expected: Array, context: String) -> void:
 
 func _only(enemy_name: String) -> Node:
 	keep_only_enemies([enemy_name])
-	return main.get_node("Enemies/" + enemy_name)
+	# 关卡加载那两帧里，屏幕里的敌人可能已经开过枪：清掉那些事件，只看这一个敌人的
+	events.clear()
+	var enemy: Enemy = main.get_node("Enemies/" + enemy_name)
+	enemy._fire_timer = 0.0 # 那一枪的冷却也别带进来
+	enemy._burst_left = 0
+	return enemy
 
 
 # ---------------------------------------------------------------- 结构
@@ -198,6 +203,7 @@ func test_chaser_alert() -> void:
 	var d: EnemyChaser = _only("ChaserD")
 	d.global_position = Vector2(500, 304)
 	player.global_position = Vector2(1120, 304)
+	snap_camera()
 	await frames(10)
 	check("no alert while D has not seen the player", not events.has(&"chaser_alert"))
 	player.global_position = Vector2(360, 304)

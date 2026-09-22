@@ -6,7 +6,7 @@ extends Equipment
 
 ## 发射物场景。它的根节点脚本要有 launch(direction: Vector2)，在加入场景树之前被调用（子弹、手雷都有）。
 @export var projectile: PackedScene
-## 两次发射之间的最短间隔（秒）。玩家的射速属性会按比例缩短它（见 Balance.cooldown_scale）。
+## 两次发射之间的最短间隔（秒）。玩家的速度属性会按比例缩短它（见 Balance.cooldown_scale）。
 @export var cooldown := 0.15
 ## 伤害倍率：发射物场景里的伤害 × power × 玩家攻击力的倍率。同一种子弹做出强弱不同的枪就改它。
 @export var power := 1.0

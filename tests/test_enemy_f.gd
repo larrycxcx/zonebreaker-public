@@ -19,9 +19,13 @@ func start(x := 1060.0, player_x := 1260.0) -> void:
 	f.velocity = Vector2.ZERO
 	f.facing = 1
 	f._apply_facing()
+	f._throw_timer = 0.0 # 关卡加载时它在屏幕里，可能已经扔过一颗：那段冷却别带进来
+	for grenade in tree.get_nodes_in_group(Grenade.GROUP):
+		grenade.free() # 那一颗也别算进来
 	player.health = 999
 	player.global_position = Vector2(player_x, 304)
 	player.velocity = Vector2.ZERO
+	snap_camera()
 	await frames(5)
 
 
@@ -120,10 +124,19 @@ func test_does_not_throw_backwards_or_out_of_range() -> void:
 	f._apply_facing()
 	f.move_speed = 0.0
 	check("no grenade at a player behind it", not await threw_anything())
-	# 太远
-	await start(300, 300 + f.max_throw_distance + 120.0)
+	# 太远、自己又在屏幕外：看不见，不扔
+	await start(300, 1100)
 	f.move_speed = 0.0
-	check("no grenade at a player out of reach", not await threw_anything())
+	check("setup: F is off screen", not f.is_partly_on_screen())
+	check("no grenade at a far player it cannot see", not await threw_anything())
+	# 在屏幕里就算太远也扔（手雷落在半路，当封路）：玩家看得见它的时候它得有反应
+	# 玩家贴着关卡左边，摄像机停在左边界上：F 在 400px 外也还在画面里
+	await start(500, 100)
+	f.facing = -1
+	f._apply_facing()
+	f.move_speed = 0.0
+	check("setup: F is on screen and out of reach", f.is_partly_on_screen() and 400.0 > f.max_throw_distance)
+	check("on screen, a far player still gets a grenade", await threw_anything())
 	# 贴脸：手雷会扔过头，所以也不扔
 	await start(300, 300 + f.min_throw_distance - 40.0)
 	f.move_speed = 0.0

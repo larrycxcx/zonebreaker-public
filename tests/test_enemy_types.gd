@@ -22,6 +22,9 @@ func _setup_duel(enemy_name: String) -> Enemy:
 		(enemy as EnemyWalker).move_speed = 0.0
 		(enemy as EnemyWalker)._apply_facing()
 	await frames(2)
+	# 敌人在屏幕里就会开火：摆位之前它在原来的位置可能已经开过一枪，别把那段冷却带进观察窗口
+	enemy._fire_timer = 0.0
+	enemy._burst_left = 0
 	return enemy
 
 

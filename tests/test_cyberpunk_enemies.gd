@@ -340,8 +340,10 @@ func place_e(pack: SkinPack, x := 400.0) -> EnemyFlyer:
 	keep_only_enemies(["FlyerE"])
 	var e: EnemyFlyer = main.get_node("Enemies/FlyerE")
 	e.set_anchor(Vector2(x, 88))
-	player.global_position = Vector2(x + 400.0, 304)
+	e.is_following = false # 关卡加载时它可能已经看见玩家开始跟随了
+	player.global_position = Vector2(x + 700.0, 304) # E 在屏幕外、看不见玩家，照常巡逻
 	player.velocity = Vector2.ZERO
+	snap_camera()
 	await frames(3)
 	return e
 
@@ -701,6 +703,10 @@ func place_one(pack: SkinPack, node: String, player_x := 300.0) -> EnemyWalker:
 	e.global_position = Vector2(1000, 304)
 	e.facing = -1
 	e._apply_facing()
+	# 关卡加载那两帧它可能已经开过火 / 扔过手雷：冷却清零，免得带进测量
+	e._fire_timer = 0.0
+	if e is EnemyGrenadier:
+		(e as EnemyGrenadier)._throw_timer = 0.0
 	player.global_position = Vector2(player_x, 304)
 	player.velocity = Vector2.ZERO
 	for i in 10:

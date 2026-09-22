@@ -4,7 +4,7 @@ extends GameTest
 
 func test_level_setup() -> void:
 	await reset_scene(true)
-	check("9 enemies in the level (8 normal + 1 boss)", main.get_node("Enemies").get_child_count() == 9, str(main.get_node("Enemies").get_child_count()))
+	check("9 enemies in the level (8 normal + 1 boss)", enemies().size() == 9, str(main.get_node("Enemies").get_child_count()))
 	check("player starts at full health: three hits", player.health == 3 * HIT and player.max_health == 3 * HIT, str(player.health))
 	check("hud health bar starts full", (main.get_node("HUD/HealthBar/Fill") as ColorRect).size.x == (main.get_node("HUD/HealthBar") as ColorRect).size.x)
 
@@ -446,3 +446,76 @@ func test_player_death() -> void:
 	await frames(20)
 	Input.action_release("shoot")
 	check("a dead player cannot shoot", bullets(4).size() == 0, str(bullets(4).size()))
+
+
+# ---------------------------------------------------------------- 视野对等：玩家看得见的敌人，也得看得见玩家
+
+## 玩家贴着关卡左边（摄像机停在左边界上，画面 = x 0..640），敌人摆在 x 处面朝左，冷却清零。
+func _face_off(enemy_name: String, x: float) -> Enemy:
+	await reset_scene(true)
+	keep_only_enemies([enemy_name])
+	var enemy: Enemy = main.get_node("Enemies/" + enemy_name)
+	player.global_position = Vector2(100, 304)
+	player.velocity = Vector2.ZERO
+	player.health = 999
+	var y := 88.0 if enemy is EnemyFlyer else 304.0
+	if enemy is EnemyFlyer:
+		(enemy as EnemyFlyer).set_anchor(Vector2(x, y))
+		(enemy as EnemyFlyer).is_following = false
+		(enemy as EnemyFlyer).move_speed = 0.0
+	else:
+		enemy.global_position = Vector2(x, y)
+		enemy.velocity = Vector2.ZERO
+	enemy.facing = -1
+	enemy._apply_visual_facing()
+	if enemy is EnemyWalker:
+		(enemy as EnemyWalker).move_speed = 0.0
+	enemy._fire_timer = 0.0
+	enemy._burst_left = 0
+	if enemy is EnemyGrenadier:
+		(enemy as EnemyGrenadier)._throw_timer = 0.0
+	if enemy is EnemyChaser:
+		(enemy as EnemyChaser)._memory_left = 0.0
+		(enemy as EnemyChaser).is_chasing = false
+	for grenade in tree.get_nodes_in_group(Grenade.GROUP):
+		grenade.free()
+	for shot in bullets(16):
+		shot.free()
+	snap_camera()
+	return enemy
+
+
+## 这个敌人在 frame_count 帧里有没有对玩家起反应（开火、扔雷、冲锋、跟随）。
+func _reacts(enemy: Enemy, frame_count := 90) -> bool:
+	var fired := [false]
+	enemy.shot_fired.connect(func() -> void: fired[0] = true)
+	for i in frame_count:
+		player._invincible_timer = 1000.0
+		await tree.physics_frame
+		if not is_instance_valid(enemy):
+			return false
+		if fired[0] or not tree.get_nodes_in_group(Grenade.GROUP).is_empty():
+			return true
+		if enemy is EnemyChaser and (enemy as EnemyChaser).is_chasing:
+			return true
+		if enemy is EnemyFlyer and (enemy as EnemyFlyer).is_following:
+			return true
+	return false
+
+
+func test_every_enemy_on_screen_reacts_to_the_player() -> void:
+	# 480px：比 A/B（220）、C 和炮台（400）、D（240）、F（300）的发现距离都远，但还在屏幕里——
+	# 以前玩家能在屏幕里先把它们打死，它们没反应
+	for enemy_name in ["WalkerA", "WalkerB", "WalkerC", "Turret1", "ChaserD", "FlyerE", "WalkerF"]:
+		var enemy := await _face_off(enemy_name, 580.0)
+		check("setup: %s is on screen, beyond its detect range" % enemy_name,
+			enemy.is_partly_on_screen() and 480.0 > enemy.detect_range, str(enemy.detect_range))
+		check("%s reacts to a player it is on screen with" % enemy_name, await _reacts(enemy))
+
+
+func test_enemies_off_screen_and_out_of_range_stay_unaware() -> void:
+	# 对照：在屏幕外、又在发现距离外，照旧发现不了（不然它们隔着整个关卡就开始打）
+	for enemy_name in ["WalkerA", "WalkerB", "WalkerC", "Turret1", "ChaserD", "FlyerE", "WalkerF"]:
+		var enemy := await _face_off(enemy_name, 1000.0)
+		check("setup: %s is off screen and out of range" % enemy_name, not enemy.is_partly_on_screen() and 900.0 > enemy.detect_range)
+		check("%s does not react" % enemy_name, not await _reacts(enemy, 60))

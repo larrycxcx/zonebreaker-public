@@ -120,6 +120,8 @@ var _dead := false
 var statuses := StatusEffects.new()
 ## 防御属性（挨打时减伤）。
 var _defense := 0.0
+## 速度属性让冲刺耗体力变慢（1 = 原样）。
+var _stamina_drain_scale := 1.0
 var _exhausted := false
 var _stamina_regen_timer := 0.0
 
@@ -305,7 +307,7 @@ func _update_sprint(delta: float, direction: float) -> void:
 
 	# 先更新 _exhausted 再改体力：stamina_changed 发出时状态已经是最新的，HUD 据此变色。
 	if is_sprinting:
-		var drained := stamina - stamina_drain * delta
+		var drained := stamina - stamina_drain * _stamina_drain_scale * delta
 		if drained <= 0.0:
 			_exhausted = true
 			GameEvents.report(&"stamina_exhausted", self)
@@ -520,7 +522,8 @@ func _check_contact_damage() -> void:
 			return
 
 
-## 从进度里读属性：生命 → 血量上限（上限加了多少就补多少血），攻击 → 伤害倍率，射速 → 冷却倍率，防御留着挨打时用。
+## 从进度里读属性：生命 → 血量上限（上限加了多少就补多少血），攻击 → 伤害倍率，
+## 速度 → 冷却倍率和冲刺的体力消耗倍率，防御留着挨打时用。
 ## 出生时读一次，之后属性一变（升级加点、换装备）就重读。
 func _apply_stats() -> void:
 	var life := int(Progress.stat(Balance.LIFE))
@@ -530,7 +533,8 @@ func _apply_stats() -> void:
 	health = mini(health, max_health)
 	_defense = Progress.stat(Balance.DEFENSE)
 	var damage := Balance.damage_scale(Progress.stat(Balance.ATTACK))
-	var cooldown := Balance.cooldown_scale(Progress.stat(Balance.FIRE_RATE))
+	var cooldown := Balance.cooldown_scale(Progress.stat(Balance.SPEED))
+	_stamina_drain_scale = cooldown
 	for slot in _slots:
 		slot.damage_scale = damage
 		slot.cooldown_scale = cooldown

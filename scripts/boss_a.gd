@@ -167,7 +167,7 @@ func _grenade_threat() -> Grenade:
 
 ## 射程内（直线距离）看得见就打；扇形方向由 fire_fan 自己算。
 func aim_for(target: Node2D) -> int:
-	return Aim.LEVEL if global_position.distance_to(target.global_position) <= detect_range else -1
+	return Aim.LEVEL if within_reach(global_position.distance_to(target.global_position)) else -1
 
 
 ## 外观一直是朝前的导弹巢（没有能转的炮管）。

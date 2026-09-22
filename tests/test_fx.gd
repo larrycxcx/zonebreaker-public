@@ -44,7 +44,7 @@ func has_collision(node: Node) -> bool:
 func test_every_enemy_shoot_event_makes_a_flash() -> void:
 	# 加了新敌人却忘了把它的 shoot_event 登记到 Fx.SHOOT_EVENTS 里，它开枪就不会有枪口闪光
 	await reset_scene(true)
-	for enemy in main.get_node("Enemies").get_children():
+	for enemy in enemies():
 		if enemy.bullet_scene == null:
 			continue # 不开枪的敌人（D、F）
 		check("%s's shoot event (%s) is listed in Fx" % [enemy.name, enemy.shoot_event],

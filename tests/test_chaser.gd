@@ -16,6 +16,7 @@ func _setup_chaser(x: float, facing: int, keep_walls := false) -> EnemyChaser:
 	d.velocity = Vector2.ZERO
 	d.facing = facing
 	d._apply_facing()
+	snap_camera()
 	await frames(10)
 	return d
 
@@ -32,6 +33,7 @@ func _facing_wrong_way(d: EnemyChaser) -> bool:
 func _put_player(x: float, y := 304.0) -> void:
 	player.global_position = Vector2(x, y)
 	player.velocity = Vector2.ZERO
+	snap_camera()
 
 
 func test_d_is_configured() -> void:
@@ -72,12 +74,21 @@ func test_d_turns_around_for_a_player_behind_it() -> void:
 	check("D turns toward a player behind it", d.facing == -1 and d.velocity.x < 0.0, "facing %d, vx %.1f" % [d.facing, d.velocity.x])
 
 
-func test_d_ignores_a_player_beyond_120px() -> void:
-	var d := await _setup_chaser(500.0, 1)
-	_put_player(240.0) # 260px，刚好在发现距离外
+func test_d_ignores_a_player_it_cannot_see() -> void:
+	# 在 240px 外、自己又不在屏幕里：发现不了玩家，照常巡逻
+	var d := await _setup_chaser(1000.0, 1)
+	_put_player(240.0)
 	await frames(30)
-	check("D keeps patrolling at 130px", not d.is_chasing and d.facing == 1)
+	check("off screen and beyond 240px: D keeps patrolling", not d.is_chasing and d.facing == 1)
 	check("still at patrol speed", is_equal_approx(absf(d.velocity.x), d.move_speed), "%.1f" % absf(d.velocity.x))
+
+
+func test_d_sees_the_player_whenever_it_is_on_screen() -> void:
+	# 玩家看得见它的时候它也得看得见玩家：在屏幕里，就算隔着 260px（超过 240）也会冲过来
+	var d := await _setup_chaser(500.0, 1)
+	_put_player(240.0)
+	await frames(5)
+	check("on screen at 260px: D charges", d.is_chasing and d.velocity.x < 0.0, "chasing %s, vx %.1f" % [d.is_chasing, d.velocity.x])
 
 
 func test_d_never_shoots_or_lies_down() -> void:

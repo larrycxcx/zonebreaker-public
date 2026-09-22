@@ -66,7 +66,7 @@ func find_target() -> Node2D:
 	var player := get_tree().get_first_node_in_group("player") as Player
 	if player == null:
 		return null
-	if global_position.distance_to(player.global_position) > detect_range:
+	if not within_reach(global_position.distance_to(player.global_position)):
 		return null
 	if not has_line_of_sight(player.body_center()):
 		return null

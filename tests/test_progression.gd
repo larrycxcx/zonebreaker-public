@@ -14,7 +14,7 @@ func restart_level() -> void:
 	main = load("res://scenes/main.tscn").instantiate()
 	tree.root.add_child(main)
 	player = main.get_node("Player")
-	for enemy in main.get_node("Enemies").get_children():
+	for enemy in enemies():
 		enemy.free()
 	await frames(2)
 
@@ -65,7 +65,7 @@ func test_kills_pay_xp_and_money() -> void:
 func test_every_enemy_pays_and_the_boss_pays_most() -> void:
 	await reset_scene(true)
 	var boss: Enemy = main.get_node("Enemies/BossA")
-	for enemy: Enemy in main.get_node("Enemies").get_children():
+	for enemy: Enemy in enemies():
 		check("%s pays xp and money" % enemy.name, enemy.xp_reward > 0 and enemy.money_reward > 0)
 		if enemy != boss:
 			check("the boss pays more than %s" % enemy.name, boss.xp_reward > enemy.xp_reward and boss.money_reward > enemy.money_reward)
@@ -133,20 +133,20 @@ func test_defense_softens_hits_but_never_to_zero() -> void:
 	check("zero damage stays zero", Balance.damage_taken(0, 0.0) == 0)
 
 
-func test_fire_rate_shortens_cooldowns_up_to_a_cap() -> void:
+func test_speed_shortens_cooldowns_up_to_a_cap() -> void:
 	await reset_scene()
 	Progress.points = 10
 	for i in 10:
-		Progress.spend_point(Balance.FIRE_RATE)
-	var rate := Progress.stat(Balance.FIRE_RATE)
+		Progress.spend_point(Balance.SPEED)
+	var rate := Progress.stat(Balance.SPEED)
 	fire_one()
-	check("fire rate %d%%: the rifle cools down faster" % rate,
+	check("speed %d%%: the rifle cools down faster" % rate,
 		is_equal_approx(player.current_slot().cooldown_left, player.weapons[0].cooldown * 100.0 / rate), str(player.current_slot().cooldown_left))
 	Progress.points = 1000
 	for i in 1000:
-		Progress.spend_point(Balance.FIRE_RATE)
-	check("but only up to the cap", Progress.stat(Balance.FIRE_RATE) == Progress.balance.cap[Balance.FIRE_RATE],
-		str(Progress.stat(Balance.FIRE_RATE)))
+		Progress.spend_point(Balance.SPEED)
+	check("but only up to the cap", Progress.stat(Balance.SPEED) == Progress.balance.cap[Balance.SPEED],
+		str(Progress.stat(Balance.SPEED)))
 	check("the ultimate is not sped up", player._ultimate.cooldown_scale == 1.0)
 
 
@@ -175,7 +175,7 @@ func test_a_stronger_gun_changes_what_you_fire() -> void:
 	var heavy := (load("res://weapons/rifle.tres") as Weapon).duplicate() as Weapon
 	heavy.power = 2.0
 	heavy.cooldown = 0.3
-	heavy.bonuses = {Balance.FIRE_RATE: -20.0}
+	heavy.bonuses = {Balance.SPEED: -20.0}
 	Progress.owned.append(heavy)
 	Progress.equip(heavy)
 	check("the gun slot holds it", Progress.gear(Equipment.Slot.GUN) == heavy)
@@ -237,3 +237,23 @@ func test_a_broken_save_starts_fresh() -> void:
 	check("a broken save is ignored", Progress.level == 1 and Progress.gear(Equipment.Slot.GUN) != null)
 	Progress.save_path = Progress.DEFAULT_SAVE
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_FOR_TEST))
+
+
+func test_speed_makes_sprints_last_longer() -> void:
+	# 速度同时管冲刺：体力消耗 × 100 / 速度。速度 150 = 同样跑一段只耗 2/3 的体力
+	var drains := []
+	for points in [0, 10]:
+		await reset_scene()
+		Progress.points = points
+		for i in points:
+			Progress.spend_point(Balance.SPEED)
+		player.global_position = Vector2(100, 304)
+		await frames(2)
+		var before := player.stamina
+		Input.action_press("move_right")
+		Input.action_press("sprint")
+		await frames(30)
+		release_all_input()
+		drains.append(before - player.stamina)
+	check("setup: the sprint really used stamina", drains[0] > 5.0, str(drains))
+	check("speed 150: two thirds of the stamina for the same sprint", absf(drains[1] - drains[0] * 2.0 / 3.0) < 0.5, str(drains))

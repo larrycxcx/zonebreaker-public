@@ -197,14 +197,21 @@ func find_target() -> Node2D:
 	return player
 
 
+## 这么远够不够得着：在 detect_range 以内，**或者自己有一部分在屏幕里**。
+## 玩家看得见我（我在屏幕里）的时候，我也得看得见玩家——不然玩家能在屏幕里先把我打死，我还没反应。
+## 所以发现距离至少覆盖整个屏幕；朝向、高度、墙挡视线这些规则照旧。
+func within_reach(distance: float) -> bool:
+	return distance <= detect_range or is_partly_on_screen()
+
+
 ## 对着这个目标该用哪个瞄准方向；打不着返回 -1。
-## 水平：水平距离在射程内、高度差在 vertical_tolerance 内（原来的规则）。
-## 斜向（can_aim_diagonally 才有）：直线距离在射程内，偏离水平线 22.5°~67.5°。
+## 水平：水平距离够得着（within_reach）、高度差在 vertical_tolerance 内（原来的规则）。
+## 斜向（can_aim_diagonally 才有）：直线距离够得着，偏离水平线 22.5°~67.5°。
 func aim_for(target: Node2D) -> int:
 	var offset := target.global_position - global_position
-	if absf(offset.x) <= detect_range and absf(offset.y) <= vertical_tolerance:
+	if within_reach(absf(offset.x)) and absf(offset.y) <= vertical_tolerance:
 		return Aim.LEVEL
-	if not can_aim_diagonally or offset.length() > detect_range:
+	if not can_aim_diagonally or not within_reach(offset.length()):
 		return -1
 	var angle := rad_to_deg(atan2(absf(offset.y), absf(offset.x)))
 	if angle < DIAGONAL_MIN_ANGLE or angle > DIAGONAL_MAX_ANGLE:

@@ -206,6 +206,7 @@ func test_diagonal_up_hits_a_flyer() -> void:
 	# 斜上 90°：出膛点在身体中心右上 (18, -18)，要升 198px 到 E 的高度，就得往右 198px。
 	flyer.set_anchor(Vector2(200 + 18 + 198, 88))
 	flyer.move_speed = 0.0
+	flyer.follow_speed = 0.0 # 它看见玩家会飞过来：定住，才好测斜射的弹道
 	flyer.wave_amplitude = 0.0
 	var deaths := []
 	flyer.died.connect(func(): deaths.append(true))

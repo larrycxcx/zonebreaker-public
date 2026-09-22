@@ -8,7 +8,7 @@ extends Node
 ## 属性 = 初始值（Balance.base）+ 加点 × 每点加多少 + 身上所有装备的加成，再按 Balance.cap 封顶。
 ## 杀敌奖励：听 GameEvents 的 `enemy_death`，按那个敌人场景里配的 `xp_reward` / `money_reward` 发。
 
-## 属性（加点、换装备、升级）变了。玩家据此重新计算血量上限、伤害、射速。
+## 属性（加点、换装备、升级）变了。玩家据此重新计算血量上限、伤害、冷却、冲刺时长。
 signal stats_changed
 ## 经验、金钱、等级、技能点任何一个变了（HUD 显示用）。
 signal progress_changed

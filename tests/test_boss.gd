@@ -60,7 +60,7 @@ func wait_for_unpause() -> void:
 func test_classification() -> void:
 	await reset_scene(true)
 	var bosses := []
-	for enemy in main.get_node("Enemies").get_children():
+	for enemy in enemies():
 		if enemy is Boss:
 			bosses.append(enemy.name)
 		else:

@@ -204,7 +204,7 @@ func test_every_enemy_hit_goes_up_in_a_blast() -> void:
 	# 定格期间整棵树暂停：这时记下的位置就是爆炸那一刻敌人所在的位置
 	var on_screen: Array[Vector2] = []
 	var off_screen: Array[Vector2] = []
-	for enemy: Enemy in main.get_node("Enemies").get_children():
+	for enemy: Enemy in enemies():
 		if enemy.is_on_screen():
 			on_screen.append(enemy.body_center())
 		else:

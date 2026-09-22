@@ -1,8 +1,9 @@
 class_name EnemyFlyer
 extends Enemy
 ## 敌人 E：会飞，不受重力。在固定高度附近以波浪轨迹来回巡逻，水平速度和普通敌人一样。
-## 玩家出现在它**垂直下方**（水平距离 below_width 以内，且看得见）时开始跟随：在上空朝玩家水平移动，
-## 玩家在正下方时竖直向下开火。子弹和其它子弹一样穿过单向平台，被地面、墙、矮通道这些实心物体挡住。
+## 看见下方的玩家（水平 follow_range 以内，或者它自己在屏幕里；并且看得见）就开始跟随：在上空朝玩家水平移动，
+## 玩家在它**垂直下方**（水平距离 below_width 以内）时竖直向下开火。
+## 「在屏幕里就算看见」是为了公平：玩家看得见它的时候它也得有反应，不能被屏幕里的玩家白打。子弹和其它子弹一样穿过单向平台，被地面、墙、矮通道这些实心物体挡住。
 ## 跟随中看不见玩家或玩家水平离开 follow_range 以外，memory_time 秒后放弃，就地继续巡逻。
 
 @export var move_speed := 60.0
@@ -49,7 +50,7 @@ func _physics_process(delta: float) -> void:
 	var target := find_target()
 	var below := target != null and absf(target.global_position.x - global_position.x) <= below_width
 
-	if below:
+	if target != null:
 		is_following = true
 	if is_following:
 		if target != null:
@@ -76,13 +77,13 @@ func _physics_process(delta: float) -> void:
 	try_shoot(delta, target if below else null)
 
 
-## 能跟随的玩家：在它下方、水平 follow_range 以内、看得见（视线从枪口往下）。
+## 能跟随的玩家：在它下方、水平够得着（follow_range 以内，或者自己在屏幕里）、看得见（视线从枪口往下）。
 func find_target() -> Node2D:
 	var player := get_tree().get_first_node_in_group("player") as Player
 	if player == null:
 		return null
 	var offset := player.global_position - global_position
-	if offset.y <= 0.0 or absf(offset.x) > follow_range:
+	if offset.y <= 0.0 or (absf(offset.x) > follow_range and not is_partly_on_screen()):
 		return null
 	if not has_line_of_sight(player.body_center()):
 		return null

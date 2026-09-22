@@ -5,15 +5,18 @@ extends GameTest
 const ALTITUDE := 88.0
 
 
-## 只留 E，把它放到 pos 作为波浪高度和巡逻中心；玩家先停在远处（不在它下方）。
+## 只留 E，把它放到 pos 作为波浪高度和巡逻中心；玩家先停在远处（E 在屏幕外，看不见玩家）。
 func _setup_flyer(pos: Vector2, keep_walls := false) -> EnemyFlyer:
 	await reset_scene(true, keep_walls)
 	keep_only_enemies(["FlyerE"])
 	var e: EnemyFlyer = main.get_node("Enemies/FlyerE")
 	e.set_anchor(pos)
 	e.velocity = Vector2.ZERO
-	player.global_position = Vector2(pos.x + 400.0 if pos.x < 640.0 else pos.x - 400.0, 304)
+	# 关卡加载那两帧里它可能已经看见玩家、开始跟随了（跟丢后还记 1.5 秒）：从头开始
+	e.is_following = false
+	player.global_position = Vector2(pos.x + 700.0 if pos.x < 640.0 else pos.x - 700.0, 304)
 	player.velocity = Vector2.ZERO
+	snap_camera()
 	await frames(3)
 	return e
 
@@ -21,6 +24,7 @@ func _setup_flyer(pos: Vector2, keep_walls := false) -> EnemyFlyer:
 func _put_player(x: float) -> void:
 	player.global_position = Vector2(x, 304)
 	player.velocity = Vector2.ZERO
+	snap_camera()
 
 
 func test_e_is_configured() -> void:
@@ -83,17 +87,27 @@ func test_e_patrols_within_its_range() -> void:
 	check("E stays within its patrol range", farthest <= e.patrol_distance + 4.0, "%.1f px from centre" % farthest)
 
 
-func test_e_ignores_a_player_not_below_it() -> void:
+func test_e_follows_a_player_it_sees_but_fires_only_straight_down() -> void:
+	# E 在屏幕里看得见下方的玩家就飞过去（玩家看得见它的时候它也得有反应）；开火还是只在正下方
 	var e := await _setup_flyer(Vector2(400, ALTITUDE))
-	e.move_speed = 0.0 # 停住，免得巡逻时自己飞到玩家头顶
+	e.move_speed = 0.0
+	e.follow_speed = 0.0 # 飞不过去：玩家一直在侧面
 	_put_player(500.0)
 	var shots := 0
 	for i in 90:
 		player._invincible_timer = 1000.0
 		await tree.physics_frame
 		shots += bullets(16).size()
-	check("E holds fire when the player is off to the side", shots == 0, str(shots))
-	check("and does not start following", not e.is_following)
+	check("E starts following a player it can see", e.is_following)
+	check("but holds fire while the player is off to the side", shots == 0, str(shots))
+
+
+func test_e_ignores_a_player_it_cannot_see() -> void:
+	# 自己在屏幕外、玩家又在 follow_range 外：看不见，照常巡逻
+	var e := await _setup_flyer(Vector2(400, ALTITUDE))
+	_put_player(1100.0)
+	await frames(60)
+	check("off screen and far away: E does not follow", not e.is_following)
 
 
 func test_e_fires_down_when_the_player_is_below() -> void:

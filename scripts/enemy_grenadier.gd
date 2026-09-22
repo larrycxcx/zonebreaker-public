@@ -14,6 +14,7 @@ extends EnemyWalker
 ## 两次扔之间至少隔多久。
 @export var throw_interval := 2.5
 ## 玩家在正前方这个水平距离区间内才扔：太近会扔过头，太远够不着。
+## 但自己在屏幕里时，再远也扔（手雷会落在半路，当封路用）——玩家看得见它的时候它不能没反应。
 @export var min_throw_distance := 80.0
 @export var max_throw_distance := 300.0
 ## 玩家比自己高过 throw_height_above、或低过 throw_height_below 就不扔（手雷是平抛的，够不着）。
@@ -52,7 +53,7 @@ func throw_target() -> Node2D:
 	if signi(offset.x) != facing:
 		return null
 	var distance := absf(offset.x)
-	if distance < min_throw_distance or distance > max_throw_distance:
+	if distance < min_throw_distance or (distance > max_throw_distance and not is_partly_on_screen()):
 		return null
 	if offset.y < -throw_height_above or offset.y > throw_height_below:
 		return null
