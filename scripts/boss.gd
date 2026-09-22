@@ -16,7 +16,7 @@ signal health_changed(health: int, max_health: int)
 
 ## 名字（以后 HUD、过场用）。
 @export var display_name := "BOSS"
-## HUD 右上角的头像（占位美术放在 skins/default/portraits/）。
+## HUD 右上角的头像（占位美术放在 skins/default/portraits/）。素材包的外观带了头像就用外观的，见 hud_portrait()。
 @export var portrait: Texture2D
 ## 被终极武器打中时受到的伤害占最大血量的比例（0.25 = 四分之一，4 次打死）。每个 Boss 可以不同。
 @export_range(0.0, 1.0) var ultimate_damage_ratio := 0.25
@@ -66,3 +66,9 @@ func ultimate_damage() -> int:
 ## 终极武器对 Boss 只造成伤害，不直接消灭。
 func hit_by_ultimate() -> void:
 	take_damage(ultimate_damage())
+
+
+## HUD 上显示的头像：外观（素材包）自己带了头像就用它，头像跟着皮肤换；否则用场景里配的占位头像。
+func hud_portrait() -> Texture2D:
+	var skinned: Variant = _visual.get(&"portrait") if _visual != null else null
+	return skinned if skinned is Texture2D else portrait

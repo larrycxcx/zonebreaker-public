@@ -121,8 +121,7 @@ position = Vector2(1160, 304)
 position = Vector2(368, 184)
 
 [node name="BossA" parent="Enemies" instance=ExtResource("11")]
-position = Vector2(1100, 288)
-high_ground = NodePath("../../Level/BossPlatform")
+position = Vector2(1100, 296)
 
 [node name="Fx" type="Node2D" parent="."]
 script = ExtResource("13")

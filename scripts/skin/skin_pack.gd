@@ -49,7 +49,8 @@ const APPEARANCE_KEYS := {
 	&"boss_a": "Boss A",
 	# 发射物（外观根节点同样挂 Appearance；子弹会收到 aim(飞行方向)，素材包按方向挑贴图，见 ProjectileAppearance）
 	&"player_bullet": "玩家的子弹",
-	&"enemy_bullet": "敌人的子弹（巡逻兵、Boss）",
+	&"enemy_bullet": "敌人的子弹（巡逻兵）",
+	&"boss_bullet": "Boss A 导弹扇形的子弹",
 	&"turret_bullet": "炮台的炮弹",
 	&"flyer_bullet": "E 往下打的子弹",
 	&"player_grenade": "玩家的手雷",

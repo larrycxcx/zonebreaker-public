@@ -84,6 +84,30 @@ SINGLES = {
 }
 
 
+# Boss A：boss 包的 2 号，四条腿的导弹机甲（art_in/default/boss/2/，CraftPix，不进仓库）。每帧 72×72，**不缩放**：
+# 判定框按它改成 56×48（原来 48×64 的瘦高个），脚底在原点下方 24px。输出帧 96×80、锚点 (48, 56)，
+# 放得下喷射跳跃时往上抬的那一截。横向按机身和腿（BOSS_BODY_ROWS 那几行）居中——背上的导弹巢偏后，按它量会偏。
+# 站着开火是 Attack1（导弹巢连发），边走边开火是 Attack2，空中用 Attack4（腿上喷火往上跳）里身体抬起来的两帧。
+# Attack3（车头贴地光束）和 Sneer（嘲讽）暂时没用上。
+BOSS_DIR = os.path.join(HERE, "..", "art_in", "default", "boss", "2")
+BOSS_CELL = 72
+BOSS_FRAME_W, BOSS_FRAME_H = 96, 80
+BOSS_ANCHOR = (48, 56)
+BOSS_FOOT = 24
+BOSS_BODY_ROWS = (40, 72)
+BOSS_CLIPS = {
+	"idle": ("Idle.png", [0, 1, 2, 3]),
+	"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+	"attack_level": ("Attack1.png", [0, 1, 2, 3, 4, 5, 6, 7]),
+	"attack_walk": ("Attack2.png", [0, 1, 2, 3, 4, 5]),
+	"air": ("Attack4.png", [2, 3]),
+	"hurt": ("Hurt.png", [0, 1]),
+	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+}
+# HUD 头像：从待机第一帧截导弹巢和车头那一块（32×32，HUD 上 1:1 显示）。
+BOSS_PORTRAIT = (20, 20, 32, 32)
+
+
 # 炮台（6 号，履带炮塔）。素材只有水平炮管；斜上 / 斜下是在 Idle.png 上手改炮管画的
 # （art_in/extra/turret_diag_*.png，含素材包的像素，所以和素材包一样不进仓库），生成时移植到攻击、受伤帧上。
 # Walk 就是履带在滚，炮台不走，不用。
@@ -204,6 +228,31 @@ def build_singles(write):
 			right = [place(f, anchor_x, "%s %s" % (name, clip)) for f in frames]
 			save(name, "%s_r.png" % clip, right, write)
 			save(name, "%s_l.png" % clip, [mirror(f) for f in right], write)
+
+
+def build_boss(write):
+	clips = {}
+	for name, (f, idx) in BOSS_CLIPS.items():
+		_, _, pixels = sb.read_png(os.path.join(BOSS_DIR, f))
+		clips[name] = [sb.cut(pixels, i * BOSS_CELL, 0, BOSS_CELL, BOSS_CELL) for i in idx]
+	first = clips["idle"][0]
+	body = [x for y in range(*BOSS_BODY_ROWS) for x, c in enumerate(first[y]) if c[3] > 8]
+	anchor_x = (min(body) + max(body)) / 2.0
+	dx = BOSS_ANCHOR[0] - int(round(anchor_x))
+	dy = BOSS_ANCHOR[1] + BOSS_FOOT - BOSS_CELL
+	for name, frames in clips.items():
+		right = []
+		for f in frames:
+			out = sb.blank(BOSS_FRAME_W, BOSS_FRAME_H)
+			sb.blit(out, f, dx, dy, "boss_a %s" % name)
+			right.append(out)
+		save_frames("boss_a", "%s_r.png" % name, right, BOSS_FRAME_W, BOSS_FRAME_H, write)
+		save_frames("boss_a", "%s_l.png" % name, [mirror_about(f, BOSS_ANCHOR[0]) for f in right],
+			BOSS_FRAME_W, BOSS_FRAME_H, write)
+	x, y, w, h = BOSS_PORTRAIT
+	if write:
+		sb.write_png(os.path.join(OUT, "boss_a", "portrait.png"), sb.cut(first, x, y, w, h))
+	print("  boss_a/portrait.png  %dx%d" % (w, h))
 
 
 def build_turret(write):
@@ -370,6 +419,8 @@ def main():
 	build_walkers(write)
 	print("D（3 号）和 F（1 号）：")
 	build_singles(write)
+	print("Boss A（boss 包 2 号）：")
+	build_boss(write)
 	print("炮台（6 号）：")
 	build_turret(write)
 	print("飞行的 E（5 号）：")

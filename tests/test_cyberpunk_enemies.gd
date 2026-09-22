@@ -883,3 +883,167 @@ func test_f_skin_changes_nothing_about_the_rules() -> void:
 	for key: String in blocks:
 		check("F %s is the same with either skin" % key, blocks[key] == sprites[key],
 			"方块 %s，精灵图 %s" % [blocks[key], sprites[key]])
+
+
+# ---------------------------------------------------------------- Boss A（boss 包 2 号，导弹机甲）
+# 素材不缩放：判定框按它改成 56×48；帧 96×80、锚点 (48, 56)，脚底在原点下方 24px。
+
+const B_CLIPS := [&"idle", &"walk", &"attack_level", &"attack_walk", &"air", &"hurt", &"death"]
+const B_W := 96
+const B_H := 80
+const B_AX := 48
+const B_AY := 56
+
+
+## Boss 某一帧看得见的像素（本体坐标）。
+func b_ink(img: Image, frame: int) -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	for y in B_H:
+		for x in B_W:
+			if img.get_pixel(frame * B_W + x, y).a > 0.03:
+				out.append(Vector2(x - B_AX, y - B_AY))
+	return out
+
+
+## 只留 Boss、让它出场、站定不跳，玩家在 player_x。
+func place_boss(pack: SkinPack, player_x := 900.0) -> BossA:
+	await reset_scene(true, false, pack)
+	keep_only_enemies(["BossA"])
+	var boss: BossA = main.get_node("Enemies/BossA")
+	player.health = 999
+	player.global_position = Vector2(player_x, 304)
+	player.velocity = Vector2.ZERO
+	await frames(5)
+	boss.appear()
+	return boss
+
+
+func test_every_clip_is_there_for_the_boss() -> void:
+	for clip: StringName in B_CLIPS:
+		for side in ["r", "l"]:
+			var path := "%s/boss_a/%s_%s.png" % [ART, clip, side]
+			var texture := load(path) as Texture2D
+			check("boss %s_%s exists" % [clip, side], texture != null, path)
+			if texture != null:
+				check("boss %s_%s is one row of %dx%d frames" % [clip, side, B_W, B_H],
+					texture.get_height() == B_H and texture.get_width() % B_W == 0,
+					"%d x %d" % [texture.get_width(), texture.get_height()])
+
+
+func test_the_boss_facings_are_mirrors() -> void:
+	for clip: StringName in [&"idle", &"attack_walk", &"air", &"death"]:
+		var right := image(&"boss_a", clip, "r")
+		var left := image(&"boss_a", clip, "l")
+		var same := right.get_size() == left.get_size()
+		if same:
+			for y in right.get_height():
+				for x in right.get_width():
+					var f := x / B_W
+					var m := f * B_W + 2 * B_AX - (x - f * B_W)
+					if m < f * B_W or m >= (f + 1) * B_W:
+						continue
+					var a := right.get_pixel(x, y)
+					var b := left.get_pixel(m, y)
+					if a.a != b.a or (a.a > 0.03 and a != b):
+						same = false
+		check("boss %s: left is the mirror of right around the anchor" % clip, same)
+
+
+func test_the_boss_art_fits_its_hitbox() -> void:
+	# 脚底落在判定框底边（原点下方 24px），机身和判定框差不多大（判定框略小一圈，擦边不算打中）
+	var box := Vector2(56, 48)
+	for clip: StringName in [&"idle", &"walk", &"attack_level", &"attack_walk", &"hurt"]:
+		var img := image(&"boss_a", clip)
+		for f in img.get_width() / B_W:
+			var points := b_ink(img, f)
+			var r := Rect2(points[0], Vector2.ZERO)
+			for p in points:
+				r = r.expand(p)
+			r.size += Vector2.ONE
+			check("boss %s frame %d stands on the ground" % [clip, f + 1], absf(r.end.y - box.y / 2.0) <= 1.0,
+				"最低处在原点下方 %.0fpx" % r.end.y)
+			check("boss %s frame %d is about the size of its hitbox" % [clip, f + 1],
+				r.size.x >= box.x and r.size.x <= box.x + 12.0 and r.size.y >= box.y and r.size.y <= box.y + 8.0, str(r))
+			# 走路那几帧后腿往后甩一大步，包围盒中心会偏 3~4px，是步态不是没对齐
+			check("boss %s frame %d is centred on it" % [clip, f + 1], absf(r.get_center().x) <= 4.0, str(r.get_center()))
+
+
+func test_missiles_leave_from_the_pod_in_the_art() -> void:
+	# 出膛点在画面上的导弹巢口：离它最近的机身像素不超过 3px，而且在机身顶部那一截
+	var muzzle := BossA.POD_MUZZLE
+	var near := INF
+	for p in b_ink(image(&"boss_a", &"attack_level"), 1):
+		near = minf(near, p.distance_to(muzzle))
+	check("the missile pod mouth is on the art", near <= 3.0, "出膛点 %s 离贴图最近 %.1fpx" % [muzzle, near])
+	check("and it is up on the pod, not the hull", muzzle.y < -16.0, str(muzzle))
+
+
+func test_the_boss_wears_its_art_and_portrait() -> void:
+	var boss := await place_boss(skin())
+	var visual: Node = boss.get_node("Visual")
+	check("the boss wears the sprite appearance", visual is EnemySpriteAppearance, str(visual))
+	if visual is EnemySpriteAppearance:
+		var sprite := visual as EnemySpriteAppearance
+		check("the boss draws its art at its anchor", sprite.frame_size == Vector2i(B_W, B_H) and sprite.anchor == Vector2i(B_AX, B_AY),
+			"%s / %s" % [sprite.frame_size, sprite.anchor])
+	var hud_portrait: TextureRect = main.get_node("HUD/BossBar/Portrait")
+	check("the HUD shows the skin's portrait", hud_portrait.texture != null and hud_portrait.texture == boss.hud_portrait()
+		and hud_portrait.texture != boss.portrait, str(hud_portrait.texture))
+	# 默认包：还是场景里配的占位头像
+	var plain := await place_boss(Skins.default_skin())
+	check("the default pack keeps the placeholder portrait", (main.get_node("HUD/BossBar/Portrait") as TextureRect).texture == plain.portrait)
+
+
+func test_boss_clips_follow_what_it_does() -> void:
+	var boss := await place_boss(skin())
+	var visual: EnemySpriteAppearance = boss.get_node("Visual")
+	boss._fire_timer = 999.0
+	var seen := {}
+	for i in 240:
+		await frames(1)
+		seen[visual.clip()] = true
+	check("walks around (walk)", seen.has(&"walk"), str(seen.keys()))
+	check("jumps (air)", seen.has(&"air"), str(seen.keys()))
+	# 边走边打：播边走边发射那组
+	visual.motion(Appearance.Motion.WALK)
+	visual.fire()
+	check("firing while walking: attack_walk", visual.clip() == &"attack_walk", str(visual.clip()))
+	await frames(40)
+	visual.motion(Appearance.Motion.IDLE)
+	visual.fire()
+	check("firing while standing: attack_level", visual.clip() == &"attack_level", str(visual.clip()))
+	boss.take_damage(1)
+	check("getting hit: hurt", visual.clip() == &"hurt", str(visual.clip()))
+
+
+func measure_boss(pack: SkinPack) -> Dictionary:
+	var boss := await place_boss(pack)
+	seed(7)
+	boss.roam_speed = 0.0
+	boss._jump_timer = 999.0
+	boss.jump_interval_min = 999.0
+	boss.jump_interval_max = 999.0
+	var out := {}
+	out["box"] = (boss._shape.shape as RectangleShape2D).size
+	out["muzzle"] = boss._muzzle_position() - boss.global_position
+	boss._fire_timer = 0.0
+	var volley := []
+	for i in 30:
+		player._invincible_timer = 1000.0
+		await frames(1)
+		volley = bullets(16)
+		if not volley.is_empty():
+			break
+	out["volley"] = volley.size()
+	out["directions"] = str(volley.map(func(b: Bullet) -> Vector2: return b.direction.snapped(Vector2(0.001, 0.001))))
+	out["resting_y"] = snappedf(boss.global_position.y, 0.01)
+	return out
+
+
+func test_the_boss_skin_changes_nothing_about_the_rules() -> void:
+	var blocks := await measure_boss(Skins.default_skin())
+	var sprites := await measure_boss(skin())
+	check("the boss really fires a volley in this test", blocks["volley"] > 1, str(blocks))
+	for key: String in blocks:
+		check("boss %s is the same with either skin" % key, blocks[key] == sprites[key],
+			"方块 %s，精灵图 %s" % [blocks[key], sprites[key]])

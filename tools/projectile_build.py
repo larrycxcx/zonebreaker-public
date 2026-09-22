@@ -14,6 +14,8 @@
 - 炮台：5 号，大颗青色等离子弹，和它绿色的机身配。
 - E（无人机）：4 号，一根细细的青色激光，和它往下放的电一个颜色。
 - 手雷：素材里没有手雷，用 8 号（6×6 的能量球）当榴弹；F 打出来的那颗把青色换成橙色，和玩家的分开。
+- Boss A 的导弹扇形：boss 包 3 号自带的圆弹（12×8），换成红橙两色表示敌方。圆的不分方向，
+  扇形可以打任意角度（像素图只有 8 个方向的话，20° 一发的扇形会画歪）。
 """
 import os
 import sys
@@ -32,6 +34,8 @@ BULLETS = {
 }
 CYAN = (91, 236, 241)
 ORANGE = (255, 129, 66)
+BOSS_BALL = os.path.join(HERE, "..", "art_in", "default", "boss", "3", "Ball.png")
+BOSS_BALL_COLORS = {(139, 171, 191): (255, 129, 66), (52, 30, 26): (210, 47, 30)}
 GRENADES = {
 	"player_grenade": ("8", {}),
 	"enemy_grenade": ("8", {CYAN: ORANGE}),
@@ -90,6 +94,9 @@ def main():
 	for folder, number in BULLETS.items():
 		for name, pixels in directions(load(number), load(number + "_2")).items():
 			save(folder, name, pixels, write)
+	print("Boss 的圆弹：")
+	_, _, ball = sb.read_png(BOSS_BALL)
+	save("boss_bullet", "ball", recolor(ball, BOSS_BALL_COLORS), write)
 	print("手雷：")
 	for folder, (number, mapping) in GRENADES.items():
 		save(folder, "ball", recolor(load(number), mapping), write)

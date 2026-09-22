@@ -90,7 +90,7 @@ func _on_boss_appeared(boss: Node2D) -> void:
 	_boss = boss as Boss
 	_boss.health_changed.connect(_on_boss_health_changed)
 	_boss.died.connect(_on_boss_died)
-	_boss_portrait.texture = _boss.portrait
+	_boss_portrait.texture = _boss.hud_portrait()
 	_on_boss_health_changed(_boss.health, _boss.max_health)
 	_boss_bar.show()
 

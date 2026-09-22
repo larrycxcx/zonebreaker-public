@@ -41,6 +41,8 @@ const ATTACK_BY_AIM := {
 
 ## 贴图放在哪个目录下。三种巡逻兵用同一个脚本，只是这个目录不同（换色版）。
 @export_dir var art_dir := "res://skins/cyberpunk/enemies/walker_a"
+## Boss 在 HUD 上的头像（换皮肤时头像跟着换）；普通敌人留空。
+@export var portrait: Texture2D
 ## 这套贴图每帧多大、锚点在哪（生成脚本定的，场景里照抄）。
 @export var frame_size := Vector2i(FRAME_W, FRAME_H)
 @export var anchor := Vector2i(ANCHOR_X, ANCHOR_Y)
@@ -107,9 +109,14 @@ func pose(height_ratio: float, _lowered: float) -> void:
 	_refresh()
 
 
-## 开一枪：按现在的姿势播一遍开火动作（趴着就是趴着开火那组）。
+## 开一枪：按现在的姿势播一遍开火动作（趴着就是趴着开火那组，边走边打有 attack_walk 就用它）。
 func fire() -> void:
-	_play_once(&"prone" if _prone else _attack_clip())
+	if _prone:
+		_play_once(&"prone")
+	elif _motion == Motion.WALK and _exists(&"attack_walk"):
+		_play_once(&"attack_walk")
+	else:
+		_play_once(_attack_clip())
 
 
 ## 挨了一下：播一遍受伤（素材的第 2 帧是整个人闪红）。

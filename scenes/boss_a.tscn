@@ -1,13 +1,13 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/boss_a.gd" id="1"]
-[ext_resource type="PackedScene" path="res://scenes/enemy_bullet.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/boss_bullet.tscn" id="2"]
 [ext_resource type="Texture2D" path="res://skins/default/portraits/boss_a.png" id="3"]
 [ext_resource type="Script" path="res://scripts/appearance.gd" id="99"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 resource_local_to_scene = true
-size = Vector2(48, 64)
+size = Vector2(56, 48)
 
 [node name="BossA" type="CharacterBody2D"]
 collision_layer = 8
@@ -20,10 +20,8 @@ ultimate_damage_ratio = 0.25
 max_health = 60
 contact_damage = 1
 bullet_scene = ExtResource("2")
-fire_interval = 1.2
+fire_interval = 1.6
 detect_range = 440.0
-burst_min = 3
-burst_max = 3
 shoot_event = &"turret_shoot"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
@@ -31,35 +29,27 @@ shape = SubResource("RectangleShape2D_1")
 
 [node name="Visual" type="Node2D" parent="."]
 script = ExtResource("99")
-turning_gun = NodePath("Gun")
 
 [node name="Body" type="ColorRect" parent="Visual"]
-offset_left = -24.0
-offset_top = -32.0
-offset_right = 24.0
-offset_bottom = 32.0
+offset_left = -28.0
+offset_top = -8.0
+offset_right = 28.0
+offset_bottom = 24.0
 mouse_filter = 2
 color = Color(0.55, 0.33, 0.14, 1)
 
-[node name="Helmet" type="ColorRect" parent="Visual"]
-offset_left = -24.0
-offset_top = -32.0
-offset_right = 24.0
-offset_bottom = -18.0
+[node name="Pod" type="ColorRect" parent="Visual"]
+offset_left = -22.0
+offset_top = -24.0
+offset_right = 6.0
+offset_bottom = -8.0
 mouse_filter = 2
 color = Color(0.3, 0.33, 0.36, 1)
 
-[node name="Visor" type="ColorRect" parent="Visual"]
-offset_left = 4.0
-offset_top = -24.0
-offset_right = 22.0
-offset_bottom = -18.0
+[node name="Lamp" type="ColorRect" parent="Visual"]
+offset_left = 18.0
+offset_top = 2.0
+offset_right = 26.0
+offset_bottom = 8.0
 mouse_filter = 2
 color = Color(1, 0.3, 0.2, 1)
-
-[node name="Gun" type="ColorRect" parent="Visual"]
-offset_top = 14.0
-offset_right = 34.0
-offset_bottom = 22.0
-mouse_filter = 2
-color = Color(0.25, 0.25, 0.28, 1)

@@ -9,6 +9,8 @@ const SKIN := "res://skins/cyberpunk/cyberpunk_skin.tres"
 const ART := "res://skins/cyberpunk/projectiles"
 const BULLETS := [&"player_bullet", &"enemy_bullet", &"turret_bullet", &"flyer_bullet"]
 const GRENADES := [&"player_grenade", &"enemy_grenade"]
+## 圆的、不分方向的发射物（只有一张 ball.png）。
+const BALLS := [&"player_grenade", &"enemy_grenade", &"boss_bullet"]
 const DIRECTIONS := {
 	&"right": Vector2(1, 0), &"left": Vector2(-1, 0), &"up": Vector2(0, -1), &"down": Vector2(0, 1),
 	&"up_right": Vector2(1, -1), &"up_left": Vector2(-1, -1), &"down_right": Vector2(1, 1), &"down_left": Vector2(-1, 1),
@@ -46,7 +48,7 @@ func test_every_texture_is_there() -> void:
 	for who: StringName in BULLETS:
 		for name: StringName in DIRECTIONS:
 			check("%s %s exists" % [who, name], drawing(who, name) != null)
-	for who: StringName in GRENADES:
+	for who: StringName in BALLS:
 		check("%s ball exists" % who, drawing(who, &"ball") != null)
 
 
@@ -93,7 +95,7 @@ func test_each_shooter_fires_its_own_projectile() -> void:
 	grenade.free()
 	await reset_scene(true)
 	for pair in [["WalkerA", &"enemy_bullet"], ["WalkerB", &"enemy_bullet"], ["WalkerC", &"enemy_bullet"],
-			["BossA", &"enemy_bullet"], ["Turret1", &"turret_bullet"], ["FlyerE", &"flyer_bullet"]]:
+			["BossA", &"boss_bullet"], ["Turret1", &"turret_bullet"], ["FlyerE", &"flyer_bullet"]]:
 		var enemy: Enemy = main.get_node("Enemies/" + pair[0])
 		var shot := enemy.bullet_scene.instantiate()
 		check("%s fires %s" % [pair[0], pair[1]], shot.skin_key == pair[1], str(shot.skin_key))
@@ -105,10 +107,10 @@ func test_each_shooter_fires_its_own_projectile() -> void:
 
 
 func test_turret_and_flyer_shots_are_enemy_bullets_in_another_look() -> void:
-	# 炮台和 E 各有自己的子弹场景，只是为了换个样子：规则必须和敌人子弹完全一样
+	# 炮台、E、Boss 各有自己的子弹场景，只是为了换个样子：规则必须和敌人子弹完全一样
 	# （尤其要在 enemy_bullets 组里，终极武器靠它清弹）
 	var base := (load("res://scenes/enemy_bullet.tscn") as PackedScene).instantiate() as Bullet
-	for path in ["res://scenes/turret_bullet.tscn", "res://scenes/flyer_bullet.tscn"]:
+	for path in ["res://scenes/turret_bullet.tscn", "res://scenes/flyer_bullet.tscn", "res://scenes/boss_bullet.tscn"]:
 		var shot := (load(path) as PackedScene).instantiate() as Bullet
 		for property in ["speed", "lifetime", "damage", "collision_layer", "collision_mask"]:
 			check("%s: %s as an enemy bullet" % [path.get_file(), property], shot.get(property) == base.get(property),
@@ -150,7 +152,8 @@ func test_bullets_pick_the_drawing_for_their_direction() -> void:
 
 func test_projectile_art_is_pure_display() -> void:
 	await reset_scene(false, false, skin())
-	for scene in ["res://scenes/bullet.tscn", "res://scenes/enemy_bullet.tscn", "res://scenes/turret_bullet.tscn", "res://scenes/flyer_bullet.tscn"]:
+	for scene in ["res://scenes/bullet.tscn", "res://scenes/enemy_bullet.tscn", "res://scenes/turret_bullet.tscn",
+			"res://scenes/flyer_bullet.tscn", "res://scenes/boss_bullet.tscn"]:
 		var shot := fire(scene, Vector2.RIGHT)
 		var visual := shot.get_node("Visual")
 		check("%s: drawn by the skin" % scene.get_file(), visual is ProjectileAppearance, str(visual))

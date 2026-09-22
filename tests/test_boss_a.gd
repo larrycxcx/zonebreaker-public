@@ -1,6 +1,6 @@
 extends GameTest
-## Boss A：体型大、会跳、不会趴下；不追击，靠 16 方向射击（走动、跳跃中都能开火），接触会伤人；
-## 躲开「落过地」贴地弹跳的手雷，不躲空中的手雷；终极武器一次扣 1/4 血。
+## Boss A（四条腿的导弹机甲）：体型大、会跳、不会趴下；不追击，靠导弹巢打扇形弹幕（地面上才打，走动中照样打），
+## 接触会伤人；躲开「落过地」贴地弹跳的手雷，不躲空中的手雷；终极武器一次扣 1/4 血。
 
 const GRENADE_SCENE := "res://scenes/grenade.tscn"
 const NORMAL_ENEMIES := [
@@ -37,14 +37,13 @@ func hold_still() -> void:
 
 ## 移走 Boss 区域那块平台（只测手雷、不关心地形的用例用）。
 func clear_high_ground() -> void:
-	boss._high_ground = null
 	main.get_node("Level/BossPlatform").free()
 
 
 ## 把 Boss 摆到 x、玩家摆到它左边 distance 处（Boss 会走动，扔手雷的用例需要固定的距离）。
 ## 摆在 1200：从那里往左 220~320px 是一段没有平台的空地，抛物线不会中途落在平台上。
 func park_boss_and_player(distance: float, x := 1200.0) -> void:
-	boss.global_position = Vector2(x, 288)
+	boss.global_position = Vector2(x, 296)
 	boss.velocity = Vector2.ZERO
 	player.global_position = Vector2(x - distance, 304)
 	player.velocity = Vector2.ZERO
@@ -105,7 +104,7 @@ func test_roams_near_home_without_chasing() -> void:
 	check("walks around", moved)
 	check("stays near home, does not chase the player", far <= boss.roam_range + 16.0, "%.1f px from home" % far)
 	check("jumps", airborne)
-	check("jumps high", home - home + (288.0 - top) > 60.0, "%.1f px" % (288.0 - top))
+	check("jumps high", 296.0 - top > 60.0, "%.1f px" % (296.0 - top))
 
 
 ## 把玩家钉在 x 处若干帧（Boss 会撞它、打它，不钉住位置会被推开），返回最后两者的水平距离。
@@ -172,7 +171,7 @@ func test_cornered_at_the_edge_of_its_ground() -> void:
 	boss.roam_range = 80.0
 	var edge := boss._home.x + boss.roam_range
 	# 玩家在它左边逼近，它只能往右退，右边就是地盘边界
-	boss.global_position = Vector2(edge - 20.0, 288)
+	boss.global_position = Vector2(edge - 20.0, 296)
 	await pin_player_at(edge - 90.0, 360)
 	check("holds the edge of its ground", boss.global_position.x <= edge + 16.0,
 		"%.1f, edge at %.1f" % [boss.global_position.x, edge])
@@ -200,81 +199,10 @@ func test_never_lies_down() -> void:
 	var prone := false
 	for i in 120:
 		await frames(1)
-		prone = prone or boss.is_prone or shape_size(boss).y != 64.0
+		prone = prone or boss.is_prone or shape_size(boss).y != 48.0
 	Input.action_release("crouch")
 	check("setup: player lying down", true)
 	check("boss never lies down", not prone)
-
-
-func test_snap_direction() -> void:
-	var cases := {
-		Vector2(1, 0): Vector2(1, 0), Vector2(1, 0.3): Vector2(1, 0), Vector2(-10, 2): Vector2(-1, 0),
-		Vector2(1, -1): Vector2(1, -1).normalized(), Vector2(4, -3.0): Vector2(1, -1).normalized(),
-		Vector2(0.2, -1): Vector2(0, -1), Vector2(-1, -1): Vector2(-1, -1).normalized(),
-		Vector2(-1, 1): Vector2(-1, 1).normalized(), Vector2(0.2, 6): Vector2(0, 1), Vector2(1, 1.2): Vector2(1, 1).normalized(),
-	}
-	for offset in cases:
-		var got := BossA.snap_direction(offset)
-		check("%s snaps to %s" % [offset, cases[offset]], got.is_equal_approx(cases[offset]), str(got))
-
-
-func test_fires_in_all_eight_directions() -> void:
-	await start()
-	for i in 8:
-		var dir := Vector2.from_angle(i * PI / 4.0)
-		dir = Vector2(snappedf(dir.x, 0.0001), snappedf(dir.y, 0.0001)).normalized()
-		boss._fire_timer = 0.0
-		boss._burst_left = 0
-		boss.last_shot_direction = Vector2.ZERO
-		# Boss 悬在半空（每帧拉回原处），玩家放在它的这个方向上 120px
-		for f in 40:
-			boss.global_position = Vector2(1120, 180)
-			boss.velocity = Vector2.ZERO
-			player.global_position = boss.global_position + dir * 120.0
-			player.velocity = Vector2.ZERO
-			await frames(1)
-			if boss.last_shot_direction != Vector2.ZERO:
-				break
-		check("fires toward %s" % dir, boss.last_shot_direction.is_equal_approx(dir), str(boss.last_shot_direction))
-
-
-func test_level_shots_fly_at_standing_height() -> void:
-	# 水平子弹离地 14px：和普通敌人一样，趴下的玩家能躲开
-	await start(960)
-	var shots := []
-	boss.shot_fired.connect(func() -> void:
-		if boss.last_shot_direction.y == 0.0 and boss.is_on_floor():
-			shots.append(boss._muzzle_position().y))
-	for i in 240:
-		await frames(1)
-		if not shots.is_empty():
-			break
-	check("fired a level shot from the ground", not shots.is_empty())
-	if not shots.is_empty():
-		check("level shot leaves 23px above the ground", absf((320.0 - shots[0]) - 23.0) < 0.5, str(320.0 - shots[0]))
-
-
-func test_fires_while_moving_and_in_the_air() -> void:
-	await start(960)
-	var shots := []
-	boss.shot_fired.connect(func() -> void: shots.append({"air": not boss.is_on_floor(), "vx": boss.velocity.x}))
-	# 空中：等它落地、这一轮连发打完，起跳后立刻让它开火
-	for i in 120:
-		await frames(1)
-		if boss.is_on_floor() and boss._burst_left == 0:
-			break
-	boss.velocity.y = boss.jump_velocity
-	await frames(3)
-	shots.clear()
-	boss._fire_timer = 0.0
-	await frames(2)
-	check("fires in mid-air", shots.any(func(s): return s["air"]), str(shots))
-	# 走动中：平时一直在走，开火时水平速度不为 0
-	for i in 240:
-		await frames(1)
-		if shots.any(func(s): return not s["air"] and s["vx"] != 0.0):
-			break
-	check("fires while walking", shots.any(func(s): return s["vx"] != 0.0), str(shots))
 
 
 func test_contact_hurts_the_player() -> void:
@@ -384,148 +312,172 @@ func test_a_wall_bounce_is_not_landing() -> void:
 	grenade.queue_free()
 
 
-# ---------------------------------------------------------------- 抢高处（BossPlatform）
-
-func platform() -> Platform:
-	return main.get_node("Level/BossPlatform")
-
-
-## 让玩家趴在 x 处（趴着不能开枪，只需要按住 Ctrl）。
-func lie_down_at(x: float) -> void:
-	player.global_position = Vector2(x, 304)
-	player.velocity = Vector2.ZERO
-	Input.action_press("crouch")
-	await frames(8)
-
-
-## 等 Boss 站上平台，返回用了多少帧（超时返回 -1）。
-func wait_until_high(limit := 800) -> int:
-	for i in limit:
-		await frames(1)
-		if boss.on_high_ground():
-			return i
-	return -1
-
-
-func test_boss_platform_setup() -> void:
+func test_the_boss_platform_is_plain_terrain() -> void:
+	# 原来玩家趴下时 Boss 会跳上这块平台打斜下；扇形本来就打得到趴着的人，那套拿掉了，平台只是普通地形
 	await start()
-	var p := platform()
-	check("the level has a platform in the boss area", p != null and p.one_way)
-	check("the boss knows about it", boss._high_ground == p)
-	var height := 320.0 - p.global_position.y
-	check("the boss can jump onto it", height < 114.0, "%.0fpx high, boss jumps ~114px" % height)
-	check("the player can jump onto it too", height < 92.0, "%.0fpx high, player jumps ~92px" % height)
-	check("it is inside the boss's ground, so it can reach it", p.global_position.x > boss._home.x - boss.roam_range
-		and p.global_position.x + p.size.x < boss._home.x + boss.roam_range,
-		"platform %.0f..%.0f, ground %.0f..%.0f" % [p.global_position.x, p.global_position.x + p.size.x,
-		boss._home.x - boss.roam_range, boss._home.x + boss.roam_range])
+	var p: Platform = main.get_node("Level/BossPlatform")
+	check("the boss area still has its platform", p != null and p.one_way)
+	check("the player can jump onto it", 320.0 - p.global_position.y < 92.0, "%.0fpx high" % (320.0 - p.global_position.y))
+	check("the boss no longer has a high-ground behaviour", not ("high_ground" in boss))
 
 
-func test_level_shots_miss_a_prone_player() -> void:
-	# 前提：玩家趴下时，Boss 站在地上打的水平子弹会从头顶飞过。
-	# 这条只看「站在地上水平打」的情况：取消它上高处的能力，也不让它随机跳
-	#（跳在空中时趴着的玩家就成了斜下方的目标，它照样打得到——那是另一条用例的事）。
-	await start()
-	boss._high_ground = null
+# ---------------------------------------------------------------- 导弹扇形
+
+## 让 Boss 站定、不跳（开火照常），玩家站在 player_x。
+func stand_and_face(player_x: float) -> void:
+	boss.roam_speed = 0.0
+	boss.back_off_speed = 0.0
+	boss._jump_timer = 999.0
 	boss.jump_interval_min = 999.0
 	boss.jump_interval_max = 999.0
-	boss._jump_timer = 999.0
-	await lie_down_at(1040)
-	var over := 0
-	for i in 200:
-		await frames(1)
-		for b in bullets(16):
-			if b.direction.y == 0.0 and b.global_position.y < 312.0:
-				over += 1
-	check("level shots fly over the prone player", over > 0)
-	check("the prone player is not hit by them", player.health == 999, str(player.health))
-	release_all_input()
-
-
-func test_climbs_when_the_player_lies_down() -> void:
-	await start()
-	check("stays on the ground while the player stands", not boss.on_high_ground())
-	await lie_down_at(940)
-	var took := await wait_until_high()
-	check("climbs onto the platform", took > 0, "gave up after 400 frames")
-	check("only after the player has been prone a moment", boss.high_ground_delay > 0.0)
-	# 上去之后站定不动
-	var x := boss.global_position.x
-	await frames(30)
-	check("holds position up there", absf(boss.global_position.x - x) < 4.0 and boss.on_high_ground())
-	release_all_input()
-
-
-func test_fires_diagonally_down_from_the_platform_and_hits() -> void:
-	await start()
-	# 趴在平台中心左下方 90° 附近：Boss 在上面往斜下打正好打得到
-	var p := platform()
-	var center := p.global_position.x + p.size.x / 2.0
-	await lie_down_at(center - 96.0)
-	check("climbed up", await wait_until_high() > 0)
-	player.health = 3
-	var down := 0
-	for i in 300:
-		await frames(1)
-		if boss.last_shot_direction.y > 0.0 and boss.last_shot_direction.x != 0.0:
-			down += 1
-		if player.health < 3:
-			break
-	check("fires diagonally down from up there", down > 0, str(boss.last_shot_direction))
-	check("and hits the prone player", player.health < 3, str(player.health))
-	check("the player was still lying down", player.is_crouching)
-	release_all_input()
-
-
-func test_comes_back_down_when_the_player_stands_up() -> void:
-	await start()
-	await lie_down_at(940)
-	check("climbed up", await wait_until_high() > 0)
-	Input.action_release("crouch")
-	await frames(10)
-	var down := false
-	for i in 300:
-		await frames(1)
-		if not boss.on_high_ground() and boss.is_on_floor():
-			down = true
-			break
-	check("leaves the platform once the player stands up", down)
-	check("back in its roaming range", absf(boss.global_position.x - boss._home.x) <= boss.roam_range + 16.0, str(boss.global_position.x))
-
-
-func test_skips_a_jump_that_would_land_on_the_platform() -> void:
-	await start()
-	var p := platform()
-	boss.roam_speed = 0.0 # 站着不动：这一跳的落点就是脚下，必定落到平台上
-	boss.global_position = Vector2(p.global_position.x + p.size.x / 2.0, 288)
-	boss.velocity = Vector2.ZERO
-	player.global_position = Vector2(boss.global_position.x - 160.0, 304) # 站着，不会触发抢高处
+	player.global_position = Vector2(player_x, 304)
 	player.velocity = Vector2.ZERO
-	await frames(5)
-	check("setup: standing right under the platform", boss.is_on_floor() and not boss.on_high_ground())
-	boss._jump_timer = 0.0
-	await frames(3)
-	check("skips a random jump that would put it on the platform", boss.is_on_floor() and not boss.on_high_ground(),
-		"y=%.1f" % boss.global_position.y)
-	# 走开一点（落点不在平台上）就照常跳
-	boss.global_position = Vector2(p.global_position.x - 120.0, 288)
-	await frames(3)
-	boss._jump_timer = 0.0
-	var jumped := false
-	for i in 20:
-		await frames(1)
-		jumped = jumped or not boss.is_on_floor()
-	check("still jumps normally away from the platform", jumped)
+	await frames(10)
 
 
-func test_does_not_hold_the_high_ground_for_a_standing_player() -> void:
-	# 它只在玩家趴下时才占高处。随机跳跃偶尔会落到平台上（空中还会横着飘一段），
-	# 但那种情况它马上就走下来，不会待在上面。
-	await start(940)
-	var frames_up := 0
-	for i in 400:
+## 等下一轮扇形，返回这一轮打出来的子弹（同一帧出膛的那一批）。
+func next_volley(limit := 200) -> Array:
+	boss._fire_timer = minf(boss._fire_timer, 0.05)
+	for i in limit:
+		player._invincible_timer = 1000.0
+		var before := bullets(16).size()
 		await frames(1)
-		if boss.on_high_ground():
-			frames_up += 1
-	# 偶尔一次落到平台上再走下来大约 80 帧；「占着高处」会是几百帧。
-	check("does not hold the high ground while the player stands", frames_up < 120, "%d of 400 frames up there" % frames_up)
+		var now := bullets(16)
+		if now.size() > before:
+			return now.slice(before)
+	return []
+
+
+func test_a_volley_is_a_fan() -> void:
+	await start()
+	await stand_and_face(boss.global_position.x - 200.0)
+	var volley := await next_volley()
+	check("one volley fires fan_count missiles at once", volley.size() == boss.fan_count, "%d / %d" % [volley.size(), boss.fan_count])
+	if volley.size() != boss.fan_count:
+		return
+	var angles: Array[float] = []
+	for b: Bullet in volley:
+		angles.append(rad_to_deg(Vector2(-b.direction.x, b.direction.y).angle()))
+	angles.sort()
+	var even := true
+	for i in angles.size() - 1:
+		even = even and absf(angles[i + 1] - angles[i] - boss.fan_spread) < 0.5
+	check("the missiles are fan_spread degrees apart", even, str(angles))
+	var muzzle := boss._muzzle_position()
+	var all_from_pod := true
+	var detail := []
+	for b: Bullet in volley:
+		# 出膛后已经飞了一小段：它的飞行直线要穿过导弹巢口，而且离巢口不远
+		var off := b.global_position - muzzle
+		var miss := absf(off.cross(b.direction))
+		detail.append("%.2f/%.1f" % [miss, off.length()])
+		all_from_pod = all_from_pod and miss < 0.5 and off.length() < 20.0
+	check("all of them leave from the missile pod", all_from_pod, "偏离/距离 %s" % [detail])
+	check("the missiles are the boss's own", volley.all(func(b: Bullet) -> bool: return b.skin_key == &"boss_bullet"))
+	check("and the ultimate can clear them", volley.all(func(b: Bullet) -> bool: return b.is_in_group(&"enemy_bullets")))
+
+
+func test_the_fan_is_centred_on_the_player() -> void:
+	# 中心那一发对准玩家的身体中心（站着、趴着都一样，趴下时中心更低，扇形跟着往下压）
+	for case in [[-220.0, false], [-140.0, false], [-220.0, true]]:
+		await start()
+		await stand_and_face(boss.global_position.x + case[0])
+		if case[1]:
+			Input.action_press("crouch")
+			await frames(10)
+		var volley := await next_volley()
+		release_all_input()
+		var want := (player.body_center() - boss._muzzle_position()).normalized()
+		check("fan centre aims at the player %.0fpx away%s" % [absf(case[0]), " (prone)" if case[1] else ""],
+			boss.fan_center.angle_to(want) < deg_to_rad(1.0), "%s vs %s" % [boss.fan_center, want])
+		# 整扇对称地摊在中心两侧：只看「有一发朝中心」的话，整扇偏到一边也照样成立
+		var offsets: Array[float] = []
+		for bullet: Bullet in volley:
+			offsets.append(boss.fan_center.angle_to(bullet.direction))
+		var mean := 0.0
+		for o in offsets:
+			mean += o / maxf(offsets.size(), 1.0)
+		check("and the fan spreads evenly on both sides of it", volley.size() == boss.fan_count and absf(mean) < deg_to_rad(0.5),
+			"平均偏 %.1f°" % rad_to_deg(mean))
+
+
+func test_the_fan_only_points_forward() -> void:
+	# 导弹巢朝前：玩家几乎在正上方时，扇形中心也最多抬到 fan_max_angle，不会朝正上或身后打
+	await start()
+	boss.fire_fan(player) # 先随便打一轮，确保朝向已定
+	var up_close := Node2D.new()
+	main.add_child(up_close)
+	up_close.global_position = boss._muzzle_position() + Vector2(boss.facing * 10.0, -200.0)
+	boss.fire_fan(up_close)
+	var pitch := rad_to_deg(atan2(-boss.fan_center.y, absf(boss.fan_center.x)))
+	check("the fan centre never tilts past fan_max_angle", pitch <= boss.fan_max_angle + 0.1, "%.1f°" % pitch)
+	check("and still points forward", signf(boss.fan_center.x) == boss.facing, str(boss.fan_center))
+	up_close.free()
+
+
+func test_turns_to_face_the_player_before_firing() -> void:
+	await start()
+	for side in [-1.0, 1.0]:
+		await stand_and_face(boss.global_position.x + side * 180.0)
+		var volley := await next_volley()
+		check("player on the %s: faces that way" % ("left" if side < 0 else "right"), boss.facing == int(side), str(boss.facing))
+		check("player on the %s: the whole fan flies that way" % ("left" if side < 0 else "right"),
+			not volley.is_empty() and volley.all(func(b: Bullet) -> bool: return signf(b.direction.x) == side))
+
+
+func test_gaps_open_up_with_distance() -> void:
+	# 扇形是能躲的：在交战距离上，相邻两发之间的空隙比玩家站着还宽，站到缝里就躲开了
+	await start()
+	var distance := boss.close_range * 2.0
+	var gap := 2.0 * distance * tan(deg_to_rad(boss.fan_spread / 2.0))
+	check("at %.0fpx the missiles are %.0fpx apart, room for a standing player" % [distance, gap], gap > Player.STAND_HEIGHT + 8.0)
+
+
+func test_lying_down_does_not_dodge_the_fan() -> void:
+	# 原来趴下能躲 Boss 的水平子弹；扇形瞄的是身体中心，趴着照样挨打
+	await start()
+	await stand_and_face(boss.global_position.x - 200.0)
+	Input.action_press("crouch")
+	await frames(10)
+	player.health = 3
+	var hit := false
+	for i in 240:
+		await frames(1)
+		if player.health < 3:
+			hit = true
+			break
+	release_all_input()
+	check("a prone player still gets hit", hit)
+
+
+func test_fires_only_on_the_ground_and_while_walking() -> void:
+	await start(900)
+	var shots := []
+	boss.shot_fired.connect(func() -> void: shots.append({"air": not boss.is_on_floor(), "vx": boss.velocity.x}))
+	# 空中：起跳后冷却清零，落地之前一发都不该打
+	for i in 120:
+		await frames(1)
+		if boss.is_on_floor():
+			break
+	boss.velocity.y = boss.jump_velocity
+	await frames(2)
+	shots.clear()
+	boss._fire_timer = 0.0
+	var landed := false
+	for i in 120:
+		player._invincible_timer = 1000.0
+		await frames(1)
+		if boss.is_on_floor():
+			landed = true
+			break
+		check("no missiles while airborne", shots.is_empty(), str(shots))
+		if not shots.is_empty():
+			break
+	check("setup: it did land again", landed)
+	# 地上：走动中照样开火
+	for i in 480:
+		player._invincible_timer = 1000.0
+		await frames(1)
+		if shots.any(func(s): return not s["air"] and s["vx"] != 0.0):
+			break
+	check("fires while walking", shots.any(func(s): return s["vx"] != 0.0), str(shots.slice(0, 5)))
