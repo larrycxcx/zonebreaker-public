@@ -6,8 +6,9 @@
 素材来源是 CraftPix 那套「Free Guns for Cyberpunk Characters」，解压在 art_in/default/
 （不进仓库，授权禁止再分发源文件）。这个脚本做三件事：
 
-1. **挑无手臂的身体**：素材里 `Idle1` 是带手臂的完整角色，`Idle2` 把手臂去掉了，
-   就是留给你贴瞄准手臂的。所以身体一律取 `*2.png`。
+1. **脱掉身体自带的手臂**：瞄准的手臂是单独贴上去的，身体不能再带一副。
+   素材里 `*2.png` 本来就是脱好的（Walk2 / Run2 / Jump2），但 Dash、Idle1 这些没有无手臂版，
+   所以统一过一道 `strip_arms()`，本来就没手臂的一个像素都不会动。
 2. **按肩膀对齐**：素材每帧 48×48，但奔跑/跳跃那几组角色整体往右画了约 6px（前倾）。
    手臂是按站立时的肩膀位置画的，照搬就会和跑动的身体脱节。
    所以每一帧都按**躯干中心**重新对齐，手臂就能固定在一个位置、不用跟着每帧动。
@@ -60,12 +61,32 @@ ARM_BASELINE = 13.0
 # 身体动画：输出名 → (素材文件, 取哪几帧)。
 # air 只要两帧：上升用蜷腿那帧、下落用伸腿那帧，运行时按纵向速度选，不按时间播。
 # crouch 取下蹲循环里压得最低的那一帧。
+#
+# **走路用的是素材里的「跑」、冲刺用的是「Dash」**（2026-09 试玩后改的，嫌节奏慢）：
+# 速度一个数都没动，只是换了贴图——正常移动看着就是在跑，按住冲刺再加一层残影。
+# 素材包里只有 `*2.png` 是脱了手臂的（留给我们贴瞄准手臂），Dash、Idle1 这些都带着手臂，
+# 所以生成时统一过一道 `strip_arms()`：本来就没手臂的（Walk2/Run2/Jump2）一个像素都不会动。
 BODIES = {
-	"idle": ("Idle2", [0, 1, 2, 3]),
-	"walk": ("Walk2", [0, 1, 2, 3, 4, 5]),
-	"run": ("Run2", [0, 1, 2, 3, 4, 5]),
+	"idle": ("Idle1", [0, 1, 2, 3]),
+	"walk": ("Run2", [0, 1, 2, 3, 4, 5]),
+	"run": ("Dash", [0, 1, 2, 3, 4, 5]),
 	"air": ("Jump2", [1, 2]),
 }
+
+# 裸露的胳膊用的两种颜色（亮面 + 暗面）。脸和脖子也是这两种颜色，所以不能按颜色一刀切，
+# 要按连通块来分：脸那一块在 y=19~25，胳膊那几块基本都从 y=26 往下开始。
+SKIN_COLORS = {(163, 109, 62), (104, 60, 52)}
+ARM_TOP = 26       # 连通块的最高点在这一行或更下面，才算胳膊
+# 再小就不是胳膊了：无手臂版里也会有一两个零散的肤色像素（拳头的一角之类），
+# 不设这个下限的话它们会被当成胳膊删掉，「本来就无手臂的图一个像素都不动」这条就不成立了。
+ARM_MIN = 6
+# 举到胸口的那条胳膊会和脖子连在一起，整块从 y=24 就开始，卡不住上面那条线。
+# 它的特征是**又粗又长**：脸和脖子再大也垂不到 ARM_DEEP 那么低。
+ARM_BIG = 20
+ARM_DEEP = 30
+OUTLINE = (0, 0, 0)
+# Dash 那几帧身后的速度残影。它横着铺出去老远，量躯干中心时要先把它排除掉，否则整个人会被推偏。
+STREAK = (255, 246, 174)
 
 # 死亡动画来自 CraftPix 同系列的另一个包（第三方素材，和 art_in/default 一样不进仓库），
 # 格式和素材包完全一致：一排 6 帧 × 48×48，第 1 帧就是空手站立的 Idle1。
@@ -250,12 +271,63 @@ def mirror(src):
 
 # ---------------------------------------------------------------- 生成
 
+def strip_arms(frame):
+	"""把素材自带的裸露胳膊去掉，留出位置给瞄准手臂。已经是无手臂版的，一个像素都不会动。
+
+	按颜色一刀切不行——脸和脖子和胳膊是同一种肤色。所以先把肤色像素分成连通块，
+	**只丢掉从 ARM_TOP 以下才开始的那几块**（脸在更上面），再把只挨着这几块、
+	不挨任何别的身体颜色的黑描边一起丢掉（那是胳膊自己的轮廓）。
+	"""
+	size = len(frame)
+	skin = {(x, y) for y in range(size) for x in range(size)
+		if frame[y][x][3] > 8 and frame[y][x][:3] in SKIN_COLORS}
+	arms, seen = set(), set()
+	for start in sorted(skin):
+		if start in seen:
+			continue
+		stack, blob = [start], []
+		seen.add(start)
+		while stack:
+			x, y = stack.pop()
+			blob.append((x, y))
+			for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+				near = (x + dx, y + dy)
+				if near in skin and near not in seen:
+					seen.add(near)
+					stack.append(near)
+		top = min(point[1] for point in blob)
+		bottom = max(point[1] for point in blob)
+		big_and_low = len(blob) >= ARM_BIG and bottom >= ARM_DEEP
+		if len(blob) >= ARM_MIN and (top >= ARM_TOP or big_and_low):
+			arms |= set(blob)
+	out = [list(row) for row in frame]
+	for x, y in arms:
+		out[y][x] = (0, 0, 0, 0)
+	for y in range(size):
+		for x in range(size):
+			if frame[y][x][3] <= 8 or frame[y][x][:3] != OUTLINE:
+				continue
+			touches_arm = touches_body = False
+			for dy in (-1, 0, 1):
+				for dx in (-1, 0, 1):
+					nx, ny = x + dx, y + dy
+					if not (0 <= nx < size and 0 <= ny < size) or frame[ny][nx][3] <= 8:
+						continue
+					if (nx, ny) in arms:
+						touches_arm = True
+					elif frame[ny][nx][:3] != OUTLINE:
+						touches_body = True
+			if touches_arm and not touches_body:
+				out[y][x] = (0, 0, 0, 0)
+	return out
+
+
 def torso_center(frame):
 	"""这一帧躯干（头 + 上半身）的横向中心。手臂就贴在这个位置上。"""
 	left = right = None
 	for y in range(TORSO_ROWS[0], TORSO_ROWS[1] + 1):
 		for x, color in enumerate(frame[y]):
-			if color[3] > 8:
+			if color[3] > 8 and color[:3] != STREAK:
 				left = x if left is None else min(left, x)
 				right = x if right is None else max(right, x)
 	assert left is not None, "这一帧的躯干是空的"
@@ -357,7 +429,7 @@ def build_bodies(write):
 		_, _, pixels = read_png(path)
 		right = []
 		for index in frames:
-			frame = cut(pixels, index * CELL, 0, CELL, CELL)
+			frame = strip_arms(cut(pixels, index * CELL, 0, CELL, CELL))
 			right.append(place(frame, torso_center(frame), "%s 第%d帧" % (name, index + 1)))
 		save_strip("body_%s_r.png" % name, right, write)
 		save_strip("body_%s_l.png" % name, [mirror(f) for f in right], write)

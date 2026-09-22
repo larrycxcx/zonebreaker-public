@@ -248,6 +248,113 @@ func test_dying_while_lying_down_still_plays_the_fall() -> void:
 	check("death wins over the prone pose", visual().body_clip() == &"death", str(visual().body_clip()))
 
 
+# ---------------------------------------------------------------- 跑起来的样子（2026-09 提节奏）
+
+## 裸露皮肤的两种颜色（亮面 + 暗面），和 tools/skin_build.py 的 SKIN_COLORS 一致。
+const SKIN_COLORS := [Color8(163, 109, 62), Color8(104, 60, 52)]
+## Dash 素材身后那条速度残影的颜色。
+const STREAK := Color8(255, 246, 174)
+## 会在上面贴瞄准手臂的那几组动作。趴姿、爬行、倒地是整张画好的，自带手臂。
+const ARMED_CLIPS := ["idle", "walk", "run", "air"]
+
+
+func frames_in(image: Image) -> int:
+	return image.get_width() / FRAME
+
+
+## 这一帧里上半身比脚往前探出多少像素：跑动的姿势前倾，站着不动的姿势是直的。
+func lean_in(image: Image, frame: int) -> float:
+	var box := ink_box_in(image, frame)
+	var head := []
+	var feet := []
+	for y in range(box.position.y, box.end.y):
+		for x in FRAME:
+			if image.get_pixel(frame * FRAME + x, y).a <= 0.03:
+				continue
+			if y <= box.position.y + 5:
+				head.append(x)
+			if y >= box.end.y - 4:
+				feet.append(x)
+	if head.is_empty() or feet.is_empty():
+		return 0.0
+	var head_x := 0.0
+	for x: int in head:
+		head_x += x
+	var feet_x := 0.0
+	for x: int in feet:
+		feet_x += x
+	return head_x / head.size() - feet_x / feet.size()
+
+
+func has_color(image: Image, want: Color) -> bool:
+	for y in image.get_height():
+		for x in image.get_width():
+			var pixel := image.get_pixel(x, y)
+			if pixel.a > 0.03 and pixel.r8 == want.r8 and pixel.g8 == want.g8 and pixel.b8 == want.b8:
+				return true
+	return false
+
+
+## 这一帧里裸露的皮肤有多少像素。脸和脖子就那么点，多出来的就是素材自带的胳膊。
+func skin_pixels(image: Image, frame: int) -> int:
+	var found := 0
+	for y in FRAME:
+		for x in FRAME:
+			var pixel := image.get_pixel(frame * FRAME + x, y)
+			if pixel.a <= 0.03:
+				continue
+			for skin_color: Color in SKIN_COLORS:
+				if pixel.r8 == skin_color.r8 and pixel.g8 == skin_color.g8 and pixel.b8 == skin_color.b8:
+					found += 1
+	return found
+
+
+func test_walking_shows_the_running_animation() -> void:
+	# 试玩嫌节奏慢，所以**正常移动直接用素材里的跑**（速度一个数都没动）。
+	# 跑的姿势是整个人往前倾，走的姿势是直的——量这个就知道用的是哪一组。
+	var walk := (load("%s/body_walk_r.png" % ART_DIR) as Texture2D).get_image()
+	var idle := (load("%s/body_idle_r.png" % ART_DIR) as Texture2D).get_image()
+	var leaning := 0.0
+	for frame in frames_in(walk):
+		leaning = maxf(leaning, lean_in(walk, frame))
+	var standing := 0.0
+	for frame in frames_in(idle):
+		standing = maxf(standing, lean_in(idle, frame))
+	check("the walk clip leans forward like a run", leaning >= 6.0, "前倾 %.1fpx" % leaning)
+	# 对照：同一把尺子量站着不动，量出来必须很小，否则上面那条什么也没证明
+	check("standing still does not lean", standing < 3.0, "前倾 %.1fpx" % standing)
+
+
+func test_sprinting_shows_the_dash() -> void:
+	# 冲刺换成素材里的 Dash：身后拖一条残影。速度还是原来的 270，只是看着像在冲。
+	for side in ["r", "l"]:
+		var run := (load("%s/body_run_%s.png" % [ART_DIR, side]) as Texture2D).get_image()
+		check("the sprint clip (%s) trails a speed streak" % side, has_color(run, STREAK))
+	for clip in ["walk", "idle", "air"]:
+		var image := (load("%s/body_%s_r.png" % [ART_DIR, clip]) as Texture2D).get_image()
+		check("%s does not" % clip, not has_color(image, STREAK))
+
+
+func test_no_clip_brings_its_own_arms() -> void:
+	# 瞄准的手臂是单独贴上去的，所以身体那几张图必须是**脱了手臂的**。
+	# 素材包里只有 `*2.png` 本来就没手臂，Idle1、Dash 这些都带着，生成脚本会脱掉；
+	# 哪天素材被覆盖、或者生成脚本漏了这一步，角色就会长出三条胳膊——这里守的就是这个。
+	# 脸和脖子也是同样的肤色，所以按"每帧裸露皮肤有多少"来判：脱过的最多二十几，没脱的五十打底。
+	for clip in ARMED_CLIPS:
+		var image := (load("%s/body_%s_r.png" % [ART_DIR, clip]) as Texture2D).get_image()
+		var most := 0
+		for frame in frames_in(image):
+			most = maxi(most, skin_pixels(image, frame))
+		check("%s has no arms of its own" % clip, most <= 30, "裸露皮肤最多 %d 像素" % most)
+	# 对照：倒地那组是整张画好的（自带手臂、没有枪），同一把尺子量出来就该是大数
+	var death := (load("%s/body_death_r.png" % ART_DIR) as Texture2D).get_image()
+	var death_skin := 0
+	for frame in frames_in(death):
+		death_skin = maxi(death_skin, skin_pixels(death, frame))
+	check("while the death clip, which keeps its arms, measures far more", death_skin > 40, str(death_skin))
+
+
+
 # ---------------------------------------------------------------- 接上去以后
 
 func test_the_player_wears_the_sprite_appearance() -> void:
