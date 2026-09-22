@@ -12,7 +12,8 @@
 - `gain` 是音量倍数：开枪这种每秒响好几下的放轻一点。
 包里对不上的事件（跳跃、体力耗尽、敌人趴下、D 发现玩家）不输出，素材包里不填，照旧回落到默认包的 8-bit 音效。
 
-音乐：MP3 原样复制（`MUSIC`），关卡用 Track Greenzone（和地形包是配套的），Boss 出场切到节奏最紧的 Track Race。
+音乐：MP3 原样复制（`MUSIC`）。**关卡那首已经换成自己做的 `level.ogg`**（2026-09），不再从这里生成，
+所以 `MUSIC` 里只剩 Boss 那首（Track Race，节奏最紧的一条）。
 """
 import os
 import shutil
@@ -44,7 +45,9 @@ SOUNDS = {
 	"weapon_switch": ("Press", 0.3, 1.0, 0.6),
 	"game_over": ("Access denied", None, 1.0, 0.9),
 }
-MUSIC = {"level": "Track greenzone", "boss": "Track race"}
+# 用途 → 素材包里的曲名。**关卡那首不在这里**：换成自己做的 `skins/cyberpunk/music/level.ogg` 了
+# （OGG 循环没有接缝，MP3 会在开头结尾各补一小段静音）。加回来的话会把它盖掉。
+MUSIC = {"boss": "Track race"}
 SILENCE = 300    # 开头低于这个振幅（16bit）的都当静音去掉
 FADE = 0.03      # 结尾淡出几秒
 

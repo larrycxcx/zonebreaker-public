@@ -67,6 +67,16 @@ func test_the_level_plays_its_music_and_keeps_it_across_restarts() -> void:
 	check("restarting the level does not restart the music", changes.is_empty() and Music.current == &"level", str(changes))
 
 
+func test_the_level_track_is_ours_and_loops_without_a_seam() -> void:
+	# 关卡那首是自己做的，**必须是 OGG**：MP3 的编码器会在开头结尾各补一小段静音，
+	# 循环转一圈能听见接缝，而关卡音乐是一直循环放的。
+	# 跑一遍 tools/sound_build.py 会把素材包里的 MP3 拷回来盖掉它，这条守着别被盖。
+	var track := skin().find_music(&"level")
+	check("the level track is there", track != null)
+	check("and it is an ogg, which loops seamlessly", track is AudioStreamOggVorbis, track.get_class() if track != null else "null")
+	check("about as long as a level loop should be", track != null and track.get_length() > 30.0, "%.0f 秒" % (track.get_length() if track != null else 0.0))
+
+
 func test_the_boss_brings_its_own_track() -> void:
 	await reset_scene(true, false, skin())
 	keep_only_enemies(["BossA"])
