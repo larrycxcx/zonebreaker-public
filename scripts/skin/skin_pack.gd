@@ -79,6 +79,8 @@ const EFFECT_KEYS := {
 @export var effects: Dictionary[StringName, PackedScene] = {}
 ## 关卡背景（视差滚动的几层画，纯显示）。留空就没有背景，用项目的清屏色。
 @export var backdrop: PackedScene
+## HUD 外观（根节点挂 SpriteHud 这类有 show_health / show_stamina / … 的脚本）。留空就用 HUD 自带的占位方块。
+@export var hud: PackedScene
 ## 这个包里没有的东西去哪里找。自制素材包一般指向默认包；默认包自己留空。
 @export var fallback: SkinPack
 
@@ -104,6 +106,13 @@ func find_backdrop() -> PackedScene:
 	if backdrop != null:
 		return backdrop
 	return fallback.find_backdrop() if fallback != null else null
+
+
+## 找 HUD 外观：先看自己，没有再问备用包。
+func find_hud() -> PackedScene:
+	if hud != null:
+		return hud
+	return fallback.find_hud() if fallback != null else null
 
 
 ## 找某个特效的场景，规则同上。

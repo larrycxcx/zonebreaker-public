@@ -34,6 +34,11 @@ func effect(key: StringName, fallback_: PackedScene) -> PackedScene:
 	return scene if scene != null else fallback_
 
 
+## 当前包的 HUD 外观场景，没有返回 null。
+func hud() -> PackedScene:
+	return current.find_hud() if current != null else null
+
+
 ## 当前包的关卡背景场景，没有返回 null。
 func backdrop() -> PackedScene:
 	return current.find_backdrop() if current != null else null
