@@ -38,8 +38,11 @@ func _on_event(event: StringName, source: Node) -> void:
 	elif HIT_EVENTS.has(event):
 		_spawn(&"hit_spark", hit_spark_scene, _body_center(source))
 	elif event == &"bullet_impact":
-		# 子弹撞到实心物体时报告，它自己的位置就是命中点。
-		_spawn(&"impact_spark", impact_spark_scene, (source as Node2D).global_position)
+		# 子弹撞到实心物体时报告，它自己的位置就是命中点；火星朝子弹飞来的方向溅回去。
+		var spark := _spawn(&"impact_spark", impact_spark_scene, (source as Node2D).global_position)
+		var flew: Variant = source.get(&"direction")
+		if spark != null and spark.has_method(&"point") and flew is Vector2:
+			spark.call(&"point", -(flew as Vector2))
 	elif event == &"explosion":
 		# 手雷炸的时候报告，大小照它的爆炸半径来。
 		var blast := _spawn(&"explosion", explosion_scene, (source as Node2D).global_position)
@@ -65,7 +68,12 @@ func _flash_muzzle(source: Node) -> void:
 	var position_: Vector2 = source.get(&"last_muzzle_position")
 	var direction: Vector2 = source.get(&"last_shot_direction")
 	var flash := _spawn(&"muzzle_flash", muzzle_flash_scene, position_)
-	if flash != null and direction != Vector2.ZERO:
+	if flash == null or direction == Vector2.ZERO:
+		return
+	# 素材包的像素图不能转 45°，有 point() 就让它挑那个方向画好的图；占位方块照旧整个转过去
+	if flash.has_method(&"point"):
+		flash.call(&"point", direction)
+	else:
 		flash.rotation = direction.angle()
 
 

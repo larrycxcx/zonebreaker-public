@@ -1,0 +1,135 @@
+extends GameTest
+## 赛博朋克皮肤包的短命特效：枪口闪光、打中角色的火花、子弹撞墙的火星（SpriteEffect，贴图由 tools/fx_build.py 生成）。
+## 手雷爆炸在 test_cyberpunk_projectiles.gd。
+##
+## 守的东西：贴图齐全、喷出点在每帧正中（特效原点就是枪口 / 命中点）、有方向的挑对了那张现成的图而不是整个转过去、
+## 撞墙火星朝子弹来的方向溅回去、纯显示、播完自己消失。默认包的占位方块照旧（test_fx.gd 管）。
+
+const SKIN := "res://skins/cyberpunk/cyberpunk_skin.tres"
+const FX := "res://skins/cyberpunk/fx"
+const DIRECTIONS := [&"right", &"left", &"up", &"down", &"up_right", &"up_left", &"down_right", &"down_left"]
+
+
+func skin() -> SkinPack:
+	return load(SKIN) as SkinPack
+
+
+func strip(path: String) -> Image:
+	var texture := load(path) as Texture2D
+	return texture.get_image() if texture != null else null
+
+
+## 特效层里新加进来的 SpriteEffect（这一帧结束再看，Fx 是先加进场景再摆位置的）。
+func watch_fx() -> Array[Node]:
+	var added: Array[Node] = []
+	main.get_node("Fx").child_entered_tree.connect(func(node: Node) -> void: added.append(node))
+	return added
+
+
+func effects_of(added: Array[Node], scene_name: String) -> Array:
+	return added.filter(func(n: Node) -> bool: return is_instance_valid(n) and n is SpriteEffect and n.name.begins_with(scene_name))
+
+
+# ---------------------------------------------------------------- 贴图本身
+
+func test_every_texture_is_there() -> void:
+	for kind in ["muzzle", "impact"]:
+		for d: StringName in DIRECTIONS:
+			var img := strip("%s/%s/%s.png" % [FX, kind, d])
+			check("%s %s exists, a row of 96x96 frames" % [kind, d], img != null and img.get_height() == 96 and img.get_width() % 96 == 0,
+				str(img.get_size()) if img != null else "missing")
+	var hit := strip(FX + "/hit.png")
+	check("hit spark exists, a row of 32x32 frames", hit != null and hit.get_height() == 32 and hit.get_width() % 32 == 0)
+
+
+func test_the_flash_starts_at_the_middle_of_every_frame() -> void:
+	# 喷出点（枪口）在格子正中：第 1 帧那一小团要贴着中心
+	for kind in ["muzzle", "impact"]:
+		for d: StringName in DIRECTIONS:
+			var img := strip("%s/%s/%s.png" % [FX, kind, d])
+			var near := INF
+			for y in 96:
+				for x in 96:
+					if img.get_pixel(x, y).a > 0.03:
+						near = minf(near, Vector2(x, y).distance_to(Vector2(48, 48)))
+			check("%s %s starts at the middle" % [kind, d], near <= 2.0, "离中心最近 %.1fpx" % near)
+
+
+# ---------------------------------------------------------------- 接上去以后
+
+func test_the_muzzle_flash_points_the_way_you_shoot() -> void:
+	for aim in [Vector2.RIGHT, Vector2(1, -1).normalized(), Vector2.UP, Vector2(-1, 1).normalized()]:
+		await reset_scene(false, false, skin())
+		player.global_position = Vector2(300, 200)
+		await frames(2)
+		var added := watch_fx()
+		player._shoot(aim)
+		await frames(1)
+		var flashes := effects_of(added, "MuzzleFlash")
+		check("firing %s flashes the skin's muzzle flash" % aim, flashes.size() == 1, str(added))
+		if flashes.size() != 1:
+			continue
+		var flash: SpriteEffect = flashes[0]
+		check("  at the muzzle", flash.global_position.distance_to(player.last_muzzle_position) < 0.5,
+			"%s vs %s" % [flash.global_position, player.last_muzzle_position])
+		check("  using the drawing for that way", flash.texture_name() == ProjectileAppearance.direction_name(aim), str(flash.texture_name()))
+		check("  not turned (the drawing already points that way)", is_zero_approx(flash.global_rotation), "%.3f" % flash.global_rotation)
+
+
+func test_sparks_fly_back_off_a_wall() -> void:
+	await reset_scene(false, false, skin())
+	var wall := add_wall(400, 60)
+	await frames(1)
+	var added := watch_fx()
+	var shot: Bullet = (load("res://scenes/bullet.tscn") as PackedScene).instantiate()
+	shot.launch(Vector2.RIGHT)
+	main.add_child(shot)
+	shot.global_position = Vector2(360, 300)
+	var spark: SpriteEffect = null
+	for i in 30:
+		await frames(1)
+		var found := effects_of(added, "ImpactSpark")
+		if not found.is_empty():
+			spark = found[0]
+			break
+	check("a bullet hitting the wall throws sparks", spark != null, str(added))
+	if spark != null:
+		check("back the way the bullet came", spark.texture_name() == &"left", str(spark.texture_name()))
+		check("at the wall", absf(spark.global_position.x - wall.global_position.x) < 12.0, str(spark.global_position))
+
+
+func test_a_hit_on_an_enemy_flashes_red() -> void:
+	await reset_scene(true, false, skin())
+	keep_only_enemies(["Turret1"])
+	var turret: Enemy = main.get_node("Enemies/Turret1")
+	await frames(1)
+	var added := watch_fx()
+	turret.take_damage(1)
+	await frames(1)
+	var sparks := effects_of(added, "HitSpark")
+	check("getting hit shows the skin's hit spark", sparks.size() == 1, str(added))
+	if sparks.size() == 1:
+		check("  on the body", (sparks[0] as Node2D).global_position.distance_to(turret.body_center()) < 0.5)
+		check("  undirected", (sparks[0] as SpriteEffect).texture_name() == &"still")
+
+
+func test_effects_are_pure_display_and_go_away() -> void:
+	await reset_scene(false, false, skin())
+	player.global_position = Vector2(300, 200)
+	await frames(2)
+	var added := watch_fx()
+	player._shoot(Vector2.RIGHT)
+	await frames(1)
+	var flashes := effects_of(added, "MuzzleFlash")
+	check("setup: a flash appeared", flashes.size() == 1)
+	if flashes.is_empty():
+		return
+	var flash: SpriteEffect = flashes[0]
+	check("no collision", flash.find_children("*", "CollisionObject2D", true, false).is_empty())
+	var gone := -1
+	for i in 60:
+		await frames(1)
+		if not is_instance_valid(flash):
+			gone = i
+			break
+	check("plays once and removes itself", gone > 3 and gone < 30, "第 %d 帧消失" % gone)

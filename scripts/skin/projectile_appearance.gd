@@ -48,8 +48,12 @@ func aim(direction: Vector2) -> void:
 func texture_name() -> StringName:
 	if still != &"":
 		return still
-	# 8 个方向之一：按角度取整到 45° 的倍数，免得 (0.7, 0.7) 这种被四舍五入成 (1, 1) 以外的东西
-	var step := roundi(_aim.angle() / (PI / 4.0))
+	return direction_name(_aim)
+
+
+## 一个方向对应 8 张贴图里的哪一张：按角度取整到 45° 的倍数（特效的方向贴图也用它）。
+static func direction_name(direction: Vector2) -> StringName:
+	var step := roundi(direction.angle() / (PI / 4.0))
 	var snapped := Vector2.RIGHT.rotated(step * PI / 4.0)
 	return NAMES[Vector2i(roundi(snapped.x), roundi(snapped.y))]
 

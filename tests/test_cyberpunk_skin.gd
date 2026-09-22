@@ -550,7 +550,9 @@ func test_the_pack_only_overrides_what_has_been_drawn() -> void:
 			"player_bullet", "player_grenade", "terrain_ground", "terrain_ledge", "terrain_stone",
 			"turret", "turret_bullet", "walker_a", "walker_b", "walker_c"],
 		str(drawn))
-	check("of the effects it ships only the explosion so far", pack.effects.keys() == [&"explosion"], str(pack.effects.keys()))
+	var effects := pack.effects.keys().map(func(k: StringName) -> String: return String(k))
+	effects.sort()
+	check("it ships every effect", effects == ["explosion", "hit_spark", "impact_spark", "muzzle_flash"], str(effects))
 	check("and falls back to the default pack", pack.fallback == Skins.default_skin())
 	check("so it still has sounds", pack.find_sound(&"player_shoot") != null)
 	# 包里缺哪个角色的贴图，那个角色就保留自己的占位方块：临时拿掉 Boss 的贴图来看
