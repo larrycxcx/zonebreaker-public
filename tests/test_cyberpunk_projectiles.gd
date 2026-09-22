@@ -218,3 +218,64 @@ func test_the_projectile_skin_changes_nothing_about_the_rules() -> void:
 	for key: String in blocks:
 		check("%s is the same with either skin" % key, blocks[key] == sprites[key],
 			"方块 %s，精灵图 %s" % [blocks[key], sprites[key]])
+
+
+# ---------------------------------------------------------------- 爆炸（爆炸包 3 Effects 的 2 号，红 + 深蓝）
+
+## 在 pos 放一颗手雷、马上炸掉，返回特效层里新出现的爆炸。
+func blow_up(pos: Vector2) -> Node:
+	var grenade: Grenade = (load("res://scenes/grenade.tscn") as PackedScene).instantiate()
+	grenade.launch(Vector2.RIGHT)
+	main.add_child(grenade)
+	grenade.global_position = pos
+	grenade.explode()
+	await frames(1)
+	for child in main.get_node("Fx").get_children():
+		if child.has_method(&"frame_size") or child.name.begins_with("Explosion"):
+			return child
+	return null
+
+
+func test_explosions_pick_the_closest_size_without_scaling() -> void:
+	var blast: SpriteExplosion = (load("res://scenes/skins/cyberpunk_explosion.tscn") as PackedScene).instantiate()
+	for case in [[56.0, 96], [36.0, 72], [24.0, 48], [10.0, 32], [200.0, 96]]:
+		blast.radius = case[0]
+		check("radius %.0f picks the %dpx art" % [case[0], case[1]], blast.frame_size() == case[1], str(blast.frame_size()))
+	check("and never scales it", blast.scale == Vector2.ONE and blast.get_node("Sprite").scale == Vector2.ONE)
+	blast.free()
+
+
+func test_a_grenade_blast_plays_the_pack_art_once() -> void:
+	await reset_scene(false, false, skin())
+	var blast := await blow_up(Vector2(400, 280))
+	check("the skin draws the blast", blast is SpriteExplosion, str(blast))
+	if not (blast is SpriteExplosion):
+		return
+	var sprite := blast as SpriteExplosion
+	check("sized for the grenade's blast radius", sprite.frame_size() == 96, str(sprite.frame_size()))
+	check("centred on the blast", sprite.global_position.distance_to(Vector2(400, 280)) < 1.0 and (sprite.get_node("Sprite") as Sprite2D).centered)
+	check("pure display", sprite.find_children("*", "CollisionObject2D", true, false).is_empty())
+	var gone := -1
+	for i in 90:
+		await frames(1)
+		if not is_instance_valid(sprite):
+			gone = i
+			break
+	check("plays once and removes itself", gone > 10 and gone < 60, "第 %d 帧消失" % gone)
+
+
+func blast_damage(pack: SkinPack) -> int:
+	await reset_scene(true, false, pack)
+	keep_only_enemies(["Turret1"])
+	var turret: Enemy = main.get_node("Enemies/Turret1")
+	turret.set_physics_process(false)
+	var before := turret.health
+	await blow_up(turret.global_position + Vector2(-30, 0))
+	return before - turret.health
+
+
+func test_the_explosion_art_changes_nothing_about_the_damage() -> void:
+	var blocks := await blast_damage(Skins.default_skin())
+	var sprites := await blast_damage(skin())
+	check("the blast really hurts in this test", blocks > 0, str(blocks))
+	check("same damage with either skin", blocks == sprites, "方块 %d，精灵图 %d" % [blocks, sprites])

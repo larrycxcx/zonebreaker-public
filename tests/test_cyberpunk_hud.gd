@@ -100,6 +100,9 @@ func test_the_ultimate_count_follows_its_ammo() -> void:
 	await frames(2)
 	check("using one leaves one", look().ultimate_ammo == player.ultimate_ammo() and look().ultimate_ammo == look().ultimate_max - 1,
 		str(look().ultimate_ammo))
+	check("the charges are drawn as bombs", look().ultimate_icon != null
+		and look().ultimate_icon.get_height() <= (look().get_node("WeaponSlot") as Control).size.y,
+		str(look().ultimate_icon))
 	tree.paused = false
 
 

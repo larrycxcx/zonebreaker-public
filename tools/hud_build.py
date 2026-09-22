@@ -11,6 +11,8 @@
   （体力跌到能重新起跑的门槛以下时，原来的占位条也是变橙）。输出 `energy.png`：满 4 块 + 空 4 块 + 橙 4 块。
 - 框：`1 Frames/FrameMap.png` 里第 8 行那个 32×32 的方框，武器槽和 Boss 头像框都用它（场景里用 NinePatchRect 拉大小）。
 - 武器图标：直接用玩家手里那两把枪的原图——步枪 4 号、榴弹枪 5 号，和 skin_build.py 的 `GUNS` 同一对。
+- 终极武器图标：爆炸包（art_in/default/explosions/1 Bombs/）18 号红色航弹，裁掉四周空白（10×21）。
+  蓝色那颗（20 号）本体 23×40，放进 HUD 那一排太高。
 """
 import os
 import sys
@@ -26,6 +28,14 @@ FRAME_AT = (224, 256)  # FrameMap 里那个方框的左上角
 # 体力条换色：蓝 → 橙（跑不动）
 TIRED = {(51, 104, 220): (210, 47, 30), (61, 171, 234): (255, 129, 66), (91, 236, 241): (255, 218, 69)}
 GUNS = {"rifle": 4, "launcher": 5}
+BOMB = os.path.join(HERE, "..", "art_in", "default", "explosions", "1 Bombs", "18.png")
+
+
+def trim(p):
+	"""裁掉四周全透明的行列。"""
+	rows = [y for y, row in enumerate(p) if any(c[3] > 8 for c in row)]
+	cols = [x for x in range(len(p[0])) if any(row[x][3] > 8 for row in p)]
+	return sb.cut(p, cols[0], rows[0], cols[-1] - cols[0] + 1, rows[-1] - rows[0] + 1)
 
 
 def strip(pieces):
@@ -64,6 +74,7 @@ def main():
 	save("frame.png", sb.cut(frames, FRAME_AT[0], FRAME_AT[1], 32, 32), write)
 	for look, number in GUNS.items():
 		save("gun_%s.png" % look, load(GUNS_DIR, "%d_1.png" % number), write)
+	save("ultimate.png", trim(sb.read_png(BOMB)[2]), write)
 
 
 if __name__ == "__main__":
