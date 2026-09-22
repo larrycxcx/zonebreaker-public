@@ -11,6 +11,8 @@ extends Node2D
 
 func _ready() -> void:
 	_add_backdrop()
+	# 关卡里的音乐；死了重开时已经在放同一首就接着放，不会从头来（见 Music）
+	Music.play(&"level")
 	_player.died.connect(_on_player_died)
 
 

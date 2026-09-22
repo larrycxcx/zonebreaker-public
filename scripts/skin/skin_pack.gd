@@ -34,6 +34,12 @@ const SOUND_EVENTS := {
 	&"boss_appear": "Boss 出场（第一次进入屏幕）",
 }
 
+## 背景音乐的用途，以及什么时候放。
+const MUSIC_KEYS := {
+	&"level": "关卡里（关卡加载时开始，死了重开不会从头放）",
+	&"boss": "Boss 出场之后",
+}
+
 ## 全部角色外观的键，以及各是谁。做素材的人照这张表准备外观场景（根节点挂 Appearance 脚本）。
 ## 自制包只填想替换的；没填的角色用它自己场景里带的默认外观（现在的占位方块）。
 const APPEARANCE_KEYS := {
@@ -81,6 +87,8 @@ const EFFECT_KEYS := {
 @export var backdrop: PackedScene
 ## HUD 外观（根节点挂 SpriteHud 这类有 show_health / show_stamina / … 的脚本）。留空就用 HUD 自带的占位方块。
 @export var hud: PackedScene
+## 背景音乐：用途（`MUSIC_KEYS`）→ 曲子。没有的用途就静音（默认包一首都没有）。
+@export var music: Dictionary[StringName, AudioStream] = {}
 ## 这个包里没有的东西去哪里找。自制素材包一般指向默认包；默认包自己留空。
 @export var fallback: SkinPack
 
@@ -106,6 +114,14 @@ func find_backdrop() -> PackedScene:
 	if backdrop != null:
 		return backdrop
 	return fallback.find_backdrop() if fallback != null else null
+
+
+## 找某个用途的背景音乐：先看自己，没有再问备用包。
+func find_music(key: StringName) -> AudioStream:
+	var stream: AudioStream = music.get(key)
+	if stream != null:
+		return stream
+	return fallback.find_music(key) if fallback != null else null
 
 
 ## 找 HUD 外观：先看自己，没有再问备用包。

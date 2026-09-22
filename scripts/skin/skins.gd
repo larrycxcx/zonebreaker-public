@@ -34,6 +34,11 @@ func effect(key: StringName, fallback_: PackedScene) -> PackedScene:
 	return scene if scene != null else fallback_
 
 
+## 当前包里某个用途的背景音乐，没有返回 null。
+func music(key: StringName) -> AudioStream:
+	return current.find_music(key) if current != null else null
+
+
 ## 当前包的 HUD 外观场景，没有返回 null。
 func hud() -> PackedScene:
 	return current.find_hud() if current != null else null

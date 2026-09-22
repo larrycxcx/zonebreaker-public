@@ -24,6 +24,7 @@ buses/default_bus_layout="res://default_bus_layout.tres"
 GameEvents="*res://scripts/game_events.gd"
 Skins="*res://scripts/skin/skins.gd"
 Sfx="*res://scripts/audio/sfx.gd"
+Music="*res://scripts/audio/music.gd"
 
 [display]
 
