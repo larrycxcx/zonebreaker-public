@@ -15,8 +15,13 @@ const NAMES := {
 
 ## 贴图放在哪个目录下。
 @export_dir var art_dir := ""
-## 不分方向的（手雷）：贴图名；留空就按飞行方向挑。
+## 不分方向的（手雷、圆弹）：贴图名；留空就按飞行方向挑。
 @export var still := &""
+## 这张贴图是一排几帧、每秒播几帧（手雷在空中翻滚）；1 帧就是静止的。
+@export var frames := 1
+@export var fps := 0.0
+
+var _elapsed := 0.0
 
 @onready var _sprite: Sprite2D = $Sprite
 
@@ -24,6 +29,13 @@ const NAMES := {
 func _ready() -> void:
 	# 不调 super()：基类那套按位置镜像子节点的翻转法是给占位方块用的。
 	_refresh()
+
+
+func _process(delta: float) -> void:
+	if frames <= 1 or fps <= 0.0:
+		return
+	_elapsed += delta
+	_sprite.frame = int(_elapsed * fps) % frames
 
 
 func aim(direction: Vector2) -> void:
@@ -53,3 +65,4 @@ func _refresh() -> void:
 		push_warning("发射物贴图缺失：%s" % file)
 		return
 	_sprite.texture = texture
+	_sprite.hframes = maxi(1, frames)

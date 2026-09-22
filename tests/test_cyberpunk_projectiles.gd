@@ -10,7 +10,7 @@ const ART := "res://skins/cyberpunk/projectiles"
 const BULLETS := [&"player_bullet", &"enemy_bullet", &"turret_bullet", &"flyer_bullet"]
 const GRENADES := [&"player_grenade", &"enemy_grenade"]
 ## 圆的、不分方向的发射物（只有一张 ball.png）。
-const BALLS := [&"player_grenade", &"enemy_grenade", &"boss_bullet"]
+const BALLS := [&"boss_bullet"]
 const DIRECTIONS := {
 	&"right": Vector2(1, 0), &"left": Vector2(-1, 0), &"up": Vector2(0, -1), &"down": Vector2(0, 1),
 	&"up_right": Vector2(1, -1), &"up_left": Vector2(-1, -1), &"down_right": Vector2(1, 1), &"down_left": Vector2(-1, 1),
@@ -50,6 +50,10 @@ func test_every_texture_is_there() -> void:
 			check("%s %s exists" % [who, name], drawing(who, name) != null)
 	for who: StringName in BALLS:
 		check("%s ball exists" % who, drawing(who, &"ball") != null)
+	for who: StringName in GRENADES:
+		var spin := drawing(who, &"spin")
+		check("%s spin exists, 4 frames of 16x16" % who, spin != null and spin.get_size() == Vector2i(64, 16),
+			str(spin.get_size()) if spin != null else "missing")
 
 
 func test_the_eight_directions_are_flips_of_two_drawings() -> void:
@@ -67,8 +71,8 @@ func test_the_eight_directions_are_flips_of_two_drawings() -> void:
 
 
 func test_the_two_grenades_differ_only_in_colour() -> void:
-	var mine := drawing(&"player_grenade", &"ball")
-	var theirs := drawing(&"enemy_grenade", &"ball")
+	var mine := drawing(&"player_grenade", &"spin")
+	var theirs := drawing(&"enemy_grenade", &"spin")
 	var same_shape := mine.get_size() == theirs.get_size()
 	var recoloured := 0
 	if same_shape:
@@ -185,9 +189,19 @@ func test_grenades_wear_their_ball() -> void:
 		check("%s: drawn by the skin" % pair[0].get_file(), visual is ProjectileAppearance, str(visual))
 		if visual is ProjectileAppearance:
 			var look := visual as ProjectileAppearance
-			check("%s: its own ball" % pair[0].get_file(), look.art_dir.ends_with(pair[1]) and look.texture_name() == &"ball",
+			check("%s: its own tumbling grenade" % pair[0].get_file(), look.art_dir.ends_with(pair[1]) and look.texture_name() == &"spin",
 				"%s / %s" % [look.art_dir, look.texture_name()])
-		grenade.free()
+			# 飞行中翻滚：一会儿之后帧号变了
+			var sprite: Sprite2D = look.get_node("Sprite")
+			var seen := {}
+			for i in 20:
+				await frames(1)
+				if not is_instance_valid(sprite):
+					break
+				seen[sprite.frame] = true
+			check("%s: it tumbles in flight" % pair[0].get_file(), seen.size() >= 3, str(seen.keys()))
+		if is_instance_valid(grenade):
+			grenade.free()
 
 
 func measure(pack: SkinPack) -> Dictionary:

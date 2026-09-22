@@ -13,7 +13,9 @@
 - 敌人（巡逻兵、Boss）：6 号，红白带黑描边，一眼能认出是敌人打的。
 - 炮台：5 号，大颗青色等离子弹，和它绿色的机身配。
 - E（无人机）：4 号，一根细细的青色激光，和它往下放的电一个颜色。
-- 手雷：素材里没有手雷，用 8 号（6×6 的能量球）当榴弹；F 打出来的那颗把青色换成橙色，和玩家的分开。
+- 手雷：爆炸包（art_in/default/explosions/1 Bombs/）4 号，蓝绿色小罐子，本体 7×10，和 8px 的判定差不多大；
+  它自带的 4 帧动画（`4_1.png`）是在空中翻滚，手雷飞行时循环播。F 打出来的那颗换成橙红色（`ENEMY_GRENADE_COLORS`），
+  颜色都取自素材包自己的调色板。输出 `spin.png`：一排 4 帧 16×16。
 - Boss A 的导弹扇形：boss 包 3 号自带的圆弹（12×8），换成红橙两色表示敌方。圆的不分方向，
   扇形可以打任意角度（像素图只有 8 个方向的话，20° 一发的扇形会画歪）。
 """
@@ -36,9 +38,14 @@ CYAN = (91, 236, 241)
 ORANGE = (255, 129, 66)
 BOSS_BALL = os.path.join(HERE, "..", "art_in", "default", "boss", "3", "Ball.png")
 BOSS_BALL_COLORS = {(139, 171, 191): (255, 129, 66), (52, 30, 26): (210, 47, 30)}
+GRENADE = os.path.join(HERE, "..", "art_in", "default", "explosions", "1 Bombs", "4_1.png")
+ENEMY_GRENADE_COLORS = {
+	(61, 171, 234): (255, 129, 66), (51, 104, 220): (210, 47, 30), (31, 31, 170): (128, 12, 83),
+	(70, 198, 87): (255, 218, 69), (201, 236, 133): (255, 246, 174), (21, 137, 104): (171, 31, 101),
+}
 GRENADES = {
-	"player_grenade": ("8", {}),
-	"enemy_grenade": ("8", {CYAN: ORANGE}),
+	"player_grenade": {},
+	"enemy_grenade": ENEMY_GRENADE_COLORS,
 }
 
 
@@ -98,8 +105,9 @@ def main():
 	_, _, ball = sb.read_png(BOSS_BALL)
 	save("boss_bullet", "ball", recolor(ball, BOSS_BALL_COLORS), write)
 	print("手雷：")
-	for folder, (number, mapping) in GRENADES.items():
-		save(folder, "ball", recolor(load(number), mapping), write)
+	_, _, spin = sb.read_png(GRENADE)
+	for folder, mapping in GRENADES.items():
+		save(folder, "spin", recolor(spin, mapping), write)
 
 
 if __name__ == "__main__":
