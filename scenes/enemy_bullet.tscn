@@ -11,6 +11,7 @@ collision_layer = 16
 collision_mask = 3
 script = ExtResource("1")
 skin_key = &"enemy_bullet"
+damage = 40
 speed = 300.0
 lifetime = 2.0
 

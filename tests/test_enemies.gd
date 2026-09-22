@@ -5,8 +5,8 @@ extends GameTest
 func test_level_setup() -> void:
 	await reset_scene(true)
 	check("9 enemies in the level (8 normal + 1 boss)", main.get_node("Enemies").get_child_count() == 9, str(main.get_node("Enemies").get_child_count()))
-	check("player starts at full health", player.health == 3 and player.max_health == 3, str(player.health))
-	check("hud shows one pip per health point", main.get_node("HUD/PipRow").get_child_count() == 3)
+	check("player starts at full health: three hits", player.health == 3 * HIT and player.max_health == 3 * HIT, str(player.health))
+	check("hud health bar starts full", (main.get_node("HUD/HealthBar/Fill") as ColorRect).size.x == (main.get_node("HUD/HealthBar") as ColorRect).size.x)
 
 
 func test_enemies_stand_where_placed() -> void:
@@ -65,10 +65,10 @@ func test_bullets_kill_the_walker() -> void:
 	keep_only_enemies(["WalkerA"])
 	await frames(30)
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
-	check("walker has 2 health", walker.max_health == 2 and walker.health == 2)
+	check("walker takes two shots", walker.max_health == 2 * SHOT and walker.health == 2 * SHOT)
 
-	walker.take_damage(1)
-	check("one hit does not kill a 2 health walker", is_instance_valid(walker) and walker.health == 1, str(walker.health))
+	walker.take_damage(SHOT)
+	check("one shot does not kill a walker", is_instance_valid(walker) and walker.health == SHOT, str(walker.health))
 	await frames(2)
 
 	# GDScript 的 lambda 按值捕获局部变量，所以用数组这种引用类型来收信号。
@@ -123,7 +123,7 @@ func test_turret_only_fires_in_range() -> void:
 			directions[bullet.direction] = true
 	check("turret fires once the player is in range", directions.size() > 0, str(directions.keys()))
 	check("turret bullets fly toward the player", directions.keys() == [Vector2.LEFT], str(directions.keys()))
-	check("turret bullets hurt the player", player.health < 3, str(player.health))
+	check("turret bullets hurt the player", player.health < player.max_health, str(player.health))
 	check("turret faces the player", turret.facing == -1, str(turret.facing))
 
 
@@ -158,7 +158,7 @@ func test_walker_shoots_at_the_player() -> void:
 			directions[bullet.direction] = true
 	check("walker fires at the player", directions.size() > 0, str(directions.keys()))
 	check("walker bullets fly toward the player", directions.keys() == [Vector2.LEFT], str(directions.keys()))
-	check("walker bullets hurt the player", player.health < 3, str(player.health))
+	check("walker bullets hurt the player", player.health < player.max_health, str(player.health))
 
 
 func test_walker_does_not_shoot_backwards() -> void:
@@ -181,7 +181,7 @@ func test_walker_does_not_shoot_backwards() -> void:
 		walker.facing = -1
 		shots += bullets(16).size()
 	check("walker holds fire when the player is behind it", shots == 0, str(shots))
-	check("walker keeps facing away", walker.facing == -1 and player.health == 3, str(player.health))
+	check("walker keeps facing away", walker.facing == -1 and player.health == player.max_health, str(player.health))
 
 
 func test_walker_and_turret_level_shots_hit_standing_and_miss_prone() -> void:
@@ -319,9 +319,9 @@ func test_prone_enemy_hits_a_prone_player() -> void:
 	# 第一发在 C 趴下之前打出，从头顶飞过；之后 C 趴下，下一发贴地打过来。
 	for i in 180:
 		await tree.physics_frame
-		if player.health < 3:
+		if player.health < player.max_health:
 			break
-	check("lying down no longer dodges a prone enemy", player.health < 3, str(player.health))
+	check("lying down no longer dodges a prone enemy", player.health < player.max_health, str(player.health))
 	check("the hit came while both were prone", player.is_crouching and c.is_prone)
 
 
@@ -395,19 +395,21 @@ func test_player_invincibility_frames() -> void:
 	var health_events := []
 	player.health_changed.connect(func(health, _max_health): health_events.append(health))
 
-	player.take_damage(1, player.global_position + Vector2(40, 0))
-	check("player loses one health", player.health == 2, str(player.health))
-	check("health_changed fires", health_events == [2], str(health_events))
+	player.take_damage(HIT, player.global_position + Vector2(40, 0))
+	check("player loses one hit", player.health == 2 * HIT, str(player.health))
+	check("health_changed fires", health_events == [2 * HIT], str(health_events))
 	check("knockback pushes away from the source", player.velocity.x < 0.0 and player.velocity.y < 0.0, str(player.velocity))
-	check("hud dims the lost pip", main.get_node("HUD/PipRow").get_child(2).color == Color(0.25, 0.2, 0.25))
+	var bar := main.get_node("HUD/HealthBar") as ColorRect
+	check("hud bar drops by a third", absf((bar.get_node("Fill") as ColorRect).size.x - bar.size.x * 2.0 / 3.0) <= 1.0,
+		str((bar.get_node("Fill") as ColorRect).size.x))
 
-	player.take_damage(1, player.global_position)
-	check("further damage is blocked while invincible", player.health == 2, str(player.health))
+	player.take_damage(HIT, player.global_position)
+	check("further damage is blocked while invincible", player.health == 2 * HIT, str(player.health))
 
 	await frames(70) # 无敌 1 秒 = 60 帧
 	check("blinking stops afterwards", is_equal_approx(player._visual.modulate.a, 1.0), str(player._visual.modulate.a))
-	player.take_damage(1, player.global_position)
-	check("damage lands again once invincibility ends", player.health == 1, str(player.health))
+	player.take_damage(HIT, player.global_position)
+	check("damage lands again once invincibility ends", player.health == HIT, str(player.health))
 
 
 func test_touching_an_enemy_hurts() -> void:
@@ -418,7 +420,7 @@ func test_touching_an_enemy_hurts() -> void:
 	player.global_position = walker.global_position
 	player.velocity = Vector2.ZERO
 	await frames(4)
-	check("standing on an enemy costs health", player.health == 2, str(player.health))
+	check("standing on an enemy costs one hit", player.health == 2 * HIT, str(player.health))
 
 
 func test_player_death() -> void:
@@ -429,7 +431,7 @@ func test_player_death() -> void:
 
 	for i in 3:
 		player._invincible_timer = 0.0
-		player.take_damage(1, player.global_position + Vector2(40, 0))
+		player.take_damage(HIT, player.global_position + Vector2(40, 0))
 		await frames(2)
 	check("player dies at zero health", death_signals.size() == 1 and player.health == 0, str(player.health))
 	check("game over message appears", main.get_node("HUD/Message").visible)

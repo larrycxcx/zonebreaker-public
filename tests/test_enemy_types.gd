@@ -65,8 +65,8 @@ func test_types_are_configured() -> void:
 	check("A: 220px range, single shots, standing only", a.detect_range == 220.0 and a.burst_min == 1 and a.burst_max == 1 and not a.can_go_prone)
 	check("B: 220px range, bursts of 2-3, standing only", b.detect_range == 220.0 and b.burst_min == 2 and b.burst_max == 3 and not b.can_go_prone)
 	check("C: 400px range, single shots, can go prone", c.detect_range == 400.0 and c.burst_min == 1 and c.burst_max == 1 and c.can_go_prone)
-	check("walkers have 2 health", a.max_health == 2 and b.max_health == 2 and c.max_health == 2)
-	check("turret: 400px range and 6 health", turret.detect_range == 400.0 and turret.max_health == 6, "%s / %s" % [turret.detect_range, turret.max_health])
+	check("walkers take 2 shots", a.max_health == 2 * SHOT and b.max_health == 2 * SHOT and c.max_health == 2 * SHOT)
+	check("turret: 400px range and 6 shots", turret.detect_range == 400.0 and turret.max_health == 6 * SHOT, "%s / %s" % [turret.detect_range, turret.max_health])
 	var colors := [a, b, c].map(func(e): return (e.get_node("Visual/Body") as ColorRect).color)
 	check("A, B and C look different", colors[0] != colors[1] and colors[1] != colors[2] and colors[0] != colors[2], str(colors))
 

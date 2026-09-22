@@ -39,22 +39,23 @@ func test_filled_cuts_the_bar_where_the_fill_ends() -> void:
 func test_the_skin_draws_the_hud_and_the_default_does_not() -> void:
 	await reset_scene()
 	check("the default pack keeps the placeholder HUD", main.get_node("HUD").look() == null)
-	check("and its blocks are drawn", main.get_node("HUD/PipRow").modulate.a == 1.0)
+	check("and its blocks are drawn", main.get_node("HUD/HealthBar").modulate.a == 1.0)
 	await reset_scene(false, false, skin())
 	check("the skin puts its HUD look in", look() != null)
-	for path in ["HUD/PipRow", "HUD/StaminaBar", "HUD/WeaponIcon", "HUD/UltimateRow", "HUD/BossBar"]:
+	for path in ["HUD/HealthBar", "HUD/StaminaBar", "HUD/WeaponIcon", "HUD/UltimateRow", "HUD/BossBar"]:
 		check("%s is no longer drawn" % path, (main.get_node(path) as CanvasItem).modulate.a == 0.0)
 	# 占位方块照常更新：逻辑和老测试都读它们
-	check("but the placeholders still update", main.get_node("HUD/PipRow").get_child_count() == player.max_health)
+	check("but the placeholders still update", (main.get_node("HUD/HealthBar/Fill") as ColorRect).size.x > 0.0)
 
 
 func test_health_is_one_segment_per_point() -> void:
 	await reset_scene(false, false, skin())
 	check("full health at the start", look().health == player.max_health and look().max_health == player.max_health,
 		"%d / %d" % [look().health, look().max_health])
-	player.take_damage(1)
+	player.take_damage(HIT)
 	await frames(1)
-	check("losing a point empties a segment", look().health == player.max_health - 1, str(look().health))
+	check("losing a hit takes a third of the bar", look().health == player.max_health - HIT
+		and absf(look().health_fill() - SpriteHud.HEALTH_PIECE.x * look().health_segments * 2.0 / 3.0) <= 1.0, str(look().health_fill()))
 
 
 func test_stamina_follows_the_player_and_turns_orange_when_spent() -> void:
@@ -131,7 +132,7 @@ func test_the_hud_is_pure_display_and_on_screen() -> void:
 	check("nothing in the HUD eats the mouse", controls.all(func(c: Control) -> bool: return c.mouse_filter == Control.MOUSE_FILTER_IGNORE))
 	var screen := Rect2(Vector2.ZERO, Vector2(640, 360))
 	var hud := look()
-	for part in [Rect2(hud.health_at, Vector2(SpriteHud.HEALTH_PIECE.x * player.max_health, SpriteHud.HEALTH_PIECE.y)),
+	for part in [Rect2(hud.health_at, Vector2(SpriteHud.HEALTH_PIECE.x * hud.health_segments, SpriteHud.HEALTH_PIECE.y)),
 			Rect2(hud.energy_at, Vector2(SpriteHud.ENERGY_PIECE.x * hud.energy_segments, SpriteHud.ENERGY_PIECE.y)),
 			Rect2(hud.boss_bar_at, Vector2(SpriteHud.HEALTH_PIECE.x * hud.boss_segments, SpriteHud.HEALTH_PIECE.y)),
 			(hud.get_node("BossPanel") as Control).get_rect()]:

@@ -7,6 +7,8 @@ skin_key = &"walker_b"
 burst_min = 2
 burst_max = 3
 can_aim_diagonally = true
+xp_reward = 12
+money_reward = 6
 
 [node name="Body" parent="Visual" index="0"]
 color = Color(0.95, 0.55, 0.2, 1)

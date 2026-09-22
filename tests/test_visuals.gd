@@ -150,8 +150,8 @@ func test_gameplay_runs_on_a_replaced_appearance() -> void:
 	var c: Enemy = main.get_node("Enemies/WalkerC")
 	c.move_speed = 0.0
 	c.bullet_scene = null # 别让它开枪：挨一枪会被击飞，下面就趴不下去了
-	c.max_health = 10
-	c.health = 10
+	c.max_health = 100
+	c.health = 100
 	c.global_position = Vector2(600, 304)
 	player.global_position = Vector2(480, 304)
 	player.velocity = Vector2.ZERO
@@ -181,13 +181,13 @@ func test_gameplay_runs_on_a_replaced_appearance() -> void:
 		await frames(1)
 		if c.health < 10:
 			break
-	check("still shoots and hits", c.health < 10, str(c.health))
+	check("still shoots and hits", c.health < 100, str(c.health))
 	Input.action_press("crouch")
 	await frames(6)
 	check("still lies down", player.is_crouching and (player._shape.shape as RectangleShape2D).size.y == Player.CROUCH_HEIGHT)
 	Input.action_release("crouch")
 	await frames(6)
-	player.take_damage(1)
+	player.take_damage(HIT)
 	await frames(2)
 	check("still takes damage", player.health < player.max_health, str(player.health))
 

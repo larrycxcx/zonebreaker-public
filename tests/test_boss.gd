@@ -121,9 +121,9 @@ func test_attacks_after_appearing() -> void:
 func test_health_bar_follows_damage() -> void:
 	await start()
 	await go_to(1120)
-	boss.take_damage(10)
-	check("bar shrinks with damage", bar_shows(boss.max_health - 10), str(fill_ratio()))
-	boss.take_damage(100)
+	boss.take_damage(10 * SHOT)
+	check("bar shrinks with damage", bar_shows(boss.max_health - 10 * SHOT), str(fill_ratio()))
+	boss.take_damage(boss.max_health)
 	await frames(2)
 	check("boss dies", not is_instance_valid(boss))
 	check("bar hidden after the boss dies", not bar().visible)

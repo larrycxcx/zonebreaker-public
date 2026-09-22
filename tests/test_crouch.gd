@@ -273,7 +273,7 @@ func _assert_crouch_dodges(enemy_name: String, enemy_pos: Vector2, facing: int) 
 				continue
 			passed_player = true
 	check(enemy_name + ": bullets fly past the player", passed_player)
-	check(enemy_name + ": lying down dodges a standing enemy", player.health == 3, str(player.health))
+	check(enemy_name + ": lying down dodges a standing enemy", player.health == player.max_health, str(player.health))
 
 	# 对照组：站起来就会中弹，证明躲开靠的是高度而不是别的原因。
 	Input.action_release("crouch")
@@ -283,7 +283,7 @@ func _assert_crouch_dodges(enemy_name: String, enemy_pos: Vector2, facing: int) 
 		await tree.physics_frame
 		if player.health < 3:
 			break
-	check(enemy_name + ": standing up gets the player hit", player.health < 3, str(player.health))
+	check(enemy_name + ": standing up gets the player hit", player.health < player.max_health, str(player.health))
 
 
 func test_lying_down_dodges_turret_fire() -> void:

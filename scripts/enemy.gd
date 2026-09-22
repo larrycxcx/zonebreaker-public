@@ -7,9 +7,12 @@ signal died
 ## 每射出一颗子弹发一次（连发时每颗都发）。第 3 步的枪口闪光、音效可以接在这上面。
 signal shot_fired
 
-@export var max_health := 2
+@export var max_health := 20
 ## 碰到玩家时对玩家造成的伤害。
-@export var contact_damage := 1
+@export var contact_damage := 40
+## 被消灭时给玩家多少经验、多少钱（Progress 听 enemy_death 发）。
+@export var xp_reward := 10
+@export var money_reward := 5
 @export var gravity := 1800.0
 @export var max_fall_speed := 800.0
 

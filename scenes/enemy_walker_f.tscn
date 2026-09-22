@@ -10,6 +10,8 @@ skin_key = &"grenadier"
 bullet_scene = null
 detect_range = 300.0
 grenade_scene = ExtResource("3")
+xp_reward = 15
+money_reward = 8
 
 [node name="Body" parent="Visual" index="0"]
 color = Color(0.45, 0.55, 0.25, 1)

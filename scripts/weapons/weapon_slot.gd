@@ -8,6 +8,9 @@ signal ammo_changed(ammo: int, max_ammo: int)
 
 var weapon: Weapon
 var cooldown_left := 0.0
+## 拿着它的角色的伤害倍率和冷却倍率（玩家的攻击、射速属性，见 Balance）。敌人没接武器结构，保持 1。
+var damage_scale := 1.0
+var cooldown_scale := 1.0
 ## 剩余弹药，-1 表示无限。
 var ammo := -1
 
@@ -39,9 +42,12 @@ func fire(parent: Node, position: Vector2, direction: Vector2, source: Node) -> 
 	var projectile := weapon.projectile.instantiate() as Node2D
 	# launch 要在加入场景树之前调：子弹在 _ready 里按方向转自己的外形。
 	projectile.call(&"launch", direction)
+	# 伤害 = 发射物场景里的伤害 × 武器的 power × 角色的伤害倍率（发射物自己决定怎么乘，手雷有中心和边缘两个数）
+	if projectile.has_method(&"scale_damage"):
+		projectile.call(&"scale_damage", weapon.power * damage_scale)
 	parent.add_child(projectile)
 	projectile.global_position = position
-	cooldown_left = weapon.cooldown
+	cooldown_left = weapon.cooldown * cooldown_scale
 	if ammo > 0:
 		ammo -= 1
 		ammo_changed.emit(ammo, weapon.max_ammo)

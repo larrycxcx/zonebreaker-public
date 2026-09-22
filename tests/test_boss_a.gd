@@ -289,7 +289,7 @@ func test_grenade_in_the_air_hits_directly() -> void:
 		dodged = dodged or boss.is_dodging or not boss.is_on_floor()
 	check("setup: grenade never landed", not landed)
 	check("boss did not dodge", not dodged)
-	check("direct hit damage", boss.health == boss.max_health - 3, "%d / %d" % [boss.health, boss.max_health])
+	check("direct hit damage (3 shots)", boss.health == boss.max_health - 3 * SHOT, "%d / %d" % [boss.health, boss.max_health])
 
 
 func test_a_wall_bounce_is_not_landing() -> void:

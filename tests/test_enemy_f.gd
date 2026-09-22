@@ -70,13 +70,17 @@ func test_config() -> void:
 
 
 func test_grenade_rules_match_the_players() -> void:
-	# 「规则和玩家手雷一样」：除了打谁（target_layer）和颜色，导出的数值必须完全一致
+	# 「规则和玩家手雷一样」：除了打谁（target_layer）和颜色，导出的数值必须完全一致。
+	# 伤害按各自目标的单位算：玩家的打敌人（一发子弹 SHOT），F 的打玩家（一下 HIT），都是中心 3 下、边缘 1 下
 	await reset_scene()
 	var mine: Grenade = load(PLAYER_GRENADE).instantiate()
 	var theirs: Grenade = load(ENEMY_GRENADE).instantiate()
-	for field in ["throw_speed", "lift", "gravity", "bounciness", "bounces", "fuse", "blast_radius", "max_damage", "min_damage"]:
+	for field in ["throw_speed", "lift", "gravity", "bounciness", "bounces", "fuse", "blast_radius"]:
 		check("same %s as the player's grenade" % field, mine.get(field) == theirs.get(field),
 			"%s vs %s" % [mine.get(field), theirs.get(field)])
+	for field in ["max_damage", "min_damage"]:
+		check("same %s in its target's units" % field, mine.get(field) / SHOT == theirs.get(field) / HIT
+			and mine.get(field) % SHOT == 0 and theirs.get(field) % HIT == 0, "%s vs %s" % [mine.get(field), theirs.get(field)])
 	check("the player's grenade hits enemies", mine.target_layer == 8, str(mine.target_layer))
 	check("the enemy's grenade hits the player", theirs.target_layer == 2, str(theirs.target_layer))
 	mine.free()
@@ -184,8 +188,8 @@ func test_who_each_grenade_can_hurt() -> void:
 	# （玩家扔出去的整条抛物线在 test_grenade.gd 里测过，这里只看伤害归属。）
 	await start()
 	f.move_speed = 0.0
-	f.max_health = 10 # 血调高一点，一颗手雷炸不死，两种手雷才都试得成
-	f.health = 10
+	f.max_health = 100 # 血调高一点，一颗手雷炸不死，两种手雷才都试得成
+	f.health = 100
 	for path in [PLAYER_GRENADE, ENEMY_GRENADE]:
 		var before := f.health
 		var grenade: Grenade = load(path).instantiate()

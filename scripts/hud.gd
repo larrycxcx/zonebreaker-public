@@ -1,18 +1,14 @@
 extends CanvasLayer
-## HUD：左上角血量、体力条、当前武器、终极武器剩余次数，死亡时显示提示；
+## HUD：左上角血条、体力条、当前武器、终极武器剩余次数、等级 / 经验 / 金钱，死亡时显示提示；
 ## Boss 出场时右上角显示它的头像和血条（血条从右往左减少，Boss 死了隐藏）。
 ##
 ## 这里只管「显示什么」。场景自带的是占位方块；当前素材包有 HUD 外观（`SkinPack.hud`，比如 SpriteHud）时，
 ## 同样的状态会转交给外观去画，占位方块照常更新（测试和逻辑都读它们）但不再画出来——和角色换皮肤同一个思路。
 
-const PIP_SIZE := Vector2(12, 12)
-const PIP_FULL := Color(0.9, 0.25, 0.3)
-const PIP_EMPTY := Color(0.25, 0.2, 0.25)
 const STAMINA_READY := Color(0.45, 0.85, 0.4)
 ## 体力低于能重新起跑的门槛时变色，提示玩家现在跑不动。
 const STAMINA_TIRED := Color(0.85, 0.5, 0.25)
 
-var _pips: Array[ColorRect] = []
 var _ultimate_pips: Array[ColorRect] = []
 var _player: Player
 ## 右上角正在显示的 Boss。
@@ -20,7 +16,9 @@ var _boss: Boss
 ## 素材包的 HUD 外观；没有就是 null，只用占位方块。
 var _look: Node
 
-@onready var _pip_row: HBoxContainer = $PipRow
+@onready var _health_bar: ColorRect = $HealthBar
+@onready var _health_fill: ColorRect = $HealthBar/Fill
+@onready var _progress_label: Label = $ProgressLabel
 @onready var _message: Label = $Message
 @onready var _stamina_bar: ColorRect = $StaminaBar
 @onready var _stamina_fill: ColorRect = $StaminaBar/Fill
@@ -37,6 +35,8 @@ func _ready() -> void:
 	_boss_bar.hide()
 	_add_look()
 	GameEvents.boss_appeared.connect(_on_boss_appeared)
+	Progress.progress_changed.connect(_on_progress_changed)
+	_on_progress_changed()
 	var player := get_tree().get_first_node_in_group("player") as Player
 	if player == null:
 		return
@@ -62,7 +62,7 @@ func _add_look() -> void:
 	_look = scene.instantiate()
 	_look.name = "Look"
 	add_child(_look)
-	for placeholder: CanvasItem in [_pip_row, _stamina_bar, _weapon_icon, _ultimate_row, _boss_bar]:
+	for placeholder: CanvasItem in [_health_bar, _stamina_bar, _weapon_icon, _ultimate_row, _boss_bar]:
 		placeholder.modulate.a = 0.0
 
 
@@ -71,15 +71,10 @@ func look() -> Node:
 	return _look
 
 
+## 血量按比例显示（RPG 式的数值血量，一百多点，不再一点一格）。
 func _on_health_changed(health: int, max_health: int) -> void:
-	while _pips.size() < max_health:
-		var pip := ColorRect.new()
-		pip.custom_minimum_size = PIP_SIZE
-		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_pip_row.add_child(pip)
-		_pips.append(pip)
-	for i in _pips.size():
-		_pips[i].color = PIP_FULL if i < health else PIP_EMPTY
+	var ratio := clampf(float(health) / max_health, 0.0, 1.0) if max_health > 0 else 0.0
+	_health_fill.size.x = roundf(_health_bar.size.x * ratio)
 	if _look != null:
 		_look.show_health(health, max_health)
 
@@ -142,6 +137,14 @@ func _on_boss_died() -> void:
 	_boss_bar.hide()
 	if _look != null:
 		_look.hide_boss()
+
+
+## 等级、经验、金钱、没分配的技能点（占位文字，第 5 步做正式的）。
+func _on_progress_changed() -> void:
+	var text := "Lv %d   XP %d/%d   $%d" % [Progress.level, Progress.xp, Progress.balance.xp_to_next(Progress.level), Progress.money]
+	if Progress.points > 0:
+		text += "   +%d 技能点" % Progress.points
+	_progress_label.text = text
 
 
 func _on_player_died() -> void:

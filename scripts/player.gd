@@ -12,7 +12,8 @@ signal ultimate_ammo_changed(ammo: int, max_ammo: int)
 
 
 @export_group("Health")
-@export var max_health := 3
+## 最大血量：由生命属性算出来（Progress.stat(life)），这里不再手填。
+var max_health := 0
 ## 受伤后的无敌时间，期间闪烁且不再受任何伤害。
 @export var invincible_time := 1.0
 ## 受伤时被顶开的速度（水平方向背离伤害源）。
@@ -115,6 +116,8 @@ var _invincible_timer := 0.0
 ## 不闪烁的无敌（终极武器用）。暂停期间玩家的计时也停着，所以它能覆盖整个定格。
 var _shield_timer := 0.0
 var _dead := false
+## 防御属性（挨打时减伤）。
+var _defense := 0.0
 var _exhausted := false
 var _stamina_regen_timer := 0.0
 
@@ -130,6 +133,11 @@ var _stamina_regen_timer := 0.0
 
 func _ready() -> void:
 	_visual = Skins.build_appearance(self, skin_key)
+	# 两个武器位用进度里身上装备的那两把（枪、手雷）；进度里没有就用场景里配的
+	var gun := Progress.gear(Equipment.Slot.GUN) as Weapon
+	var grenade := Progress.gear(Equipment.Slot.GRENADE) as Weapon
+	if gun != null and grenade != null:
+		weapons = [gun, grenade]
 	for weapon in weapons:
 		_slots.append(WeaponSlot.new(weapon))
 	if not _slots.is_empty():
@@ -137,8 +145,10 @@ func _ready() -> void:
 	_ultimate.ammo_changed.connect(func(ammo: int, max_ammo: int) -> void: ultimate_ammo_changed.emit(ammo, max_ammo))
 	if ultimate_weapon != null:
 		_ultimate.equip(ultimate_weapon)
+	_apply_stats()
 	health = max_health
 	health_changed.emit(health, max_health)
+	Progress.stats_changed.connect(_apply_stats)
 	stamina = max_stamina
 	stamina_changed.emit(stamina, max_stamina)
 	# HeadCheck 正好覆盖「站起来需要多出来的那段空间」：从站立头顶到趴下后的头顶。
@@ -443,6 +453,7 @@ func current_slot() -> WeaponSlot:
 func equip_weapon(index: int, weapon: Weapon) -> void:
 	weapons[index] = weapon
 	_slots[index].equip(weapon)
+	_apply_stats()
 	if index == current_weapon:
 		_visual.hold(weapon.look)
 		weapon_switched.emit(current_weapon, weapon)
@@ -501,11 +512,28 @@ func _check_contact_damage() -> void:
 			return
 
 
-## 被敌人子弹或接触伤害调用。`source_position` 用来决定击退方向。
+## 从进度里读属性：生命 → 血量上限（上限加了多少就补多少血），攻击 → 伤害倍率，射速 → 冷却倍率，防御留着挨打时用。
+## 出生时读一次，之后属性一变（升级加点、换装备）就重读。
+func _apply_stats() -> void:
+	var life := int(Progress.stat(Balance.LIFE))
+	if max_health > 0 and life > max_health and not _dead:
+		health += life - max_health
+	max_health = life
+	health = mini(health, max_health)
+	_defense = Progress.stat(Balance.DEFENSE)
+	var damage := Balance.damage_scale(Progress.stat(Balance.ATTACK))
+	var cooldown := Balance.cooldown_scale(Progress.stat(Balance.FIRE_RATE))
+	for slot in _slots:
+		slot.damage_scale = damage
+		slot.cooldown_scale = cooldown
+	health_changed.emit(health, max_health)
+
+
+## 被敌人子弹或接触伤害调用。`source_position` 用来决定击退方向。防御按 Balance.damage_taken 减伤。
 func take_damage(amount: int, source_position := Vector2.INF) -> void:
 	if _dead or is_invincible():
 		return
-	health -= amount
+	health -= Balance.damage_taken(amount, _defense)
 	health_changed.emit(health, max_health)
 	if health <= 0:
 		_die()

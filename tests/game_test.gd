@@ -10,6 +10,11 @@ extends RefCounted
 ## 项目里应该定义的全部输入动作，test_input_actions_exist 逐个检查。
 const ACTIONS := ["move_left", "move_right", "jump", "crouch", "sprint", "aim_up", "aim_down", "shoot", "switch_weapon", "ultimate"]
 
+## 数值是 RPG 式的（玩家 120 血、敌人 20 血起），测试按「几下」来写：
+## 敌人打 1 级玩家一下扣 HIT（挨 3 下死），玩家一发子弹打敌人扣 SHOT（巡逻兵挨 2 发死）。
+const HIT := 40
+const SHOT := 10
+
 ## 由 runner 注入。SceneTree 脚本里 `await tree.physics_frame` 才能推进物理。
 var tree: SceneTree
 var main: Node
@@ -51,6 +56,9 @@ func reset_scene(keep_enemies := false, keep_walls := false, skin: SkinPack = nu
 	tree.paused = false
 	# 素材包是全局状态：换过包的用例如果中途出错没换回来，会影响后面所有用例，所以每次都恢复默认包。
 	Skins.use(skin if skin != null else Skins.default_skin())
+	# 成长进度也是全局状态：每条用例都从新开一局开始（1 级、初始武器），并且不读写玩家的真实存档
+	Progress.persist = false
+	Progress.new_game()
 	events.clear()
 	if not GameEvents.event_happened.is_connected(_record_event):
 		GameEvents.event_happened.connect(_record_event)

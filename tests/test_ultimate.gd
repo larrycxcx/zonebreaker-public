@@ -120,16 +120,16 @@ func test_invincible_during_and_just_after() -> void:
 	var hp := player.health
 	await use_ultimate()
 	await frames(10)
-	player.take_damage(1)
+	player.take_damage(HIT)
 	check("no damage during the freeze", player.health == hp)
 	await wait_for_unpause()
 	await frames(10) # 恢复后约 0.17 秒
-	player.take_damage(1)
+	player.take_damage(HIT)
 	check("still invincible right after the freeze", player.health == hp)
 	check("shield does not blink the player", player.get_node("Visual").visible)
 	await frames(30) # 0.5 秒已过
-	player.take_damage(1)
-	check("can be hurt again afterwards", player.health == hp - 1)
+	player.take_damage(HIT)
+	check("can be hurt again afterwards", player.health == hp - HIT)
 
 
 func test_limited_uses() -> void:

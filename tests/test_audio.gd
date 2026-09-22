@@ -108,7 +108,7 @@ func test_player_hurt_death_and_game_over() -> void:
 	await frames(5)
 	for i in 3:
 		player._invincible_timer = 0.0
-		player.take_damage(1, player.global_position + Vector2(40, 0))
+		player.take_damage(HIT, player.global_position + Vector2(40, 0))
 		await frames(2)
 	check("game_over waits for the death sound", not events.has(&"game_over"))
 	await frames(40) # game_over_delay 0.5 秒

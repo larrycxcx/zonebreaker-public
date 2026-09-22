@@ -250,7 +250,7 @@ func test_shooting_up_passes_one_way_platforms() -> void:
 		if not deaths.is_empty():
 			break
 	check("bullets pass through the platform and kill the turret on it", deaths.size() == 1, "turret health %s" % (str(turret.health) if is_instance_valid(turret) else "dead"))
-	check("the player was never shot back", player.health == 3, str(player.health))
+	check("the player was never shot back", player.health == player.max_health, str(player.health))
 
 
 func test_solid_ceiling_still_stops_upward_shots() -> void:

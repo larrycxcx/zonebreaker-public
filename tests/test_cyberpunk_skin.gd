@@ -529,14 +529,14 @@ func test_lying_down_still_dodges_with_the_sprite_skin() -> void:
 	check("player is lying down", player.is_crouching and player.is_on_floor())
 	for i in 150:
 		await tree.physics_frame
-	check("lying down still dodges", player.health == 3, str(player.health))
+	check("lying down still dodges", player.health == player.max_health, str(player.health))
 	Input.action_release("crouch")
 	await frames(3)
 	for i in 150:
 		await tree.physics_frame
 		if player.health < 3:
 			break
-	check("standing up still gets hit", player.health < 3, str(player.health))
+	check("standing up still gets hit", player.health < player.max_health, str(player.health))
 
 
 func test_the_pack_only_overrides_what_has_been_drawn() -> void:

@@ -59,7 +59,7 @@ func track(grenade: Grenade) -> Dictionary:
 
 
 ## 把一个巡逻兵摆在地面 x 处、站定不动、血量调高，用来量伤害。
-func dummy(walker_name: String, x: float, health := 10) -> EnemyWalker:
+func dummy(walker_name: String, x: float, health := 100) -> EnemyWalker:
 	var w: EnemyWalker = main.get_node("Enemies/" + walker_name)
 	w.global_position = Vector2(x, 306)
 	w.move_speed = 0.0
@@ -209,9 +209,10 @@ func test_damage_falls_off_with_distance() -> void:
 	await frames(1)
 	grenade.explode()
 	await frames(1)
-	check("at the centre: full damage (3)", at_centre.health == 7, str(10 - at_centre.health))
-	check("half way out: 2", half_way.health == 8, str(10 - half_way.health))
-	check("near the edge: 1", near_edge.health == 9, str(10 - near_edge.health))
+	check("at the centre: full damage (3 shots)", at_centre.health == 100 - 3 * SHOT, str(100 - at_centre.health))
+	check("half way out: 2 shots", half_way.health == 100 - 2 * SHOT, str(100 - half_way.health))
+	# 线性衰减后取整：边缘附近那一点算出来是一发多一点
+	check("near the edge: about 1 shot", 100 - near_edge.health >= SHOT and 100 - near_edge.health < SHOT * 3 / 2, str(100 - near_edge.health))
 	check("outside the blast: nothing", d.health == d_health, str(d_health - d.health))
 
 
@@ -226,8 +227,8 @@ func test_walls_block_the_blast() -> void:
 	await frames(1)
 	grenade.explode()
 	await frames(1)
-	check("the enemy on the same side is hurt", same_side.health < 10, str(same_side.health))
-	check("the enemy behind the wall is not", behind_wall.health == 10, str(behind_wall.health))
+	check("the enemy on the same side is hurt", same_side.health < 100, str(same_side.health))
+	check("the enemy behind the wall is not", behind_wall.health == 100, str(behind_wall.health))
 
 
 func test_walls_bounce_grenades() -> void:
@@ -268,7 +269,7 @@ func test_the_blast_reaches_a_prone_enemy() -> void:
 	await frames(1)
 	grenade.explode()
 	await frames(1)
-	check("a prone enemy nearby is hurt", c.health < 10, str(c.health))
+	check("a prone enemy nearby is hurt", c.health < 100, str(c.health))
 
 
 # ---------------------------------------------------------------- 实战
@@ -294,7 +295,7 @@ func test_lob_over_a_wall_onto_the_turret() -> void:
 		if is_instance_valid(grenade) and grenade.global_position.x > 1096.0:
 			crossed = true
 	check("the grenade clears the wall", crossed)
-	check("and hits the turret behind it (6 -> 3)", turret.health == 3, str(turret.health))
+	check("and hits the turret behind it (6 shots -> 3)", turret.health == 3 * SHOT, str(turret.health))
 
 
 func test_one_way_platforms_up_through_down_onto() -> void:

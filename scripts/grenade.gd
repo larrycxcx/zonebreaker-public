@@ -80,6 +80,12 @@ func _on_contact(body: Node2D) -> void:
 
 
 ## direct_hit：直接砸中的那个目标，受满伤害。
+## 按武器和攻击力放大伤害（武器槽在发射时调，加入场景树之前）：中心和边缘一起放大。
+func scale_damage(factor: float) -> void:
+	max_damage = maxi(1, roundi(max_damage * factor))
+	min_damage = maxi(1, roundi(min_damage * factor))
+
+
 func explode(direct_hit: Node2D = null) -> void:
 	if exploded:
 		return

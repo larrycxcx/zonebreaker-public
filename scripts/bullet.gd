@@ -20,6 +20,11 @@ func launch(direction_: Vector2) -> void:
 	direction = direction_
 
 
+## 按武器和攻击力放大伤害（武器槽在发射时调，加入场景树之前）。
+func scale_damage(factor: float) -> void:
+	damage = maxi(1, roundi(damage * factor))
+
+
 func _ready() -> void:
 	# 外形是横着的细条，按飞行方向转过去（向上打时变成竖条）。
 	# direction 在 add_child 之前就设好了，所以这里读到的是最终值。

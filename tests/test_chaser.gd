@@ -39,7 +39,7 @@ func test_d_is_configured() -> void:
 	var d: EnemyChaser = main.get_node("Enemies/ChaserD")
 	var turret: Enemy = main.get_node("Enemies/Turret1")
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
-	check("D has as much health as the turret", d.max_health == turret.max_health and d.max_health == 6, "%d vs %d" % [d.max_health, turret.max_health])
+	check("D has as much health as the turret", d.max_health == turret.max_health and d.max_health == 6 * SHOT, "%d vs %d" % [d.max_health, turret.max_health])
 	check("D has no gun", d.bullet_scene == null and d.get_node_or_null("Muzzle") == null)
 	check("D never goes prone", not d.can_go_prone)
 	check("D patrols at the normal enemy speed", d.move_speed == walker.move_speed, "%.1f vs %.1f" % [d.move_speed, walker.move_speed])

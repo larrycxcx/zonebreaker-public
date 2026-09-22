@@ -5,7 +5,7 @@ extends Control
 ## 和角色外观一样纯显示：不挡鼠标、没有碰撞，换不换都不影响规则。
 ##
 ## 贴图由 `tools/hud_build.py` 生成：血条、体力条都是一排「满的 4 块 + 空的 4 块」（左端、中段、右端、单独一格），
-## 按格数拼起来，满到哪里就在哪里把满的那块裁开——玩家一点血一格，体力和 Boss 血量按比例。
+## 按格数拼起来，满到哪里就在哪里把满的那块裁开——血量、体力、Boss 血量都按比例。
 
 ## 血条一块多大；体力条一块多大。
 const HEALTH_PIECE := Vector2i(32, 14)
@@ -24,6 +24,7 @@ const TIRED := 8
 
 @export_group("Layout")
 @export var health_at := Vector2(12, 12)
+@export var health_segments := 3
 @export var energy_at := Vector2(12, 30)
 @export var energy_segments := 4
 @export var ultimate_at := Vector2(58, 48)
@@ -118,6 +119,12 @@ static func filled(count: int, width: int, from: int, to: int) -> Array:
 	return out
 
 
+## 血条满了多少像素。
+func health_fill() -> int:
+	var ratio := clampf(float(health) / max_health, 0.0, 1.0) if max_health > 0 else 0.0
+	return roundi(health_segments * HEALTH_PIECE.x * ratio)
+
+
 ## 体力条满了多少像素；Boss 血条满的那段从哪开始（它贴着右边、从右往左减少）。
 func stamina_fill() -> int:
 	return roundi(energy_segments * ENERGY_PIECE.x * stamina_ratio)
@@ -130,7 +137,7 @@ func boss_fill_from() -> int:
 
 func _draw() -> void:
 	if health_strip != null and max_health > 0:
-		_draw_bar(health_strip, HEALTH_PIECE, health_at, max_health, 0, health * HEALTH_PIECE.x, 0)
+		_draw_bar(health_strip, HEALTH_PIECE, health_at, health_segments, 0, health_fill(), 0)
 	if energy_strip != null:
 		_draw_bar(energy_strip, ENERGY_PIECE, energy_at, energy_segments, 0, stamina_fill(), TIRED if tired else 0)
 	for i in ultimate_max:
