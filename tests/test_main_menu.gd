@@ -84,6 +84,19 @@ func test_a_new_character_takes_the_seat() -> void:
 	check("and it sits in the first seat", Progress.seat_of(Progress.of(0)) == 0)
 
 
+func test_the_menu_switches_the_music_over_to_its_own_slot() -> void:
+	# 主菜单归 `intro` 这个用途管。**现在包里没有这首**（原来那首不合适，撤了等换），
+	# 所以进菜单是安静的；以后往包里放一首就会响，这条测试两种情况都成立。
+	await open_menu()
+	check("the menu took over the music slot", Music.current == &"intro", str(Music.current))
+	var track := Skins.music(&"intro")
+	if track == null:
+		check("no track in the pack, so it stays quiet", Music.playing_stream() == null,
+			str(Music.playing_stream()))
+	else:
+		check("the pack's track is the one playing", Music.playing_stream() == track)
+
+
 # ---------------------------------------------------------------- 存档列表
 
 func test_the_list_shows_what_is_in_the_roster() -> void:
