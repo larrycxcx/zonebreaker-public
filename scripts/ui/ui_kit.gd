@@ -12,6 +12,7 @@ extends RefCounted
 const DIR := "res://skins/cyberpunk/ui"
 const FONT := DIR + "/font.fnt"
 const PANEL := DIR + "/panel.png"
+const PANEL_FILL := DIR + "/panel_fill.png"
 const CURSOR := DIR + "/cursor.png"
 const PLUS := DIR + "/plus.png"
 ## 九宫格四条边各占几像素（`panel.png` 是 3×3 块 32px 拼的）。
@@ -54,20 +55,33 @@ static func label(text: String, box: Rect2, tint := WHITE, size := TEXT_SIZE,
 	return node
 
 
-## 一个窗口（九宫格，四角不拉伸、四边和中间平铺）。
-static func window(box: Rect2) -> NinePatchRect:
-	var node := NinePatchRect.new()
-	node.texture = load(PANEL) as Texture2D
-	node.patch_margin_left = PANEL_MARGIN
-	node.patch_margin_top = PANEL_MARGIN
-	node.patch_margin_right = PANEL_MARGIN
-	node.patch_margin_bottom = PANEL_MARGIN
-	node.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_TILE
-	node.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_TILE
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	node.position = box.position
-	node.size = box.size
-	return node
+## 一个窗口：**先用中间那格铺满整块，再把九宫格边框盖上去**。
+## 只画九宫格的话，边框图的内沿和中间那格之间会露出一圈缝（窗口越小越明显）。
+static func window(box: Rect2) -> Control:
+	var root := Control.new()
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.position = box.position
+	root.size = box.size
+	var fill := TextureRect.new()
+	fill.texture = load(PANEL_FILL) as Texture2D
+	fill.stretch_mode = TextureRect.STRETCH_TILE
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fill.position = Vector2.ZERO
+	fill.size = box.size
+	root.add_child(fill)
+	var frame := NinePatchRect.new()
+	frame.texture = load(PANEL) as Texture2D
+	frame.patch_margin_left = PANEL_MARGIN
+	frame.patch_margin_top = PANEL_MARGIN
+	frame.patch_margin_right = PANEL_MARGIN
+	frame.patch_margin_bottom = PANEL_MARGIN
+	frame.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_TILE
+	frame.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_TILE
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.position = Vector2.ZERO
+	frame.size = box.size
+	root.add_child(frame)
+	return root
 
 
 ## 一张小图（属性图标、加号、光标）。白色剪影用 tint 染色。

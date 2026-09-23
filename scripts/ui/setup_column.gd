@@ -41,9 +41,6 @@ const FOOT_Y := 300.0
 ## 三个可选角色，顺序就是界面上从左到右。
 const LOOKS: Array[StringName] = [&"biker", &"punk", &"cyborg"]
 const STAT_LABELS := {&"life": "LIFE", &"attack": "ATTACK", &"defense": "DEFENSE", &"speed": "SPEED"}
-## 光标在每一行的纵向位置（相对窗口顶边）。属性那几行和装备那块高度不一样，单独排。
-const ROW_TOPS := [NAME_Y + 4.0, LOOK_Y + 16.0, STATS_Y, STATS_Y + 18.0, STATS_Y + 36.0, STATS_Y + 54.0,
-	GEAR_Y + 22.0, FOOT_Y, FOOT_Y]
 
 var who: Player
 var progress: PlayerProgress
@@ -65,7 +62,6 @@ var _shop: Label
 var _accept: Label
 var _portraits: Array[ColorRect] = []
 var _stat_rows: Array[Dictionary] = []
-var _slot_boxes: Array[ColorRect] = []
 var _slot_icons: Array[TextureRect] = []
 ## 盖在这一栏上的小面板：改名字的字母格 / 换装备的列表。同时只会有一个。
 var _grid: LetterGrid
@@ -74,6 +70,9 @@ var _bag_menu: MenuList
 var _bag_items: Array[Equipment] = []
 ## 另一个玩家选了哪个外观（那个就不能选了，两个人长一样同屏分不清）。
 var _taken := &""
+## 这一栏里内容那一片的左边和宽度（`_boxes()` 要按它算每一行的选中框）。
+var _left := 0.0
+var _wide := 0.0
 
 
 func build(player: Player, index: int, taken_look: StringName) -> void:
@@ -83,6 +82,8 @@ func build(player: Player, index: int, taken_look: StringName) -> void:
 	add_child(UiKit.window(Rect2(Vector2.ZERO, Vector2(WIDTH, HEIGHT))))
 	var left := 26.0
 	var wide := WIDTH - 52.0
+	_left = left
+	_wide = wide
 	add_child(UiKit.label("PLAYER %d" % (index + 1), Rect2(left, TITLE_Y, wide, 18.0), UiKit.GOLD))
 	_ready_mark = UiKit.label("", Rect2(left, TITLE_Y, wide, 18.0), UiKit.GREEN, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT)
 	add_child(_ready_mark)
@@ -103,20 +104,21 @@ func build(player: Player, index: int, taken_look: StringName) -> void:
 		var colour: Color = UiKit.STAT_COLORS.get(stat, UiKit.WHITE)
 		add_child(UiKit.picture("%s/stat_%s.png" % [UiKit.DIR, stat], Vector2(left + 10.0, top - 7.0), colour))
 		var name_label := UiKit.label(STAT_LABELS[stat], Rect2(left + 46.0, top, 90.0, 18.0), UiKit.DIM)
-		var value := UiKit.label("", Rect2(left + 126.0, top, 56.0, 18.0), colour, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT)
-		var bonus := UiKit.label("", Rect2(left + 190.0, top, 56.0, 18.0), UiKit.GOLD)
-		for node in [name_label, value, bonus]:
+		var value := UiKit.label("", Rect2(left + 122.0, top, 56.0, 18.0), colour, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT)
+		var bonus := UiKit.label("", Rect2(left + 202.0, top, 46.0, 18.0), UiKit.GOLD)
+		# 选中这一行时，数字两边冒出一对小箭头，提示可以左右加减
+		var less := UiKit.label("<", Rect2(left + 104.0, top, 14.0, 18.0), UiKit.GOLD, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
+		var more := UiKit.label(">", Rect2(left + 182.0, top, 14.0, 18.0), UiKit.GOLD, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
+		for node in [name_label, value, bonus, less, more]:
 			add_child(node)
-		_stat_rows.append({"name": name_label, "value": value, "bonus": bonus})
+		_stat_rows.append({"name": name_label, "value": value, "bonus": bonus, "less": less, "more": more})
 	_points = UiKit.label("", Rect2(left, POINTS_Y, wide, 18.0), UiKit.GOLD)
 	add_child(_points)
 	_money = UiKit.label("", Rect2(left, POINTS_Y, wide, 18.0), UiKit.GREEN, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT)
 	add_child(_money)
 	for i in Equipment.Slot.size():
-		var at := Vector2(left + (i % SLOTS_PER_LINE) * (SLOT.x + 4.0), GEAR_Y + (i / SLOTS_PER_LINE) * (SLOT.y + 4.0))
-		var box := UiKit.box(Rect2(at, SLOT))
-		add_child(box)
-		_slot_boxes.append(box)
+		var at := slot_rect(i).position
+		add_child(UiKit.box(Rect2(at, SLOT)))
 		var icon := UiKit.picture("", at - Vector2(1.0, 1.0))
 		add_child(icon)
 		_slot_icons.append(icon)
@@ -131,9 +133,10 @@ func build(player: Player, index: int, taken_look: StringName) -> void:
 	add_child(_accept)
 	_menu = MenuList.new()
 	_menu.listens_to = player.player_index
-	_menu.cursor_at_left = true
 	add_child(_menu)
-	_menu.build(_blank(ROW_COUNT), 12.0)
+	_menu.build(_blank(ROW_COUNT), WIDTH)
+	_menu.position = Vector2.ZERO
+	_menu.row_boxes = _boxes()
 	_menu.chosen.connect(_on_chosen)
 	_menu.cancelled.connect(_on_cancelled)
 	_menu.nudged.connect(_on_nudged)
@@ -180,22 +183,29 @@ func refresh() -> void:
 	for i in LOOKS.size():
 		var chosen := i == look_index()
 		var blocked := LOOKS[i] == _taken
-		_portraits[i].color = UiKit.GOLD if chosen else (Color(0.2, 0.22, 0.34) if blocked else Color(0.27, 0.35, 0.55))
+		# 选中的那个用**绿色**，不用金色：金框专门表示「光标现在在哪」，两个都金的话分不清
+		_portraits[i].color = UiKit.GREEN if chosen else (Color(0.2, 0.22, 0.34) if blocked else Color(0.27, 0.35, 0.55))
 	for i in Balance.STATS.size():
 		var stat: StringName = Balance.STATS[i]
-		var added: float = progress.allocated.get(stat, 0) * progress.balance.per_point.get(stat, 0.0)
+		# 金色那列写的是**投了几点**，不是属性涨了多少：每点加的量各不相同
+		# （生命 +10、攻击 +1、防御速度 +5），照实写出来玩家会以为自己按了不一样的键。
+		var spent: int = progress.allocated.get(stat, 0)
 		_stat_rows[i]["value"].text = str(roundi(progress.stat(stat)))
-		_stat_rows[i]["bonus"].text = "+%d" % roundi(added) if added > 0.0 else ""
+		_stat_rows[i]["bonus"].text = "+%d" % spent if spent > 0 else ""
+		var on_this := _menu != null and _menu.index == Row.STAT + i
+		_stat_rows[i]["less"].visible = on_this and progress.allocated.get(stat, 0) > 0
+		_stat_rows[i]["more"].visible = on_this and progress.points > 0
 	for i in Equipment.Slot.size():
 		var item := progress.gear(i)
 		_slot_icons[i].texture = item.icon if item != null else null
-		_slot_boxes[i].color = UiKit.GOLD if i == slot and _menu.index == Row.GEAR else Color(0.27, 0.35, 0.55)
 	var picked := progress.gear(slot)
 	_detail.text = picked.display_name if picked != null else "%s EMPTY" % Equipment.SLOT_NAMES[slot]
 	_detail_stats.text = _bonus_text(picked)
 	_shop.add_theme_color_override("font_color", UiKit.WHITE if progress.money > 0 else UiKit.DIM.darkened(0.3))
 	_accept.add_theme_color_override("font_color", UiKit.GREEN if confirmed else UiKit.WHITE)
-	_place_cursor()
+	# 装备那一行的选中框框的是**当前那一格**，所以挪格子要重新给一遍
+	if _menu != null:
+		_menu.row_boxes = _boxes()
 
 
 ## 一件装备加了些什么，写成 ATK +2  SPD +5。
@@ -210,10 +220,24 @@ func _bonus_text(item: Equipment) -> String:
 	return "  ".join(parts)
 
 
-func _place_cursor() -> void:
-	if _menu == null:
-		return
-	_menu.position = Vector2(8.0, ROW_TOPS[mini(_menu.index, ROW_TOPS.size() - 1)])
+## 每一行的选中框框住哪一块。**框住的是那块内容本身**（名字框、三个头像、一行属性、整片装备格），
+## 不是一条等高的空行——这样一眼看得出选的是什么。
+func _boxes() -> Array[Rect2]:
+	var boxes: Array[Rect2] = []
+	boxes.append(Rect2(_left - 3.0, NAME_Y - 2.0, _wide + 6.0, 26.0))
+	boxes.append(Rect2(_left - 3.0, LOOK_Y - 3.0, PORTRAIT.x * 3.0 + 16.0 + 6.0, PORTRAIT.y + 6.0))
+	for i in Balance.STATS.size():
+		boxes.append(Rect2(_left - 3.0, STATS_Y + i * 18.0 - 1.0, _wide + 6.0, 20.0))
+	boxes.append(slot_rect(slot).grow(2.0))
+	boxes.append(Rect2(_left - 3.0, FOOT_Y - 1.0, _wide / 2.0, 20.0))
+	boxes.append(Rect2(_left + _wide / 2.0 - 3.0, FOOT_Y - 1.0, _wide / 2.0 + 6.0, 20.0))
+	return boxes
+
+
+## 第几个装备格在哪（选中框要框住的就是这一格）。
+func slot_rect(index: int) -> Rect2:
+	return Rect2(Vector2(_left + (index % SLOTS_PER_LINE) * (SLOT.x + 4.0),
+		GEAR_Y + (index / SLOTS_PER_LINE) * (SLOT.y + 4.0)), SLOT)
 
 
 func _on_chosen(index: int) -> void:
@@ -222,6 +246,7 @@ func _on_chosen(index: int) -> void:
 			if can_rename:
 				_open_grid()
 		Row.STAT:
+			# A 和「右」一个意思，按哪个都行
 			if progress.spend_point(Balance.STATS[index - Row.STAT]):
 				refresh()
 		Row.GEAR:
@@ -247,6 +272,14 @@ func _on_nudged(index: int, direction: int) -> void:
 	match _row_kind(index):
 		Row.LOOK:
 			_pick_look(direction)
+		Row.STAT:
+			# 右边加一点（加到点数用完），左边退一点（退到初始值为止）
+			var stat: StringName = Balance.STATS[index - Row.STAT]
+			if direction > 0:
+				progress.spend_point(stat)
+			else:
+				progress.unspend_point(stat)
+			refresh()
 		Row.GEAR:
 			slot = wrapi(slot + direction, 0, Equipment.Slot.size())
 			refresh()

@@ -19,7 +19,7 @@ const MAIN_MENU := 2
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 
 var _shade: ColorRect
-var _window: NinePatchRect
+var _window: Control
 var _title: Label
 var _menu: MenuList
 var _skills: SkillsScreen

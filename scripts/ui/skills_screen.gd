@@ -55,7 +55,6 @@ func _build_column(who: Player, at: Vector2) -> Dictionary:
 	for i in stats.size():
 		var top := inner + Vector2(0, 52.0 + i * ROW_HEIGHT)
 		var colour: Color = UiKit.STAT_COLORS.get(stats[i], UiKit.WHITE)
-		# 图标从 x=12 起：0 那一列留给光标（`cursor_at_left`）
 		add_child(UiKit.picture("%s/stat_%s.png" % [UiKit.DIR, stats[i]], top + Vector2(12.0, -4.0), colour))
 		var name_label := UiKit.label(STAT_LABELS[stats[i]], Rect2(top + Vector2(48.0, 0), Vector2(90.0, 20.0)), UiKit.DIM)
 		var value_label := UiKit.label("", Rect2(top + Vector2(130.0, 0), Vector2(60.0, 20.0)),
@@ -66,10 +65,10 @@ func _build_column(who: Player, at: Vector2) -> Dictionary:
 		rows.append({"name": name_label, "value": value_label, "bonus": bonus_label})
 	var menu := MenuList.new()
 	menu.listens_to = who.player_index
-	menu.cursor_at_left = true
+	menu.wide_highlight = true
 	add_child(menu)
 	menu.build(_blank_rows(stats.size()), wide)
-	menu.position = inner + Vector2(0, 52.0)
+	menu.position = inner + Vector2(-6.0, 52.0)
 	menu.chosen.connect(_on_chosen.bind(who))
 	menu.cancelled.connect(_on_cancelled.bind(who))
 	var column := {"who": who, "head": head, "rows": rows, "menu": menu, "done": false}
@@ -107,6 +106,8 @@ func _refresh(column: Dictionary) -> void:
 	column["head"].add_theme_color_override("font_color", UiKit.GOLD if progress.points > 0 else UiKit.DIM)
 	for i in Balance.STATS.size():
 		var stat: StringName = Balance.STATS[i]
-		var added: float = progress.allocated.get(stat, 0) * progress.balance.per_point.get(stat, 0.0)
+		# 金色那列写的是**投了几点**，不是属性涨了多少：每点加的量各不相同
+		# （生命 +10、攻击 +1、防御速度 +5），照实写出来玩家会以为自己按了不一样的键。
+		var spent: int = progress.allocated.get(stat, 0)
 		column["rows"][i]["value"].text = str(roundi(progress.stat(stat)))
-		column["rows"][i]["bonus"].text = "+%d" % roundi(added) if added > 0.0 else ""
+		column["rows"][i]["bonus"].text = "+%d" % spent if spent > 0 else ""

@@ -98,7 +98,9 @@ def build_font(write):
 
 
 def build_panel(write):
-    """`1 Frames` 左上角 3×3（Frame_01..03 / 10..12 / 19..21）拼成一张 96×96 的九宫格。"""
+    """`1 Frames` 左上角 3×3（Frame_01..03 / 10..12 / 19..21）拼成一张 96×96 的九宫格，
+    另外把正中间那一格单独存一份（`panel_fill.png`）——窗口要先用它铺满整块、再把边框盖上去，
+    不然边框图的内沿和中间那格之间会露出一圈缝。"""
     TILE = 32
     out = sb.blank(TILE * 3, TILE * 3)
     for row in range(3):
@@ -106,9 +108,12 @@ def build_panel(write):
             number = 1 + row * 9 + col
             _, _, art = sb.read_png(os.path.join(GUI, "1 Frames", "Frame_%02d.png" % number))
             sb.blit(out, art, col * TILE, row * TILE, "panel")
+    _, _, middle = sb.read_png(os.path.join(GUI, "1 Frames", "Frame_11.png"))
     if write:
         sb.write_png(os.path.join(OUT, "panel.png"), out)
+        sb.write_png(os.path.join(OUT, "panel_fill.png"), middle)
     print("  panel.png  96×96（九宫格边 32）")
+    print("  panel_fill.png  32×32（中间那格，铺底用）")
 
 
 ## 四个属性用哪个图标（`9 Other/3 Skill icons` 里的编号）。都是白色剪影，界面里染色。

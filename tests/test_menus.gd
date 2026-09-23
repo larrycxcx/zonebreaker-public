@@ -60,6 +60,24 @@ func test_a_closed_menu_does_not_listen() -> void:
 	check("and confirming does not open anything", not menu().is_open() and not tree.paused)
 
 
+func test_reopening_puts_the_gold_box_back_on_resume() -> void:
+	await reset_scene()
+	player.global_position = Vector2(200, 304)
+	await frames(2)
+	await tap(&"pause")
+	var list: MenuList = menu().menu_list()
+	await tap(&"aim_down")
+	check("setup: the cursor moved off RESUME", list.index == PauseMenu.SKILLS, str(list.index))
+	await tap(&"cancel")
+	await tap(&"pause")
+	check("it reopens on RESUME", list.index == PauseMenu.RESUME, str(list.index))
+	# 光标框是直接赋值挪过来的（不是按键走的那条路），框得跟着，不然它会留在 SKILLS 上
+	check("and the gold box is on RESUME too",
+		list._cursor.position.is_equal_approx(list.highlight_box(PauseMenu.RESUME).position),
+		"%s vs %s" % [list._cursor.position, list.highlight_box(PauseMenu.RESUME).position])
+	await tap(&"cancel")
+
+
 func test_either_player_can_pause() -> void:
 	await reset_scene(false, false, null, 2)
 	# `pause` 一个动作绑了两个手柄的 Start，所以不分谁按
@@ -125,6 +143,23 @@ func test_the_cursor_picks_which_stat_gets_the_point() -> void:
 	check("attack took the point", player.progress.allocated.get(Balance.ATTACK, 0) == 1,
 		str(player.progress.allocated))
 	check("and life did not", player.progress.allocated.get(Balance.LIFE, 0) == 0, str(player.progress.allocated))
+
+
+func test_the_skills_screen_also_counts_points_not_stat_points() -> void:
+	# 和人物设置界面同一条规矩：金色那列写投了几点，不写属性涨了多少（生命一点涨 10）。
+	await reset_scene()
+	await frames(2)
+	await tap(&"pause")
+	await tap(&"aim_down")
+	await tap(&"jump")
+	var rows: Array = skills()._columns[0]["rows"]
+	check("setup: nothing spent yet", rows[0]["bonus"].text == "", rows[0]["bonus"].text)
+	await tap(&"jump")            # 第一项是 LIFE
+	check("one point in life reads as +1", rows[0]["bonus"].text == "+1", rows[0]["bonus"].text)
+	check("and the value beside it is the real one",
+		rows[0]["value"].text == str(roundi(player.progress.stat(Balance.LIFE))), rows[0]["value"].text)
+	await tap(&"cancel")
+	await tap(&"cancel")
 
 
 func test_running_out_of_points_stops_the_spending() -> void:

@@ -25,8 +25,15 @@ enum Page {
 	SETUP,      ## 人物设置（每人一栏，都确定了才开始）
 }
 
-## 名册列表一页显示几行。
+## 名册列表一页显示几行。存档多过这个数就滚动，不是把后面的砍掉。
 const ROWS := 6
+## 列表里的窗口多宽多高。
+const LIST_BOX := Vector2(480.0, 240.0)
+## 九宫格边框四边各占这么多像素，字得落在里面，压在边上会被框子切掉。
+const LIST_EDGE := 32.0
+## 四列：标题、离内容左边多远、多宽。**右边那列的末尾要落在边框里面**
+## （内容左边 = 窗口左边 + 40，所以最多能到 480 - 40 - 32 = 408）。
+const LIST_COLUMNS := [["NAME", 0.0, 134.0], ["LV", 138.0, 40.0], ["PLAYED", 186.0, 84.0], ["SAVED", 278.0, 122.0]]
 
 var _page := Page.TITLE
 ## 正在给第几个座位选。
@@ -38,6 +45,9 @@ var _doomed: PlayerProgress
 ## 哪些座位是读档进来的（名字不能改）。
 var _loaded: Array[int] = []
 var _setup: SetupScreen
+## 列表上那几行的文字（一行四个），滚动时改的是它们的内容，不是重新摆节点。
+var _row_labels: Array[Array] = []
+var _scroll_mark: Label
 
 var _ui: CanvasLayer
 var _body: Control
@@ -128,6 +138,9 @@ func _show(page_: Page) -> void:
 			_setup.build(Session.player_count, _loaded)
 			_setup.finished.connect(start_game)
 			_setup.cancelled.connect(_back_to_source)
+	# 菜单是 `_ready` 里就加好的，每页的窗口都是后加的——**后加的画在上面**，
+	# 不挪的话金色选中框会被窗口盖住，界面上看不出光标在哪。
+	_body.move_child(_menu, -1)
 
 
 func _screen() -> Vector2:
@@ -153,8 +166,10 @@ func _heading(text: String, screen: Vector2) -> void:
 
 
 func _lay_out(items: Array[String], screen: Vector2, top: float, hint: String) -> void:
-	_menu.cursor_at_left = false
+	_menu.wide_highlight = false
+	_menu.row_boxes = []
 	_menu.greyed = []
+	_menu.window_rows = 0
 	_menu.build(items, screen.x)
 	_menu.position = Vector2(0, top)
 	_hint = UiKit.label(hint, Rect2(0, screen.y - 40.0, screen.x, 20.0), Color(0.74, 0.80, 0.92),
@@ -165,38 +180,78 @@ func _lay_out(items: Array[String], screen: Vector2, top: float, hint: String) -
 ## 名册列表：一行一个角色，名字 / 等级 / 玩了多久 / 上次存档。已经被另一个座位选走的置灰。
 func _draw_list(screen: Vector2) -> void:
 	_listed = Progress.by_recent()
-	_listed.resize(mini(_listed.size(), ROWS))
-	var box := Rect2((screen.x - 480.0) / 2.0, 46.0, 480.0, 240.0)
+	var box := Rect2((screen.x - LIST_BOX.x) / 2.0, 46.0, LIST_BOX.x, LIST_BOX.y)
 	_body.add_child(UiKit.window(box))
 	# 标题要落在窗口**里面**：九宫格的边框占 32px，压在边上会被框子切掉
 	_body.add_child(UiKit.label("PLAYER %d" % (_seat + 1), Rect2(box.position + Vector2(0, 30.0), Vector2(box.size.x, 22.0)),
 		UiKit.CYAN, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_CENTER))
 	var left := box.position.x + 40.0
 	var head := box.position.y + 60.0
-	for column in [["NAME", 0.0], ["LV", 150.0], ["PLAYED", 210.0], ["SAVED", 320.0]]:
-		_body.add_child(UiKit.label(column[0], Rect2(Vector2(left + column[1], head), Vector2(120.0, 20.0)), UiKit.DIM))
+	for column in LIST_COLUMNS:
+		_body.add_child(UiKit.label(column[0], Rect2(Vector2(left + column[1], head), Vector2(column[2], 20.0)), UiKit.DIM))
+	# 滚到第几个了（存档多过一屏时才写）。摆在标题那一行的右头，不去挤 SAVED 那一列
+	_scroll_mark = UiKit.label("", Rect2(box.position + Vector2(LIST_EDGE, 30.0),
+		Vector2(box.size.x - LIST_EDGE * 2.0 - 8.0, 22.0)), UiKit.DIM,
+		UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT)
+	_body.add_child(_scroll_mark)
 	var rows: Array[String] = []
 	var taken: Array[int] = []
 	for i in _listed.size():
 		rows.append("")
 		if Progress.seat_of(_listed[i]) >= 0 and Progress.seat_of(_listed[i]) != _seat:
 			taken.append(i)
-	_menu.cursor_at_left = true
-	_menu.build(rows, box.size.x - 60.0)
-	_menu.position = Vector2(left - 22.0, head + 22.0)
+	_menu.wide_highlight = true
+	_menu.row_boxes = []
+	_menu.window_rows = ROWS
+	# 选中框正好贴着边框内沿：左边 32、宽度 480 - 32 × 2
+	_menu.build(rows, box.size.x - LIST_EDGE * 2.0)
+	_menu.position = Vector2(box.position.x + LIST_EDGE, head + 22.0)
 	_menu.greyed = taken
-	for i in _listed.size():
-		var profile := _listed[i]
+	_row_labels.clear()
+	for i in _menu.rows_shown():
 		var y := head + 22.0 + i * MenuList.ROW_HEIGHT
-		var tint := UiKit.DIM.darkened(0.35) if taken.has(i) else UiKit.WHITE
-		_body.add_child(UiKit.label(profile.character_name, Rect2(Vector2(left, y), Vector2(140.0, 20.0)), tint))
-		_body.add_child(UiKit.label(str(profile.level), Rect2(Vector2(left + 150.0, y), Vector2(50.0, 20.0)), tint))
-		_body.add_child(UiKit.label(played_text(profile.played_seconds), Rect2(Vector2(left + 210.0, y), Vector2(100.0, 20.0)), tint))
-		_body.add_child(UiKit.label(saved_text(profile.saved_at), Rect2(Vector2(left + 320.0, y), Vector2(120.0, 20.0)), tint))
+		var line: Array[Label] = []
+		for column in LIST_COLUMNS:
+			var label := UiKit.label("", Rect2(Vector2(left + column[1], y), Vector2(column[2], 20.0)), UiKit.WHITE)
+			_body.add_child(label)
+			line.append(label)
+		_row_labels.append(line)
+	_fill_rows()
+	if not _menu.moved.is_connected(_on_list_moved):
+		_menu.moved.connect(_on_list_moved)
 	_hint = UiKit.label("A LOAD    X DELETE    B BACK",
 		Rect2(0, _screen().y - 40.0, _screen().x, 20.0), Color(0.74, 0.80, 0.92),
 		UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
 	_body.add_child(_hint)
+
+
+func _on_list_moved(_index: int) -> void:
+	if _page == Page.LOAD_LIST:
+		_fill_rows()
+
+
+## 把现在滚到的那几个角色写进那几行里。**节点不重摆，只换文字**——
+## 滚动时重建一堆 Label 会让这一页每按一下就闪一下。
+func _fill_rows() -> void:
+	var first := _menu.first_row()
+	for i in _row_labels.size():
+		var at := first + i
+		var line: Array = _row_labels[i]
+		if at >= _listed.size():
+			for label: Label in line:
+				label.text = ""
+			continue
+		var profile := _listed[at]
+		var texts := [profile.character_name, str(profile.level),
+			played_text(profile.played_seconds), saved_text(profile.saved_at)]
+		var tint := UiKit.DIM.darkened(0.35) if _menu.greyed.has(at) else UiKit.WHITE
+		for j in line.size():
+			var label: Label = line[j]
+			label.text = texts[j]
+			label.add_theme_color_override("font_color", tint)
+	if _scroll_mark != null:
+		_scroll_mark.text = ("%d/%d" % [_menu.index + 1, _listed.size()]
+			if _listed.size() > _row_labels.size() else "")
 
 
 ## 玩了多久，写成 `2H 14M`。

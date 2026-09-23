@@ -129,6 +129,19 @@ func add_money(amount: int) -> void:
 	_changed(false)
 
 
+## 把加在某个属性上的点退回来一个。这个属性一点都没加过就退不了，返回是否退了。
+## **只退得回自己加的**：初始值是底，退不到底下去。
+func unspend_point(name: StringName) -> bool:
+	if allocated.get(name, 0) <= 0:
+		return false
+	allocated[name] -= 1
+	if allocated[name] == 0:
+		allocated.erase(name)
+	points += 1
+	_changed(true)
+	return true
+
+
 ## 把一个技能点加到某个属性上。没点数或属性名不对就不加，返回是否加上了。
 func spend_point(name: StringName) -> bool:
 	if points <= 0 or not Balance.STATS.has(name):

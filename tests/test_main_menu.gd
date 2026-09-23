@@ -147,6 +147,102 @@ func test_deleting_a_character_asks_first() -> void:
 		not menu.listed().any(func(p: PlayerProgress) -> bool: return p == doomed))
 
 
+## 名册列表那一页里，内容都得落在窗口边框里面。
+func list_box() -> Rect2:
+	var screen := Vector2(640, 360)
+	return Rect2((screen.x - MainMenu.LIST_BOX.x) / 2.0, 46.0, MainMenu.LIST_BOX.x, MainMenu.LIST_BOX.y)
+
+
+func test_the_list_stays_inside_the_window() -> void:
+	await open_menu()
+	for n in ["LONGESTNAME", "NOVA"]:
+		var who := Progress.create(PlayerProgress.sanitize_name(n))
+		who.played_seconds = 10.0 * 3600.0
+		who.saved_at = "2026-09-23T09:35:00"
+	await choose(0)
+	await choose(1)
+	var inside := list_box().grow(-MainMenu.LIST_EDGE)
+	var widest := 0.0
+	for child in menu._body.get_children():
+		if child is Label and not (child as Label).text.is_empty():
+			var label := child as Label
+			var wide: float = label.get_theme_font("font").get_string_size(
+				label.text, label.horizontal_alignment, -1, UiKit.TEXT_SIZE).x
+			# 靠右对齐的（滚动标记）从右边量起，别的从左边
+			var right: float = (label.position.x + label.size.x if label.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT
+				else label.position.x + wide)
+			if label.position.y >= inside.position.y:
+				widest = maxf(widest, right)
+	check("setup: something was measured", widest > 0.0)
+	check("no row runs past the frame", widest <= inside.end.x, "%.0f > %.0f" % [widest, inside.end.x])
+	var cursor: Rect2 = Rect2(menu._menu.position + menu._menu.highlight_box(0).position,
+		menu._menu.highlight_box(0).size)
+	check("and neither does the gold box", cursor.position.x >= inside.position.x - 0.5
+		and cursor.end.x <= inside.end.x + 0.5, str(cursor))
+
+
+func test_the_gold_box_is_drawn_over_the_window() -> void:
+	await open_menu()
+	Progress.create("RYU")
+	await choose(0)
+	await choose(1)
+	# 窗口是每一页临时加的，加在菜单后面就会把选中框盖住——界面上看不出光标在哪
+	check("the menu is the last thing drawn",
+		menu._body.get_child(menu._body.get_child_count() - 1) == menu._menu,
+		"第 %d 个，共 %d 个" % [menu._menu.get_index(), menu._body.get_child_count()])
+
+
+func test_a_long_roster_scrolls_instead_of_being_cut_off() -> void:
+	await open_menu()
+	var names: Array[String] = []
+	for i in MainMenu.ROWS + 3:
+		names.append("HERO%d" % i)
+		Progress.create(names[i])
+	await choose(0)
+	await choose(1)
+	check("every character is on the list", menu.listed().size() == names.size(), str(menu.listed().size()))
+	check("but only a screenful is drawn", menu._menu.rows_shown() == MainMenu.ROWS,
+		str(menu._menu.rows_shown()))
+	check("starting at the top", menu._menu.first_row() == 0)
+	for i in MainMenu.ROWS:
+		await press(&"aim_down")
+	check("walking past the last drawn row scrolls", menu._menu.first_row() > 0,
+		str(menu._menu.first_row()))
+	check("the one you are on is still drawn",
+		menu._menu.index - menu._menu.first_row() < MainMenu.ROWS
+		and menu._menu.index >= menu._menu.first_row(),
+		"%d / %d" % [menu._menu.index, menu._menu.first_row()])
+	# 一路走到底，最后一个也够得着
+	for i in names.size():
+		await press(&"aim_down")
+	check("and the last one can be reached", menu._menu.index == menu.listed().size() - 1
+		or menu._menu.first_row() > 0, str(menu._menu.index))
+
+
+func test_the_cursor_starts_on_a_row_that_can_be_picked() -> void:
+	await open_menu()
+	var one := Progress.create("RYU")
+	Progress.create("NOVA")
+	await choose(1)                       # 2 PLAYERS
+	await choose(1)                       # 1 号 LOAD
+	await choose(menu.listed().find(one))
+	await choose(1)                       # 2 号 LOAD
+	var taken := menu.listed().find(one)
+	check("setup: the one already playing is greyed out", menu._menu.greyed.has(taken), str(menu._menu.greyed))
+	if taken == 0:
+		check("the cursor does not start on it", menu._menu.index != 0, str(menu._menu.index))
+	check("and the gold box is visible", menu._menu._cursor.visible)
+
+
+func test_one_press_does_not_fall_through_two_pages() -> void:
+	# 退出人物设置那一下 B，同一帧就把 NEW/LOAD 那一页摆了出来。那一页的菜单**不该再吃一次**，
+	# 否则一下 B 连退两页，直接回到标题。
+	await reach_setup(1)
+	await press(&"cancel")
+	check("backing out of setup lands on the source page and stops there",
+		menu.page() == MainMenu.Page.SOURCE, str(menu.page()))
+
+
 # ---------------------------------------------------------------- 人物设置
 
 ## 走到「选完 NEW / LOAD」那一步，停在人物设置界面上。
@@ -200,16 +296,110 @@ func test_the_other_player_s_character_is_skipped() -> void:
 			"%s / %s" % [one.progress.look, two.progress.look])
 
 
-func test_points_can_be_spent_from_the_setup_screen() -> void:
+func test_points_go_in_and_out_with_left_and_right() -> void:
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	var points := column.progress.points
 	check("setup: a new character has points", points > 0, str(points))
 	await at_row(column, SetupColumn.Row.STAT)          # 第一个属性
-	await press(&"jump")
-	check("one point went in", column.progress.points == points - 1, str(column.progress.points))
+	await press(&"move_right")
+	check("right puts one point in", column.progress.points == points - 1, str(column.progress.points))
 	check("and it landed on life", column.progress.allocated.get(Balance.LIFE, 0) == 1,
 		str(column.progress.allocated))
+	await press(&"move_right")
+	check("again for a second", column.progress.allocated.get(Balance.LIFE, 0) == 2,
+		str(column.progress.allocated))
+	await press(&"move_left")
+	check("left takes one back out", column.progress.allocated.get(Balance.LIFE, 0) == 1
+		and column.progress.points == points - 1, str(column.progress.allocated))
+
+
+func test_points_stop_at_none_left_and_at_the_starting_value() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.STAT)
+	# 一路加到点数见底
+	for i in column.progress.points + 3:
+		await press(&"move_right")
+	check("it stops when the points run out", column.progress.points == 0, str(column.progress.points))
+	var spent: int = column.progress.allocated.get(Balance.LIFE, 0)
+	check("setup: they all went into life", spent > 0, str(spent))
+	# 一路退回去，退到一点都没加为止
+	for i in spent + 3:
+		await press(&"move_left")
+	check("and it stops again at the starting value", not column.progress.allocated.has(Balance.LIFE),
+		str(column.progress.allocated))
+	check("with every point back in hand", column.progress.points == spent, str(column.progress.points))
+
+
+func test_a_point_always_reads_as_plus_one() -> void:
+	# 每点加的量各不相同（生命 +10、攻击 +1、防御速度 +5），金色那列照实写的话，
+	# 同样按一下右，三个属性冒出来的数字不一样，玩家会以为自己按错了键。写的是**投了几点**。
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	for i in Balance.STATS.size():
+		await at_row(column, SetupColumn.Row.STAT + i)
+		await press(&"move_right")
+		check("one point in %s reads as +1" % Balance.STATS[i],
+			column._stat_rows[i]["bonus"].text == "+1", column._stat_rows[i]["bonus"].text)
+	await at_row(column, SetupColumn.Row.STAT)
+	await press(&"move_right")
+	check("two points read as +2", column._stat_rows[0]["bonus"].text == "+2",
+		column._stat_rows[0]["bonus"].text)
+	check("and the value beside it is still the real one",
+		column._stat_rows[0]["value"].text == str(roundi(column.progress.stat(Balance.LIFE))),
+		column._stat_rows[0]["value"].text)
+	await press(&"move_left")
+	await press(&"move_left")
+	check("taking them all back leaves nothing", column._stat_rows[0]["bonus"].text == "",
+		column._stat_rows[0]["bonus"].text)
+
+
+func test_the_arrows_only_show_on_the_stat_you_are_on() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.STAT)
+	check("the row you are on offers to add", column._stat_rows[0]["more"].visible)
+	check("but not to take away yet", not column._stat_rows[0]["less"].visible)
+	check("and the next row shows nothing", not column._stat_rows[1]["more"].visible)
+	await press(&"move_right")
+	check("once a point is in, taking it back is offered", column._stat_rows[0]["less"].visible)
+
+
+func test_the_gold_box_follows_the_row_you_are_on() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.NAME)
+	var on_name := column._menu.highlight_box(column.row())
+	check("the box sits on the name", column._menu._cursor.position.is_equal_approx(on_name.position),
+		"%s vs %s" % [column._menu._cursor.position, on_name.position])
+	await at_row(column, SetupColumn.Row.STAT)
+	var on_stat := column._menu.highlight_box(column.row())
+	check("moving down really picks another block", not on_stat.position.is_equal_approx(on_name.position))
+	check("and the box moved with it", column._menu._cursor.position.is_equal_approx(on_stat.position),
+		"%s vs %s" % [column._menu._cursor.position, on_stat.position])
+
+
+func test_the_gold_box_frames_the_gear_slot_you_are_on() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.GEAR)
+	var first := column._menu._cursor.position
+	check("it frames the first slot", first.is_equal_approx(column.slot_rect(0).grow(2.0).position),
+		str(first))
+	await press(&"move_right")
+	check("moving a slot over moves the box", not column._menu._cursor.position.is_equal_approx(first))
+	check("onto that slot", column._menu._cursor.position.is_equal_approx(
+		column.slot_rect(column.slot).grow(2.0).position), str(column._menu._cursor.position))
+
+
+func test_the_look_you_picked_is_not_marked_in_gold() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.LOOK)
+	var mark: ColorRect = column._portraits[column.look_index()]
+	check("the picked face is marked", mark.color == UiKit.GREEN, str(mark.color))
+	check("in a colour the cursor never uses", mark.color != UiKit.GOLD)
 
 
 func test_the_gear_row_walks_the_slots() -> void:
