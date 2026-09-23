@@ -262,6 +262,17 @@ func is_aiming_diagonally() -> bool:
 	return aim != Aim.LEVEL
 
 
+## 一轮连发还没打完（打到一半玩家躲开了也会打完这一轮）。
+func is_firing_burst() -> bool:
+	return _burst_left > 0
+
+
+## 贴身撞到玩家了（玩家挨打的那一下会告诉它）。默认什么都不做——
+## 站桩和巡逻的敌人被撞一下不该动。会追人的 D 覆盖它，往后弹开一段。
+func bounced_off(_from: Vector2) -> void:
+	pass
+
+
 ## 朝向或瞄准方向变了就告诉外观层一声，它自己决定怎么画。
 func _apply_visual_facing() -> void:
 	_visual.face(facing)

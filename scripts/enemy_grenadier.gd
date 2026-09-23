@@ -35,6 +35,11 @@ func _physics_process(delta: float) -> void:
 	_update_throw(delta)
 
 
+## F 不开枪，「交上火」按能不能扔手雷算：够得着就站定扔，够不着就接着巡逻走近点。
+func is_engaged(_target: Node2D) -> bool:
+	return throw_target() != null
+
+
 func _update_throw(delta: float) -> void:
 	_throw_timer -= delta
 	if grenade_scene == null or _throw_timer > 0.0 or throw_target() == null:

@@ -282,3 +282,49 @@ func test_sprinting_away_outruns_d() -> void:
 	check("D was chasing", r[0])
 	# 奔跑 270 对冲锋 150，一秒拉开约 120px。
 	check("sprinting away opens a clear gap", r[2] - r[1] > 80.0, "%.1f -> %.1f" % [r[1], r[2]])
+
+
+# ---------------------------------------------------------------- 撞上之后弹开
+
+func test_d_bounces_off_instead_of_sitting_on_the_player() -> void:
+	# 不弹开的话它会一直贴在玩家身上，无敌帧一过又扣一次血——玩家被顶在角落就只能站着挨打。
+	# **别摆在 x 592..704**：那底下是矮通道，净空 30px，32px 高的敌人会被卡在里面动不了
+	var d := await _setup_chaser(500.0, -1)
+	_put_player(400.0)
+	var health_before := player.health
+	for i in 120:
+		await tree.physics_frame
+		if player.health < health_before:
+			break
+	check("setup: D got to the player", player.health < health_before, str(player.health))
+	check("and got shoved back", d.is_bouncing())
+	var gap_at_hit := absf(d.global_position.x - player.global_position.x)
+	# 玩家原地不动（挨打的击退过后就停下），看它退开多远
+	player.velocity = Vector2.ZERO
+	var widest := gap_at_hit
+	for i in int(d.bounce_time * 60.0) + 6:
+		await tree.physics_frame
+		player.velocity.x = 0.0
+		widest = maxf(widest, absf(d.global_position.x - player.global_position.x))
+	check("it really backs off", widest - gap_at_hit > 30.0, "%.1f -> %.1f" % [gap_at_hit, widest])
+	check("but it is still facing the player", d.facing == signi(player.global_position.x - d.global_position.x),
+		"%d vs %d" % [d.facing, signi(player.global_position.x - d.global_position.x)])
+	check("and comes back for more", d.is_chasing and not d.is_bouncing())
+
+
+func test_d_does_not_drain_the_player_while_bouncing() -> void:
+	# 撞一下、退开、再来：一次撞击只该扣一次血，不是贴着一路扣下去。
+	var d := await _setup_chaser(500.0, -1)
+	_put_player(400.0)
+	var start := player.health
+	for i in 120:
+		await tree.physics_frame
+		if player.health < start:
+			break
+	check("setup: the first hit landed", player.health == start - GameTest.HIT, str(player.health))
+	var after_hit := player.health
+	for i in 20:
+		await tree.physics_frame
+	check("no second hit while it is backing off", player.health == after_hit, str(player.health))
+	check("setup: it was still backing off", d.is_bouncing() or absf(d.global_position.x - player.global_position.x) > 20.0,
+		"%.1f" % absf(d.global_position.x - player.global_position.x))

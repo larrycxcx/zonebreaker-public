@@ -195,6 +195,11 @@ func test_walker_turns_around_at_a_wall() -> void:
 	walker.global_position = Vector2(w.position.x + w.size.x + 60.0, 306)
 	walker.facing = -1
 	walker._apply_facing()
+	# 巡逻兵打起来就不走了，所以要把玩家支开（离得远、又在画面外）
+	player.global_position = Vector2(1200, 304)
+	player.velocity = Vector2.ZERO
+	await frames(2)
+	snap_camera()
 	var crossed := false
 	var turned := false
 	for i in 200:

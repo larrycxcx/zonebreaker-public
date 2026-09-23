@@ -578,7 +578,10 @@ func _check_contact_damage() -> void:
 		return
 	for body in _hurtbox.get_overlapping_bodies():
 		if body is Enemy:
-			take_damage((body as Enemy).contact_damage, body.global_position)
+			var enemy := body as Enemy
+			take_damage(enemy.contact_damage, enemy.global_position)
+			# 撞上了也告诉它一声：会追人的 D 会往后弹开，不然它一直贴着，无敌帧一过又扣一次血
+			enemy.bounced_off(global_position)
 			return
 
 

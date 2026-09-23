@@ -19,6 +19,11 @@ extends EnemyWalker
 ## 玩家比自己高出这么多、而且水平距离在 climb_reach 以内时，起跳去够平台。
 @export var climb_height := 40.0
 @export var climb_reach := 48.0
+## 撞到玩家之后往后弹多快、弹多久。**不弹开的话它会一直贴在玩家身上**，
+## 无敌帧一过又扣一次血，玩家被顶在墙角就只能站着挨打。
+## 弹开约 60px，它再冲回来差不多正好是无敌帧结束的时候，节奏变成「撞一下、退开、再来」。
+@export var bounce_speed := 200.0
+@export var bounce_time := 0.3
 
 var is_chasing := false
 
@@ -30,6 +35,9 @@ var _jump_timer := 0.0
 var _drop_direction := 0
 ## 开始往边缘走时的高度。身体真的降下去了才算开始往下掉，不能只看 is_on_floor()（边缘会闪）。
 var _drop_start_y := 0.0
+## 正在往后弹：还剩多久、往哪边。朝向不变（还是冲着玩家），只是被顶着往后退。
+var _bounce_left := 0.0
+var _bounce_facing := 0
 
 
 func _physics_process(delta: float) -> void:
@@ -47,7 +55,12 @@ func _physics_process(delta: float) -> void:
 	if is_chasing and not was_chasing:
 		GameEvents.report(&"chaser_alert", self)
 
-	if is_chasing:
+	if _bounce_left > 0.0:
+		# 被弹开那几帧不追也不巡逻，就往后退；退完照常接着追
+		_bounce_left -= delta
+		_drop_direction = 0
+		velocity.x = bounce_speed * _bounce_facing
+	elif is_chasing:
 		_chase(delta, target != null)
 	else:
 		_drop_direction = 0
@@ -56,9 +69,23 @@ func _physics_process(delta: float) -> void:
 	_report_motion(is_chasing)
 
 	# 巡逻时和巡逻兵一样在悬崖、墙前掉头；追击时不掉头，悬崖直接跳下去，墙跳过去。
-	if not is_chasing and _should_turn_around():
+	# 弹开的那几帧也不掉头，否则刚被顶开就转身，看着像自己走回去的。
+	if not is_chasing and _bounce_left <= 0.0 and _should_turn_around():
 		facing = -facing
 		_apply_facing()
+
+
+## 撞上玩家了：往玩家的反方向弹开一段。**朝向不动**——它还是冲着玩家的，只是被顶回去了。
+func bounced_off(from: Vector2) -> void:
+	_bounce_left = bounce_time
+	_bounce_facing = signi(global_position.x - from.x)
+	if _bounce_facing == 0:
+		_bounce_facing = -facing
+
+
+## 正在被弹开吗（测试用）。
+func is_bouncing() -> bool:
+	return _bounce_left > 0.0
 
 
 ## 直线距离以内、并且看得见的玩家。D 会跳，玩家在头顶平台上也要能发现，所以不用水平射程 + 高度差的判断。

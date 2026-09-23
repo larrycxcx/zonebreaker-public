@@ -20,13 +20,55 @@ func test_enemies_stand_where_placed() -> void:
 	check("turret stands on the ground", turret.is_on_floor(), str(turret.global_position))
 
 
+## 巡逻兵**打起来就不走了**，所以测巡逻本身的用例要先把玩家支开：
+## 离得远、又在画面外，它才没有还击的对象。
+func _send_player_away() -> void:
+	player.global_position = Vector2(1200, 304)
+	player.velocity = Vector2.ZERO
+	await frames(2)
+	snap_camera()
+
+
 func test_walker_patrols() -> void:
 	await reset_scene(true)
+	keep_only_enemies(["WalkerA"])
+	await _send_player_away()
 	await frames(40)
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	var start_x := walker.global_position.x
 	await frames(60)
 	check("walker moves along the ground", absf(walker.global_position.x - start_x) > 20.0, "%.1f -> %.1f" % [start_x, walker.global_position.x])
+
+
+func test_a_walker_stands_and_fights_instead_of_walking_on() -> void:
+	# 交上火就站定打，玩家离开视野才接着巡逻。
+	await reset_scene(true)
+	keep_only_enemies(["WalkerA"])
+	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
+	await _send_player_away()
+	await frames(30)
+	var roaming := walker.global_position.x
+	await frames(40)
+	check("setup: it really is patrolling", absf(walker.global_position.x - roaming) > 20.0,
+		"%.1f -> %.1f" % [roaming, walker.global_position.x])
+	# 挡到它正前方去
+	player.global_position = Vector2(walker.global_position.x + 160.0 * walker.facing, 304)
+	player.velocity = Vector2.ZERO
+	player.health = 999
+	await frames(2)
+	snap_camera()
+	await frames(20)
+	var engaged := walker.global_position.x
+	await frames(60)
+	check("it stops where it is", absf(walker.global_position.x - engaged) < 1.0,
+		"%.1f -> %.1f" % [engaged, walker.global_position.x])
+	check("and keeps shooting", bullets(16).size() > 0, str(bullets(16).size()))
+	await _send_player_away()
+	await frames(20)
+	var freed := walker.global_position.x
+	await frames(60)
+	check("once the player is gone it walks on again", absf(walker.global_position.x - freed) > 20.0,
+		"%.1f -> %.1f" % [freed, walker.global_position.x])
 
 
 func test_walker_turns_at_ledges() -> void:
@@ -343,7 +385,17 @@ func test_type_c_stops_and_lies_down_to_shoot() -> void:
 	Input.action_release("crouch")
 	await frames(30)
 	check("walker gets up when the player does", not walker.is_prone)
-	check("walker resumes its patrol", absf(walker.global_position.x - x_prone) > 10.0, "%.2f -> %.2f" % [x_prone, walker.global_position.x])
+	# 站起来了，但玩家还杵在正前方，所以它**照样站定开火**，不会接着巡逻
+	var x_up := walker.global_position.x
+	await frames(30)
+	check("but it holds its ground while the player is still in front",
+		absf(walker.global_position.x - x_up) < 0.5, "%.2f -> %.2f" % [x_up, walker.global_position.x])
+	await _send_player_away()
+	await frames(20)
+	var x_free := walker.global_position.x
+	await frames(60)
+	check("walker resumes its patrol once the player is gone",
+		absf(walker.global_position.x - x_free) > 10.0, "%.2f -> %.2f" % [x_free, walker.global_position.x])
 
 
 func test_type_c_ignores_a_prone_player_behind_it() -> void:

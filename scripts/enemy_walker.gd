@@ -2,6 +2,8 @@ class_name EnemyWalker
 extends Enemy
 ## 巡逻敌人：左右走，撞墙或走到平台边缘时掉头，碰到玩家造成伤害，
 ## 并且会朝自己正前方开火（不会回头瞄准，转向完全由巡逻决定）。
+## **打起来就不走了**：发现正前方的玩家、开始还击之后就站定原地打，
+## 直到玩家离开视野（或者绕到它背后）才接着巡逻。
 ## 正前方的玩家趴下时，它会停下来趴着开枪，玩家站起来后它也站起来继续巡逻。
 ## 能斜射的（B、C）遇到正前方斜上/斜下的玩家时停下来瞄准开火，玩家回到水平方向或离开后继续巡逻。
 
@@ -20,8 +22,9 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_apply_gravity(delta)
-	# 趴下、斜向瞄准时都站在原地开枪。
-	var standing_still := is_prone or is_aiming_diagonally()
+	var target := _target_in_front()
+	# 趴下、斜向瞄准、以及**正在和玩家交火**时都站在原地打。
+	var standing_still := is_prone or is_aiming_diagonally() or is_engaged(target)
 	velocity.x = 0.0 if standing_still else move_speed * facing
 	move_and_slide()
 	_report_motion()
@@ -30,11 +33,17 @@ func _physics_process(delta: float) -> void:
 		facing = -facing
 		_apply_facing()
 
-	var target := _target_in_front()
 	var ready := update_aim(delta, target)
 	# 只在玩家和自己差不多高时才跟着趴下；斜着往下打的时候保持站立。
 	update_prone(delta, target if not is_aiming_diagonally() else null)
 	try_shoot(delta, ready)
+
+
+## 正在跟玩家交火吗：交上火就站定原地打，不再巡逻，直到玩家离开视野。
+## 「正前方有够得着的玩家」或者「一轮连发还没打完」都算。
+## **手上没枪的不算**（F 的 `bullet_scene` 是空的），它按能不能扔手雷算，自己覆盖了这个。
+func is_engaged(target: Node2D) -> bool:
+	return bullet_scene != null and (target != null or is_firing_burst())
 
 
 ## 巡逻时脚下没路（悬空）或前方被挡住就该掉头。
