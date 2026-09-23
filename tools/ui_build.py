@@ -4,7 +4,7 @@
 
 生成四样东西：
 
-1. **位图字体**（`font.png` + `font.fnt`）：素材包的字模是一个字一张 14×14 的 png
+1. **位图字体**（`font.png` + `font.fnt` 标题用、`font_small.*` 正文用）：素材包的字模是一个字一张 14×14 的 png
    （`10 Font/images/1_01..1_63`，白底 + 黑色笔画），这里把**笔画**抠出来拼成一张图集，
    再写一个 AngelCode BMFont 的 `.fnt`，Godot 直接当 FontFile 导入，界面上就能照常用 Label 了。
    抠出来的字是白的，界面里用 `modulate` 染色。
@@ -30,6 +30,10 @@ OUT = os.path.join(HERE, "..", "skins", "cyberpunk", "ui")
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 SYMBOLS = ".,'+-=:\"#|\/()[]{}!<>?"
 CELL = 14
+## 正文那套小一号的：14 高的字模在 640×360 上太占地方（一行字比角色的脑袋还高），
+## 按最近邻缩到 10 高再拼一张。**不让引擎去缩**——位图字体只有做出来的那个尺寸是清楚的，
+## 非整数倍缩放会糊。标题照旧用 14 那套放大整数倍。
+SMALL = 10
 ## 字与字之间留几像素。
 TRACKING = 1
 ## 空格多宽。
@@ -66,35 +70,55 @@ def ink_of(path):
     return out, min(xs), max(xs)
 
 
-def build_font(write):
+def shrink(art, left, wide, cell):
+    """把一个字模按最近邻缩到 cell 高（横向同比例）。取每个目标像素中心对应的源像素，
+    所以 3px 粗的笔画缩完是 2px，不会断。"""
+    if cell == CELL:
+        return [[art[y][left + x] for x in range(wide)] for y in range(CELL)], wide
+    out_wide = max(1, round(wide * cell / float(CELL)))
+    out = []
+    for y in range(cell):
+        sy = min(CELL - 1, int((y + 0.5) * CELL / cell))
+        out.append([art[sy][left + min(wide - 1, int((x + 0.5) * wide / out_wide))]
+            for x in range(out_wide)])
+    return out, out_wide
+
+
+def build_font(write, cell=CELL, name="font"):
+    """拼一张字模图集 + 一个 AngelCode `.fnt`。`cell` 是字高，14 是素材原尺寸，
+    小一号的那套按最近邻缩过（见 `SMALL`）。"""
     table = glyph_files()
     glyphs = []
     for ch in sorted(table):
         art, left, right = ink_of(os.path.join(GUI, "10 Font", "images", table[ch]))
-        glyphs.append((ch, art, left, right - left + 1))
-    total = sum(g[3] + 1 for g in glyphs)
-    atlas = sb.blank(total, CELL)
+        small, wide = shrink(art, left, right - left + 1, cell)
+        glyphs.append((ch, small, wide))
+    total = sum(g[2] + 1 for g in glyphs)
+    atlas = sb.blank(total, cell)
     lines = []
     x = 0
-    for ch, art, left, wide in glyphs:
-        for y in range(CELL):
+    scale = cell / float(CELL)
+    for ch, art, wide in glyphs:
+        for y in range(cell):
             for sx in range(wide):
-                atlas[y][x + sx] = art[y][left + sx]
+                atlas[y][x + sx] = art[y][sx]
         lines.append('char id=%d x=%d y=0 width=%d height=%d xoffset=0 yoffset=0 xadvance=%d page=0 chnl=15'
-            % (ord(ch), x, wide, CELL, wide + TRACKING))
+            % (ord(ch), x, wide, cell, wide + TRACKING))
         x += wide + 1
-    lines.append('char id=32 x=0 y=0 width=0 height=0 xoffset=0 yoffset=0 xadvance=%d page=0 chnl=15' % SPACE)
+    lines.append('char id=32 x=0 y=0 width=0 height=0 xoffset=0 yoffset=0 xadvance=%d page=0 chnl=15'
+        % max(2, round(SPACE * scale)))
     header = [
-        'info face="CyberpunkPixel" size=%d bold=0 italic=0 charset="" unicode=1 stretchH=100 smooth=0 aa=1 padding=0,0,0,0 spacing=1,1' % CELL,
-        'common lineHeight=%d base=%d scaleW=%d scaleH=%d pages=1 packed=0' % (LINE_HEIGHT, BASE, total, CELL),
-        'page id=0 file="font.png"',
+        'info face="CyberpunkPixel%d" size=%d bold=0 italic=0 charset="" unicode=1 stretchH=100 smooth=0 aa=1 padding=0,0,0,0 spacing=1,1' % (cell, cell),
+        'common lineHeight=%d base=%d scaleW=%d scaleH=%d pages=1 packed=0'
+            % (max(cell + 1, round(LINE_HEIGHT * scale)), cell, total, cell),
+        'page id=0 file="%s.png"' % name,
         'chars count=%d' % len(lines),
     ]
     if write:
-        sb.write_png(os.path.join(OUT, "font.png"), atlas)
-        with open(os.path.join(OUT, "font.fnt"), "w", newline="\n") as f:
+        sb.write_png(os.path.join(OUT, "%s.png" % name), atlas)
+        with open(os.path.join(OUT, "%s.fnt" % name), "w", newline="\n") as f:
             f.write("\n".join(header + lines) + "\n")
-    print("  font.png  %d×%d，%d 个字" % (total, CELL, len(lines)))
+    print("  %s.png  %d×%d，%d 个字" % (name, total, cell, len(lines)))
 
 
 def build_panel(write):
@@ -172,6 +196,7 @@ def main():
         os.makedirs(OUT)
     print("界面素材：")
     build_font(write)
+    build_font(write, SMALL, "font_small")
     build_panel(write)
     build_title(write)
     build_gear(write)

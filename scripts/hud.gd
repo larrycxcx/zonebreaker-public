@@ -73,7 +73,8 @@ func _ready() -> void:
 ## 字体在场景里设不了——`.fnt` 要当 FontFile 加载，而且以后界面美术进 `SkinPack` 时这里只改一行。
 func _use_pixel_font() -> void:
 	_progress_label.add_theme_font_override("font", UiKit.font())
-	_progress_label.add_theme_color_override("font_color", UiKit.WHITE)
+	# 关卡里的天空挺亮的，白字糊在上面看不清；金色和别的 HUD 零件也是一路的
+	_progress_label.add_theme_color_override("font_color", UiKit.GOLD)
 	_progress_label.add_theme_font_size_override("font_size", UiKit.TEXT_SIZE)
 
 

@@ -199,8 +199,12 @@ func test_the_hud_writes_in_the_pixel_font() -> void:
 	await frames(2)
 	var label: Label = hud().get_node("ProgressLabel")
 	var font := label.get_theme_font("font")
-	check("the level / cash line uses the pack's font", font != null and font.resource_path == UiKit.FONT,
+	# 正文用的是小那套字模（10px）；大那套 14px 留给标题，两套都只按整数倍放大
+	check("the level / cash line uses the pack's small font",
+		font != null and font.resource_path == UiKit.FONT_SMALL,
 		"" if font == null else font.resource_path)
+	check("in gold, not white", label.get_theme_color("font_color") == UiKit.GOLD,
+		str(label.get_theme_color("font_color")))
 
 
 func test_the_progress_line_leaves_room_for_the_other_player() -> void:

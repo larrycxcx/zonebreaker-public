@@ -11,14 +11,18 @@ extends RefCounted
 
 const DIR := "res://skins/cyberpunk/ui"
 const FONT := DIR + "/font.fnt"
+## 正文那套小一号的字模（10px）。**位图字体只有做出来的那一个尺寸是清楚的**，
+## 所以正文和标题各用各的图集，不让引擎去缩（非整数倍缩放会糊）。
+const FONT_SMALL := DIR + "/font_small.fnt"
 const PANEL := DIR + "/panel.png"
 const PANEL_FILL := DIR + "/panel_fill.png"
 const CURSOR := DIR + "/cursor.png"
 const PLUS := DIR + "/plus.png"
 ## 九宫格四条边各占几像素（`panel.png` 是 3×3 块 32px 拼的）。
 const PANEL_MARGIN := 32
-## 正文字号。位图字体只有一个尺寸，放大只能整数倍。
-const TEXT_SIZE := 14
+## 正文字号 = 小那套字模的原尺寸。14 那套在 640×360 上太占地方，一行字比角色的脑袋还高。
+const TEXT_SIZE := 10
+## 标题字号 = 大那套字模（14）的整数倍。
 const TITLE_SIZE := 28
 
 const WHITE := Color(0.925, 0.941, 0.973)
@@ -35,8 +39,9 @@ const STAT_COLORS := {
 }
 
 
-static func font() -> Font:
-	return load(FONT) as Font
+## 这个字号该用哪张图集：标题用 14 那套，正文用 10 那套。两套都只按整数倍放大。
+static func font(size := TEXT_SIZE) -> Font:
+	return load(FONT if size >= TITLE_SIZE else FONT_SMALL) as Font
 
 
 ## 一个不挡鼠标的文字控件。`box` 是它在父节点里占的矩形。
@@ -44,7 +49,7 @@ static func label(text: String, box: Rect2, tint := WHITE, size := TEXT_SIZE,
 		align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	var node := Label.new()
 	node.text = text
-	node.add_theme_font_override("font", font())
+	node.add_theme_font_override("font", font(size))
 	node.add_theme_font_size_override("font_size", size)
 	node.add_theme_color_override("font_color", tint)
 	node.horizontal_alignment = align

@@ -296,6 +296,29 @@ func test_the_other_player_s_character_is_skipped() -> void:
 			"%s / %s" % [one.progress.look, two.progress.look])
 
 
+func test_body_text_uses_the_small_font_and_titles_the_big_one() -> void:
+	# 位图字体只有做出来的那个尺寸是清楚的，所以正文和标题各用各的图集，不让引擎去缩。
+	await open_menu()
+	var title: Label = null
+	var item: Label = menu._menu._labels[0]
+	for child in menu._body.get_children():
+		if child is Label and (child as Label).text == MainMenu.TITLE:
+			title = child
+	check("setup: the title is on screen", title != null)
+	check("the title is drawn from the big glyphs",
+		title.get_theme_font("font").resource_path == UiKit.FONT,
+		title.get_theme_font("font").resource_path)
+	check("and the menu items from the small ones",
+		item.get_theme_font("font").resource_path == UiKit.FONT_SMALL,
+		item.get_theme_font("font").resource_path)
+	check("which really are smaller", UiKit.TEXT_SIZE < 14, str(UiKit.TEXT_SIZE))
+	var small: Font = load(UiKit.FONT_SMALL)
+	var big: Font = load(UiKit.FONT)
+	check("a line of text takes less room than it used to",
+		small.get_string_size("CASH 1250", HORIZONTAL_ALIGNMENT_LEFT, -1, UiKit.TEXT_SIZE).x
+		< big.get_string_size("CASH 1250", HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x)
+
+
 func test_the_column_says_what_level_the_character_is() -> void:
 	await open_menu()
 	var mine := Progress.create("RYU")
