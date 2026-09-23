@@ -71,13 +71,47 @@ static func window(box: Rect2) -> NinePatchRect:
 
 
 ## 一张小图（属性图标、加号、光标）。白色剪影用 tint 染色。
+## `path` 留空就是一个先空着的框（贴图之后再填，比如装备格）。
 static func picture(path: String, at: Vector2, tint := WHITE) -> TextureRect:
 	var node := TextureRect.new()
-	node.texture = load(path) as Texture2D
+	node.texture = load(path) as Texture2D if not path.is_empty() else null
 	node.modulate = tint
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.position = at
 	return node
+
+
+## 一个小方框（描边 + 填充）。**小格子别用 `window()`**：九宫格那张图是 96×96、四边 32，
+## 撑不到 64×64 以下，头像格、装备格那种 30~40px 的框会被撑爆、糊成一片。
+static func box(rect: Rect2, edge := Color(0.27, 0.35, 0.55), fill := Color(0.12, 0.15, 0.28)) -> Control:
+	var frame := ColorRect.new()
+	frame.color = edge
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.position = rect.position
+	frame.size = rect.size
+	var inside := ColorRect.new()
+	inside.color = fill
+	inside.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inside.position = Vector2.ONE
+	inside.size = rect.size - Vector2.ONE * 2.0
+	frame.add_child(inside)
+	return frame
+
+
+## 头像在 56×56 的待机帧里截哪一块。三个角色的人都在 x 20~38、y 21~55 之间，
+## 这个框各边留一点余量，**正好装得下人、又不会顶出格子**（整帧 56×56 塞进 44px 的格子是会溢出来的）。
+const PORTRAIT_CROP := Rect2(16, 17, 26, 39)
+
+
+## 某个角色待机第一帧、裁到人身上的那一块（人物设置界面上的头像）。素材包没有就返回 null。
+static func portrait(look: StringName) -> Texture2D:
+	var path := "res://skins/cyberpunk/%s/body_idle_r.png" % look
+	if not ResourceLoader.exists(path):
+		return null
+	var atlas := AtlasTexture.new()
+	atlas.atlas = load(path) as Texture2D
+	atlas.region = PORTRAIT_CROP
+	return atlas
 
 
 ## 把整个画面盖暗一层（暂停时后面的关卡还看得见，但不抢眼）。

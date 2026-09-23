@@ -23,6 +23,7 @@ const SLOT_NAMES := {
 	Slot.LEGS: "LEGS", Slot.FEET: "FEET", Slot.HANDS: "HANDS", Slot.TRINKET: "TRINKET",
 }
 
+## 界面上显示的名字。**英文大写**——素材包的字模没有汉字，写中文会变成一串方块（见 CLAUDE.md）。
 @export var display_name := ""
 @export var slot := Slot.GUN
 ## 商店价格。

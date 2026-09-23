@@ -22,6 +22,7 @@ enum Page {
 	SOURCE,     ## 这个座位新建还是读档
 	LOAD_LIST,  ## 从名册里挑一个
 	CONFIRM,    ## 真的要删吗
+	SETUP,      ## 人物设置（每人一栏，都确定了才开始）
 }
 
 ## 名册列表一页显示几行。
@@ -34,6 +35,9 @@ var _seat := 0
 var _listed: Array[PlayerProgress] = []
 ## 要删的那个。
 var _doomed: PlayerProgress
+## 哪些座位是读档进来的（名字不能改）。
+var _loaded: Array[int] = []
+var _setup: SetupScreen
 
 var _ui: CanvasLayer
 var _body: Control
@@ -86,6 +90,11 @@ func listed() -> Array[PlayerProgress]:
 	return _listed
 
 
+## 人物设置那一页（测试用），没在那一页就是 null。
+func setup() -> SetupScreen:
+	return _setup if _page == Page.SETUP and is_instance_valid(_setup) else null
+
+
 func _physics_process(_delta: float) -> void:
 	if _page == Page.LOAD_LIST and not _listed.is_empty() and Input.is_action_just_pressed(&"menu_delete"):
 		_doomed = _listed[_menu.index]
@@ -112,6 +121,13 @@ func _show(page_: Page) -> void:
 		Page.CONFIRM:
 			_heading("DELETE %s" % _doomed.character_name, screen)
 			_lay_out(["NO", "YES"], screen, 170.0, "THIS CANNOT BE UNDONE")
+		Page.SETUP:
+			_menu.build([], 0.0)
+			_setup = SetupScreen.new()
+			_body.add_child(_setup)
+			_setup.build(Session.player_count, _loaded)
+			_setup.finished.connect(start_game)
+			_setup.cancelled.connect(_back_to_source)
 
 
 func _screen() -> Vector2:
@@ -189,7 +205,7 @@ static func played_text(seconds: float) -> String:
 	return "%dH %02dM" % [whole / 3600, (whole % 3600) / 60]
 
 
-## 存档时间里的日期和时分，写成 `09 21 22 40`（字模里没有冒号和横杠以外的分隔符，全用空格）。
+## 存档时间里的日期和时分，写成 `09 21 22 40`（全用空格分隔，最省事也最耐看）。
 static func saved_text(stamp: String) -> String:
 	if stamp.length() < 16:
 		return ""
@@ -206,11 +222,13 @@ func _on_chosen(index: int) -> void:
 				return
 			Session.set_player_count(index + 1)
 			_seat = 0
+			_loaded.clear()
 			_show(Page.SOURCE)
 		Page.SOURCE:
 			match index:
 				0:
 					Progress.take_seat(_seat, Progress.fresh(_seat))
+					_loaded.erase(_seat)
 					_next_seat()
 				1:
 					if Progress.roster.is_empty():
@@ -220,6 +238,8 @@ func _on_chosen(index: int) -> void:
 					_on_cancelled()
 		Page.LOAD_LIST:
 			Progress.take_seat(_seat, _listed[index])
+			if not _loaded.has(_seat):
+				_loaded.append(_seat)
 			_next_seat()
 		Page.CONFIRM:
 			if index == 1:
@@ -243,15 +263,23 @@ func _on_cancelled() -> void:
 		Page.CONFIRM:
 			_doomed = null
 			_show(Page.LOAD_LIST)
+		Page.SETUP:
+			pass
 
 
-## 这个座位选完了：还有人没选就轮到下一个，都选完就开始。
+## 从人物设置退回来：回到第一个座位重新选 NEW / LOAD。
+func _back_to_source() -> void:
+	_seat = 0
+	_show(Page.SOURCE)
+
+
+## 这个座位选完了：还有人没选就轮到下一个，都选完就去设置人物。
 func _next_seat() -> void:
 	_seat += 1
 	if _seat < Session.player_count:
 		_show(Page.SOURCE)
 	else:
-		start_game()
+		_show(Page.SETUP)
 
 
 func start_game() -> void:

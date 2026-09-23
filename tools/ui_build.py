@@ -123,6 +123,22 @@ def build_title(write):
     print("  title_plate.png")
 
 
+## 装备图标：键就是装备资源的文件名（`weapons/rifle.tres` → `rifle`），
+## 值是素材里哪一张（`2 Guns/Icon15_NN` 是枪，`armor/Icon24_NN` 是防具）。
+GEAR_ICONS = {
+    "rifle": "2 Guns/Icon15_01.png",
+    "grenade": "2 Guns/Icon15_26.png",
+}
+
+
+def build_gear(write):
+    for name, path in GEAR_ICONS.items():
+        _, _, art = sb.read_png(os.path.join(HERE, "..", "art_in", "default", path))
+        if write:
+            sb.write_png(os.path.join(OUT, "gear_%s.png" % name), art)
+        print("  gear_%s.png" % name)
+
+
 def build_bits(write):
     for name, number in STAT_ICONS.items():
         _, _, art = sb.read_png(os.path.join(GUI, "9 Other", "3 Skill icons", "Skillicon7_%02d.png" % number))
@@ -153,6 +169,7 @@ def main():
     build_font(write)
     build_panel(write)
     build_title(write)
+    build_gear(write)
     build_bits(write)
     print("\n好了。" + ("" if write else "（--check：没有写文件）"))
 

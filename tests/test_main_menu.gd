@@ -147,10 +147,134 @@ func test_deleting_a_character_asks_first() -> void:
 		not menu.listed().any(func(p: PlayerProgress) -> bool: return p == doomed))
 
 
-func test_finishing_the_last_seat_starts_the_level() -> void:
+# ---------------------------------------------------------------- 人物设置
+
+## 走到「选完 NEW / LOAD」那一步，停在人物设置界面上。
+func reach_setup(players: int) -> void:
 	await open_menu()
+	await choose(players - 1)             # 1 PLAYER / 2 PLAYERS
+	for i in players:
+		await choose(0)                   # NEW
+	await frames(2)
+
+
+## 某一栏走到某一行（界面上就是按上下，这里直接放光标，省得一路敲）。
+func at_row(column: SetupColumn, row: int) -> void:
+	column.go_to_row(row)
+	await frames(1)
+
+
+func test_the_setup_screen_comes_before_the_level() -> void:
+	await reach_setup(1)
+	check("setup is up", menu.setup() != null)
+	check("with one column", menu.setup() != null and menu.setup().columns().size() == 1)
+	check("and the level has not started", tree.current_scene == null, str(tree.current_scene))
+
+
+func test_two_players_get_a_column_each() -> void:
+	await reach_setup(2)
+	check("two columns", menu.setup().columns().size() == 2)
+	var looks := menu.setup().columns().map(func(c: SetupColumn) -> StringName: return c.progress.look)
+	check("and they start on different characters", looks[0] != looks[1], str(looks))
+
+
+func test_left_and_right_change_the_character() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.LOOK)
+	var before := column.progress.look
+	await press(&"move_right")
+	check("the look changed", column.progress.look != before, "%s -> %s" % [before, column.progress.look])
+	await press(&"move_left")
+	check("and comes back", column.progress.look == before, str(column.progress.look))
+
+
+func test_the_other_player_s_character_is_skipped() -> void:
+	await reach_setup(2)
+	var one: SetupColumn = menu.setup().columns()[0]
+	var two: SetupColumn = menu.setup().columns()[1]
+	await at_row(one, SetupColumn.Row.LOOK)
+	for i in SetupColumn.LOOKS.size() + 1:
+		await press(&"move_right")
+		check("never lands on what the other player wears", one.progress.look != two.progress.look,
+			"%s / %s" % [one.progress.look, two.progress.look])
+
+
+func test_points_can_be_spent_from_the_setup_screen() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	var points := column.progress.points
+	check("setup: a new character has points", points > 0, str(points))
+	await at_row(column, SetupColumn.Row.STAT)          # 第一个属性
+	await press(&"jump")
+	check("one point went in", column.progress.points == points - 1, str(column.progress.points))
+	check("and it landed on life", column.progress.allocated.get(Balance.LIFE, 0) == 1,
+		str(column.progress.allocated))
+
+
+func test_the_gear_row_walks_the_slots() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.GEAR)
+	check("it starts on the gun", column.slot == Equipment.Slot.GUN)
+	await press(&"move_right")
+	check("right moves to the next slot", column.slot == Equipment.Slot.GRENADE, str(column.slot))
+	await press(&"move_left")
+	await press(&"move_left")
+	check("and it wraps around", column.slot == Equipment.Slot.TRINKET, str(column.slot))
+
+
+func test_a_loaded_character_cannot_be_renamed() -> void:
+	await open_menu()
+	var mine := Progress.create("RYU")
 	await choose(0)                       # 1 PLAYER
-	await choose(0)                       # NEW -> 开始
+	await choose(1)                       # LOAD
+	await choose(menu.listed().find(mine))
+	await frames(2)
+	check("setup is up", menu.setup() != null)
+	check("and the name is locked", not menu.setup().columns()[0].can_rename)
+
+
+func test_everyone_has_to_accept_before_the_level_starts() -> void:
+	await reach_setup(2)
+	var one: SetupColumn = menu.setup().columns()[0]
+	var two: SetupColumn = menu.setup().columns()[1]
+	await at_row(one, SetupColumn.Row.ACCEPT)
+	await press(&"jump")
+	check("the first player is ready", one.confirmed)
+	check("but the level waits", tree.current_scene == null, str(tree.current_scene))
+	await at_row(two, SetupColumn.Row.ACCEPT)
+	await tap(&"p2_jump")
+	for i in 30:
+		await tree.physics_frame
+		if tree.current_scene != null:
+			break
+	check("once both are ready it starts", tree.current_scene != null and tree.current_scene.name == "Main",
+		str(tree.current_scene))
+	if is_instance_valid(menu):
+		menu.free()
+	tree.unload_current_scene()
+	main = null
+	menu = null
+
+
+func test_backing_out_of_ready_and_then_out_of_setup() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.ACCEPT)
+	await press(&"jump")
+	check("setup: ready", column.confirmed)
+	await press(&"cancel")
+	check("backing out cancels ready first", not column.confirmed and menu.setup() != null)
+	await press(&"cancel")
+	check("and again leaves the setup screen", menu.setup() == null and menu.page() == MainMenu.Page.SOURCE)
+
+
+func test_finishing_the_last_seat_starts_the_level() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.ACCEPT)
+	await press(&"jump")
 	for i in 30:
 		await tree.physics_frame
 		if tree.current_scene != null and tree.current_scene.name == "Main":

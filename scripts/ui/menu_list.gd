@@ -10,6 +10,9 @@ extends Control
 signal chosen(index: int)
 ## 按了返回。
 signal cancelled
+## 在这一项上按了左 / 右（`direction` 是 -1 / 1）。菜单自己不管这是什么意思，交给用它的界面
+## （人物设置界面就靠它换角色、在装备格之间挪）。
+signal nudged(index: int, direction: int)
 ## 光标移到了第几项（放音效用）。
 signal moved(index: int)
 
@@ -74,6 +77,10 @@ func _physics_process(_delta: float) -> void:
 	elif _pressed(&"cancel"):
 		GameEvents.report(&"menu_back", self)
 		cancelled.emit()
+	elif _pressed(&"move_left"):
+		nudged.emit(index, -1)
+	elif _pressed(&"move_right"):
+		nudged.emit(index, 1)
 
 
 ## 这一项在哪一行（别的控件想跟着光标走时用）。
@@ -94,6 +101,10 @@ func _step(by: int) -> void:
 
 
 func _refresh() -> void:
+	if _items.is_empty():
+		if _cursor != null:
+			_cursor.hide()
+		return
 	for i in _labels.size():
 		var tint := UiKit.WHITE if i == index else UiKit.DIM
 		if greyed.has(i):

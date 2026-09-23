@@ -5,7 +5,7 @@
 
 [resource]
 script = ExtResource("1")
-display_name = "终极武器"
+display_name = "MEGA BOMB"
 projectile = ExtResource("2")
 cooldown = 0.0
 automatic = false

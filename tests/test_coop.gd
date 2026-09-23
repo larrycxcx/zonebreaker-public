@@ -397,8 +397,8 @@ func test_each_hud_shows_its_own_progress() -> void:
 	await frames(2)
 	var one: Label = main.get_node("HUD/ProgressLabel")
 	var two: Label = main.get_node("HUD2/ProgressLabel")
-	check("the second player's purse shows on their own HUD", two.text.contains("$42"), two.text)
-	check("and not on the first player's", not one.text.contains("$42"), one.text)
+	check("the second player's purse shows on their own HUD", two.text.contains("CASH 42"), two.text)
+	check("and not on the first player's", not one.text.contains("CASH 42"), one.text)
 
 
 func test_the_shared_parts_show_up_once() -> void:

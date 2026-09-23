@@ -194,7 +194,7 @@ func _on_boss_died() -> void:
 ## **一律英文大写**：菜单和 HUD 用的是同一套规矩（素材包的字模没有汉字，见 CLAUDE.md）。
 func _on_progress_changed() -> void:
 	var me := Progress.of(player_index)
-	var text := "LV %d   XP %d/%d   $%d" % [me.level, me.xp, me.balance.xp_to_next(me.level), me.money]
+	var text := "LV %d   XP %d/%d   CASH %d" % [me.level, me.xp, me.balance.xp_to_next(me.level), me.money]
 	if me.points > 0:
 		text += "   +%d PTS" % me.points
 	_progress_label.text = text
