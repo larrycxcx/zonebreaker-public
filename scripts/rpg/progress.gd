@@ -51,7 +51,7 @@ func _ready() -> void:
 func of(index: int) -> PlayerProgress:
 	var seat := clampi(index, 0, _seats.size() - 1)
 	if _seats[seat] == null:
-		_seats[seat] = _fresh(seat)
+		_seats[seat] = fresh(seat)
 	return _seats[seat]
 
 
@@ -204,7 +204,8 @@ func _find(character_name: String) -> PlayerProgress:
 
 ## 现开一个角色并放进名册：座位上坐着的一定是名册里的人，不然他的进度存不下来。
 ## 名字先按座位取一个（重了就加数字），玩家可以在设置界面里改。
-func _fresh(index: int) -> PlayerProgress:
+## 菜单里选 NEW 就是调它，再 `take_seat()` 坐进去。
+func fresh(index: int) -> PlayerProgress:
 	var profile := _new_profile()
 	profile.character_name = _free_name(DEFAULT_NAMES[mini(index, DEFAULT_NAMES.size() - 1)])
 	profile.look = DEFAULT_LOOKS[mini(index, DEFAULT_LOOKS.size() - 1)]

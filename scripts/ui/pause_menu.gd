@@ -11,10 +11,12 @@ extends CanvasLayer
 signal opened
 signal closed
 
-const ITEMS: Array[String] = ["RESUME", "SKILLS", "QUIT"]
+const ITEMS: Array[String] = ["RESUME", "SKILLS", "MAIN MENU"]
 const RESUME := 0
 const SKILLS := 1
-const QUIT := 2
+const MAIN_MENU := 2
+## 回主菜单去哪个场景。
+const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 
 var _shade: ColorRect
 var _window: NinePatchRect
@@ -96,8 +98,8 @@ func _on_chosen(index: int) -> void:
 			close()
 		SKILLS:
 			_open_skills()
-		QUIT:
-			get_tree().quit()
+		MAIN_MENU:
+			_to_main_menu()
 
 
 func _show_menu() -> void:
@@ -121,6 +123,16 @@ func _drop_skills() -> void:
 	if _skills != null and is_instance_valid(_skills):
 		_skills.queue_free()
 	_skills = null
+
+
+## 回主菜单：先把暂停解掉，否则新场景一进来就是停的。
+func _to_main_menu() -> void:
+	var tree := get_tree()
+	_drop_skills()
+	_root.hide()
+	tree.paused = false
+	Progress.save_game()
+	tree.change_scene_to_file(MENU_SCENE)
 
 
 ## 场上的玩家，按编号排。

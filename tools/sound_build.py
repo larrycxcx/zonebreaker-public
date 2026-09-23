@@ -47,7 +47,7 @@ SOUNDS = {
 }
 # 用途 → 素材包里的曲名。**关卡那首不在这里**：换成自己做的 `skins/cyberpunk/music/level.ogg` 了
 # （OGG 循环没有接缝，MP3 会在开头结尾各补一小段静音）。加回来的话会把它盖掉。
-MUSIC = {"boss": "Track race"}
+MUSIC = {"intro": "Track Intro", "boss": "Track race"}
 SILENCE = 300    # 开头低于这个振幅（16bit）的都当静音去掉
 FADE = 0.03      # 结尾淡出几秒
 

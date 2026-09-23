@@ -50,6 +50,12 @@ func has_button(action: StringName, index: JoyButton) -> bool:
 	return InputMap.action_get_events(action).any(func(e): return e is InputEventJoypadButton and e.button_index == index)
 
 
+## 只在界面里用、玩的时候碰不到的动作（Godot 自带的 ui_*，以及我们的 menu_*）。
+func _menu_only(action: StringName) -> bool:
+	var name := String(action)
+	return name.begins_with("ui_") or name.begins_with("menu_") or name.begins_with("p2_menu_")
+
+
 func has_axis(action: StringName, axis: JoyAxis, positive: bool) -> bool:
 	return InputMap.action_get_events(action).any(func(e): return e is InputEventJoypadMotion and e.axis == axis and (e.axis_value > 0.0) == positive)
 
@@ -70,9 +76,12 @@ func test_gamepad_layout() -> void:
 	check("shoot: RT", has_axis("shoot", JOY_AXIS_TRIGGER_RIGHT, true))
 	check("X is no longer a fire button", not has_button("shoot", JOY_BUTTON_X))
 	check("switch weapon: RB", has_button("switch_weapon", JOY_BUTTON_RIGHT_SHOULDER))
-	# 换武器挪到食指上（RB），拇指不用离开 A；X 空出来留给以后的动作
-	var game_actions := InputMap.get_actions().filter(func(a): return not String(a).begins_with("ui_"))
-	check("X is free now", game_actions.all(func(a): return not has_button(a, JOY_BUTTON_X)), str(game_actions.filter(func(a): return has_button(a, JOY_BUTTON_X))))
+	# 换武器挪到食指上（RB），拇指不用离开 A；X 空出来留给以后的动作。
+	# **玩的时候** X 上不许有动作——菜单里的删除（`menu_delete`）用的就是它，那是打完关卡才碰得到的界面，
+	# 和「打着打着误按 X」是两回事。
+	var game_actions := InputMap.get_actions().filter(func(a): return not _menu_only(a))
+	check("X is free during play", game_actions.all(func(a): return not has_button(a, JOY_BUTTON_X)), str(game_actions.filter(func(a): return has_button(a, JOY_BUTTON_X))))
+	check("and the menu's delete is what took it", has_button(&"menu_delete", JOY_BUTTON_X))
 	check("ultimate: Y", has_button("ultimate", JOY_BUTTON_Y))
 	check("aim up: left stick up / d-pad up", has_axis("aim_up", JOY_AXIS_LEFT_Y, false) and has_button("aim_up", JOY_BUTTON_DPAD_UP))
 	check("aim down: left stick down / d-pad down", has_axis("aim_down", JOY_AXIS_LEFT_Y, true) and has_button("aim_down", JOY_BUTTON_DPAD_DOWN))

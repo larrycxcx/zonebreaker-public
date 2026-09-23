@@ -115,6 +115,14 @@ def build_panel(write):
 STAT_ICONS = {"life": 16, "attack": 15, "defense": 18, "speed": 2}
 
 
+def build_title(write):
+    """主菜单上那块标题牌（`5 Logo/Logo1`，285×115，游戏名写在里面那格）。"""
+    _, _, art = sb.read_png(os.path.join(GUI, "5 Logo", "Logo1.png"))
+    if write:
+        sb.write_png(os.path.join(OUT, "title_plate.png"), art)
+    print("  title_plate.png")
+
+
 def build_bits(write):
     for name, number in STAT_ICONS.items():
         _, _, art = sb.read_png(os.path.join(GUI, "9 Other", "3 Skill icons", "Skillicon7_%02d.png" % number))
@@ -144,6 +152,7 @@ def main():
     print("界面素材：")
     build_font(write)
     build_panel(write)
+    build_title(write)
     build_bits(write)
     print("\n好了。" + ("" if write else "（--check：没有写文件）"))
 

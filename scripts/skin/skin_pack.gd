@@ -41,6 +41,7 @@ const SOUND_EVENTS := {
 
 ## 背景音乐的用途，以及什么时候放。
 const MUSIC_KEYS := {
+	&"intro": "主菜单",
 	&"level": "关卡里（关卡加载时开始，死了重开不会从头放）",
 	&"boss": "Boss 出场之后",
 }
