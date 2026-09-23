@@ -32,9 +32,14 @@ func launch(_direction: Vector2) -> void:
 	pass
 
 
+## 正在定格的终极武器都在这个组里。暂停菜单靠它知道「现在是终极武器在定格，别插进来」。
+const GROUP := &"ultimates"
+
+
 func _ready() -> void:
 	# 整棵树都会被暂停，这个节点自己得继续跑，才能在时间到了之后恢复。
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	add_to_group(GROUP)
 	_activate()
 
 

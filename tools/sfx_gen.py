@@ -146,6 +146,17 @@ SOUNDS = {
         voice("square", freq=620, freq_end=180, duration=0.28, duty=0.5, vibrato_depth=0.25, vibrato_speed=35),
         voice("noise", freq=3000, duration=0.08, volume=0.5, seed=3),
     ], 0.75),
+    "menu_move": ("菜单光标移动：一声轻轻的「嘀」", [
+        voice("square", freq=880, duration=0.045, duty=0.25, volume=0.8),
+    ], 0.35),
+    "menu_select": ("菜单确认：两个上行音", [
+        voice("square", duration=0.14, duty=0.5, decay=0.3,
+              notes=[(0.0, NOTE["E5"]), (0.06, NOTE["A5"])]),
+    ], 0.5),
+    "menu_back": ("菜单返回：两个下行音", [
+        voice("square", duration=0.14, duty=0.25, decay=0.3,
+              notes=[(0.0, NOTE["A4"]), (0.06, NOTE["E4"])]),
+    ], 0.45),
     "player_down": ("玩家倒地等人救（双人）：往下一沉，末尾留个还有救的尾音", [
         voice("square", freq=520, freq_end=150, duration=0.3, duty=0.25, vibrato_depth=0.15, vibrato_speed=14),
         voice("square", freq=190, freq_end=240, duration=0.22, duty=0.5, volume=0.45, offset=0.3),

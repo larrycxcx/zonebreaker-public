@@ -71,7 +71,7 @@ func test_every_sound_file_is_used() -> void:
 		else:
 			used[stream.resource_path] = true
 	var files := Array(DirAccess.get_files_at(DEFAULT_SKIN_DIR + "sfx")).filter(func(f): return f.ends_with(".wav")).map(func(f): return DEFAULT_SKIN_DIR + "sfx/" + f)
-	check("25 sound files in the default skin", files.size() == 25, str(files.size()))
+	check("28 sound files in the default skin", files.size() == 28, str(files.size()))
 	for f in files:
 		check("%s is used by the skin" % f.get_file(), used.has(f))
 	check("the skin references no missing files", used.keys().all(func(p): return FileAccess.file_exists(p)))
@@ -314,6 +314,19 @@ func test_going_down_and_being_picked_up_have_their_own_sounds() -> void:
 	await frames(3)
 	expect_events([&"player_revive"], "being picked up")
 	check("and that is heard too", Sfx.playing_count(&"player_revive") >= 1)
+
+
+func test_the_menu_clicks() -> void:
+	# 暂停菜单：打开、光标上下、返回，各有各的声音。菜单本身的行为在 test_menus.gd 里测。
+	await reset_scene()
+	events.clear()
+	await tap(&"pause")
+	expect_events([&"menu_select"], "opening the pause menu")
+	await tap(&"aim_down")
+	expect_events([&"menu_move"], "moving the cursor")
+	await tap(&"cancel")
+	expect_events([&"menu_back"], "backing out")
+	check("and the level is running again", not tree.paused)
 
 
 func test_sounds_outlive_the_level() -> void:

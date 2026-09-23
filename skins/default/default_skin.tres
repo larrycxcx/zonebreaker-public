@@ -5,6 +5,9 @@
 [ext_resource type="AudioStream" path="res://skins/default/sfx/jump.wav" id="jump"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/player_hurt.wav" id="player_hurt"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/player_death.wav" id="player_death"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/menu_move.wav" id="menu_move"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/menu_select.wav" id="menu_select"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/menu_back.wav" id="menu_back"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/player_down.wav" id="player_down"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/player_revive.wav" id="player_revive"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/stamina_exhausted.wav" id="stamina_exhausted"]
@@ -34,6 +37,9 @@ sounds = Dictionary[StringName, AudioStream]({
 &"player_hurt": ExtResource("player_hurt"),
 &"player_death": ExtResource("player_death"),
 &"player_down": ExtResource("player_down"),
+&"menu_move": ExtResource("menu_move"),
+&"menu_select": ExtResource("menu_select"),
+&"menu_back": ExtResource("menu_back"),
 &"player_revive": ExtResource("player_revive"),
 &"stamina_exhausted": ExtResource("stamina_exhausted"),
 &"enemy_shoot": ExtResource("enemy_shoot"),

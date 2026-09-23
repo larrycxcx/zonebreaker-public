@@ -24,13 +24,6 @@ func stand_on_platform() -> void:
 		"y=%.1f" % player.global_position.y)
 
 
-## 按一次某个动作（「刚按下」要按住两帧才成立，见 CLAUDE.md）。
-func tap(action: StringName) -> void:
-	Input.action_press(action)
-	await frames(2)
-	Input.action_release(action)
-
-
 func feet() -> float:
 	return player.global_position.y + 16.0
 

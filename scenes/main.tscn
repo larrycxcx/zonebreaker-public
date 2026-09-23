@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/enemy_walker_c.tscn" id="8"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_turret.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="19"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_chaser.tscn" id="9"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_flyer.tscn" id="10"]
 [ext_resource type="PackedScene" path="res://scenes/boss_a.tscn" id="11"]
@@ -143,3 +144,5 @@ limit_right = 1280
 limit_bottom = 360
 
 [node name="HUD" parent="." instance=ExtResource("6")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("19")]

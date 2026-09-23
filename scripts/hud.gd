@@ -190,12 +190,13 @@ func _on_boss_died() -> void:
 		_look.hide_boss()
 
 
-## 等级、经验、金钱、没分配的技能点（占位文字，第 5 步做正式的）。
+## 等级、经验、金钱、没分配的技能点（占位文字，正式 HUD 留到第 5 步最后一段）。
+## **一律英文大写**：菜单和 HUD 用的是同一套规矩（素材包的字模没有汉字，见 CLAUDE.md）。
 func _on_progress_changed() -> void:
 	var me := Progress.of(player_index)
-	var text := "Lv %d   XP %d/%d   $%d" % [me.level, me.xp, me.balance.xp_to_next(me.level), me.money]
+	var text := "LV %d   XP %d/%d   $%d" % [me.level, me.xp, me.balance.xp_to_next(me.level), me.money]
 	if me.points > 0:
-		text += "   +%d 技能点" % me.points
+		text += "   +%d PTS" % me.points
 	_progress_label.text = text
 
 

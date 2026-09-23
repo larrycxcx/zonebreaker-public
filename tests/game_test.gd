@@ -35,6 +35,16 @@ func frames(count: int) -> void:
 		await tree.physics_frame
 
 
+## 按一下就松（「每按一次触发一次」的动作：跳跃、切武器、菜单里的上下和确认）。
+## **要按住至少两帧**：`Input.action_press()` 模拟的按下要到**下一个物理帧**才算 just_pressed，
+## 只按一帧就松，轮到判定时键已经松了，什么也不会发生。
+func tap(action: StringName) -> void:
+	Input.action_press(action)
+	await frames(2)
+	Input.action_release(action)
+	await frames(1)
+
+
 ## 松开所有游戏动作（跳过引擎自带的 ui_*）。
 ## 直接遍历 InputMap 而不是用 ACTIONS 列表：新加了动作却忘了登记的话，
 ## 某条用例按下的键就会一直按着带进后面的用例（向上瞄准刚踩过这个坑）。
