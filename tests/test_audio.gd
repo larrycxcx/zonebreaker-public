@@ -71,7 +71,7 @@ func test_every_sound_file_is_used() -> void:
 		else:
 			used[stream.resource_path] = true
 	var files := Array(DirAccess.get_files_at(DEFAULT_SKIN_DIR + "sfx")).filter(func(f): return f.ends_with(".wav")).map(func(f): return DEFAULT_SKIN_DIR + "sfx/" + f)
-	check("23 sound files in the default skin", files.size() == 23, str(files.size()))
+	check("25 sound files in the default skin", files.size() == 25, str(files.size()))
 	for f in files:
 		check("%s is used by the skin" % f.get_file(), used.has(f))
 	check("the skin references no missing files", used.keys().all(func(p): return FileAccess.file_exists(p)))
@@ -297,6 +297,23 @@ func test_same_sound_is_capped() -> void:
 	check("at most %d copies of one sound at once" % Sfx.MAX_PER_EVENT, Sfx.playing_count(&"bullet_impact") == Sfx.MAX_PER_EVENT, str(Sfx.playing_count(&"bullet_impact")))
 	GameEvents.report(&"jump")
 	check("other sounds still get a player", Sfx.playing_count(&"jump") >= 1)
+
+
+func test_going_down_and_being_picked_up_have_their_own_sounds() -> void:
+	# 双人专用的两个时刻：倒地等人救、被队友拉起来。单人不会发生（血空了直接死）。
+	await reset_scene(false, false, null, 2)
+	player.global_position = Vector2(200, 304)
+	player2.global_position = Vector2(500, 304)
+	await frames(3)
+	events.clear()
+	player2.take_damage(player2.max_health)
+	await frames(2)
+	expect_events([&"player_down"], "going down")
+	check("and it is heard", Sfx.playing_count(&"player_down") >= 1)
+	player.global_position = player2.global_position
+	await frames(3)
+	expect_events([&"player_revive"], "being picked up")
+	check("and that is heard too", Sfx.playing_count(&"player_revive") >= 1)
 
 
 func test_sounds_outlive_the_level() -> void:

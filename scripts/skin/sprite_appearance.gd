@@ -131,6 +131,14 @@ func show_dead() -> void:
 	_refresh()
 
 
+## 又站起来了：倒地那组停在最后一帧，这里换回正常的动作。
+func revive() -> void:
+	if not _dead:
+		return
+	_dead = false
+	_refresh()
+
+
 ## 当前这一帧身体用的贴图名（测试用）。死亡优先于一切（趴着、在空中被打死都一样倒）。
 ## 趴着时：不动用静止那一帧，在挪就播爬行（走和跑都算挪——趴着本来也跑不起来）。
 func body_clip() -> StringName:

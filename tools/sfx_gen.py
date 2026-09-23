@@ -146,6 +146,14 @@ SOUNDS = {
         voice("square", freq=620, freq_end=180, duration=0.28, duty=0.5, vibrato_depth=0.25, vibrato_speed=35),
         voice("noise", freq=3000, duration=0.08, volume=0.5, seed=3),
     ], 0.75),
+    "player_down": ("玩家倒地等人救（双人）：往下一沉，末尾留个还有救的尾音", [
+        voice("square", freq=520, freq_end=150, duration=0.3, duty=0.25, vibrato_depth=0.15, vibrato_speed=14),
+        voice("square", freq=190, freq_end=240, duration=0.22, duty=0.5, volume=0.45, offset=0.3),
+    ], 0.7),
+    "player_revive": ("被队友拉起来：往上一挑的三音", [
+        voice("square", duration=0.3, duty=0.5, decay=0.4,
+              notes=[(0.0, NOTE["D4"]), (0.08, NOTE["A4"]), (0.16, NOTE["D5"])]),
+    ], 0.65),
     "player_death": ("玩家死亡：下行琶音后长长滑落", [
         voice("square", duration=0.36, duty=0.5, decay=0.5,
               notes=[(0.0, NOTE["C5"]), (0.09, NOTE["A4"]), (0.18, NOTE["F4"]), (0.27, NOTE["D4"])]),

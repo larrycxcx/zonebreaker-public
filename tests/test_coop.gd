@@ -155,6 +155,129 @@ func test_a_dead_player_neither_drags_the_camera_nor_gets_dragged() -> void:
 		"%.1f vs %.1f" % [camera_rig().global_position.x, player.global_position.x])
 
 
+# ---------------------------------------------------------------- 濒死与营救
+
+## 把两个人放到互相够不着的地方，免得刚倒地就被顺手救起来。
+func stand_apart() -> void:
+	player.global_position = Vector2(200, 304)
+	player2.global_position = Vector2(560, 304)
+	player.velocity = Vector2.ZERO
+	player2.velocity = Vector2.ZERO
+	snap_camera()
+	await frames(3)
+
+
+func test_solo_death_is_still_just_death() -> void:
+	# 一个人玩没人来救，倒地只会变成站着等死，所以单人根本不进这个状态。
+	await reset_scene()
+	player.take_damage(player.max_health)
+	await frames(2)
+	check("no downed state on your own", not player.is_downed())
+	check("the player is simply dead", not player.is_alive() and player.health == 0)
+
+
+func test_emptying_the_bar_in_co_op_puts_you_down_instead() -> void:
+	await reset_scene(false, false, null, 2)
+	await stand_apart()
+	var fell := []
+	player2.downed.connect(func() -> void: fell.append(true))
+	player2.take_damage(player2.max_health)
+	await frames(2)
+	check("the second player goes down", player2.is_downed() and fell.size() == 1, str(fell))
+	check("not dead yet", is_instance_valid(player2) and player2.health == 0)
+	check("but out of play", not player2.is_alive())
+	check("with a countdown running", player2.down_time_left() > 0.0 and player2.down_time_left() <= player2.down_time,
+		"%.1f" % player2.down_time_left())
+
+
+func test_a_downed_player_cannot_be_shot_or_moved() -> void:
+	await reset_scene(false, false, null, 2)
+	await stand_apart()
+	player2.take_damage(player2.max_health)
+	# 先让倒计时走掉半秒，这样「被打了一下又回到满格」一眼就看得出来
+	await frames(30)
+	var left := player2.down_time_left()
+	var spot := player2.global_position
+	player2.take_damage(HIT)
+	Input.action_press("p2_move_right")
+	Input.action_press("p2_shoot")
+	await frames(10)
+	release_all_input()
+	check("a stray shot takes nothing off", player2.health == 0, str(player2.health))
+	check("and does not put the countdown back to the top",
+		player2.down_time_left() < left and player2.down_time_left() < player2.down_time - 0.4,
+		"满格 %.1f，挨打前 %.2f，挨打后 %.2f" % [player2.down_time, left, player2.down_time_left()])
+	check("and they cannot walk away", absf(player2.global_position.x - spot.x) < 2.0,
+		str(player2.global_position - spot))
+	check("nor fire", bullets(4).is_empty(), str(bullets(4).size()))
+
+
+func test_enemies_leave_a_downed_player_alone() -> void:
+	await reset_scene(true, false, null, 2)
+	keep_only_enemies(["ChaserD"])
+	var d: EnemyChaser = main.get_node("Enemies/ChaserD")
+	d.global_position = Vector2(600, 306)
+	d.velocity = Vector2.ZERO
+	player.global_position = Vector2(300, 304)
+	player2.global_position = Vector2(700, 304)
+	snap_camera()
+	await frames(5)
+	check("setup: it is going for the nearer (second) player", d.velocity.x > 0.0, "vx %.1f" % d.velocity.x)
+	player2.take_damage(player2.max_health)
+	await frames(5)
+	check("once they are down it turns to the one still standing", d.velocity.x < 0.0, "vx %.1f" % d.velocity.x)
+
+
+func test_a_team_mate_who_walks_over_picks_you_up() -> void:
+	await reset_scene(false, false, null, 2)
+	await stand_apart()
+	player2.take_damage(player2.max_health)
+	await frames(2)
+	check("setup: down", player2.is_downed())
+	player.global_position = player2.global_position + Vector2(16, 0)
+	await frames(3)
+	check("standing next to them brings them back", not player2.is_downed() and player2.is_alive())
+	check("with half a bar", player2.health == int(player2.max_health * player2.revive_health_ratio),
+		"%d / %d" % [player2.health, player2.max_health])
+	check("and a moment of safety", player2.is_invincible())
+
+
+func test_nobody_comes_and_the_countdown_runs_out() -> void:
+	await reset_scene(false, false, null, 2)
+	await stand_apart()
+	player2.down_time = 0.3 # 别让用例等十秒
+	player2.take_damage(player2.max_health)
+	await frames(2)
+	check("setup: down, not dead", player2.is_downed())
+	for i in 60:
+		await tree.physics_frame
+		if not player2.is_downed():
+			break
+	check("the countdown finishes the job", not player2.is_downed() and player2.health == 0)
+	check("and now they are really dead", not player2.is_alive() and events.has(&"player_death"))
+
+
+func test_the_level_only_restarts_once_both_are_out() -> void:
+	await reset_scene(false, false, null, 2)
+	await stand_apart()
+	player.down_time = 0.2
+	player2.down_time = 0.2
+	player.take_damage(player.max_health)
+	# 等久一点：1 号的倒计时走完、真死了，连 game_over 该响的那半秒也过了
+	await frames(90)
+	check("setup: the first player really is dead", not player.is_alive() and not player.is_downed(),
+		"alive %s, downed %s" % [player.is_alive(), player.is_downed()])
+	check("but the team mate is still standing, so the level goes on", not events.has(&"game_over"), str(events))
+	player2.take_damage(player2.max_health)
+	await frames(5)
+	check("the second one is only down, still no game over", player2.is_downed() and not events.has(&"game_over"), str(events))
+	for i in 120:
+		await tree.physics_frame
+		if events.has(&"game_over"):
+			break
+	check("only once nobody is left", events.has(&"game_over"), str(events))
+
+
 # ---------------------------------------------------------------- 左右两套 HUD
 
 const CYBERPUNK := "res://skins/cyberpunk/cyberpunk_skin.tres"
@@ -234,9 +357,17 @@ func test_the_shared_parts_show_up_once() -> void:
 	await frames(2)
 	check("the boss bar is on the first player's HUD", (main.get_node("HUD/BossBar") as Control).visible)
 	check("and never on the second's", not (main.get_node("HUD2/BossBar") as Control).visible)
-	player.take_damage(player.health)
-	player2.take_damage(player2.health)
-	await frames(2)
+	# 两个人都倒下、倒计时也走完（双人时血空了是倒地，不是直接死）
+	player.down_time = 0.05
+	player2.down_time = 0.05
+	player.take_damage(player.max_health)
+	player2.take_damage(player2.max_health)
+	for i in 60:
+		await tree.physics_frame
+		if not player.is_alive() and not player.is_downed() and not player2.is_downed():
+			break
+	check("setup: both are really dead", not player.is_downed() and not player2.is_downed()
+		and player.health == 0 and player2.health == 0)
 	check("the death message shows once", (main.get_node("HUD/Message") as Label).visible
 		and not (main.get_node("HUD2/Message") as Label).visible)
 

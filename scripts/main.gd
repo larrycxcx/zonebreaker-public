@@ -18,7 +18,8 @@ func _ready() -> void:
 	_add_backdrop()
 	# 关卡里的音乐；死了重开时已经在放同一首就接着放，不会从头来（见 Music）
 	Music.play(&"level")
-	_player.died.connect(_on_player_died)
+	for node in get_tree().get_nodes_in_group(&"player"):
+		(node as Player).died.connect(_on_player_died)
 
 
 ## 双人时在 1 号旁边放一个 2 号：同一个玩家场景，`player_index` = 1（读 p2_ 那套输入、用自己那份进度）。
@@ -58,7 +59,18 @@ func _add_backdrop() -> void:
 	move_child(backdrop, 0)
 
 
+## 谁都不剩了才算输：还有人站着、或者有人正倒在地上等救，这一关就还没完（双人）。
+func _anyone_left() -> bool:
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var player := node as Player
+		if player != null and (player.is_alive() or player.is_downed()):
+			return true
+	return false
+
+
 func _on_player_died() -> void:
+	if _anyone_left():
+		return
 	await get_tree().create_timer(game_over_delay).timeout
 	GameEvents.report(&"game_over", self)
 	await get_tree().create_timer(respawn_delay - game_over_delay).timeout

@@ -111,6 +111,11 @@ func show_dead() -> void:
 	modulate = Color(0.5, 0.5, 0.5, 1.0)
 
 
+## 又站起来了（双人的濒死被队友救起来）。`show_dead()` 的反面；敌人不会用到（它们死了就删）。
+func revive() -> void:
+	modulate = Color.WHITE
+
+
 func _apply_offset() -> void:
 	position = _pose_offset + _kick
 

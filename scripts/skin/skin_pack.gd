@@ -15,6 +15,8 @@ const SOUND_EVENTS := {
 	&"jump": "玩家起跳",
 	&"player_hurt": "玩家掉血（没死）",
 	&"player_death": "玩家血量归零",
+	&"player_down": "双人：玩家血量归零但还能救，倒在地上等队友",
+	&"player_revive": "双人：队友走过来把倒地的人拉起来",
 	&"stamina_exhausted": "玩家体力跑光",
 	&"enemy_shoot": "巡逻兵 A/B/C 开枪（每颗子弹一次，B 连发时响多次）",
 	&"turret_shoot": "炮台开火",

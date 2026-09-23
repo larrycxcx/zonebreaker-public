@@ -5,6 +5,8 @@
 [ext_resource type="AudioStream" path="res://skins/default/sfx/jump.wav" id="jump"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/player_hurt.wav" id="player_hurt"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/player_death.wav" id="player_death"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/player_down.wav" id="player_down"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/player_revive.wav" id="player_revive"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/stamina_exhausted.wav" id="stamina_exhausted"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/enemy_shoot.wav" id="enemy_shoot"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/turret_shoot.wav" id="turret_shoot"]
@@ -31,6 +33,8 @@ sounds = Dictionary[StringName, AudioStream]({
 &"jump": ExtResource("jump"),
 &"player_hurt": ExtResource("player_hurt"),
 &"player_death": ExtResource("player_death"),
+&"player_down": ExtResource("player_down"),
+&"player_revive": ExtResource("player_revive"),
 &"stamina_exhausted": ExtResource("stamina_exhausted"),
 &"enemy_shoot": ExtResource("enemy_shoot"),
 &"turret_shoot": ExtResource("turret_shoot"),

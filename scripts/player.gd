@@ -4,6 +4,10 @@ extends CharacterBody2D
 
 signal health_changed(health: int, max_health: int)
 signal died
+## 血空了但还没真死，正倒在地上等队友来救（只有双人时会发生）。
+signal downed
+## 被队友拉起来了。
+signal revived
 signal stamina_changed(stamina: float, max_stamina: float)
 ## 切换武器（或当前这把被换掉）时发出，HUD 接这个。
 signal weapon_switched(index: int, weapon: Weapon)
@@ -18,6 +22,16 @@ var max_health := 0
 @export var invincible_time := 1.0
 ## 受伤时被顶开的速度（水平方向背离伤害源）。
 @export var hurt_knockback := Vector2(140, -240)
+
+@export_group("Downed")
+## 倒地之后还能撑多久（秒）。撑完就真死了。**只在双人时会进这个状态**——
+## 一个人玩没人来救，倒地只会变成站着等死。
+@export var down_time := 10.0
+## 队友走到这么近（像素，身体原点之间）就自动把人拉起来。不用按键。
+@export var revive_range := 28.0
+## 救起来回多少血（占上限的比例），外加一小段无敌免得刚起来又被同一发子弹打倒。
+@export var revive_health_ratio := 0.5
+@export var revive_grace := 1.0
 
 @export_group("Movement")
 @export var move_speed := 180.0
@@ -116,6 +130,9 @@ var _invincible_timer := 0.0
 ## 不闪烁的无敌（终极武器用）。暂停期间玩家的计时也停着，所以它能覆盖整个定格。
 var _shield_timer := 0.0
 var _dead := false
+## 濒死（双人专用）：血空了先倒地，队友走过来就能拉起来，没人来救、倒计时走完才真的死。
+var _downed := false
+var _down_timer := 0.0
 ## 身上的异常状态（中毒、麻痹……）。持续伤害走 take_status_damage，不触发无敌、不击退。
 var statuses := StatusEffects.new()
 ## 防御属性（挨打时减伤）。
@@ -147,8 +164,19 @@ func act(action: StringName) -> StringName:
 
 
 ## 还活着吗（敌人找目标、摄像机跟随、双人的重开判断都看它）。
+## **倒地的也算不活着**：敌人因此不再打他，一种敌人的代码都不用改。
 func is_alive() -> bool:
-	return not _dead
+	return not _dead and not _downed
+
+
+## 正倒在地上等人救（双人专用）。
+func is_downed() -> bool:
+	return _downed
+
+
+## 还能撑多久（秒）。倒计时走完就真死了。
+func down_time_left() -> float:
+	return _down_timer
 
 
 func _ready() -> void:
@@ -182,10 +210,12 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if _dead:
+	if _dead or _downed:
 		_apply_gravity(delta)
 		velocity.x = move_toward(velocity.x, 0.0, friction * delta)
 		move_and_slide()
+		if _downed:
+			_update_downed(delta)
 		return
 
 	_apply_gravity(delta)
@@ -561,14 +591,14 @@ func _apply_stats() -> void:
 
 ## 挂一个异常状态（子弹、手雷打中时调）。抗性来自身上的装备（自己那份进度的 resistance）。
 func apply_status(effect: StatusEffect) -> void:
-	if _dead or effect == null:
+	if _dead or _downed or effect == null:
 		return
 	statuses.apply(effect, progress.resistance(effect.id))
 
 
 ## 异常状态的持续伤害：不吃防御、不触发无敌时间、不击退（防它靠抗性）。
 func take_status_damage(amount: int) -> void:
-	if _dead or amount <= 0:
+	if _dead or _downed or amount <= 0:
 		return
 	health -= amount
 	health_changed.emit(health, max_health)
@@ -580,12 +610,14 @@ func take_status_damage(amount: int) -> void:
 ## `from` 是打人的那一方，玩家这边用不上（敌人用它记奖励算谁的），但签名要和敌人的一模一样——
 ## `Bullet` 是靠 `has_method("take_damage")` 找目标的，两边必须同名同签名。
 func take_damage(amount: int, source_position := Vector2.INF, _from: Node = null) -> void:
-	if _dead or is_invincible():
+	# 倒地的人打不动：敌人本来就不瞄他（is_alive 是 false），但流弹和贴身伤害还是会撞上来，
+	# 不拦的话倒计时会被一次次刷新。
+	if _dead or _downed or is_invincible():
 		return
 	health -= Balance.damage_taken(amount, _defense)
 	health_changed.emit(health, max_health)
 	if health <= 0:
-		_die()
+		_go_down()
 		return
 	GameEvents.report(&"player_hurt", self)
 	_invincible_timer = invincible_time
@@ -595,8 +627,51 @@ func take_damage(amount: int, source_position := Vector2.INF, _from: Node = null
 	velocity = Vector2(hurt_knockback.x * away, hurt_knockback.y)
 
 
+## 血空了：双人时先倒地等人救，单人直接死。
+func _go_down() -> void:
+	if Session.player_count < 2:
+		_die()
+		return
+	_downed = true
+	health = 0
+	_down_timer = down_time
+	velocity.x = 0.0
+	if is_crouching:
+		_set_crouching(false)
+	_visual.show_dead()
+	downed.emit()
+	GameEvents.report(&"player_down", self)
+
+
+## 倒地时每帧：队友走到跟前就自动拉起来，没人来就倒计时，撑完真死。
+func _update_downed(delta: float) -> void:
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var mate := node as Player
+		if mate != null and mate != self and mate.is_alive() 				and global_position.distance_to(mate.global_position) <= revive_range:
+			revive()
+			return
+	_down_timer -= delta
+	if _down_timer <= 0.0:
+		_die()
+
+
+## 被队友拉起来：回一半血，给一小段无敌，接着打。
+func revive() -> void:
+	if not _downed:
+		return
+	_downed = false
+	_down_timer = 0.0
+	health = maxi(1, int(max_health * revive_health_ratio))
+	health_changed.emit(health, max_health)
+	_visual.revive()
+	grant_invincibility(revive_grace)
+	revived.emit()
+	GameEvents.report(&"player_revive", self)
+
+
 func _die() -> void:
 	_dead = true
+	_downed = false
 	health = 0
 	_visual.show_dead()
 	died.emit()
