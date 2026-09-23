@@ -24,8 +24,10 @@ const ROW_COUNT := 9
 
 ## 头像格比裁出来的那块（`UiKit.PORTRAIT_CROP`）各边大 2px，人整个装在框里。
 const PORTRAIT := Vector2(30, 43)
-## 装备格比图标（32×32）各边大 1px，图标不会顶出格子。
-const SLOT := Vector2(34, 34)
+## 装备格：图标 32×32、里头的内容最大 30×30，格子做到 36 图标四周才留得出两三像素。
+## 34 的时候图标四角正好压在描边上，看着就是「东西太大装不下」；
+## 再大就挤不下了——一栏总共就 338 高，八个格子两行，上面还有名字、头像、四个属性。
+const SLOT := Vector2(36, 36)
 const SLOTS_PER_LINE := 4
 
 ## 一栏里每一块从上往下摆在哪（相对窗口顶边）。挤是挤了点，但两栏要同时塞进 640×360。
@@ -33,8 +35,10 @@ const TITLE_Y := 18.0
 const NAME_Y := 38.0
 const LOOK_Y := 64.0
 const STATS_Y := 114.0
-const POINTS_Y := 190.0
-const GEAR_Y := 208.0
+## 属性一行占多高。字模换小之后 16 就够了，省下来的给装备格。
+const STAT_STEP := 16.0
+const POINTS_Y := 186.0
+const GEAR_Y := 204.0
 const DETAIL_Y := 282.0
 const FOOT_Y := 300.0
 
@@ -105,7 +109,7 @@ func build(player: Player, index: int, taken_look: StringName) -> void:
 	_level = UiKit.label("", Rect2(beside, LOOK_Y + 12.0, left + wide - beside, 18.0), UiKit.GOLD)
 	add_child(_level)
 	for i in Balance.STATS.size():
-		var top := STATS_Y + i * 18.0
+		var top := STATS_Y + i * STAT_STEP
 		var stat: StringName = Balance.STATS[i]
 		var colour: Color = UiKit.STAT_COLORS.get(stat, UiKit.WHITE)
 		add_child(UiKit.picture("%s/stat_%s.png" % [UiKit.DIR, stat], Vector2(left + 10.0, top - 7.0), colour))
@@ -125,7 +129,9 @@ func build(player: Player, index: int, taken_look: StringName) -> void:
 	for i in Equipment.Slot.size():
 		var at := slot_rect(i).position
 		add_child(UiKit.box(Rect2(at, SLOT)))
-		var icon := UiKit.picture("", at - Vector2(1.0, 1.0))
+		# 图标在格子正中：(36 - 32) / 2 = 2。原先写的是 at - 1，
+		# 整张图往左上顶出一格、四角压在描边上，看着就是「太大装不下」。
+		var icon := UiKit.picture("", at + Vector2(2.0, 2.0))
 		add_child(icon)
 		_slot_icons.append(icon)
 	_detail = UiKit.label("", Rect2(left, DETAIL_Y, wide, 18.0), UiKit.CYAN)
@@ -146,6 +152,9 @@ func build(player: Player, index: int, taken_look: StringName) -> void:
 	_menu.chosen.connect(_on_chosen)
 	_menu.cancelled.connect(_on_cancelled)
 	_menu.nudged.connect(_on_nudged)
+	# 换行也要重画：属性行的 `<` `>`、SHOP / ACCEPT 的亮暗都跟着光标在哪走。
+	# （`go_to_row()` 自己会调 refresh，所以只用按键走的那条路缺这一下——测试差点没抓到。）
+	_menu.moved.connect(func(_index: int) -> void: refresh())
 	set_taken_look(taken_look)
 
 
@@ -208,8 +217,15 @@ func refresh() -> void:
 	var picked := progress.gear(slot)
 	_detail.text = picked.display_name if picked != null else "%s EMPTY" % Equipment.SLOT_NAMES[slot]
 	_detail_stats.text = _bonus_text(picked)
-	_shop.add_theme_color_override("font_color", UiKit.WHITE if progress.money > 0 else UiKit.DIM.darkened(0.3))
-	_accept.add_theme_color_override("font_color", UiKit.GREEN if confirmed else UiKit.WHITE)
+	# **只有光标那一行是亮的**：SHOP / ACCEPT 一直画成纯白的话，它们比金框还抢眼，
+	# 读档进来名字又是淡的，看上去就像光标默认停在 ACCEPT 上。
+	var on_shop := _menu != null and _menu.index == Row.SHOP
+	var on_accept := _menu != null and _menu.index == Row.ACCEPT
+	var broke := progress.money <= 0
+	_shop.add_theme_color_override("font_color",
+		UiKit.DIM.darkened(0.3) if broke else (UiKit.WHITE if on_shop else UiKit.DIM))
+	_accept.add_theme_color_override("font_color",
+		UiKit.GREEN if confirmed else (UiKit.WHITE if on_accept else UiKit.DIM))
 	# 装备那一行的选中框框的是**当前那一格**，所以挪格子要重新给一遍
 	if _menu != null:
 		_menu.row_boxes = _boxes()
@@ -234,7 +250,7 @@ func _boxes() -> Array[Rect2]:
 	boxes.append(Rect2(_left - 3.0, NAME_Y - 2.0, _wide + 6.0, 26.0))
 	boxes.append(Rect2(_left - 3.0, LOOK_Y - 3.0, PORTRAIT.x * 3.0 + 16.0 + 6.0, PORTRAIT.y + 6.0))
 	for i in Balance.STATS.size():
-		boxes.append(Rect2(_left - 3.0, STATS_Y + i * 18.0 - 1.0, _wide + 6.0, 20.0))
+		boxes.append(Rect2(_left - 3.0, STATS_Y + i * STAT_STEP - 1.0, _wide + 6.0, STAT_STEP + 4.0))
 	boxes.append(slot_rect(slot).grow(2.0))
 	boxes.append(Rect2(_left - 3.0, FOOT_Y - 1.0, _wide / 2.0, 20.0))
 	boxes.append(Rect2(_left + _wide / 2.0 - 3.0, FOOT_Y - 1.0, _wide / 2.0 + 6.0, 20.0))

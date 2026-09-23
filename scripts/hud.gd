@@ -76,6 +76,11 @@ func _use_pixel_font() -> void:
 	# 关卡里的天空挺亮的，白字糊在上面看不清；金色和别的 HUD 零件也是一路的
 	_progress_label.add_theme_color_override("font_color", UiKit.GOLD)
 	_progress_label.add_theme_font_size_override("font_size", UiKit.TEXT_SIZE)
+	# 背后垫一层暗影：HUD 的字是直接压在关卡画面上的，天空一亮笔画就糊成一团。
+	# 位图字体描不了边（引擎的描边要字模自带轮廓数据），影子是把同一张图再画一遍，管用。
+	_progress_label.add_theme_color_override("font_shadow_color", Color(0.04, 0.05, 0.11, 0.95))
+	_progress_label.add_theme_constant_override("shadow_offset_x", 1)
+	_progress_label.add_theme_constant_override("shadow_offset_y", 1)
 
 
 ## 素材包有 HUD 外观就装上，占位方块改成透明（不画，但照常更新）。

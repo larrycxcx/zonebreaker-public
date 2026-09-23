@@ -205,6 +205,14 @@ func test_the_hud_writes_in_the_pixel_font() -> void:
 		"" if font == null else font.resource_path)
 	check("in gold, not white", label.get_theme_color("font_color") == UiKit.GOLD,
 		str(label.get_theme_color("font_color")))
+	# HUD 的字直接压在关卡画面上，天空一亮笔画就糊成一团，背后得垫一层暗影。
+	# **看颜色，不能只看偏移**：Label 自带的主题里偏移本来就是 1，是影子的颜色默认全透明。
+	var shade := label.get_theme_color("font_shadow_color")
+	check("with a shadow behind it that is dark and solid",
+		shade.get_luminance() < 0.2 and shade.a > 0.5, str(shade))
+	check("and offset off the glyph", label.get_theme_constant("shadow_offset_x") > 0
+		and label.get_theme_constant("shadow_offset_y") > 0,
+		"%d,%d" % [label.get_theme_constant("shadow_offset_x"), label.get_theme_constant("shadow_offset_y")])
 
 
 func test_the_progress_line_leaves_room_for_the_other_player() -> void:

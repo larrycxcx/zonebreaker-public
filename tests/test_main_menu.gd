@@ -445,6 +445,51 @@ func test_the_look_you_picked_is_not_marked_in_gold() -> void:
 	check("in a colour the cursor never uses", mark.color != UiKit.GOLD)
 
 
+func test_only_the_row_you_are_on_is_lit_up() -> void:
+	# ACCEPT 一直画成纯白的话，它比金框还抢眼——读档进来名字是淡的，看上去就像光标停在 ACCEPT 上。
+	# **用按键走，不用 go_to_row**：换行时重画是单独接的一条线，go_to_row 自己会 refresh，走那条路测不出来。
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	check("setup: starting on the name", column.row() == SetupColumn.Row.NAME)
+	check("accept is not lit up yet", column._accept.get_theme_color("font_color") == UiKit.DIM,
+		str(column._accept.get_theme_color("font_color")))
+	for i in SetupColumn.Row.ACCEPT:
+		await press(&"aim_down")
+	check("setup: walked down to accept", column.row() == SetupColumn.Row.ACCEPT, str(column.row()))
+	check("now it lights up", column._accept.get_theme_color("font_color") == UiKit.WHITE,
+		str(column._accept.get_theme_color("font_color")))
+	await press(&"aim_up")
+	check("and goes back down when you leave", column._shop.get_theme_color("font_color") != UiKit.DIM
+		or column._accept.get_theme_color("font_color") == UiKit.DIM)
+
+
+func test_the_stat_arrows_follow_the_keys_too() -> void:
+	# 同上：走按键那条路，确认换行真的会重画（`go_to_row` 那条路会掩盖掉漏接的信号）
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await press(&"aim_down")              # NAME -> LOOK
+	await press(&"aim_down")              # LOOK -> 第一个属性
+	check("setup: on the first stat", column.row() == SetupColumn.Row.STAT, str(column.row()))
+	check("its arrow showed up", column._stat_rows[0]["more"].visible)
+	await press(&"aim_down")
+	check("and moves off with the cursor", not column._stat_rows[0]["more"].visible)
+	check("onto the next one", column._stat_rows[1]["more"].visible)
+
+
+func test_the_gear_icon_sits_inside_its_slot() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	var slot := column.slot_rect(Equipment.Slot.GUN)
+	var icon: TextureRect = column._slot_icons[Equipment.Slot.GUN]
+	check("setup: there is a gun to show", icon.texture != null)
+	var size: Vector2 = icon.texture.get_size()
+	check("the icon is inside the frame", icon.position.x > slot.position.x
+		and icon.position.y > slot.position.y
+		and icon.position.x + size.x < slot.end.x
+		and icon.position.y + size.y < slot.end.y,
+		"%s %s vs %s" % [icon.position, size, slot])
+
+
 func test_the_gear_row_walks_the_slots() -> void:
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
@@ -455,6 +500,18 @@ func test_the_gear_row_walks_the_slots() -> void:
 	await press(&"move_left")
 	await press(&"move_left")
 	check("and it wraps around", column.slot == Equipment.Slot.TRINKET, str(column.slot))
+
+
+func test_a_loaded_character_starts_at_the_top_of_the_column() -> void:
+	await open_menu()
+	var mine := Progress.create("RYU")
+	await choose(0)                       # 1 PLAYER
+	await choose(1)                       # LOAD
+	await choose(menu.listed().find(mine))
+	await frames(2)
+	var column: SetupColumn = menu.setup().columns()[0]
+	check("the cursor is on the first row, not on ACCEPT", column.row() == SetupColumn.Row.NAME,
+		str(column.row()))
 
 
 func test_a_loaded_character_cannot_be_renamed() -> void:
