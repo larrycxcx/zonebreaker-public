@@ -1,7 +1,7 @@
-"""从原始素材包生成赛博朋克皮肤包的玩家贴图，一个玩家一个目录（skins/cyberpunk/player、player2）。
+"""从原始素材包生成赛博朋克皮肤包的玩家贴图，一个角色一个目录（skins/cyberpunk/biker、punk、cyborg）。
 
-    python tools/skin_build.py            # 两个玩家都重新生成
-    python tools/skin_build.py player2    # 只生成 2 号玩家（Punk）
+    python tools/skin_build.py            # 三个角色都重新生成
+    python tools/skin_build.py cyborg     # 只生成一个
     python tools/skin_build.py --check    # 只检查有没有内容被画布切掉，不写文件
 
 素材来源是 CraftPix 那套「Free Guns for Cyberpunk Characters」，解压在 art_in/default/
@@ -32,12 +32,14 @@ SRC = os.path.join(HERE, "..", "art_in", "default")
 OWN = os.path.join(HERE, "..", "art_src")
 SKIN = os.path.join(HERE, "..", "skins", "cyberpunk")
 
-# 哪个皮肤键用哪个角色。1 号玩家是 Biker，2 号是 Punk——双人同屏时两个人得看得出区别。
+# 皮肤键 → 素材里的角色。**键就是角色名，不是「1 号玩家 / 2 号玩家」**：
+# 外观是角色自己的属性（存在档案里），2 号玩家照样可以选 Biker。
 # 三个角色在素材包里规格完全一样（48×48、同样的 10 张手臂、同一套动作名），所以除了名字什么都不用改。
 # 死亡动画各自在自己的文件夹里（`<角色>_death.png`）。
 CHARACTERS = {
-	"player": "1 Biker",
-	"player2": "2 Punk",
+	"biker": "1 Biker",
+	"punk": "2 Punk",
+	"cyborg": "3 Cyborg",
 }
 
 # 下面这三个是「当前正在生成哪个角色」，由 use_character() 切换。
@@ -405,16 +407,21 @@ def restyle(art, colors):
 
 
 def torso_x(art):
-	"""上衣（粉红那几种颜色）的横向中心。"""
+	"""上衣（粉红那几种颜色）的横向中心。
+
+	**要在贴调色板之前量**：自己画的那张趴姿上衣是粉的，贴完某个角色的调色板可能一点粉都不剩
+	（Cyborg 就是），那时候按颜色找就什么也找不到。对齐是画出来的事，和换成谁的颜色无关。
+	"""
 	xs = [x for row in art for x, c in enumerate(row) if c[3] and c[0] > 160 and c[1] < 90]
 	return sum(xs) / len(xs)
 
 
-def place_prone(art, where):
+def place_prone(art, where, middle):
+	"""`middle` 是这一帧上衣的横向中心，从**没贴调色板的原图**上量（见 torso_x）。"""
 	frame = blank(FRAME, FRAME)
 	bottom = max(y for y, row in enumerate(art) if any(c[3] for c in row))
 	# 躯干对准原点前方 PRONE_TORSO_X，最低那一行落在原点下方 16px（和站姿同一条地面线）
-	blit(frame, art, ANCHOR[0] + PRONE_TORSO_X - int(round(torso_x(art))), ANCHOR[1] + 16 - 1 - bottom, where)
+	blit(frame, art, ANCHOR[0] + PRONE_TORSO_X - int(round(middle)), ANCHOR[1] + 16 - 1 - bottom, where)
 	return frame
 
 
@@ -429,9 +436,11 @@ def build_death(write):
 
 def build_prone(write):
 	colors = palette()
-	frames = [restyle(f, colors) for f in prone_frames()]
-	still = [place_prone(frames[PRONE_STILL], "crouch")]
-	crawl = [place_prone(frames[i], "crawl 第%d帧" % (i + 1)) for i in PRONE_CRAWL]
+	source = prone_frames()
+	middles = [torso_x(f) for f in source]      # 在原图上量，贴完调色板就量不着了
+	frames = [restyle(f, colors) for f in source]
+	still = [place_prone(frames[PRONE_STILL], "crouch", middles[PRONE_STILL])]
+	crawl = [place_prone(frames[i], "crawl 第%d帧" % (i + 1), middles[i]) for i in PRONE_CRAWL]
 	save_strip("body_crouch_r.png", still, write)
 	save_strip("body_crouch_l.png", [mirror(f) for f in still], write)
 	save_strip("body_crawl_r.png", crawl, write)

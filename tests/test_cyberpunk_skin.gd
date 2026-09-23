@@ -7,7 +7,7 @@ extends GameTest
 ## 贴图由 tools/skin_build.py 生成，改素材后要重新跑它。
 
 const SKIN := "res://skins/cyberpunk/cyberpunk_skin.tres"
-const ART_DIR := "res://skins/cyberpunk/player"
+const ART_DIR := "res://skins/cyberpunk/biker"
 const FRAME := 56
 
 ## 生成出来应该有的贴图：每个动作、每个瞄准方向，各一套朝左朝右。
@@ -366,67 +366,74 @@ func test_no_clip_brings_its_own_arms() -> void:
 
 # ---------------------------------------------------------------- 2 号玩家（Punk）
 
-## 2 号玩家那套贴图。同一个生成脚本、同样的规格，只是素材换成了 Punk。
-const ART_DIR_2 := "res://skins/cyberpunk/player2"
+## 另外两个可选角色的贴图。同一个生成脚本、同样的规格，只是素材换了个人。
+const ART_DIR_2 := "res://skins/cyberpunk/punk"
+const ART_DIR_3 := "res://skins/cyberpunk/cyborg"
 
 
-func test_the_second_player_gets_a_full_set_of_their_own() -> void:
-	var missing := []
-	for clip in BODY_CLIPS:
-		for side in ["r", "l"]:
-			var path := "%s/body_%s_%s.png" % [ART_DIR_2, clip, side]
-			if not ResourceLoader.exists(path):
-				missing.append(path)
-	for look: StringName in GUN_LOOKS:
-		for aim in AIM_CLIPS:
+func test_every_character_gets_a_full_set_of_their_own() -> void:
+	for dir_ in [ART_DIR_2, ART_DIR_3]:
+		var missing := []
+		for clip in BODY_CLIPS:
 			for side in ["r", "l"]:
-				var path := "%s/arms_%s_%s_%s.png" % [ART_DIR_2, look, aim, side]
+				var path := "%s/body_%s_%s.png" % [dir_, clip, side]
 				if not ResourceLoader.exists(path):
 					missing.append(path)
-	check("the second player has every clip the first one has", missing.is_empty(), str(missing))
+		for look: StringName in GUN_LOOKS:
+			for aim in AIM_CLIPS:
+				for side in ["r", "l"]:
+					var path := "%s/arms_%s_%s_%s.png" % [dir_, look, aim, side]
+					if not ResourceLoader.exists(path):
+						missing.append(path)
+		check("%s has every clip the first one has" % dir_.get_file(), missing.is_empty(), str(missing))
 
 
-func test_the_second_player_looks_like_someone_else() -> void:
-	# 同屏两个人得看得出谁是谁，所以这套图必须真的不一样（指错目录就会指回 1 号那套）。
-	var differ := 0
-	for clip in ["idle", "walk", "run"]:
-		var one := (load("%s/body_%s_r.png" % [ART_DIR, clip]) as Texture2D).get_image()
-		var two := (load("%s/body_%s_r.png" % [ART_DIR_2, clip]) as Texture2D).get_image()
-		if one.get_data() != two.get_data():
-			differ += 1
-	check("the two players are drawn as different people", differ == 3, "%d / 3 组不同" % differ)
+func test_the_three_characters_look_like_three_people() -> void:
+	# 同屏两个人得看得出谁是谁，三套图必须两两不同（指错目录就会指回同一套）。
+	for pair in [[ART_DIR, ART_DIR_2], [ART_DIR, ART_DIR_3], [ART_DIR_2, ART_DIR_3]]:
+		var differ := 0
+		for clip in ["idle", "walk", "run"]:
+			var one := (load("%s/body_%s_r.png" % [pair[0], clip]) as Texture2D).get_image()
+			var two := (load("%s/body_%s_r.png" % [pair[1], clip]) as Texture2D).get_image()
+			if one.get_data() != two.get_data():
+				differ += 1
+		check("%s and %s are different people" % [pair[0].get_file(), pair[1].get_file()], differ == 3,
+			"%d / 3 组不同" % differ)
 
 
-func test_the_second_player_lines_up_exactly_like_the_first() -> void:
+func test_every_character_lines_up_exactly_like_the_first() -> void:
 	# 换个角色不能把判定挪了：锚点是贴图和玩法之间唯一的接缝，两套图必须放在同一个位置上，
 	# 否则 2 号的子弹会从别的高度飞出来。
-	# 只比站在地上的那几组：空中的姿势本来就收着腿，两个角色收得不一样多，那是画的，不是放错了
-	for clip in ["idle", "walk", "run"]:
-		var one := ink_box(load("%s/body_%s_r.png" % [ART_DIR, clip]) as Texture2D)
-		var two := ink_box(load("%s/body_%s_r.png" % [ART_DIR_2, clip]) as Texture2D)
-		check("%s: the feet stand on the same line" % clip, one.end.y == two.end.y,
-			"%d vs %d" % [one.end.y, two.end.y])
-	var arms_one := ink_box(load("%s/arms_rifle_level_r.png" % ART_DIR) as Texture2D)
-	var arms_two := ink_box(load("%s/arms_rifle_level_r.png" % ART_DIR_2) as Texture2D)
-	check("the gun reaches out to the same place", arms_one == arms_two, "%s vs %s" % [arms_one, arms_two])
+	# 只比站在地上的那几组：空中的姿势本来就收着腿，各人收得不一样多，那是画的，不是放错了
+	for dir_ in [ART_DIR_2, ART_DIR_3]:
+		for clip in ["idle", "walk", "run"]:
+			var one := ink_box(load("%s/body_%s_r.png" % [ART_DIR, clip]) as Texture2D)
+			var two := ink_box(load("%s/body_%s_r.png" % [dir_, clip]) as Texture2D)
+			check("%s %s: the feet stand on the same line" % [dir_.get_file(), clip], one.end.y == two.end.y,
+				"%d vs %d" % [one.end.y, two.end.y])
+		var arms_one := ink_box(load("%s/arms_rifle_level_r.png" % ART_DIR) as Texture2D)
+		var arms_two := ink_box(load("%s/arms_rifle_level_r.png" % dir_) as Texture2D)
+		check("%s: the gun reaches out to the same place" % dir_.get_file(), arms_one == arms_two,
+			"%s vs %s" % [arms_one, arms_two])
 
 
-func test_the_second_players_art_is_mirrored_too() -> void:
-	for clip in ["idle", "walk", "crouch"]:
-		var right := (load("%s/body_%s_r.png" % [ART_DIR_2, clip]) as Texture2D).get_image()
-		var left := (load("%s/body_%s_l.png" % [ART_DIR_2, clip]) as Texture2D).get_image()
-		var same := true
-		for y in right.get_height():
-			for x in right.get_width():
-				var frame := x / FRAME
-				var mirrored := frame * FRAME + 2 * SpriteAppearance.ANCHOR_X - (x - frame * FRAME)
-				if mirrored < frame * FRAME or mirrored >= (frame + 1) * FRAME:
-					continue
-				var a := right.get_pixel(x, y)
-				var b := left.get_pixel(mirrored, y)
-				if a.a != b.a or (a.a > 0.0 and a != b):
-					same = false
-		check("%s: left is the mirror of right around the anchor" % clip, same)
+func test_the_other_characters_art_is_mirrored_too() -> void:
+	for dir_ in [ART_DIR_2, ART_DIR_3]:
+		for clip in ["idle", "walk", "crouch"]:
+			var right := (load("%s/body_%s_r.png" % [dir_, clip]) as Texture2D).get_image()
+			var left := (load("%s/body_%s_l.png" % [dir_, clip]) as Texture2D).get_image()
+			var same := true
+			for y in right.get_height():
+				for x in right.get_width():
+					var frame := x / FRAME
+					var mirrored := frame * FRAME + 2 * SpriteAppearance.ANCHOR_X - (x - frame * FRAME)
+					if mirrored < frame * FRAME or mirrored >= (frame + 1) * FRAME:
+						continue
+					var a := right.get_pixel(x, y)
+					var b := left.get_pixel(mirrored, y)
+					if a.a != b.a or (a.a > 0.0 and a != b):
+						same = false
+			check("%s %s: left is the mirror of right around the anchor" % [dir_.get_file(), clip], same)
 
 
 # ---------------------------------------------------------------- 接上去以后
@@ -730,8 +737,8 @@ func test_the_pack_only_overrides_what_has_been_drawn() -> void:
 	var drawn := pack.appearances.keys().map(func(k: StringName) -> String: return String(k))
 	drawn.sort()
 	check("it overrides the player, every enemy, every projectile and the terrain",
-		drawn == ["boss_a", "boss_bullet", "chaser", "enemy_bullet", "enemy_grenade", "flyer", "flyer_bullet", "grenadier", "player",
-			"player2", "player_bullet", "player_grenade", "terrain_ground", "terrain_ledge", "terrain_stone",
+		drawn == ["biker", "boss_a", "boss_bullet", "chaser", "cyborg", "enemy_bullet", "enemy_grenade", "flyer", "flyer_bullet",
+			"grenadier", "player_bullet", "player_grenade", "punk", "terrain_ground", "terrain_ledge", "terrain_stone",
 			"turret", "turret_bullet", "walker_a", "walker_b", "walker_c"],
 		str(drawn))
 	var effects := pack.effects.keys().map(func(k: StringName) -> String: return String(k))

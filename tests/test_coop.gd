@@ -157,8 +157,8 @@ func test_a_dead_player_neither_drags_the_camera_nor_gets_dragged() -> void:
 
 # ---------------------------------------------------------------- 2 号玩家长什么样
 
-func test_the_second_player_wears_a_different_character() -> void:
-	# 同屏两个人得看得出谁是谁：2 号用素材包里的另一个角色（Punk）。
+func test_the_two_players_wear_different_characters() -> void:
+	# 同屏两个人得看得出谁是谁：两个座位默认拿两套不同的外观。
 	var skin := load(CYBERPUNK) as SkinPack
 	await reset_scene(false, false, skin, 2)
 	var one: Node = player.get_node("Visual")
@@ -166,8 +166,28 @@ func test_the_second_player_wears_a_different_character() -> void:
 	check("both are wearing the pack's sprites", one is SpriteAppearance and two is SpriteAppearance)
 	check("but not the same character", one.get(&"art_dir") != two.get(&"art_dir"),
 		"%s / %s" % [one.get(&"art_dir"), two.get(&"art_dir")])
-	check("and the second one is the second player's set", String(two.get(&"art_dir")).ends_with("player2"),
-		str(two.get(&"art_dir")))
+	check("each wears what their own character says", String(one.get(&"art_dir")).ends_with(String(player.progress.look))
+		and String(two.get(&"art_dir")).ends_with(String(player2.progress.look)),
+		"%s / %s" % [player.progress.look, player2.progress.look])
+
+
+func test_the_look_comes_from_the_character_not_the_seat() -> void:
+	# 外观是角色自己的属性：1 号玩家照样可以是 Punk。
+	var skin := load(CYBERPUNK) as SkinPack
+	await reset_scene(false, false, skin, 1)
+	check("setup: the first seat starts on the default look", player.progress.look == &"biker", str(player.progress.look))
+	# 换个外观再重开这一关（进度不重置，就像菜单里选完角色进关一样）
+	Progress.of(0).look = &"cyborg"
+	free_scene()
+	main = load("res://scenes/main.tscn").instantiate()
+	tree.root.add_child(main)
+	player = main.get_node("Player")
+	for enemy in enemies():
+		enemy.free()
+	await frames(2)
+	check("the first player wears what their character picked",
+		String(player.get_node("Visual").get(&"art_dir")).ends_with("cyborg"),
+		str(player.get_node("Visual").get(&"art_dir")))
 
 
 func test_a_different_character_changes_nothing_about_the_rules() -> void:

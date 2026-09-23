@@ -34,7 +34,7 @@ func test_keys_cover_everyone() -> void:
 	actors.append_array(enemies())
 	# 每个角色用的是哪个键要对得上，不能漏填（漏填会退回基类默认的 walker，画面上看不出来）
 	var expected := {
-		"Player": &"player", "WalkerA": &"walker_a", "WalkerB": &"walker_b", "WalkerC": &"walker_c",
+		"Player": PlayerProgress.DEFAULT_LOOK, "WalkerA": &"walker_a", "WalkerB": &"walker_b", "WalkerC": &"walker_c",
 		"WalkerF": &"grenadier", "Turret1": &"turret", "Turret2": &"turret",
 		"FlyerE": &"flyer", "ChaserD": &"chaser", "BossA": &"boss_a",
 	}
@@ -55,7 +55,7 @@ func test_default_skin_leaves_the_built_in_art_alone() -> void:
 
 func test_a_skin_replaces_a_character_s_appearance() -> void:
 	# 换上只提供「玩家外观」的包：玩家换皮，敌人保持原样
-	await reset_scene(true, false, make_skin({&"player": scene_of(STUB)}))
+	await reset_scene(true, false, make_skin({PlayerProgress.DEFAULT_LOOK: scene_of(STUB)}))
 	keep_only_enemies(["WalkerA"])
 	await frames(5)
 	var skinned: Node = player.get_node("Visual")
@@ -104,7 +104,7 @@ func test_a_broken_skin_does_not_break_the_game() -> void:
 	var node := Node2D.new()
 	not_an_appearance.pack(node)
 	node.free()
-	await reset_scene(false, false, make_skin({&"player": not_an_appearance}))
+	await reset_scene(false, false, make_skin({PlayerProgress.DEFAULT_LOOK: not_an_appearance}))
 	await frames(10)
 	check("kept the built-in appearance", player.get_node("Visual") is Appearance)
 	Input.action_press("move_right")
@@ -115,7 +115,7 @@ func test_a_broken_skin_does_not_break_the_game() -> void:
 
 func test_appearances_fall_back_through_the_chain() -> void:
 	# 包 A 提供玩家外观，包 B 自己什么都没有、fallback 指向 A：用 B 也要拿到 A 的外观
-	var pack_a := make_skin({&"player": scene_of(STUB)})
+	var pack_a := make_skin({PlayerProgress.DEFAULT_LOOK: scene_of(STUB)})
 	var pack_b := make_skin()
 	pack_b.fallback = pack_a
 	await reset_scene(false, false, pack_b)

@@ -149,8 +149,9 @@ var _stamina_regen_timer := 0.0
 var progress: PlayerProgress
 
 ## 外观层。玩法只调它的接口（朝向/姿势/瞄准/受击/闪烁/死亡/后坐力），不碰方块和颜色。
-## 素材包里有 `skin_key` 这套外观的话，`_ready` 里会换成它的（见 Skins.build_appearance）。
-@export var skin_key := &"player"
+## 外观用素材包里的哪一套（见 Skins.build_appearance）。**出生时会被自己那份进度里的 `look` 覆盖**——
+## 外观是角色自己的属性，不是座位的，2 号玩家照样可以选 Biker。
+@export var skin_key := &"biker"
 @onready var _visual: Appearance = $Visual
 @onready var _hurtbox: Area2D = $Hurtbox
 @onready var _shape: CollisionShape2D = $CollisionShape2D
@@ -180,9 +181,10 @@ func down_time_left() -> float:
 
 
 func _ready() -> void:
-	_visual = Skins.build_appearance(self, skin_key)
-	# 自己那一份成长进度（双人时两个人各一份，按编号取）
+	# 先拿自己那份进度：长什么样也记在里面（`look`），外观要按它来装
 	progress = Progress.of(player_index)
+	skin_key = progress.look
+	_visual = Skins.build_appearance(self, skin_key)
 	# 两个武器位用进度里身上装备的那两把（枪、手雷）；进度里没有就用场景里配的
 	var gun := progress.gear(Equipment.Slot.GUN) as Weapon
 	var grenade := progress.gear(Equipment.Slot.GRENADE) as Weapon
