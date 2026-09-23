@@ -151,6 +151,24 @@ func buy(item: Equipment) -> bool:
 	return true
 
 
+## 脱下某个位置的装备（东西还在背包里）。本来就空着就什么都不做。
+func unequip(slot: Equipment.Slot) -> bool:
+	if not equipped.has(slot):
+		return false
+	equipped.erase(slot)
+	_changed(true)
+	return true
+
+
+## 背包里能装在这个位置上的东西（人物设置界面里换装备时列的就是它）。
+func fits(slot: Equipment.Slot) -> Array[Equipment]:
+	var found: Array[Equipment] = []
+	for item in owned:
+		if item.slot == slot:
+			found.append(item)
+	return found
+
+
 ## 穿上背包里的一件装备（同一位置原来那件留在背包里）。
 func equip(item: Equipment) -> bool:
 	if item == null or not owned.has(item):

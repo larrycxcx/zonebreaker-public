@@ -235,6 +235,97 @@ func test_a_loaded_character_cannot_be_renamed() -> void:
 	check("and the name is locked", not menu.setup().columns()[0].can_rename)
 
 
+# ---------------------------------------------------------------- 改名字
+
+func test_typing_a_name_on_the_letter_grid() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	# 打字是接着现有名字打的（可以小改），所以先把名字弄短一点再测
+	column.progress.character_name = "X"
+	await at_row(column, SetupColumn.Row.NAME)
+	await press(&"jump")
+	check("the letter grid is up", column.grid() != null)
+	check("and the column stops listening", column.busy())
+	# 光标从 A 开始：A，右一格是 B，再往下一行是 H（一行 6 个）
+	await press(&"jump")
+	await press(&"move_right")
+	await press(&"jump")
+	await press(&"aim_down")
+	await press(&"jump")
+	check("the letters land in order", column.grid().text == "XABH", column.grid().text)
+	# 退格那一格在最后一行中间
+	column.grid()._cursor = column.grid()._cells.find(LetterGrid.BACK)
+	await press(&"jump")
+	check("and delete takes one off", column.grid().text == "XAB", column.grid().text)
+	await press(&"cancel")
+	check("backing out closes the grid", column.grid() == null and not column.busy())
+	check("and keeps what was typed", column.progress.character_name == "XAB", column.progress.character_name)
+
+
+func test_a_name_that_is_taken_is_refused() -> void:
+	await open_menu()
+	Progress.create("AB")
+	await choose(0)
+	await choose(0)
+	await frames(2)
+	var column: SetupColumn = menu.setup().columns()[0]
+	column.progress.character_name = "A"
+	var before := column.progress.character_name
+	await at_row(column, SetupColumn.Row.NAME)
+	await press(&"jump")
+	await press(&"move_right")
+	await press(&"jump")                      # 打成 AB，而 AB 已经有人用了
+	check("setup: typed a name somebody already has", column.grid().text == "AB", column.grid().text)
+	await press(&"cancel")
+	check("the old name stays", column.progress.character_name == before, column.progress.character_name)
+
+
+func test_a_loaded_name_cannot_be_typed_over() -> void:
+	await open_menu()
+	var mine := Progress.create("RYU")
+	await choose(0)
+	await choose(1)
+	await choose(menu.listed().find(mine))
+	await frames(2)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.NAME)
+	await press(&"jump")
+	check("no grid for a loaded character", column.grid() == null)
+
+
+# ---------------------------------------------------------------- 换装备
+
+func test_swapping_what_is_in_a_slot() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.GEAR)
+	check("setup: the gun slot has the rifle", column.progress.gear(Equipment.Slot.GUN) != null)
+	await press(&"jump")
+	check("the bag opens", column.bag() != null and column.busy())
+	await press(&"jump")                      # 第一项是 NONE
+	check("picking none empties the slot", column.progress.gear(Equipment.Slot.GUN) == null)
+	check("and the bag closes", column.bag() == null and not column.busy())
+	await press(&"jump")
+	await press(&"aim_down")
+	await press(&"jump")                      # 再选回来
+	check("the rifle goes back on", column.progress.gear(Equipment.Slot.GUN) != null,
+		str(column.progress.gear(Equipment.Slot.GUN)))
+
+
+func test_an_empty_slot_only_offers_none() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.GEAR)
+	for i in Equipment.Slot.HEAD:
+		await press(&"move_right")
+	check("setup: on the head slot", column.slot == Equipment.Slot.HEAD, str(column.slot))
+	await press(&"jump")
+	check("the bag opens with nothing to wear", column.bag() != null and column.bag()._items.size() == 1,
+		str(column.bag()._items if column.bag() != null else []))
+	await press(&"cancel")
+	check("and closes again", column.bag() == null)
+
+
 func test_everyone_has_to_accept_before_the_level_starts() -> void:
 	await reach_setup(2)
 	var one: SetupColumn = menu.setup().columns()[0]
