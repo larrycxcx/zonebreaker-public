@@ -31,14 +31,16 @@ const SLOT := Vector2(36, 36)
 const SLOTS_PER_LINE := 4
 
 ## 一栏里每一块从上往下摆在哪（相对窗口顶边）。挤是挤了点，但两栏要同时塞进 640×360。
-const TITLE_Y := 18.0
-const NAME_Y := 38.0
-const LOOK_Y := 64.0
-const STATS_Y := 114.0
-## 属性一行占多高。字模换小之后 16 就够了，省下来的给装备格。
-const STAT_STEP := 16.0
+const TITLE_Y := 16.0
+const NAME_Y := 34.0
+const LOOK_Y := 60.0
+const STATS_Y := 106.0
+## 属性一行占多高。**由图标说了算，不是由字说了算**：字只有 10px 高，但属性图标那 32×32 的图里
+## 画着的东西有 20px（`stat_*.png` 的 y 6..25）。行距 16 的时候上下两行的图标会叠在一起、
+## 选中的金框也盖到邻居的图标上（试玩截图里一眼就能看见）。
+const STAT_STEP := 20.0
 const POINTS_Y := 186.0
-const GEAR_Y := 204.0
+const GEAR_Y := 206.0
 const DETAIL_Y := 282.0
 const FOOT_Y := 300.0
 
@@ -112,7 +114,9 @@ func build(player: Player, index: int, taken_look: StringName) -> void:
 		var top := STATS_Y + i * STAT_STEP
 		var stat: StringName = Balance.STATS[i]
 		var colour: Color = UiKit.STAT_COLORS.get(stat, UiKit.WHITE)
-		add_child(UiKit.picture("%s/stat_%s.png" % [UiKit.DIR, stat], Vector2(left + 10.0, top - 7.0), colour))
+		# 图标 32×32、里面画着的那块在 y 6..25，摆在 top - 6 正好把一行 20px 填满、不越界
+		var icon := UiKit.picture("%s/stat_%s.png" % [UiKit.DIR, stat], Vector2(left + 10.0, top - 6.0), colour)
+		add_child(icon)
 		var name_label := UiKit.label(STAT_LABELS[stat], Rect2(left + 46.0, top, 90.0, 18.0), UiKit.DIM)
 		var value := UiKit.label("", Rect2(left + 122.0, top, 56.0, 18.0), colour, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT)
 		var bonus := UiKit.label("", Rect2(left + 202.0, top, 46.0, 18.0), UiKit.GOLD)
@@ -121,7 +125,8 @@ func build(player: Player, index: int, taken_look: StringName) -> void:
 		var more := UiKit.label(">", Rect2(left + 182.0, top, 14.0, 18.0), UiKit.GOLD, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
 		for node in [name_label, value, bonus, less, more]:
 			add_child(node)
-		_stat_rows.append({"name": name_label, "value": value, "bonus": bonus, "less": less, "more": more})
+		_stat_rows.append({"name": name_label, "value": value, "bonus": bonus, "less": less,
+			"more": more, "icon": icon})
 	_points = UiKit.label("", Rect2(left, POINTS_Y, wide, 18.0), UiKit.GOLD)
 	add_child(_points)
 	_money = UiKit.label("", Rect2(left, POINTS_Y, wide, 18.0), UiKit.GREEN, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT)
@@ -149,6 +154,10 @@ func build(player: Player, index: int, taken_look: StringName) -> void:
 	_menu.build(_blank(ROW_COUNT), WIDTH)
 	_menu.position = Vector2.ZERO
 	_menu.row_boxes = _boxes()
+	# **读档进来直接停在 ACCEPT 上**：名字改不了，点数和装备都是上次留下的，
+	# 多半是按一下就开打；要改什么再往上走。新建的角色照旧从第一行（名字）开始。
+	if not can_rename:
+		_menu.index = Row.ACCEPT
 	_menu.chosen.connect(_on_chosen)
 	_menu.cancelled.connect(_on_cancelled)
 	_menu.nudged.connect(_on_nudged)
@@ -250,7 +259,7 @@ func _boxes() -> Array[Rect2]:
 	boxes.append(Rect2(_left - 3.0, NAME_Y - 2.0, _wide + 6.0, 26.0))
 	boxes.append(Rect2(_left - 3.0, LOOK_Y - 3.0, PORTRAIT.x * 3.0 + 16.0 + 6.0, PORTRAIT.y + 6.0))
 	for i in Balance.STATS.size():
-		boxes.append(Rect2(_left - 3.0, STATS_Y + i * STAT_STEP - 1.0, _wide + 6.0, STAT_STEP + 4.0))
+		boxes.append(Rect2(_left - 3.0, STATS_Y + i * STAT_STEP - 1.0, _wide + 6.0, STAT_STEP))
 	boxes.append(slot_rect(slot).grow(2.0))
 	boxes.append(Rect2(_left - 3.0, FOOT_Y - 1.0, _wide / 2.0, 20.0))
 	boxes.append(Rect2(_left + _wide / 2.0 - 3.0, FOOT_Y - 1.0, _wide / 2.0 + 6.0, 20.0))

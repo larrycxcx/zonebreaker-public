@@ -490,6 +490,42 @@ func test_the_gear_icon_sits_inside_its_slot() -> void:
 		"%s %s vs %s" % [icon.position, size, slot])
 
 
+## 一张图里真正画着东西的那几行（从贴图上数出来，换了图这条测试跟着变）。
+func ink_rows(texture: Texture2D) -> Vector2:
+	var image := texture.get_image()
+	var top := -1.0
+	var bottom := -1.0
+	for y in image.get_height():
+		for x in image.get_width():
+			if image.get_pixel(x, y).a > 0.0:
+				if top < 0.0:
+					top = y
+				bottom = y
+				break
+	return Vector2(top, bottom)
+
+
+func test_the_stat_rows_leave_room_for_their_icons() -> void:
+	# 行距是**图标**说了算，不是字：字才 10px 高，属性图标里画着的东西有 20px。
+	# 挨太近的话上下两行的图标会叠在一起，选中的金框也会盖到邻居的图标上。
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	var boxes: Array[Rect2] = []
+	for i in Balance.STATS.size():
+		var icon: TextureRect = column._stat_rows[i]["icon"]
+		var rows := ink_rows(icon.texture)
+		var top: float = icon.position.y + rows.x
+		var bottom: float = icon.position.y + rows.y
+		var box := column._menu.highlight_box(SetupColumn.Row.STAT + i)
+		boxes.append(box)
+		check("row %d's box holds its whole icon" % i, box.position.y <= top and box.end.y >= bottom,
+			"icon %.0f..%.0f vs box %.0f..%.0f" % [top, bottom, box.position.y, box.end.y])
+	for i in boxes.size() - 1:
+		check("row %d's box does not reach into the next one" % i,
+			boxes[i].end.y <= boxes[i + 1].position.y,
+			"%.0f > %.0f" % [boxes[i].end.y, boxes[i + 1].position.y])
+
+
 func test_the_gear_row_walks_the_slots() -> void:
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
@@ -502,7 +538,8 @@ func test_the_gear_row_walks_the_slots() -> void:
 	check("and it wraps around", column.slot == Equipment.Slot.TRINKET, str(column.slot))
 
 
-func test_a_loaded_character_starts_at_the_top_of_the_column() -> void:
+func test_a_loaded_character_starts_on_accept() -> void:
+	# 读档进来多半是「就这样，开打」，所以光标直接停在 ACCEPT 上，按一下就走。
 	await open_menu()
 	var mine := Progress.create("RYU")
 	await choose(0)                       # 1 PLAYER
@@ -510,8 +547,28 @@ func test_a_loaded_character_starts_at_the_top_of_the_column() -> void:
 	await choose(menu.listed().find(mine))
 	await frames(2)
 	var column: SetupColumn = menu.setup().columns()[0]
-	check("the cursor is on the first row, not on ACCEPT", column.row() == SetupColumn.Row.NAME,
-		str(column.row()))
+	check("the cursor waits on accept", column.row() == SetupColumn.Row.ACCEPT, str(column.row()))
+	check("and it is the lit-up row", column._accept.get_theme_color("font_color") == UiKit.WHITE,
+		str(column._accept.get_theme_color("font_color")))
+	await press(&"jump")
+	check("so one press is enough to start", column.confirmed)
+	# 单人按下去就直接进关卡了，两样都得收干净（见 test_finishing_the_last_seat_starts_the_level）
+	for i in 30:
+		await tree.physics_frame
+		if tree.current_scene != null:
+			break
+	if is_instance_valid(menu):
+		menu.free()
+	tree.unload_current_scene()
+	main = null
+	menu = null
+
+
+func test_a_new_character_starts_at_the_top_of_the_column() -> void:
+	# 新建的什么都还没填，从名字那一行开始
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	check("the cursor is on the first row", column.row() == SetupColumn.Row.NAME, str(column.row()))
 
 
 func test_a_loaded_character_cannot_be_renamed() -> void:
