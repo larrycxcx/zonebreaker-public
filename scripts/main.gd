@@ -14,6 +14,7 @@ extends Node2D
 
 func _ready() -> void:
 	_add_players()
+	_add_huds()
 	_add_backdrop()
 	# 关卡里的音乐；死了重开时已经在放同一首就接着放，不会从头来（见 Music）
 	Music.play(&"level")
@@ -30,6 +31,20 @@ func _add_players() -> void:
 	add_child(second)
 	move_child(second, _player.get_index() + 1)
 	second.global_position = _player.global_position + second_player_offset
+
+
+## 双人时给 2 号也来一套 HUD，摆在屏幕右边。Boss 血条和死亡提示是两个人共用的，只由左边那套显示，
+## 否则两套会叠在一起（`shows_shared`）。
+func _add_huds() -> void:
+	if Session.player_count < 2:
+		return
+	var hud := $HUD as CanvasLayer
+	var second := (load(hud.scene_file_path) as PackedScene).instantiate()
+	second.name = "HUD2"
+	second.player_index = 1
+	second.mirrored = true
+	second.shows_shared = false
+	add_child(second)
 
 
 ## 当前素材包有背景就放到最底下（第一个子节点最先画）。纯显示，没有就用项目的清屏色。

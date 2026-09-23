@@ -155,6 +155,92 @@ func test_a_dead_player_neither_drags_the_camera_nor_gets_dragged() -> void:
 		"%.1f vs %.1f" % [camera_rig().global_position.x, player.global_position.x])
 
 
+# ---------------------------------------------------------------- 左右两套 HUD
+
+const CYBERPUNK := "res://skins/cyberpunk/cyberpunk_skin.tres"
+
+
+func huds() -> Array:
+	return main.get_children().filter(func(node: Node) -> bool: return node is CanvasLayer and node.has_method("look"))
+
+
+func bar_of(hud_name: String) -> ColorRect:
+	return main.get_node("%s/HealthBar" % hud_name) as ColorRect
+
+
+func test_two_players_get_two_huds() -> void:
+	await reset_scene()
+	check("solo has one HUD", huds().size() == 1, str(huds().size()))
+	await reset_scene(false, false, null, 2)
+	check("co-op has two", huds().size() == 2, str(huds().size()))
+	check("one for each player",
+		main.get_node("HUD").player_index == 0 and main.get_node("HUD2").player_index == 1)
+
+
+func test_the_two_huds_sit_on_opposite_sides() -> void:
+	await reset_scene(false, false, null, 2)
+	var left := bar_of("HUD")
+	var right := bar_of("HUD2")
+	check("the first player's bar is on the left half", left.position.x + left.size.x < 320.0,
+		"%.0f..%.0f" % [left.position.x, left.position.x + left.size.x])
+	check("the second player's is on the right half", right.position.x > 320.0,
+		"%.0f..%.0f" % [right.position.x, right.position.x + right.size.x])
+	check("and they are the same size", is_equal_approx(left.size.x, right.size.x), "%.0f vs %.0f" % [left.size.x, right.size.x])
+
+
+func test_the_skinned_hud_is_mirrored_too() -> void:
+	# 素材包的 HUD 外观是另一棵树，镜像要一起做，否则右边那套画面还留在左边
+	var skin := load(CYBERPUNK) as SkinPack
+	await reset_scene(false, false, skin, 2)
+	check("setup: the pack really brought a HUD look", main.get_node("HUD").look() != null)
+	var left: Control = main.get_node("HUD").look()
+	var right: Control = main.get_node("HUD2").look()
+	check("the second player's art moved to the right", right.position.x > left.position.x + 200.0,
+		"%.0f vs %.0f" % [left.position.x, right.position.x])
+	# 它画出来的东西也跟着走了：武器槽是外观里的节点，位置按外观根节点算
+	var slot_left: Control = left.get_node("WeaponSlot")
+	var slot_right: Control = right.get_node("WeaponSlot")
+	check("so does what it draws", slot_right.global_position.x > slot_left.global_position.x + 200.0,
+		"%.0f vs %.0f" % [slot_left.global_position.x, slot_right.global_position.x])
+
+
+func test_each_hud_shows_its_own_player() -> void:
+	await reset_scene(false, false, null, 2)
+	var fill_one: ColorRect = main.get_node("HUD/HealthBar/Fill")
+	var fill_two: ColorRect = main.get_node("HUD2/HealthBar/Fill")
+	var before := [fill_one.size.x, fill_two.size.x]
+	check("setup: both bars start full", before[0] == before[1] and before[0] > 0.0, str(before))
+	player2.take_damage(HIT)
+	await frames(2)
+	check("hurting the second player shortens only their bar",
+		fill_two.size.x < before[1] and fill_one.size.x == before[0],
+		"P1 %.0f->%.0f, P2 %.0f->%.0f" % [before[0], fill_one.size.x, before[1], fill_two.size.x])
+
+
+func test_each_hud_shows_its_own_progress() -> void:
+	await reset_scene(false, false, null, 2)
+	Progress.of(1).add_money(42)
+	await frames(2)
+	var one: Label = main.get_node("HUD/ProgressLabel")
+	var two: Label = main.get_node("HUD2/ProgressLabel")
+	check("the second player's purse shows on their own HUD", two.text.contains("$42"), two.text)
+	check("and not on the first player's", not one.text.contains("$42"), one.text)
+
+
+func test_the_shared_parts_show_up_once() -> void:
+	await reset_scene(true, false, null, 2)
+	keep_only_enemies(["BossA"])
+	(main.get_node("Enemies/BossA") as Boss).appear()
+	await frames(2)
+	check("the boss bar is on the first player's HUD", (main.get_node("HUD/BossBar") as Control).visible)
+	check("and never on the second's", not (main.get_node("HUD2/BossBar") as Control).visible)
+	player.take_damage(player.health)
+	player2.take_damage(player2.health)
+	await frames(2)
+	check("the death message shows once", (main.get_node("HUD/Message") as Label).visible
+		and not (main.get_node("HUD2/Message") as Label).visible)
+
+
 # ---------------------------------------------------------------- 各存各的成长进度
 
 const SAVE_FOR_TEST := "user://test_coop_progress.json"

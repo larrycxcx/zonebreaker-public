@@ -95,7 +95,10 @@ func test_appears_once_with_hud_and_sound() -> void:
 	check("appear sound played", played.has(&"boss_appear"))
 	Sfx.sound_played.disconnect(on_played)
 	check("HUD bar shown", bar().visible)
-	check("HUD bar in the top-right corner", bar().position.x > 400 and bar().position.y < 40)
+	# 血条在正上方居中：双人时屏幕两边各有一套玩家 HUD，中间才是 Boss 的位置
+	var middle: float = bar().position.x + bar().size.x / 2.0
+	check("HUD bar across the top middle", absf(middle - 320.0) < 24.0 and bar().position.y < 40,
+		"中心 %.0f, y %.0f" % [middle, bar().position.y])
 	var portrait: TextureRect = main.get_node("HUD/BossBar/Portrait")
 	check("HUD shows the boss portrait", portrait.texture == boss.portrait)
 	check("health bar full", is_equal_approx(fill_ratio(), 1.0))

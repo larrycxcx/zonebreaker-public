@@ -5,6 +5,9 @@ extends CanvasLayer
 ## 这里只管「显示什么」。场景自带的是占位方块；当前素材包有 HUD 外观（`SkinPack.hud`，比如 SpriteHud）时，
 ## 同样的状态会转交给外观去画，占位方块照常更新（测试和逻辑都读它们）但不再画出来——和角色换皮肤同一个思路。
 
+## 两个人共用、只由左边那套显示的部分（Boss 血条、死亡提示）。右边那套既不显示也不跟着挪。
+const SHARED_PARTS := ["BossBar", "Message"]
+
 const STAMINA_READY := Color(0.45, 0.85, 0.4)
 ## 体力低于能重新起跑的门槛时变色，提示玩家现在跑不动。
 const STAMINA_TIRED := Color(0.85, 0.5, 0.25)
@@ -12,6 +15,10 @@ const STAMINA_TIRED := Color(0.85, 0.5, 0.25)
 var _ultimate_pips: Array[ColorRect] = []
 ## 这套 HUD 显示第几号玩家（双人时左右各一套）。
 @export var player_index := 0
+## 摆在屏幕右边（2 号玩家那套）：场景是按左边画的，这里把每一块横向镜像过去。
+@export var mirrored := false
+## 显示两个人共用的那些（Boss 血条、死亡提示）。双人时只有左边那套显示，否则两套叠在一起。
+@export var shows_shared := true
 
 var _player: Player
 ## 右上角正在显示的 Boss。
@@ -37,7 +44,10 @@ func _ready() -> void:
 	_message.hide()
 	_boss_bar.hide()
 	_add_look()
-	GameEvents.boss_appeared.connect(_on_boss_appeared)
+	if mirrored:
+		_mirror()
+	if shows_shared:
+		GameEvents.boss_appeared.connect(_on_boss_appeared)
 	Progress.of(player_index).progress_changed.connect(_on_progress_changed)
 	_on_progress_changed()
 	var player: Player = null
@@ -70,6 +80,41 @@ func _add_look() -> void:
 	add_child(_look)
 	for placeholder: CanvasItem in [_health_bar, _stamina_bar, _weapon_icon, _ultimate_row, _boss_bar]:
 		placeholder.modulate.a = 0.0
+
+
+## 把这套 HUD 整体挪到屏幕另一边（2 号玩家那套）。
+## **整块一起挪、不逐个镜像**：素材包的 HUD 外观（SpriteHud）里血条、体力条是脚本按坐标画出来的，不是节点，
+## 逐个镜像就得让 `hud.gd` 知道人家内部怎么摆——那是外观自己的事。整块挪则不用知道，挪它的根节点就行。
+## 挪多远由场景自己说了算：左边那套离屏幕边多远，右边也留多远。
+## 共用的那几块（Boss 血条、死亡提示）不挪，它们归左边那套管。
+func _mirror() -> void:
+	var width := float(ProjectSettings.get_setting("display/window/size/viewport_width", 640))
+	var margin := _health_bar.offset_left
+	var panel := 0.0
+	for control in _movable():
+		panel = maxf(panel, control.offset_right)
+	var shift := width - margin - panel
+	for control in _movable():
+		control.offset_left += shift
+		control.offset_right += shift
+	if _look != null:
+		(_look as Control).position.x += shift
+	# 那行字（等级 / 经验 / 金钱）比别的宽得多，单独贴着右边、文字靠右
+	var label_width := _progress_label.offset_right - _progress_label.offset_left
+	_progress_label.offset_right = width - margin
+	_progress_label.offset_left = _progress_label.offset_right - label_width
+	_progress_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_ultimate_row.alignment = BoxContainer.ALIGNMENT_END
+
+
+## 跟着挪的那几块：自己场景里除了共用部分和那行字之外的顶层控件（那行字单独安排）。
+func _movable() -> Array[Control]:
+	var found: Array[Control] = []
+	for child in get_children():
+		var control := child as Control
+		if control != null and control != _progress_label and not SHARED_PARTS.has(String(control.name)):
+			found.append(control)
+	return found
 
 
 ## 素材包的 HUD 外观（测试用），没有返回 null。
@@ -155,4 +200,5 @@ func _on_progress_changed() -> void:
 
 
 func _on_player_died() -> void:
-	_message.show()
+	if shows_shared:
+		_message.show()
