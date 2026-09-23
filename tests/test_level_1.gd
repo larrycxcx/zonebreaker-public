@@ -50,6 +50,35 @@ func pits() -> Array[Vector2]:
 	return found
 
 
+## 悬在半空的实心块 = **矮通道顶块**：底边够不着地面，底下留出一条缝。
+## 竖墙和堵块是站在地上的（底边落到地面线），不算。
+func crawl_passages() -> Array:
+	var found := []
+	for node in terrain():
+		var slab := node as Platform
+		if slab.one_way or slab.position.y <= 0.0:
+			continue
+		if absf(slab.position.y - GROUND_Y) < 1.0:           # 地面自己
+			continue
+		if slab.position.y + slab.size.y < GROUND_Y - 1.0:   # 底下还有缝
+			found.append(slab)
+	return found
+
+
+## 站在地上的实心块：竖墙（16 宽，跳得过去）和**堵块**（比一跳还高，下面那条路走不通）。
+func standing_solids() -> Array:
+	var found := []
+	for node in terrain():
+		var slab := node as Platform
+		if slab.one_way or slab.position.y <= 0.0:
+			continue
+		if absf(slab.position.y - GROUND_Y) < 1.0:
+			continue
+		if slab.position.y + slab.size.y >= GROUND_Y - 1.0:
+			found.append(slab)
+	return found
+
+
 ## 能站人的面：(左, 右, 顶边)。地面按段算，单向浮台各算一块。
 func surfaces() -> Array:
 	var found := []
@@ -176,18 +205,35 @@ func jump_height() -> float:
 
 func test_the_crawl_passages_still_need_crouching() -> void:
 	await open_level()
-	var found := 0
-	for node in terrain():
+	var passages := crawl_passages()
+	check("setup: there are crawl passages", passages.size() >= 4, str(passages.size()))
+	for node in passages:
 		var slab := node as Platform
-		if slab.one_way or absf(slab.position.y - GROUND_Y) < 1.0 or slab.size.x < 32.0:
-			continue
-		if slab.position.y <= 0.0:                 # 关卡两头的立墙
-			continue
 		var clear := GROUND_Y - (slab.position.y + slab.size.y)
-		found += 1
 		check("%s leaves exactly the crawl gap" % slab.name, absf(clear - CRAWL_CLEAR) < 0.5,
 			"%.0f" % clear)
-	check("setup: there are crawl passages", found >= 2, str(found))
+
+
+func test_the_blocked_routes_really_block_and_really_have_a_way_over() -> void:
+	# 「底下堵死、必须走上面」是这一关的骨架之一：块本身要高过一次跳，
+	# 上面还得有一整块盖过去的浮台，否则那儿就是死路。
+	var top := await jump_height()
+	await open_level()
+	var blocks := []
+	for node in standing_solids():
+		var slab := node as Platform
+		if slab.size.y > top:
+			blocks.append(slab)
+	check("setup: the level blocks the low road somewhere", blocks.size() >= 3, str(blocks.size()))
+	for node in blocks:
+		var slab := node as Platform
+		var covered := false
+		for face in surfaces():
+			if face[2] <= slab.position.y - 16.0 and face[0] <= slab.position.x 					and face[1] >= slab.position.x + slab.size.x:
+				covered = true
+		check("%s has a ledge going over it" % slab.name, covered,
+			"block %.0f..%.0f, top %.0f" % [slab.position.x, slab.position.x + slab.size.x,
+				slab.position.y])
 
 
 ## 敌人脚底的 y：判定框中心往下半个框高（Boss 的框比普通敌人高，所以按各自的形状算）。
@@ -226,10 +272,8 @@ func test_no_enemy_is_stuck_in_a_crawl_passage() -> void:
 			continue
 		if absf(enemy_feet(enemy) - GROUND_Y) > 1.0:
 			continue
-		for slab_node in terrain():
+		for slab_node in crawl_passages():
 			var slab := slab_node as Platform
-			if slab.one_way or slab.position.y <= 0.0 or absf(slab.position.y - GROUND_Y) < 1.0:
-				continue
 			check("%s is clear of %s" % [enemy.name, slab.name],
 				enemy.position.x < slab.position.x - 24.0
 				or enemy.position.x > slab.position.x + slab.size.x + 24.0,
@@ -246,6 +290,85 @@ func test_the_boss_waits_at_the_far_end() -> void:
 	check("there is a boss", boss != null)
 	check("and it is in the last stretch", boss != null and boss.position.x > 12800.0 - 1280.0,
 		"" if boss == null else str(boss.position.x))
+
+
+func test_nobody_walks_off_a_ledge_on_their_own() -> void:
+	# 浮台上摆了一半的敌人，要是有谁一开场就自己走下去摔死，关卡会悄悄变空。
+	# 巡逻兵在边缘会掉头，但摆错地方（半个身子悬空）照样会掉，所以放着跑两秒看看。
+	await open_level()
+	var before := main.get_node("Enemies").get_child_count()
+	check("setup: the level is full of enemies", before >= 80, str(before))
+	await frames(120)
+	var after := main.get_node("Enemies").get_child_count()
+	check("they are all still there", after >= before, "%d -> %d" % [before, after])
+
+
+# ---------------------------------------------------------------- 装饰
+
+func props() -> Array:
+	var found := []
+	for child in main.get_node("Props").get_children():
+		found.append(child)
+	return found
+
+
+func test_the_scenery_is_pure_decoration() -> void:
+	# 和特效同一条规矩：装饰里**不许有碰撞体**，不然一棵树就能把人挡住、把子弹吃掉。
+	await open_level()
+	check("setup: the level is dressed up", props().size() >= 100, str(props().size()))
+	var bodies := 0
+	var shapes := 0
+	var stack := props().duplicate()
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		if node is CollisionObject2D:
+			bodies += 1
+		if node is CollisionShape2D or node is CollisionPolygon2D:
+			shapes += 1
+		for child in node.get_children():
+			stack.append(child)
+	check("no collision bodies among the scenery", bodies == 0, str(bodies))
+	check("and no collision shapes either", shapes == 0, str(shapes))
+
+
+func test_the_scenery_is_drawn_behind_everything() -> void:
+	# 画的顺序就是子节点的顺序：装饰要排在地形、敌人、玩家前面（= 画在它们后面），
+	# 否则一棵树会盖住正在朝你开枪的敌人。
+	await open_level()
+	var order := {}
+	for child in main.get_children():
+		order[child.name] = child.get_index()
+	check("scenery comes before the terrain", order["Props"] < order["Level"],
+		"%d vs %d" % [order["Props"], order["Level"]])
+	check("and before the enemies and the player",
+		order["Props"] < order["Enemies"] and order["Props"] < order["Player"])
+
+
+func test_the_level_plays_the_same_without_any_scenery() -> void:
+	# 纯装饰的意思就是：整个删掉，关卡照常跑
+	await open_level()
+	main.get_node("Props").free()
+	await frames(60)
+	check("the level runs on without it", player.is_alive() and main.get_node_or_null("Props") == null)
+
+
+func test_the_fountain_actually_runs() -> void:
+	await open_level()
+	var animated: Prop = null
+	for node in props():
+		var prop := node as Prop
+		if prop != null and prop.frames > 1:
+			animated = prop
+	check("there is something that moves", animated != null)
+	if animated == null:
+		return
+	var first := animated.region_rect
+	for i in 60:
+		await tree.physics_frame
+		if animated.region_rect != first:
+			break
+	check("and it really cycles its frames", animated.region_rect != first,
+		"%s vs %s" % [animated.region_rect, first])
 
 
 func test_the_level_runs_on_its_own() -> void:

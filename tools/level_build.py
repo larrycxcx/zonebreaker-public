@@ -49,10 +49,29 @@ MAX_GAP = WALK_SPEED * AIR_TIME - 8.0      # ≈ 103
 MAX_STEP = JUMP_HEIGHT - 15.0              # 72
 ## 墙最高多少：CLAUDE.md 的规矩是比跳跃高度至少低 12。
 MAX_WALL = JUMP_HEIGHT - 12.0              # 75
+## 「堵死」用的实心方块最矮多少：比一次跳跃还高，底下那条路就断了，必须从上面的浮台绕过去。
+MIN_BLOCK = JUMP_HEIGHT + 16.0             # 103
+## 浮台要盖在堵块顶上多少，人站上去才不会嵌进方块里。
+BLOCK_CLEAR = 16.0
 ## 矮通道净空：站着 32 过不去、站姿子弹 25 过得去，窗口只有几个像素（见 CLAUDE.md）。
 CRAWL_CLEAR = 30.0
 ## 矮通道那块砖画多厚。
 CRAWL_THICK = 50.0
+
+## 装饰物：名字 → 横着排了几帧（1 = 静止）。贴图在 `skins/cyberpunk/props/`，
+## 由 `tools/terrain_build.py` 从地形素材包里挑出来。**纯显示，没有碰撞**，
+## 画在所有东西后面，再密也不挡敌人和子弹（`scripts/prop.gd`）。
+PROP_FRAMES = {"fountain": 4}
+## 沿着地面随手撒的小东西。
+SCATTER = ["grass_tuft", "grass_blade", "grass_tuft", "rock_small", "bush_flat",
+	"bush_wide", "rock", "bin", "box", "bush_big", "grass_blade"]
+## 隔一段撒一棵树。
+TREES = ["tree_small", "tree_big", "tree_small"]
+## 撒的间隔（像素）：小东西密一点，树疏一点。
+SCATTER_STEP = (40, 130)
+TREE_STEP = (240, 460)
+## 撒的随机种子。**固定**：产物是要进仓库的，重新生成必须一模一样。
+SCATTER_SEED = 20260924
 
 ## 敌人类型 → 场景路径。键就是 `SECTIONS` 里写的名字。
 ENEMIES = {
@@ -72,69 +91,110 @@ ENEMIES = {
 #   "gaps":   [(段内 x, 宽)]            地面在这儿断开 —— 掉下去就死
 #   "ledges": [(段内 x, 顶边 y, 宽)]     单向浮台，从下面能穿上去
 #   "walls":  [(段内 x, 高)]            实心竖墙，挡路挡子弹，巡逻兵碰到掉头
+#   "blocks": [(段内 x, 宽, 高)]         **把下面那条路堵死**的实心方块：比一次跳跃还高，
+#                                        必须踩着上面的浮台绕过去（生成时会检查真有那条高路）
 #   "crawl":  [(段内 x, 宽)]            矮通道顶块，底下只剩 30px，必须趴着爬
 #   "enemies":[(类型, 段内 x, 站在哪个顶边上)]
+#   "props":  [(装饰名, 段内 x, 站在哪个顶边上)]   摆在固定位置的大件（喷泉、长椅、栅栏）；
+#                                        小草小石头由 `scatter()` 沿着地面自动撒
 # })
 #
 # 「站在哪个顶边上」写的是**脚下那个面的 y**（地面就是 GROUND_Y，浮台就是它的顶边），
 # 生成时自动换算成敌人的原点高度；飞行的 E 写 None。
 
 SECTIONS = [
-	("Warmup", {                                  # 热身：认识一下走、跳、开枪
-		"ledges": [(320, 256, 96), (600, 256, 96)],
-		"enemies": [("walker_a", 500, GROUND_Y), ("walker_a", 900, GROUND_Y),
-			("walker_a", 1150, GROUND_Y)],
+	("Warmup", {                                  # 唯一一段让你站稳脚跟的地方
+		"props": [("fountain", 300, GROUND_Y), ("bench", 560, GROUND_Y),
+			("bench2", 1180, GROUND_Y)],
+		"ledges": [(260, 256, 96), (420, 208, 96), (640, 256, 112), (860, 200, 96),
+			(1060, 248, 96)],
+		"enemies": [("walker_a", 180, GROUND_Y), ("walker_a", 500, GROUND_Y),
+			("walker_a", 700, 256), ("turret", 900, 200), ("walker_a", 1000, GROUND_Y),
+			("walker_b", 1100, 248), ("walker_a", 1240, GROUND_Y)],
 	}),
-	("Stairs", {                                  # 阶梯往上，边跳边挨打
-		"ledges": [(120, 264, 96), (280, 216, 96), (440, 176, 128)],
-		"walls": [(700, 56)],
-		"enemies": [("walker_b", 500, 176), ("turret", 820, GROUND_Y),
-			("walker_a", 1080, GROUND_Y)],
+	("Stairs", {                                  # 爬上去，顺便认识第一块「下面走不通」
+		"ledges": [(100, 264, 96), (260, 216, 96), (420, 168, 128), (620, 160, 240),
+			(900, 248, 96)],
+		"blocks": [(700, 64, 112)],
+		"walls": [(180, 40)],
+		"enemies": [("walker_a", 150, GROUND_Y), ("walker_b", 300, 216),
+			("turret", 480, 168), ("walker_a", 660, GROUND_Y), ("walker_c", 700, 160),
+			("turret", 820, 160), ("walker_a", 950, 248), ("walker_a", 1100, GROUND_Y),
+			("chaser_d", 1220, GROUND_Y)],
 	}),
-	("Crawl", {                                   # 矮通道：必须趴着爬过炮台的火线
-		"crawl": [(200, 200)],
-		"ledges": [(840, 248, 96)],
-		"enemies": [("turret", 540, GROUND_Y), ("flyer_e", 440, None),
-			("walker_a", 1040, GROUND_Y), ("walker_c", 1220, GROUND_Y)],
-	}),
-	("Pits", {                                    # 第一次见坑，还被 D 追着
-		"gaps": [(160, 96), (420, 96), (680, 96)],
-		"ledges": [(540, 248, 96)],
-		"enemies": [("chaser_d", 880, GROUND_Y), ("walker_a", 1080, GROUND_Y)],
-	}),
-	("Breather", {                                # 喘口气（以后检查点放这儿）
-		"ledges": [(180, 256, 128), (400, 208, 96)],
-		"enemies": [("walker_a", 980, GROUND_Y)],
-	}),
-	("Grenadier", {                               # F 在高台扔手雷，地面有掩体墙
-		"ledges": [(240, 264, 96), (400, 216, 128)],
-		"walls": [(120, 56), (600, 56)],
-		"enemies": [("walker_f", 450, 216), ("walker_a", 900, GROUND_Y),
-			("turret", 1150, GROUND_Y), ("walker_a", 1240, GROUND_Y)],
-	}),
-	("Skies", {                                   # 坑上空两个 E：一边跳一边朝上打
-		"gaps": [(220, 128), (520, 96)],
-		"ledges": [(272, 272, 48), (760, 248, 96)],
-		"enemies": [("flyer_e", 320, None), ("flyer_e", 820, None),
-			("walker_c", 1120, GROUND_Y)],
-	}),
-	("Crossfire", {                               # 上下两层，综合压力
-		"ledges": [(140, 248, 160), (400, 200, 160), (940, 248, 128)],
-		"enemies": [("walker_b", 200, 248), ("turret", 480, 200),
-			("walker_a", 700, GROUND_Y), ("walker_c", 1140, GROUND_Y),
-			("walker_f", 980, 248)],
-	}),
-	("Sprint", {                                  # 窄道 + 两个 D：体力真正有用的地方
-		"crawl": [(160, 160)],
-		"gaps": [(560, 96), (810, 96)],
-		"walls": [(1160, 40)],
-		"enemies": [("chaser_d", 420, GROUND_Y), ("chaser_d", 1010, GROUND_Y),
+	("Crawl", {                                   # 两道矮通道，出口都有炮台等着
+		"crawl": [(180, 220), (760, 180)],
+		"ledges": [(460, 248, 112), (620, 200, 96), (980, 248, 112), (1140, 200, 96)],
+		"enemies": [("turret", 430, GROUND_Y), ("flyer_e", 300, None),
+			("walker_a", 520, 248), ("walker_b", 660, 200), ("walker_a", 700, GROUND_Y),
+			("turret", 1000, GROUND_Y), ("walker_c", 1020, 248), ("flyer_e", 900, None),
 			("walker_a", 1240, GROUND_Y)],
 	}),
-	("BossArena", {                               # 收尾：一道墙围出来的平地
+	("Pits", {                                    # 四个坑，最后一个宽到要踩中间那块小台
+		"gaps": [(120, 96), (330, 100), (520, 96), (760, 160)],
+		"ledges": [(230, 248, 96), (440, 208, 80), (800, 272, 72), (960, 248, 128),
+			(1140, 200, 96)],
+		"enemies": [("chaser_d", 60, GROUND_Y), ("walker_a", 280, 248),
+			("turret", 470, 208), ("flyer_e", 600, None), ("walker_a", 660, GROUND_Y),
+			("chaser_d", 1000, GROUND_Y), ("walker_b", 1000, 248),
+			("walker_a", 1180, 200), ("walker_a", 1250, GROUND_Y)],
+	}),
+	("Fortress", {                                # 一整片高台，底下被堵死
+		"props": [("fountain", 860, GROUND_Y), ("fence", 200, GROUND_Y),
+			("bench", 1000, GROUND_Y)],
+		"ledges": [(140, 264, 96), (280, 248, 96), (420, 176, 280), (760, 248, 96),
+			(920, 184, 96), (1100, 248, 112)],
+		"blocks": [(520, 64, 120)],
+		"enemies": [("walker_a", 100, GROUND_Y), ("walker_b", 320, 248),
+			("turret", 500, 176), ("walker_c", 620, 176), ("walker_a", 740, GROUND_Y),
+			("walker_f", 800, 248), ("turret", 950, 184), ("walker_a", 1150, 248),
+			("chaser_d", 1240, GROUND_Y)],
+	}),
+	("Grenadier", {                               # 两个 F 从高处扔，地面只有掩体墙
+		"ledges": [(120, 256, 96), (300, 200, 128), (520, 248, 96), (700, 192, 128),
+			(940, 248, 96), (1120, 192, 96)],
+		"blocks": [(760, 64, 112)],
+		"walls": [(200, 56), (560, 64), (900, 56)],
+		"enemies": [("walker_a", 250, GROUND_Y), ("walker_f", 360, 200),
+			("flyer_e", 500, None), ("turret", 600, GROUND_Y), ("walker_a", 640, GROUND_Y),
+			("walker_f", 740, 192), ("walker_b", 980, 248), ("walker_a", 1050, GROUND_Y),
+			("turret", 1150, 192), ("walker_a", 1250, GROUND_Y)],
+	}),
+	("Skies", {                                   # 四个坑 + 三个 E：一边跳一边朝上打
+		"gaps": [(180, 128), (420, 96), (640, 160), (900, 100)],
+		"ledges": [(220, 272, 48), (340, 248, 80), (520, 216, 96), (690, 272, 64),
+			(820, 248, 80), (1010, 248, 96), (1160, 200, 96)],
+		"enemies": [("flyer_e", 250, None), ("walker_c", 380, 248), ("turret", 560, 216),
+			("flyer_e", 700, None), ("walker_a", 850, 248), ("walker_b", 1060, 248),
+			("flyer_e", 1100, None), ("walker_a", 1200, 200), ("walker_a", 1250, GROUND_Y)],
+	}),
+	("Crossfire", {                               # 三层高台交叉火力，底下又是一块堵死
+		"ledges": [(120, 248, 160), (340, 200, 160), (560, 168, 240), (860, 248, 128),
+			(1040, 200, 96), (1180, 152, 96)],
+		"blocks": [(640, 64, 128)],
+		"enemies": [("walker_b", 180, 248), ("walker_a", 260, GROUND_Y),
+			("turret", 400, 200), ("walker_a", 560, GROUND_Y), ("walker_c", 600, 168),
+			("walker_f", 740, 168), ("turret", 900, 248), ("walker_a", 1080, 200),
+			("walker_b", 1220, 152), ("chaser_d", 1240, GROUND_Y)],
+	}),
+	("Gauntlet", {                                # 矮通道 + 三个坑 + 两个 D，一路被撵着走
+		"crawl": [(140, 180), (620, 160)],
+		"gaps": [(400, 96), (900, 100), (1080, 96)],
+		"ledges": [(300, 248, 96), (490, 200, 96), (820, 248, 64), (1010, 248, 64)],
+		"walls": [(1220, 40)],
+		"enemies": [("walker_a", 60, GROUND_Y), ("chaser_d", 360, GROUND_Y),
+			("turret", 340, 248), ("walker_a", 540, 200), ("flyer_e", 600, None),
+			("chaser_d", 850, GROUND_Y), ("walker_c", 1040, 248),
+			("walker_a", 1200, GROUND_Y), ("walker_b", 1250, GROUND_Y)],
+	}),
+	("BossArena", {                               # 打到门口还有一队守着
+		"props": [("fence", 300, GROUND_Y), ("fountain", 800, GROUND_Y),
+			("bench2", 560, GROUND_Y)],
 		"walls": [(40, 56)],
-		"ledges": [(480, 248, 112)],
-		"enemies": [("boss_a", 880, GROUND_Y)],
+		"ledges": [(200, 248, 96), (380, 200, 96), (620, 248, 112)],
+		"enemies": [("turret", 160, GROUND_Y), ("walker_a", 260, 248),
+			("turret", 420, 200), ("walker_a", 500, GROUND_Y), ("walker_c", 660, 248),
+			("boss_a", 1000, GROUND_Y)],
 	}),
 ]
 
@@ -151,8 +211,10 @@ class Level:
 		self.gaps = []        # (x, 宽)
 		self.ledges = []      # (名字, x, 顶边 y, 宽)
 		self.walls = []       # (名字, x, 高)
+		self.blocks = []      # (名字, x, 宽, 高)
 		self.crawls = []      # (名字, x, 宽)
 		self.enemies = []     # (名字, 类型, x, y)
+		self.props = []       # (名字, 装饰名, x, 底边 y)
 		self.ground = []      # (x, 宽)
 		self._build()
 
@@ -171,12 +233,43 @@ class Level:
 				self.ledges.append((name("Ledge"), base + x, top, wide))
 			for x, high in parts.get("walls", []):
 				self.walls.append((name("Wall"), base + x, high))
+			for x, wide, high in parts.get("blocks", []):
+				self.blocks.append((name("Block"), base + x, wide, high))
 			for x, wide in parts.get("crawl", []):
 				self.crawls.append((name("Crawl"), base + x, wide))
+			for prop, x, surface in parts.get("props", []):
+				self.props.append((name("Prop"), prop, base + x, surface))
 			for kind, x, surface in parts.get("enemies", []):
 				y = FLY_Y if surface is None else surface - (BOSS_STAND if kind == "boss_a" else STAND)
 				self.enemies.append((label + kind.title().replace("_", ""), kind, base + x, y))
 		self.ground = self._ground_runs()
+		self._scatter()
+
+	def _scatter(self):
+		"""沿着地面撒小东西和树。**自己写的线性同余**，不用 random：
+		产物要进仓库，换台机器、换个 Python 版本都得生成出一模一样的文件。"""
+		state = [SCATTER_SEED]
+
+		def roll(low, high):
+			state[0] = (state[0] * 1103515245 + 12345) & 0x7FFFFFFF
+			return low + state[0] % max(1, high - low)
+
+		count = [len(self.props)]
+
+		def add(prop, x):
+			count[0] += 1
+			self.props.append(("Prop%d" % count[0], prop, float(x), GROUND_Y))
+
+		for left, wide in self.ground:
+			right = left + wide
+			at = left + 24
+			while at < right - 24:
+				add(SCATTER[roll(0, len(SCATTER))], at)
+				at += roll(SCATTER_STEP[0], SCATTER_STEP[1])
+			at = left + roll(60, 200)
+			while at < right - 80:
+				add(TREES[roll(0, len(TREES))], at)
+				at += roll(TREE_STEP[0], TREE_STEP[1])
 
 	def _ground_runs(self):
 		"""地面 = 整条减去坑，切成一段一段。"""
@@ -231,6 +324,16 @@ def check_level(level):
 	for name, x, wide in level.crawls:
 		if level.surface_at(x) is None or level.surface_at(x + wide) is None:
 			problems.append("%s 架在坑上" % name)
+	for name, x, wide, high in level.blocks:
+		if high < MIN_BLOCK:
+			problems.append("%s 只有 %.0f 高，一跳就过去了，堵不住（至少 %.0f）" % (name, high, MIN_BLOCK))
+		if level.surface_at(x) is None or level.surface_at(x + wide) is None:
+			problems.append("%s 架在坑上" % name)
+		top = GROUND_Y - high
+		over = [lx for _, lx, ltop, lwide in level.ledges
+			if ltop <= top - BLOCK_CLEAR and lx <= x and lx + lwide >= x + wide]
+		if not over:
+			problems.append("%s 把路堵死了，上面却没有整块盖过去的浮台" % name)
 	# 浮台要够得着：横着差 120 以内、底下有个面，落差不超过一次跳
 	for name, x, top, wide in level.ledges:
 		best = None
@@ -298,8 +401,25 @@ def build(level, write):
 		ids[kind] = "e%d" % index
 		extra.append('[ext_resource type="PackedScene" path="%s" id="%s"]' % (ENEMIES[kind], ids[kind]))
 
+	prop_ids = {}
+	for index, prop in enumerate(sorted({p[1] for p in level.props})):
+		prop_ids[prop] = "p%d" % index
+		extra.append('[ext_resource type="Texture2D" path="res://skins/cyberpunk/props/%s.png" id="%s"]'
+			% (prop, prop_ids[prop]))
+	extra.append('[ext_resource type="Script" path="res://scripts/prop.gd" id="21"]')
 	out = [HEAD + "\n".join(extra) + "\n"]
 	out.append('\n[node name="Level1" type="Node2D"]\nscript = ExtResource("3")\n')
+	# **装饰在最前面声明**：关卡加载时背景会被插成第 0 个子节点，于是画的顺序就是
+	# 背景 → 装饰 → 地形 → 敌人 → 玩家，装饰再密也压不住要看的东西。
+	out.append('\n[node name="Props" type="Node2D" parent="."]\n')
+	for name, prop, x, bottom in level.props:
+		frames = PROP_FRAMES.get(prop, 1)
+		out.append('\n[node name="%s" type="Sprite2D" parent="Props"]\n'
+			'texture = ExtResource("%s")\n'
+			'script = ExtResource("21")\n'
+			'position = Vector2(%g, %g)\n' % (name, prop_ids[prop], x, bottom))
+		if frames > 1:
+			out.append("frames = %d\n".replace("\n", chr(10)) % frames)
 	out.append('\n[node name="Level" type="Node2D" parent="."]\n')
 	for index, (x, wide) in enumerate(level.ground):
 		out.append("\n" + platform("Ground%d" % (index + 1), "Level", x, GROUND_Y, wide,
@@ -311,6 +431,8 @@ def build(level, write):
 	for name, x, wide in level.crawls:
 		top = GROUND_Y - CRAWL_CLEAR - CRAWL_THICK
 		out.append("\n" + platform(name, "Level", x, top, wide, CRAWL_THICK))
+	for name, x, wide, high in level.blocks:
+		out.append("\n" + platform(name, "Level", x, GROUND_Y - high, wide, high))
 	out.append('\n[node name="Walls" type="Node2D" parent="Level"]\n')
 	for name, x, high in level.walls:
 		out.append("\n" + platform(name, "Level/Walls", x, GROUND_Y - high, 16, high))
@@ -357,7 +479,9 @@ def main():
 	print("  地面 %d 段、坑 %d 个（最宽 %.0f，走着跳的上限 %.0f）"
 		% (len(level.ground), len(level.gaps),
 			max([w for _, w in level.gaps] or [0]), MAX_GAP))
-	print("  浮台 %d、竖墙 %d、矮通道 %d" % (len(level.ledges), len(level.walls), len(level.crawls)))
+	print("  浮台 %d、竖墙 %d、矮通道 %d、堵块 %d"
+		% (len(level.ledges), len(level.walls), len(level.crawls), len(level.blocks)))
+	print("  装饰 %d 件（纯显示，画在所有东西后面）" % len(level.props))
 	kinds = {}
 	for _, kind, _, _ in level.enemies:
 		kinds[kind] = kinds.get(kind, 0) + 1
