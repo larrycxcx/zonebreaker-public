@@ -419,8 +419,38 @@ func test_the_shared_parts_show_up_once() -> void:
 			break
 	check("setup: both are really dead", not player.is_downed() and not player2.is_downed()
 		and player.health == 0 and player2.health == 0)
-	check("the death message shows once", (main.get_node("HUD/Message") as Label).visible
-		and not (main.get_node("HUD2/Message") as Label).visible)
+	check("and the boss bar is the first player's alone",
+		not (main.get_node("HUD2/BossBar") as Control).visible)
+
+
+func test_game_over_waits_until_nobody_is_left() -> void:
+	# 一个人倒下不算输：队友还站着，这一关就还没完，那一页不该弹出来。
+	await reset_scene(false, false, null, 2)
+	# 站开一点：队友走到跟前会自动把倒地的人救起来，挨着的话第一个永远死不了
+	player.global_position = Vector2(200, 304)
+	player2.global_position = Vector2(500, 304)
+	main.game_over_delay = 0.05
+	main.respawn_delay = 0.1
+	await frames(2)
+	var over: DeathScreen = main.get_node("DeathScreen")
+	check("setup: nothing on screen yet", not over.is_open())
+	player.down_time = 0.05
+	player.take_damage(player.max_health)
+	for i in 40:
+		await tree.physics_frame
+		if not player.is_alive() and not player.is_downed():
+			break
+	check("setup: the first one is really dead", player.health == 0 and not player.is_downed())
+	check("but the team mate is still up, so the level goes on",
+		player2.is_alive() and not over.is_open())
+	player2.down_time = 0.05
+	player2.take_damage(player2.max_health)
+	for i in 60:
+		await tree.physics_frame
+		if over.is_open():
+			break
+	check("once the last one goes down too, the choice comes up", over.is_open())
+	tree.paused = false
 
 
 # ---------------------------------------------------------------- 各存各的成长进度

@@ -5,8 +5,9 @@ extends CanvasLayer
 ## 这里只管「显示什么」。场景自带的是占位方块；当前素材包有 HUD 外观（`SkinPack.hud`，比如 SpriteHud）时，
 ## 同样的状态会转交给外观去画，占位方块照常更新（测试和逻辑都读它们）但不再画出来——和角色换皮肤同一个思路。
 
-## 两个人共用、只由左边那套显示的部分（Boss 血条、死亡提示）。右边那套既不显示也不跟着挪。
-const SHARED_PARTS := ["BossBar", "Message"]
+## 两个人共用、只由左边那套显示的部分（现在只有 Boss 血条）。右边那套既不显示也不跟着挪。
+## **「GAME OVER」不在这儿**：那行字归 `DeathScreen` 写，见那边的说明。
+const SHARED_PARTS := ["BossBar"]
 
 const STAMINA_READY := Color(0.45, 0.85, 0.4)
 ## 体力低于能重新起跑的门槛时变色，提示玩家现在跑不动。
@@ -29,7 +30,6 @@ var _look: Node
 @onready var _health_bar: ColorRect = $HealthBar
 @onready var _health_fill: ColorRect = $HealthBar/Fill
 @onready var _progress_label: Label = $ProgressLabel
-@onready var _message: Label = $Message
 @onready var _stamina_bar: ColorRect = $StaminaBar
 @onready var _stamina_fill: ColorRect = $StaminaBar/Fill
 @onready var _weapon_icon: ColorRect = $WeaponIcon
@@ -41,8 +41,8 @@ var _look: Node
 
 
 func _ready() -> void:
-	_message.hide()
 	_boss_bar.hide()
+	_use_pixel_font()
 	_add_look()
 	if mirrored:
 		_mirror()
@@ -61,13 +61,20 @@ func _ready() -> void:
 	player.stamina_changed.connect(_on_stamina_changed)
 	player.weapon_switched.connect(_on_weapon_switched)
 	player.ultimate_ammo_changed.connect(_on_ultimate_changed)
-	player.died.connect(_on_player_died)
 	# 直接读当前值，不依赖 Player._ready 里那次 emit 的先后顺序。
 	_on_health_changed(player.health, player.max_health)
 	_on_stamina_changed(player.stamina, player.max_stamina)
 	_on_weapon_switched(player.current_weapon, player.current_slot().weapon)
 	if player.ultimate_weapon != null:
 		_on_ultimate_changed(player.ultimate_ammo(), player.ultimate_weapon.max_ammo)
+
+
+## HUD 上的字和菜单用同一套位图字体（`UiKit`），不是 Godot 自带那套。
+## 字体在场景里设不了——`.fnt` 要当 FontFile 加载，而且以后界面美术进 `SkinPack` 时这里只改一行。
+func _use_pixel_font() -> void:
+	_progress_label.add_theme_font_override("font", UiKit.font())
+	_progress_label.add_theme_color_override("font_color", UiKit.WHITE)
+	_progress_label.add_theme_font_size_override("font_size", UiKit.TEXT_SIZE)
 
 
 ## 素材包有 HUD 外观就装上，占位方块改成透明（不画，但照常更新）。
@@ -190,16 +197,16 @@ func _on_boss_died() -> void:
 		_look.hide_boss()
 
 
-## 等级、经验、金钱、没分配的技能点（占位文字，正式 HUD 留到第 5 步最后一段）。
+## 等级、金钱一行，经验和没花的技能点一行。
+## **分两行是宽度逼的**：挤成一行最宽要 414px，双人时左右两套会在屏幕中间撞上；
+## 分两行之后 20 级时最宽 289px，两套各占半边（308px）还剩得下
+## （`test_menus.gd` 按字模的实际字宽量着）。
+## 再往上经验曲线（每级 ×1.5）会把数字撑到七位数、这一行就装不下了——
+## 那是数值的事，真练得到那么高的时候一起调，别在这儿截字。
 ## **一律英文大写**：菜单和 HUD 用的是同一套规矩（素材包的字模没有汉字，见 CLAUDE.md）。
 func _on_progress_changed() -> void:
 	var me := Progress.of(player_index)
-	var text := "LV %d   XP %d/%d   CASH %d" % [me.level, me.xp, me.balance.xp_to_next(me.level), me.money]
+	var second := "XP %d/%d" % [me.xp, me.balance.xp_to_next(me.level)]
 	if me.points > 0:
-		text += "   +%d PTS" % me.points
-	_progress_label.text = text
-
-
-func _on_player_died() -> void:
-	if shows_shared:
-		_message.show()
+		second += "  +%d PTS" % me.points
+	_progress_label.text = "LV %d  CASH %d\n%s" % [me.level, me.money, second]

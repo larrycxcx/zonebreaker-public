@@ -54,6 +54,7 @@ var slot := 0
 var _menu: MenuList
 var _ready_mark: Label
 var _name: Label
+var _level: Label
 var _points: Label
 var _money: Label
 var _detail: Label
@@ -98,6 +99,11 @@ func build(player: Player, index: int, taken_look: StringName) -> void:
 		var face := UiKit.picture("", at + Vector2(2.0, 2.0))
 		face.texture = UiKit.portrait(LOOKS[i])
 		add_child(face)
+	# 头像右边那块空地：这个角色练到几级了（读档进来的一眼就看得到）。
+	# 经验值没跟着写：那一行放得下 `LEVEL 10`，放不下 `XP 3500/3844`（130px 的地方要 150px）。
+	var beside := left + LOOKS.size() * (PORTRAIT.x + 8.0) + 4.0
+	_level = UiKit.label("", Rect2(beside, LOOK_Y + 12.0, left + wide - beside, 18.0), UiKit.GOLD)
+	add_child(_level)
 	for i in Balance.STATS.size():
 		var top := STATS_Y + i * 18.0
 		var stat: StringName = Balance.STATS[i]
@@ -175,6 +181,7 @@ func refresh() -> void:
 	# 读档进来的名字改不了，画淡一点表示（别用 `*` 之类的符号，字模里没有）
 	_name.text = progress.character_name
 	_name.add_theme_color_override("font_color", UiKit.CYAN if can_rename else UiKit.DIM)
+	_level.text = "LEVEL %d" % progress.level
 	_points.text = "POINTS %d" % progress.points
 	_points.add_theme_color_override("font_color", UiKit.GOLD if progress.points > 0 else UiKit.DIM)
 	# **字模里没有 `$`**（素材包的符号表里就没有），写出来是个缺字方块，所以用 CASH 这个词

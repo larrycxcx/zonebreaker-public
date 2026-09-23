@@ -175,6 +175,16 @@ func is_downed() -> bool:
 	return _downed
 
 
+## 这一局还有人吗：还有人站着、或者有人正倒在地上等救，这一关就还没完（双人）。
+## 关卡和 HUD 都要问这件事，所以搁在这儿，别两处各写一遍。
+static func anyone_left(tree: SceneTree) -> bool:
+	for node in tree.get_nodes_in_group(&"player"):
+		var player := node as Player
+		if player != null and (player.is_alive() or player.is_downed()):
+			return true
+	return false
+
+
 ## 还能撑多久（秒）。倒计时走完就真死了。
 func down_time_left() -> float:
 	return _down_timer

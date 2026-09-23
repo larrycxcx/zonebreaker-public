@@ -10,6 +10,10 @@ extends Node2D
 @export var second_player_offset := Vector2(-28, 0)
 
 @onready var _player: Player = $Player
+## 全灭之后让玩家选「再来一次 / 回主菜单」的那一层。关卡里没有就照老样子自动重开。
+@onready var _death: DeathScreen = get_node_or_null("DeathScreen")
+## 这一关已经结束了。双人时两个人可能同一帧死，没这个会报两次 game_over。
+var _over := false
 
 
 func _ready() -> void:
@@ -60,13 +64,9 @@ func _add_backdrop() -> void:
 	move_child(backdrop, 0)
 
 
-## 谁都不剩了才算输：还有人站着、或者有人正倒在地上等救，这一关就还没完（双人）。
+## 谁都不剩了才算输（HUD 也要问同一件事，所以判断在 `Player` 上）。
 func _anyone_left() -> bool:
-	for node in get_tree().get_nodes_in_group(&"player"):
-		var player := node as Player
-		if player != null and (player.is_alive() or player.is_downed()):
-			return true
-	return false
+	return Player.anyone_left(get_tree())
 
 
 ## 关卡里才算游戏时长：菜单和暂停不算（暂停时整棵树停了，这里本来就不跑）。
@@ -75,11 +75,15 @@ func _process(delta: float) -> void:
 
 
 func _on_player_died() -> void:
-	if _anyone_left():
+	if _over or _anyone_left():
 		return
+	_over = true
 	await get_tree().create_timer(game_over_delay).timeout
 	GameEvents.report(&"game_over", self)
 	await get_tree().create_timer(respawn_delay - game_over_delay).timeout
+	if _death != null:
+		_death.open()
+		return
 	# 在测试里场景是手动实例化的，没有 current_scene，此时不重载。
 	if get_tree().current_scene != null:
 		get_tree().reload_current_scene()

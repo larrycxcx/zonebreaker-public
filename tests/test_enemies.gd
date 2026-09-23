@@ -434,7 +434,7 @@ func test_player_death() -> void:
 		player.take_damage(HIT, player.global_position + Vector2(40, 0))
 		await frames(2)
 	check("player dies at zero health", death_signals.size() == 1 and player.health == 0, str(player.health))
-	check("game over message appears", main.get_node("HUD/Message").visible)
+	# 「GAME OVER」和「再来一次 / 回主菜单」那一页归 `DeathScreen` 管，测试在 test_menus.gd
 
 	var x_before := player.global_position.x
 	Input.action_press("move_right")

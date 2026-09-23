@@ -296,6 +296,26 @@ func test_the_other_player_s_character_is_skipped() -> void:
 			"%s / %s" % [one.progress.look, two.progress.look])
 
 
+func test_the_column_says_what_level_the_character_is() -> void:
+	await open_menu()
+	var mine := Progress.create("RYU")
+	mine.add_xp(Progress.balance.xp_to_next(1) + Progress.balance.xp_to_next(2))
+	check("setup: RYU levelled up", mine.level >= 3, str(mine.level))
+	await choose(0)                       # 1 PLAYER
+	await choose(1)                       # LOAD
+	await choose(menu.listed().find(mine))
+	await frames(2)
+	var column: SetupColumn = menu.setup().columns()[0]
+	check("the level is written beside the faces", column._level.text == "LEVEL %d" % mine.level,
+		column._level.text)
+	var faces := column._portraits[SetupColumn.LOOKS.size() - 1]
+	check("and it sits to their right", column._level.position.x >= faces.position.x + faces.size.x,
+		"%.0f vs %.0f" % [column._level.position.x, faces.position.x + faces.size.x])
+	check("with room for the words", column._level.position.x + column._level.get_theme_font("font")
+		.get_string_size(column._level.text, HORIZONTAL_ALIGNMENT_LEFT, -1, UiKit.TEXT_SIZE).x
+		<= SetupColumn.WIDTH - 26.0, column._level.text)
+
+
 func test_points_go_in_and_out_with_left_and_right() -> void:
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]

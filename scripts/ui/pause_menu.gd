@@ -67,9 +67,13 @@ func _physics_process(_delta: float) -> void:
 		open()
 
 
-## 终极武器正在定格时不让暂停：两边都在用 `tree.paused`，抢起来会互相解掉对方。
+## 终极武器正在定格、或者已经全灭在等玩家选的时候不让暂停：
+## 那两边也在用 `tree.paused`，抢起来会互相把对方解掉。
 func _may_open() -> bool:
-	return get_tree().get_nodes_in_group(Ultimate.GROUP).is_empty()
+	var tree := get_tree()
+	if not tree.get_nodes_in_group(Ultimate.GROUP).is_empty():
+		return false
+	return tree.get_nodes_in_group(DeathScreen.GROUP).is_empty()
 
 
 func open() -> void:

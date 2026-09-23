@@ -108,6 +108,126 @@ func test_the_ultimate_freeze_keeps_the_pause_button_out() -> void:
 	await tap(&"cancel")
 
 
+# ---------------------------------------------------------------- 死亡选择
+
+func death() -> DeathScreen:
+	return main.get_node("DeathScreen")
+
+
+## 把玩家打死，等那一页弹出来。**先把两段延时调短**（默认 0.5 + 0.7 秒），省得每条用例等 72 帧。
+func die_and_wait() -> void:
+	main.game_over_delay = 0.05
+	main.respawn_delay = 0.1
+	player.take_damage(player.max_health)
+	for i in 60:
+		await tree.physics_frame
+		if death().is_open():
+			return
+
+
+func test_dying_offers_a_choice_instead_of_just_reloading() -> void:
+	await reset_scene()
+	player.global_position = Vector2(200, 304)
+	await frames(2)
+	check("setup: alive and running", player.is_alive() and not death().is_open())
+	await die_and_wait()
+	check("the choice comes up", death().is_open())
+	# 「GAME OVER」写在这一层上，不在 HUD 上：压暗那层就在这儿，写在 HUD 上会被压暗、灰得看不清
+	check("and it says what happened", death()._title.visible and death()._title.text == "GAME OVER",
+		death()._title.text)
+	check("with retry and main menu on it", death().menu_list()._items == DeathScreen.ITEMS,
+		str(death().menu_list()._items))
+	check("and the level is frozen while you pick", tree.paused)
+	check("starting on retry", death().menu_list().index == DeathScreen.RETRY)
+	await tap(&"cancel")
+	check("there is no backing out of being dead", death().is_open() and tree.paused)
+	await tap(&"jump")
+
+
+func test_retry_lets_the_level_run_again() -> void:
+	await reset_scene()
+	player.global_position = Vector2(200, 304)
+	await frames(2)
+	await die_and_wait()
+	check("setup: the choice is up", death().is_open())
+	var picked := []
+	death().chosen.connect(func(index: int) -> void: picked.append(index))
+	await tap(&"jump")
+	check("retry was taken", picked == [DeathScreen.RETRY], str(picked))
+	check("the page is gone", not death().is_open())
+	check("and the level runs again", not tree.paused)
+
+
+func test_the_death_screen_keeps_the_pause_button_out() -> void:
+	# 两边都在改 `tree.paused`，抢起来会互相把对方解掉（终极武器定格那条是同一个道理）
+	await reset_scene()
+	player.global_position = Vector2(200, 304)
+	await frames(2)
+	await die_and_wait()
+	check("setup: the choice is up", death().is_open())
+	await tap(&"pause")
+	check("pausing does nothing while you are choosing", not menu().is_open())
+	check("and the choice is still up", death().is_open() and tree.paused)
+	await tap(&"jump")
+
+
+func test_main_menu_leaves_the_level() -> void:
+	await reset_scene()
+	player.global_position = Vector2(200, 304)
+	await frames(2)
+	await die_and_wait()
+	check("setup: the choice is up", death().is_open())
+	await tap(&"aim_down")
+	check("setup: on main menu", death().menu_list().index == DeathScreen.MAIN_MENU)
+	await tap(&"jump")
+	await frames(3)
+	check("the level is left for the menu", tree.current_scene is MainMenu, str(tree.current_scene))
+	check("and nothing is left frozen", not tree.paused)
+	# **收干净**：菜单还挂在树上的话，后面的用例一按 A 就被它当成「菜单确认」接走（见 CLAUDE.md 踩过的坑）
+	tree.unload_current_scene()
+	await frames(2)
+
+
+# ---------------------------------------------------------------- HUD
+
+func hud() -> CanvasLayer:
+	return main.get_node("HUD")
+
+
+func test_the_hud_writes_in_the_pixel_font() -> void:
+	await reset_scene()
+	await frames(2)
+	var label: Label = hud().get_node("ProgressLabel")
+	var font := label.get_theme_font("font")
+	check("the level / cash line uses the pack's font", font != null and font.resource_path == UiKit.FONT,
+		"" if font == null else font.resource_path)
+
+
+func test_the_progress_line_leaves_room_for_the_other_player() -> void:
+	# 双人时左右各一套，挤成一行的话（LV / XP / CASH / PTS）最宽要 414px，在屏幕中间就撞上了
+	await reset_scene()
+	await frames(2)
+	# 20 级是这个游戏现实的上限（经验每级 ×1.5，再往上数字就有七位了，见 hud.gd 的说明）
+	var me := player.progress
+	me.level = 20
+	me.xp = me.balance.xp_to_next(20) - 1
+	me.money = 999999
+	me.points = 99
+	me.progress_changed.emit()
+	await frames(1)
+	var label: Label = hud().get_node("ProgressLabel")
+	var lines := label.text.split("
+")
+	check("it is written on two lines", lines.size() == 2, label.text)
+	var widest := 0.0
+	for line in lines:
+		widest = maxf(widest, label.get_theme_font("font").get_string_size(
+			line, HORIZONTAL_ALIGNMENT_LEFT, -1, UiKit.TEXT_SIZE).x)
+	var half := 640.0 / 2.0 - 12.0
+	check("even at the biggest numbers it stays in its half", widest <= half,
+		"%.0f > %.0f" % [widest, half])
+
+
 # ---------------------------------------------------------------- 加点
 
 func test_spending_a_point_raises_the_stat_and_the_player() -> void:
