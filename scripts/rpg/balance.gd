@@ -31,6 +31,8 @@ const SPEED_BASE := 100.0
 @export var cap: Dictionary[StringName, float] = {SPEED: 200.0}
 ## 每升一级给几个技能点。
 @export var points_per_level := 3
+## 新建角色时先给几个点，让玩家一开始就能捏一下。1 级的属性不受影响——点数不花掉就不加。
+@export var starting_points := 5
 ## 从 1 级升到 2 级要多少经验，之后每级乘 xp_growth。
 @export var xp_first_level := 100
 @export var xp_growth := 1.5

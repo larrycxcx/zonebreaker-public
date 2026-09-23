@@ -81,7 +81,7 @@ func test_the_player_takes_poison_without_iframes_or_knockback() -> void:
 func test_gear_resists_statuses_on_the_player() -> void:
 	await reset_scene()
 	var charm := Equipment.new()
-	charm.slot = Equipment.Slot.ACCESSORY
+	charm.slot = Equipment.Slot.TRINKET
 	charm.resist = {&"poison": 1.0}
 	me().owned.append(charm)
 	me().equip(charm)

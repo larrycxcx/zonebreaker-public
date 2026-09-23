@@ -1,8 +1,9 @@
 class_name PlayerProgress
 extends RefCounted
-## 一个玩家的成长进度：等级、经验、金钱、技能点和加点、背包里的装备、身上的装备。
+## 一个角色的成长进度：名字、外观、等级、经验、金钱、技能点和加点、背包里的装备、身上的装备。
 ##
-## **一个玩家一份**，双人时两个人各存各的（见 autoload `Progress`，它持有这些、管存档和奖励分配）。
+## **身份是角色，不是座位**：存档里是一份角色名册，开局时每个玩家从名册里挑一个（或新建）坐进去。
+## 名册和座位都归 autoload `Progress` 管，它还管存档和杀敌奖励发给谁。
 ## **放在关卡外面**：玩家死了重开关卡时整个关卡连同玩家节点都会重建，这些东西不能记在玩家身上——
 ## 死亡后全部保留（设计如此，允许刷）。玩家出生时从自己这一份读属性和武器，属性一变就重新读（`stats_changed`）。
 ##
@@ -18,8 +19,31 @@ signal changed
 
 ## 新开一局时身上的武器。
 const STARTING_GEAR: Array[String] = ["res://weapons/rifle.tres", "res://weapons/grenade.tres"]
+## 没挑外观时用哪套。
+const DEFAULT_LOOK := &"biker"
+## 名字最多几个字符。界面上那一栏和存档列表都是按这个宽度排的。
+const NAME_LIMIT := 10
+
+
+## 把玩家敲进来的名字收拾成能存的样子：大写、只留字母数字和空格、掐掉两头的空格、限长。
+## 界面一律英文大写（素材包的字模就只有这些，见 CLAUDE.md）。
+static func sanitize_name(raw: String) -> String:
+	var kept := ""
+	for ch in raw.to_upper():
+		if (ch >= "A" and ch <= "Z") or (ch >= "0" and ch <= "9") or ch == " ":
+			kept += ch
+	return kept.strip_edges().substr(0, NAME_LIMIT)
 
 var balance: Balance
+
+## 角色名（全大写字母、数字和空格，见 `sanitize_name()`）。名册里不允许重名。
+var character_name := ""
+## 用哪套外观（皮肤键）。纯装饰，随时可换，不影响任何规则。
+var look := DEFAULT_LOOK
+## 玩这个角色玩了多久（秒）。只在关卡里累加，菜单和暂停不算。
+var played_seconds := 0.0
+## 上次存档的时间（`Time.get_datetime_string_from_system()`），存档列表里显示。
+var saved_at := ""
 
 var level := 1
 var xp := 0
@@ -39,12 +63,13 @@ func _init(from_balance: Balance) -> void:
 	new_game()
 
 
-## 从头开始：1 级、没钱、只有初始武器。
+## 从头开始：1 级、没钱、只有初始武器，外加几个可以马上花的技能点（`Balance.starting_points`）。
 func new_game() -> void:
+	played_seconds = 0.0
 	level = 1
 	xp = 0
 	money = 0
-	points = 0
+	points = balance.starting_points
 	allocated.clear()
 	owned.clear()
 	equipped.clear()
@@ -139,6 +164,8 @@ func equip(item: Equipment) -> bool:
 
 func to_dict() -> Dictionary:
 	return {
+		"name": character_name, "look": String(look),
+		"played": played_seconds, "saved_at": saved_at,
 		"level": level, "xp": xp, "money": money, "points": points,
 		"allocated": allocated,
 		"owned": owned.map(func(item: Equipment) -> String: return item.resource_path),
@@ -147,6 +174,10 @@ func to_dict() -> Dictionary:
 
 
 func from_dict(data: Dictionary) -> void:
+	character_name = sanitize_name(String(data.get("name", "")))
+	look = StringName(data.get("look", DEFAULT_LOOK))
+	played_seconds = float(data.get("played", 0.0))
+	saved_at = String(data.get("saved_at", ""))
 	level = int(data.get("level", 1))
 	xp = int(data.get("xp", 0))
 	money = int(data.get("money", 0))

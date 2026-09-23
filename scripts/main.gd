@@ -70,6 +70,11 @@ func _anyone_left() -> bool:
 	return false
 
 
+## 关卡里才算游戏时长：菜单和暂停不算（暂停时整棵树停了，这里本来就不跑）。
+func _process(delta: float) -> void:
+	Progress.tick_playtime(delta)
+
+
 func _on_player_died() -> void:
 	if _anyone_left():
 		return

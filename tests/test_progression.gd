@@ -9,6 +9,13 @@ extends GameTest
 const SAVE_FOR_TEST := "user://test_progress.json"
 
 
+## 收尾：关掉存档、把路径还原、删掉测试用的那个文件。
+func drop_test_save() -> void:
+	Progress.persist = false
+	Progress.save_path = Progress.DEFAULT_SAVE
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_FOR_TEST))
+
+
 ## 1 号玩家那一份成长进度。双人时每人一份（`Progress.of(index)`），这一组测的是 1 号。
 func me() -> PlayerProgress:
 	return Progress.of(0)
@@ -38,7 +45,8 @@ func fire_one() -> Bullet:
 
 func test_a_new_game_feels_like_before() -> void:
 	await reset_scene()
-	check("level 1, no xp, no money, no points", me().level == 1 and me().xp == 0 and me().money == 0 and me().points == 0)
+	check("level 1, no xp, no money", me().level == 1 and me().xp == 0 and me().money == 0)
+	check("with a few points to spend right away", me().points == Progress.balance.starting_points, str(me().points))
 	check("carrying the rifle and the grenade", player.weapons[0].resource_path == "res://weapons/rifle.tres"
 		and player.weapons[1].resource_path == "res://weapons/grenade.tres")
 	check("three hits to die", player.max_health == 3 * HIT, str(player.max_health))
@@ -81,12 +89,13 @@ func test_levelling_up_gives_skill_points() -> void:
 	await reset_scene()
 	var levels := []
 	me().leveled_up.connect(func(level: int) -> void: levels.append(level))
+	var start_points := me().points
 	var first := Progress.balance.xp_to_next(1)
 	me().add_xp(first - 1)
-	check("one short of the next level: still level 1", me().level == 1 and me().points == 0)
+	check("one short of the next level: still level 1", me().level == 1 and me().points == start_points)
 	me().add_xp(1)
 	check("reaching it: level 2", me().level == 2 and me().xp == 0, "Lv %d, %d xp" % [me().level, me().xp])
-	check("with skill points to spend", me().points == Progress.balance.points_per_level, str(me().points))
+	check("with skill points to spend", me().points == start_points + Progress.balance.points_per_level, str(me().points))
 	check("each level asks for more xp", Progress.balance.xp_to_next(2) > first)
 	me().add_xp(Progress.balance.xp_to_next(2) + Progress.balance.xp_to_next(3))
 	check("a big pile of xp can climb several levels", me().level == 4 and levels == [2, 3, 4], str(levels))
@@ -161,7 +170,7 @@ func test_speed_shortens_cooldowns_up_to_a_cap() -> void:
 func test_buying_and_wearing_gear() -> void:
 	await reset_scene()
 	var armor := Equipment.new()
-	armor.slot = Equipment.Slot.ARMOR
+	armor.slot = Equipment.Slot.BODY
 	armor.price = 50
 	armor.bonuses = {Balance.LIFE: 40.0, Balance.DEFENSE: 10.0}
 	armor.resist = {&"burn": 0.5}
@@ -169,7 +178,7 @@ func test_buying_and_wearing_gear() -> void:
 	me().add_money(80)
 	check("buying takes the money", me().buy(armor) and me().money == 30, str(me().money))
 	check("and does not double-buy", not me().buy(armor) and me().money == 30)
-	check("bought is not worn yet", me().gear(Equipment.Slot.ARMOR) == null and player.max_health == 3 * HIT)
+	check("bought is not worn yet", me().gear(Equipment.Slot.BODY) == null and player.max_health == 3 * HIT)
 	me().equip(armor)
 	check("wearing it adds its bonuses", player.max_health == 3 * HIT + 40 and me().stat(Balance.DEFENSE) == 10.0,
 		"%d / %s" % [player.max_health, me().stat(Balance.DEFENSE)])
@@ -209,6 +218,127 @@ func test_dying_keeps_everything() -> void:
 		"%s vs %s" % [[me().level, me().xp, me().money, me().points], snapshot])
 	check("the new player spawns with the raised life, at full health",
 		player.max_health == 3 * HIT + int(Progress.balance.per_point[Balance.LIFE]) and player.health == player.max_health, str(player.max_health))
+
+
+# ---------------------------------------------------------------- 角色名册
+
+func test_every_seat_sits_on_a_character_from_the_roster() -> void:
+	await reset_scene(false, false, null, 2)
+	check("both seats are taken", Progress.of(0) != null and Progress.of(1) != null)
+	check("by two different characters", Progress.of(0) != Progress.of(1))
+	check("both of them are in the roster",
+		Progress.roster.has(Progress.of(0)) and Progress.roster.has(Progress.of(1)), str(Progress.roster.size()))
+	check("and they are told apart by name",
+		Progress.of(0).character_name != Progress.of(1).character_name,
+		"%s / %s" % [Progress.of(0).character_name, Progress.of(1).character_name])
+
+
+func test_names_are_cleaned_up_and_have_to_be_unique() -> void:
+	await reset_scene()
+	check("lower case becomes upper", PlayerProgress.sanitize_name("ryu") == "RYU")
+	check("anything but letters digits and space is dropped",
+		PlayerProgress.sanitize_name("r!y#u 9") == "RYU 9", PlayerProgress.sanitize_name("r!y#u 9"))
+	check("and it is cut to the limit",
+		PlayerProgress.sanitize_name("ABCDEFGHIJKLMNOP").length() == PlayerProgress.NAME_LIMIT)
+	var made := Progress.create("RYU")
+	check("a new character joins the roster", made != null and Progress.roster.has(made))
+	check("and starts at level one with points to spend",
+		made.level == 1 and made.points == Progress.balance.starting_points, str(made.points))
+	check("the same name is refused", Progress.create("RYU") == null)
+	check("even spelled differently", Progress.create("ryu") == null)
+	check("a free name is fine", Progress.create("NOVA") != null)
+
+
+func test_a_character_can_only_sit_in_one_seat() -> void:
+	await reset_scene(false, false, null, 2)
+	var mine := Progress.create("RYU")
+	Progress.take_seat(0, mine)
+	check("the first seat takes them", Progress.of(0) == mine and Progress.seat_of(mine) == 0)
+	var was := Progress.of(1)
+	Progress.take_seat(1, mine)
+	check("moving them over empties the old seat", Progress.of(1) == mine and Progress.of(0) != mine)
+	check("and the first seat gets somebody else", Progress.of(0) != null and Progress.of(0) != mine)
+	check("the character who was there is untouched", Progress.roster.has(was))
+
+
+func test_deleting_a_character_frees_their_seat() -> void:
+	await reset_scene(false, false, null, 2)
+	var mine := Progress.create("RYU")
+	Progress.take_seat(0, mine)
+	Progress.remove(mine)
+	check("they are gone from the roster", not Progress.roster.has(mine))
+	check("the seat is filled by somebody else", Progress.of(0) != null and Progress.of(0) != mine)
+	check("and that somebody is in the roster too", Progress.roster.has(Progress.of(0)))
+
+
+func test_playtime_only_adds_up_for_who_is_playing() -> void:
+	await reset_scene(false, false, null, 2)
+	var bench := Progress.create("BENCHED")
+	var before := [Progress.of(0).played_seconds, Progress.of(1).played_seconds, bench.played_seconds]
+	Progress.tick_playtime(2.5)
+	check("both seats count the time",
+		Progress.of(0).played_seconds - before[0] == 2.5 and Progress.of(1).played_seconds - before[1] == 2.5,
+		"%.1f / %.1f" % [Progress.of(0).played_seconds, Progress.of(1).played_seconds])
+	check("nobody else does", bench.played_seconds == before[2], str(bench.played_seconds))
+
+
+func test_the_roster_round_trips() -> void:
+	await reset_scene(false, false, null, 2)
+	Progress.save_path = SAVE_FOR_TEST
+	Progress.persist = true
+	var mine := Progress.create("RYU", &"cyborg")
+	mine.add_xp(Progress.balance.xp_to_next(1) + 5)
+	mine.add_money(77)
+	mine.played_seconds = 1234.0
+	Progress.take_seat(0, mine)
+	Progress.save_game()
+	var names := Progress.roster.map(func(p: PlayerProgress) -> String: return p.character_name)
+	names.sort()
+	Progress.new_game()
+	check("setup: a new game forgets the roster", not Progress.roster.any(func(p: PlayerProgress) -> bool: return p.character_name == "RYU"))
+	Progress.load_game()
+	var back := Progress.roster.map(func(p: PlayerProgress) -> String: return p.character_name)
+	back.sort()
+	check("the whole roster comes back", back == names, "%s vs %s" % [back, names])
+	var loaded: PlayerProgress = Progress.of(0)
+	check("sitting in the seat it was left in", loaded.character_name == "RYU", loaded.character_name)
+	check("with its level, money, look and playtime",
+		loaded.level == 2 and loaded.money == 77 and loaded.look == &"cyborg" and loaded.played_seconds == 1234.0,
+		"Lv%d $%d %s %.0fs" % [loaded.level, loaded.money, loaded.look, loaded.played_seconds])
+	check("and a save time to show in the list", not loaded.saved_at.is_empty(), loaded.saved_at)
+	drop_test_save()
+
+
+func test_saves_from_before_the_roster_still_load() -> void:
+	# 两种老格式：双人那版是 players 里两份，更早那版是一份进度摊在最外层。
+	await reset_scene(false, false, null, 2)
+	var file := FileAccess.open(SAVE_FOR_TEST, FileAccess.WRITE)
+	file.store_string(JSON.stringify({"players": [{"level": 3, "money": 99}, {"level": 5, "money": 12}]}))
+	file.close()
+	Progress.save_path = SAVE_FOR_TEST
+	Progress.load_game()
+	check("the two seats become two characters", Progress.roster.size() == 2, str(Progress.roster.size()))
+	check("with their progress kept", Progress.of(0).level == 3 and Progress.of(1).level == 5,
+		"Lv%d / Lv%d" % [Progress.of(0).level, Progress.of(1).level])
+	check("and names to show in the list",
+		not Progress.of(0).character_name.is_empty() and Progress.of(0).character_name != Progress.of(1).character_name,
+		"%s / %s" % [Progress.of(0).character_name, Progress.of(1).character_name])
+	Progress.new_game()
+	file = FileAccess.open(SAVE_FOR_TEST, FileAccess.WRITE)
+	file.store_string(JSON.stringify({"level": 4, "money": 40}))
+	file.close()
+	Progress.load_game()
+	check("the oldest format becomes one character", Progress.roster.size() == 1 and Progress.of(0).level == 4,
+		"%d 个，Lv%d" % [Progress.roster.size(), Progress.of(0).level])
+	check("and playing solo does not invent a second one", Progress.roster.size() == 1, str(Progress.roster.size()))
+	drop_test_save()
+
+
+func test_there_is_a_slot_for_every_piece_of_gear() -> void:
+	check("eight slots", Equipment.Slot.size() == 8, str(Equipment.Slot.size()))
+	check("weapons come first", Equipment.Slot.GUN == 0 and Equipment.Slot.GRENADE == 1)
+	for slot: int in Equipment.Slot.values():
+		check("slot %d has a name for the UI" % slot, Equipment.SLOT_NAMES.has(slot))
 
 
 func test_the_save_round_trips() -> void:
