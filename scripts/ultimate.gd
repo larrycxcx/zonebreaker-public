@@ -23,6 +23,10 @@ var targets: Array[Enemy] = []
 const ENEMY_BULLETS := &"enemy_bullets"
 
 
+## 谁发动的（武器槽发射时填）。被它消灭的敌人，奖励记在这个人头上。
+var shooter: Node
+
+
 ## 武器槽发射时调用；终极武器没有方向。
 func launch(_direction: Vector2) -> void:
 	pass
@@ -49,7 +53,7 @@ func _activate() -> void:
 	GameEvents.report(&"ultimate_blast", self)
 	for enemy in targets:
 		if is_instance_valid(enemy) and enemy.health > 0:
-			enemy.hit_by_ultimate()
+			enemy.hit_by_ultimate(shooter)
 	queue_free()
 
 

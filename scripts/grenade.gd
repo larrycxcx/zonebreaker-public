@@ -31,6 +31,9 @@ const GROUP := &"grenades"
 ## 素材包里用哪一项画它（`SkinPack.APPEARANCE_KEYS`）。只管长什么样，玩家和 F 的手雷规则完全一样。
 @export var skin_key := &""
 
+## 谁扔的（武器槽发射时填）。敌人被炸死时奖励记在这个人头上，双人各算各的。
+var shooter: Node
+
 var exploded := false
 ## 撞到过地面/平台顶面（弹起来过）。之后它就是「在地上」贴地弹跳的手雷，Boss A 会躲；撞墙反弹不算。
 var landed := false
@@ -108,7 +111,7 @@ func explode(direct_hit: Node2D = null) -> void:
 			continue
 		# 隔着墙炸不到：从爆炸中心到目标之间要没有实心物体。
 		if Sight.is_clear(space, global_position, victim.global_position):
-			victim.take_damage(damage_at(victim, direct_hit), global_position)
+			victim.take_damage(damage_at(victim, direct_hit), global_position, shooter)
 			if status != null and victim.has_method(&"apply_status"):
 				victim.apply_status(status)
 	queue_free()

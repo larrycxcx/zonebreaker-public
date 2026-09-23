@@ -47,6 +47,9 @@ func fire(parent: Node, position: Vector2, direction: Vector2, source: Node) -> 
 		projectile.call(&"scale_damage", weapon.power * damage_scale)
 	if weapon.status != null and &"status" in projectile:
 		projectile.set(&"status", weapon.status)
+	# 谁开的火：打死敌人时奖励要记在这个人头上（双人各算各的，见 Progress）
+	if &"shooter" in projectile:
+		projectile.set(&"shooter", source)
 	parent.add_child(projectile)
 	projectile.global_position = position
 	cooldown_left = weapon.cooldown * cooldown_scale

@@ -13,6 +13,8 @@ extends Area2D
 @export var skin_key := &""
 
 var direction := Vector2.RIGHT
+## 谁打的这一枪（武器槽发射时填）。敌人被打死时奖励记在这个人头上，双人各算各的。
+var shooter: Node
 
 var _age := 0.0
 
@@ -50,7 +52,7 @@ func _on_body_entered(body: Node2D) -> void:
 		return
 	if body.has_method("take_damage"):
 		# 打中角色的声音由被打的一方报告（enemy_hit / player_hurt 等）。
-		body.take_damage(damage, global_position)
+		body.take_damage(damage, global_position, shooter)
 		if status != null and body.has_method(&"apply_status"):
 			body.apply_status(status)
 	else:

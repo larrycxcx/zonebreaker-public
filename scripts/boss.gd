@@ -53,11 +53,11 @@ func appear() -> void:
 	health_changed.emit(health, max_health)
 
 
-func take_damage(amount: int, source_position := Vector2.INF) -> void:
+func take_damage(amount: int, source_position := Vector2.INF, from: Node = null) -> void:
 	if health <= 0:
 		return
 	appear()
-	super.take_damage(amount, source_position)
+	super.take_damage(amount, source_position, from)
 	health_changed.emit(maxi(health, 0), max_health)
 
 
@@ -67,8 +67,8 @@ func ultimate_damage() -> int:
 
 
 ## 终极武器对 Boss 只造成伤害，不直接消灭。
-func hit_by_ultimate() -> void:
-	take_damage(ultimate_damage())
+func hit_by_ultimate(from: Node = null) -> void:
+	take_damage(ultimate_damage(), Vector2.INF, from)
 
 
 ## HUD 上显示的头像：外观（素材包）自己带了头像就用它，头像跟着皮肤换；否则用场景里配的占位头像。

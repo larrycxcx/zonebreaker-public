@@ -38,7 +38,7 @@ func _ready() -> void:
 	_boss_bar.hide()
 	_add_look()
 	GameEvents.boss_appeared.connect(_on_boss_appeared)
-	Progress.progress_changed.connect(_on_progress_changed)
+	Progress.of(player_index).progress_changed.connect(_on_progress_changed)
 	_on_progress_changed()
 	var player: Player = null
 	for node in get_tree().get_nodes_in_group(&"player"):
@@ -147,9 +147,10 @@ func _on_boss_died() -> void:
 
 ## 等级、经验、金钱、没分配的技能点（占位文字，第 5 步做正式的）。
 func _on_progress_changed() -> void:
-	var text := "Lv %d   XP %d/%d   $%d" % [Progress.level, Progress.xp, Progress.balance.xp_to_next(Progress.level), Progress.money]
-	if Progress.points > 0:
-		text += "   +%d 技能点" % Progress.points
+	var me := Progress.of(player_index)
+	var text := "Lv %d   XP %d/%d   $%d" % [me.level, me.xp, me.balance.xp_to_next(me.level), me.money]
+	if me.points > 0:
+		text += "   +%d 技能点" % me.points
 	_progress_label.text = text
 
 

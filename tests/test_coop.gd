@@ -155,6 +155,96 @@ func test_a_dead_player_neither_drags_the_camera_nor_gets_dragged() -> void:
 		"%.1f vs %.1f" % [camera_rig().global_position.x, player.global_position.x])
 
 
+# ---------------------------------------------------------------- 各存各的成长进度
+
+const SAVE_FOR_TEST := "user://test_coop_progress.json"
+
+
+func drop_test_save() -> void:
+	Progress.persist = false
+	Progress.save_path = Progress.DEFAULT_SAVE
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_FOR_TEST))
+
+
+func test_each_player_has_their_own_progress() -> void:
+	await reset_scene(false, false, null, 2)
+	check("two separate profiles", Progress.of(0) != Progress.of(1))
+	check("each player holds their own", player.progress == Progress.of(0) and player2.progress == Progress.of(1))
+	Progress.of(0).add_xp(Progress.balance.xp_to_next(1))
+	Progress.of(0).add_money(50)
+	await frames(2)
+	check("levelling one does not level the other",
+		Progress.of(0).level == 2 and Progress.of(1).level == 1,
+		"P1 Lv%d, P2 Lv%d" % [Progress.of(0).level, Progress.of(1).level])
+	check("and the money stays apart", Progress.of(0).money == 50 and Progress.of(1).money == 0,
+		"P1 $%d, P2 $%d" % [Progress.of(0).money, Progress.of(1).money])
+
+
+func test_a_stat_point_only_reaches_its_own_player() -> void:
+	await reset_scene(false, false, null, 2)
+	var before := [player.max_health, player2.max_health]
+	check("setup: both start the same", before[0] == before[1], str(before))
+	Progress.of(1).points = 1
+	Progress.of(1).spend_point(Balance.LIFE)
+	await frames(2)
+	check("the second player gets tougher", player2.max_health > before[1],
+		"%d -> %d" % [before[1], player2.max_health])
+	check("the first player is untouched", player.max_health == before[0],
+		"%d -> %d" % [before[0], player.max_health])
+
+
+func test_the_kill_pays_whoever_made_it() -> void:
+	await reset_scene(true, false, null, 2)
+	keep_only_enemies(["WalkerA"])
+	var walker: Enemy = main.get_node("Enemies/WalkerA")
+	walker.global_position = Vector2(500, 304)
+	walker._fire_timer = 999.0
+	player.global_position = Vector2(300, 304)
+	player2.global_position = Vector2(400, 304)
+	await frames(2)
+	var before := [Progress.of(0).xp, Progress.of(1).xp]
+	Input.action_press("p2_shoot")
+	for i in 120:
+		await tree.physics_frame
+		if not is_instance_valid(walker):
+			break
+	release_all_input()
+	check("the second player shot it dead", not is_instance_valid(walker))
+	check("so the second player is paid", Progress.of(1).xp > before[1],
+		"%d -> %d" % [before[1], Progress.of(1).xp])
+	check("and the first player, who never fired, is not", Progress.of(0).xp == before[0],
+		"%d -> %d" % [before[0], Progress.of(0).xp])
+
+
+func test_the_save_holds_both_players() -> void:
+	await reset_scene(false, false, null, 2)
+	Progress.save_path = SAVE_FOR_TEST
+	Progress.persist = true
+	Progress.of(0).add_money(30)
+	Progress.of(1).add_money(70)
+	Progress.new_game()
+	check("setup: a new game forgets it all", Progress.of(0).money == 0 and Progress.of(1).money == 0)
+	Progress.load_game()
+	check("both purses come back", Progress.of(0).money == 30 and Progress.of(1).money == 70,
+		"P1 $%d, P2 $%d" % [Progress.of(0).money, Progress.of(1).money])
+	drop_test_save()
+
+
+func test_a_save_from_before_co_op_still_loads() -> void:
+	# 双人之前的存档是一份进度直接摊在最外层，没有 players 这一项。读到那种就当成 1 号的。
+	await reset_scene(false, false, null, 2)
+	var file := FileAccess.open(SAVE_FOR_TEST, FileAccess.WRITE)
+	file.store_string(JSON.stringify({"level": 3, "xp": 4, "money": 99, "points": 2}))
+	file.close()
+	Progress.save_path = SAVE_FOR_TEST
+	Progress.load_game()
+	check("the old save becomes the first player", Progress.of(0).level == 3 and Progress.of(0).money == 99,
+		"Lv%d $%d" % [Progress.of(0).level, Progress.of(0).money])
+	check("and the second player starts fresh", Progress.of(1).level == 1 and Progress.of(1).money == 0,
+		"Lv%d $%d" % [Progress.of(1).level, Progress.of(1).money])
+	drop_test_save()
+
+
 # ---------------------------------------------------------------- 敌人认两个玩家
 
 func test_an_enemy_goes_for_the_nearest_player_it_can_see() -> void:

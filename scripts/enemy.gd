@@ -18,6 +18,9 @@ signal shot_fired
 
 ## 身上的异常状态。敌人目前只吃持续伤害；减速、麻痹要改每种敌人的 AI，以后真做麻痹敌人时再接。
 var statuses := StatusEffects.new()
+## 最后是谁打的（子弹、手雷、终极武器发射时带过来的那个角色）。死掉时奖励记在这个人头上，
+## 双人各算各的。一直没人打过（比如掉出关卡）就是 null，那份奖励算 1 号的。
+var killed_by: Node
 @export var gravity := 1800.0
 @export var max_fall_speed := 800.0
 
@@ -134,9 +137,11 @@ func _process(delta: float) -> void:
 	statuses.tick(delta)
 
 
-func take_damage(amount: int, _source_position := Vector2.INF) -> void:
+func take_damage(amount: int, _source_position := Vector2.INF, from: Node = null) -> void:
 	if health <= 0:
 		return
+	if from != null:
+		killed_by = from
 	health -= amount
 	if health <= 0:
 		die()
@@ -146,7 +151,9 @@ func take_damage(amount: int, _source_position := Vector2.INF) -> void:
 
 
 ## 被终极武器打中：普通敌人直接消灭（不管血量）。Boss 覆盖成只受伤害。
-func hit_by_ultimate() -> void:
+func hit_by_ultimate(from: Node = null) -> void:
+	if from != null:
+		killed_by = from
 	die()
 
 

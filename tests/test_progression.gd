@@ -5,7 +5,13 @@ extends GameTest
 ## 最要紧的一条：**1 级、没装备的玩家和改造前手感一模一样**（120 血挨 3 下死、子弹一发 SHOT、冷却原样），
 ## 这样老测试才能继续守着手感，升级和装备都是在这之上加。
 
+
 const SAVE_FOR_TEST := "user://test_progress.json"
+
+
+## 1 号玩家那一份成长进度。双人时每人一份（`Progress.of(index)`），这一组测的是 1 号。
+func me() -> PlayerProgress:
+	return Progress.of(0)
 
 
 ## 模拟「死了重开本关」：关卡整个重建，但不动 Progress（reset_scene 会把它清成新开一局）。
@@ -32,7 +38,7 @@ func fire_one() -> Bullet:
 
 func test_a_new_game_feels_like_before() -> void:
 	await reset_scene()
-	check("level 1, no xp, no money, no points", Progress.level == 1 and Progress.xp == 0 and Progress.money == 0 and Progress.points == 0)
+	check("level 1, no xp, no money, no points", me().level == 1 and me().xp == 0 and me().money == 0 and me().points == 0)
 	check("carrying the rifle and the grenade", player.weapons[0].resource_path == "res://weapons/rifle.tres"
 		and player.weapons[1].resource_path == "res://weapons/grenade.tres")
 	check("three hits to die", player.max_health == 3 * HIT, str(player.max_health))
@@ -57,8 +63,8 @@ func test_kills_pay_xp_and_money() -> void:
 	walker.take_damage(walker.health)
 	turret.hit_by_ultimate() # 终极武器消灭的也算
 	await frames(1)
-	check("xp from both kills", Progress.xp == xp, "%d vs %d" % [Progress.xp, xp])
-	check("money from both kills", Progress.money == money, "%d vs %d" % [Progress.money, money])
+	check("xp from both kills", me().xp == xp, "%d vs %d" % [me().xp, xp])
+	check("money from both kills", me().money == money, "%d vs %d" % [me().money, money])
 	check("a tougher enemy pays more", tougher)
 
 
@@ -74,16 +80,16 @@ func test_every_enemy_pays_and_the_boss_pays_most() -> void:
 func test_levelling_up_gives_skill_points() -> void:
 	await reset_scene()
 	var levels := []
-	Progress.leveled_up.connect(func(level: int) -> void: levels.append(level))
+	me().leveled_up.connect(func(level: int) -> void: levels.append(level))
 	var first := Progress.balance.xp_to_next(1)
-	Progress.add_xp(first - 1)
-	check("one short of the next level: still level 1", Progress.level == 1 and Progress.points == 0)
-	Progress.add_xp(1)
-	check("reaching it: level 2", Progress.level == 2 and Progress.xp == 0, "Lv %d, %d xp" % [Progress.level, Progress.xp])
-	check("with skill points to spend", Progress.points == Progress.balance.points_per_level, str(Progress.points))
+	me().add_xp(first - 1)
+	check("one short of the next level: still level 1", me().level == 1 and me().points == 0)
+	me().add_xp(1)
+	check("reaching it: level 2", me().level == 2 and me().xp == 0, "Lv %d, %d xp" % [me().level, me().xp])
+	check("with skill points to spend", me().points == Progress.balance.points_per_level, str(me().points))
 	check("each level asks for more xp", Progress.balance.xp_to_next(2) > first)
-	Progress.add_xp(Progress.balance.xp_to_next(2) + Progress.balance.xp_to_next(3))
-	check("a big pile of xp can climb several levels", Progress.level == 4 and levels == [2, 3, 4], str(levels))
+	me().add_xp(Progress.balance.xp_to_next(2) + Progress.balance.xp_to_next(3))
+	check("a big pile of xp can climb several levels", me().level == 4 and levels == [2, 3, 4], str(levels))
 
 
 # ---------------------------------------------------------------- 四个属性
@@ -92,20 +98,20 @@ func test_life_raises_max_health_and_heals_the_gain() -> void:
 	await reset_scene()
 	player.take_damage(HIT)
 	var before := player.health
-	Progress.points = 2
-	Progress.spend_point(Balance.LIFE)
+	me().points = 2
+	me().spend_point(Balance.LIFE)
 	var gain := int(Progress.balance.per_point[Balance.LIFE])
 	check("max health goes up", player.max_health == 3 * HIT + gain, str(player.max_health))
 	check("and the gain is healed on the spot", player.health == before + gain, "%d -> %d" % [before, player.health])
-	check("points are spent", Progress.points == 1)
-	check("a bad stat name spends nothing", not Progress.spend_point(&"luck") and Progress.points == 1)
+	check("points are spent", me().points == 1)
+	check("a bad stat name spends nothing", not me().spend_point(&"luck") and me().points == 1)
 
 
 func test_attack_raises_damage() -> void:
 	await reset_scene()
-	Progress.points = 5
+	me().points = 5
 	for i in 5:
-		Progress.spend_point(Balance.ATTACK)
+		me().spend_point(Balance.ATTACK)
 	var shot := fire_one()
 	# 攻击 10 → 15：伤害 × 1.5
 	check("+5 attack: 50% more damage", shot != null and shot.damage == roundi(SHOT * 1.5), str(shot.damage) if shot != null else "no shot")
@@ -121,10 +127,10 @@ func test_attack_raises_damage() -> void:
 
 func test_defense_softens_hits_but_never_to_zero() -> void:
 	await reset_scene()
-	Progress.points = 20
+	me().points = 20
 	for i in 20:
-		Progress.spend_point(Balance.DEFENSE)
-	var defense := Progress.stat(Balance.DEFENSE)
+		me().spend_point(Balance.DEFENSE)
+	var defense := me().stat(Balance.DEFENSE)
 	player.take_damage(HIT)
 	var expected := Balance.damage_taken(HIT, defense)
 	check("defense %d: a hit takes %d instead of %d" % [defense, expected, HIT], player.health == player.max_health - expected and expected < HIT,
@@ -135,18 +141,18 @@ func test_defense_softens_hits_but_never_to_zero() -> void:
 
 func test_speed_shortens_cooldowns_up_to_a_cap() -> void:
 	await reset_scene()
-	Progress.points = 10
+	me().points = 10
 	for i in 10:
-		Progress.spend_point(Balance.SPEED)
-	var rate := Progress.stat(Balance.SPEED)
+		me().spend_point(Balance.SPEED)
+	var rate := me().stat(Balance.SPEED)
 	fire_one()
 	check("speed %d%%: the rifle cools down faster" % rate,
 		is_equal_approx(player.current_slot().cooldown_left, player.weapons[0].cooldown * 100.0 / rate), str(player.current_slot().cooldown_left))
-	Progress.points = 1000
+	me().points = 1000
 	for i in 1000:
-		Progress.spend_point(Balance.SPEED)
-	check("but only up to the cap", Progress.stat(Balance.SPEED) == Progress.balance.cap[Balance.SPEED],
-		str(Progress.stat(Balance.SPEED)))
+		me().spend_point(Balance.SPEED)
+	check("but only up to the cap", me().stat(Balance.SPEED) == Progress.balance.cap[Balance.SPEED],
+		str(me().stat(Balance.SPEED)))
 	check("the ultimate is not sped up", player._ultimate.cooldown_scale == 1.0)
 
 
@@ -159,15 +165,15 @@ func test_buying_and_wearing_gear() -> void:
 	armor.price = 50
 	armor.bonuses = {Balance.LIFE: 40.0, Balance.DEFENSE: 10.0}
 	armor.resist = {&"burn": 0.5}
-	check("can't buy without the money", not Progress.buy(armor) and Progress.money == 0)
-	Progress.add_money(80)
-	check("buying takes the money", Progress.buy(armor) and Progress.money == 30, str(Progress.money))
-	check("and does not double-buy", not Progress.buy(armor) and Progress.money == 30)
-	check("bought is not worn yet", Progress.gear(Equipment.Slot.ARMOR) == null and player.max_health == 3 * HIT)
-	Progress.equip(armor)
-	check("wearing it adds its bonuses", player.max_health == 3 * HIT + 40 and Progress.stat(Balance.DEFENSE) == 10.0,
-		"%d / %s" % [player.max_health, Progress.stat(Balance.DEFENSE)])
-	check("and its resistances", is_equal_approx(Progress.resistance(&"burn"), 0.5) and Progress.resistance(&"poison") == 0.0)
+	check("can't buy without the money", not me().buy(armor) and me().money == 0)
+	me().add_money(80)
+	check("buying takes the money", me().buy(armor) and me().money == 30, str(me().money))
+	check("and does not double-buy", not me().buy(armor) and me().money == 30)
+	check("bought is not worn yet", me().gear(Equipment.Slot.ARMOR) == null and player.max_health == 3 * HIT)
+	me().equip(armor)
+	check("wearing it adds its bonuses", player.max_health == 3 * HIT + 40 and me().stat(Balance.DEFENSE) == 10.0,
+		"%d / %s" % [player.max_health, me().stat(Balance.DEFENSE)])
+	check("and its resistances", is_equal_approx(me().resistance(&"burn"), 0.5) and me().resistance(&"poison") == 0.0)
 
 
 func test_a_stronger_gun_changes_what_you_fire() -> void:
@@ -176,9 +182,9 @@ func test_a_stronger_gun_changes_what_you_fire() -> void:
 	heavy.power = 2.0
 	heavy.cooldown = 0.3
 	heavy.bonuses = {Balance.SPEED: -20.0}
-	Progress.owned.append(heavy)
-	Progress.equip(heavy)
-	check("the gun slot holds it", Progress.gear(Equipment.Slot.GUN) == heavy)
+	me().owned.append(heavy)
+	me().equip(heavy)
+	check("the gun slot holds it", me().gear(Equipment.Slot.GUN) == heavy)
 	await restart_level() # 武器在出生时装上
 	check("the player spawns with it", player.weapons[0] == heavy)
 	var shot := fire_one()
@@ -192,15 +198,15 @@ func test_a_stronger_gun_changes_what_you_fire() -> void:
 
 func test_dying_keeps_everything() -> void:
 	await reset_scene()
-	Progress.add_xp(Progress.balance.xp_to_next(1) + 7)
-	Progress.add_money(123)
-	Progress.spend_point(Balance.LIFE)
-	var snapshot := [Progress.level, Progress.xp, Progress.money, Progress.points]
+	me().add_xp(Progress.balance.xp_to_next(1) + 7)
+	me().add_money(123)
+	me().spend_point(Balance.LIFE)
+	var snapshot := [me().level, me().xp, me().money, me().points]
 	player.take_damage(player.health)
 	await frames(2)
 	await restart_level()
-	check("level, xp, money and points survive a death", [Progress.level, Progress.xp, Progress.money, Progress.points] == snapshot,
-		"%s vs %s" % [[Progress.level, Progress.xp, Progress.money, Progress.points], snapshot])
+	check("level, xp, money and points survive a death", [me().level, me().xp, me().money, me().points] == snapshot,
+		"%s vs %s" % [[me().level, me().xp, me().money, me().points], snapshot])
 	check("the new player spawns with the raised life, at full health",
 		player.max_health == 3 * HIT + int(Progress.balance.per_point[Balance.LIFE]) and player.health == player.max_health, str(player.max_health))
 
@@ -210,18 +216,18 @@ func test_the_save_round_trips() -> void:
 	Progress.save_path = SAVE_FOR_TEST
 	Progress.persist = true
 	var armor := load("res://weapons/grenade.tres") as Equipment # 随便一件有资源路径的装备
-	Progress.add_xp(Progress.balance.xp_to_next(1) + 5)
-	Progress.add_money(77)
-	Progress.spend_point(Balance.ATTACK)
-	Progress.spend_point(Balance.ATTACK)
-	var snapshot := [Progress.level, Progress.xp, Progress.money, Progress.points, Progress.allocated.duplicate()]
+	me().add_xp(Progress.balance.xp_to_next(1) + 5)
+	me().add_money(77)
+	me().spend_point(Balance.ATTACK)
+	me().spend_point(Balance.ATTACK)
+	var snapshot := [me().level, me().xp, me().money, me().points, me().allocated.duplicate()]
 	Progress.new_game()
-	check("setup: a new game forgets it all", Progress.level == 1 and Progress.money == 0)
+	check("setup: a new game forgets it all", me().level == 1 and me().money == 0)
 	Progress.load_game()
 	check("loading the save brings it all back",
-		[Progress.level, Progress.xp, Progress.money, Progress.points, Progress.allocated] == snapshot,
-		"%s vs %s" % [[Progress.level, Progress.xp, Progress.money, Progress.points, Progress.allocated], snapshot])
-	check("including what is worn", Progress.gear(Equipment.Slot.GRENADE) == armor and Progress.gear(Equipment.Slot.GUN) != null)
+		[me().level, me().xp, me().money, me().points, me().allocated] == snapshot,
+		"%s vs %s" % [[me().level, me().xp, me().money, me().points, me().allocated], snapshot])
+	check("including what is worn", me().gear(Equipment.Slot.GRENADE) == armor and me().gear(Equipment.Slot.GUN) != null)
 	Progress.persist = false
 	Progress.save_path = Progress.DEFAULT_SAVE
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_FOR_TEST))
@@ -234,7 +240,7 @@ func test_a_broken_save_starts_fresh() -> void:
 	file.close()
 	Progress.save_path = SAVE_FOR_TEST
 	Progress.load_game()
-	check("a broken save is ignored", Progress.level == 1 and Progress.gear(Equipment.Slot.GUN) != null)
+	check("a broken save is ignored", me().level == 1 and me().gear(Equipment.Slot.GUN) != null)
 	Progress.save_path = Progress.DEFAULT_SAVE
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_FOR_TEST))
 
@@ -244,9 +250,9 @@ func test_speed_makes_sprints_last_longer() -> void:
 	var drains := []
 	for points in [0, 10]:
 		await reset_scene()
-		Progress.points = points
+		me().points = points
 		for i in points:
-			Progress.spend_point(Balance.SPEED)
+			me().spend_point(Balance.SPEED)
 		player.global_position = Vector2(100, 304)
 		await frames(2)
 		var before := player.stamina

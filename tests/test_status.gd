@@ -4,6 +4,12 @@ extends GameTest
 ## 游戏里还没有具体的状态（中毒、灼烧、麻痹以后再加），这里用测试现做的。
 
 
+
+## 1 号玩家那一份成长进度。双人时每人一份（`Progress.of(index)`），这一组测的是 1 号。
+func me() -> PlayerProgress:
+	return Progress.of(0)
+
+
 func dot(id: StringName, damage: int, seconds := 1.0, interval := 0.25) -> StatusEffect:
 	var effect := StatusEffect.new()
 	effect.id = id
@@ -77,8 +83,8 @@ func test_gear_resists_statuses_on_the_player() -> void:
 	var charm := Equipment.new()
 	charm.slot = Equipment.Slot.ACCESSORY
 	charm.resist = {&"poison": 1.0}
-	Progress.owned.append(charm)
-	Progress.equip(charm)
+	me().owned.append(charm)
+	me().equip(charm)
 	player.apply_status(dot(&"poison", 5))
 	check("an immunity charm keeps poison off", not player.statuses.has(&"poison"))
 	player.apply_status(dot(&"burn", 5))
@@ -155,4 +161,4 @@ func test_enemies_can_resist_and_burning_to_death_pays() -> void:
 		if not is_instance_valid(walker):
 			break
 	check("burning to death kills it", not is_instance_valid(walker))
-	check("and still pays", Progress.xp == reward, "%d vs %d" % [Progress.xp, reward])
+	check("and still pays", me().xp == reward, "%d vs %d" % [me().xp, reward])

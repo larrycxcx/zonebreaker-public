@@ -12,7 +12,7 @@ signal ultimate_ammo_changed(ammo: int, max_ammo: int)
 
 
 @export_group("Health")
-## 最大血量：由生命属性算出来（Progress.stat(life)），这里不再手填。
+## 最大血量：由生命属性算出来（自己那份进度的 stat(life)），这里不再手填。
 var max_health := 0
 ## 受伤后的无敌时间，期间闪烁且不再受任何伤害。
 @export var invincible_time := 1.0
@@ -128,6 +128,9 @@ var _stamina_regen_timer := 0.0
 ## 第几号玩家（0 = 1 号，1 = 2 号）：决定读哪一套输入（见 act()）、用哪一份成长进度、哪一套 HUD。
 @export var player_index := 0
 
+## 自己那一份成长进度（`Progress.of(player_index)`，双人时两个人各一份）。在 `_ready` 里取。
+var progress: PlayerProgress
+
 ## 外观层。玩法只调它的接口（朝向/姿势/瞄准/受击/闪烁/死亡/后坐力），不碰方块和颜色。
 ## 素材包里有 `skin_key` 这套外观的话，`_ready` 里会换成它的（见 Skins.build_appearance）。
 @export var skin_key := &"player"
@@ -150,9 +153,11 @@ func is_alive() -> bool:
 
 func _ready() -> void:
 	_visual = Skins.build_appearance(self, skin_key)
+	# 自己那一份成长进度（双人时两个人各一份，按编号取）
+	progress = Progress.of(player_index)
 	# 两个武器位用进度里身上装备的那两把（枪、手雷）；进度里没有就用场景里配的
-	var gun := Progress.gear(Equipment.Slot.GUN) as Weapon
-	var grenade := Progress.gear(Equipment.Slot.GRENADE) as Weapon
+	var gun := progress.gear(Equipment.Slot.GUN) as Weapon
+	var grenade := progress.gear(Equipment.Slot.GRENADE) as Weapon
 	if gun != null and grenade != null:
 		weapons = [gun, grenade]
 	for weapon in weapons:
@@ -165,7 +170,7 @@ func _ready() -> void:
 	_apply_stats()
 	health = max_health
 	health_changed.emit(health, max_health)
-	Progress.stats_changed.connect(_apply_stats)
+	progress.stats_changed.connect(_apply_stats)
 	statuses.on_damage = take_status_damage
 	stamina = max_stamina
 	stamina_changed.emit(stamina, max_stamina)
@@ -539,14 +544,14 @@ func _check_contact_damage() -> void:
 ## 速度 → 冷却倍率和冲刺的体力消耗倍率，防御留着挨打时用。
 ## 出生时读一次，之后属性一变（升级加点、换装备）就重读。
 func _apply_stats() -> void:
-	var life := int(Progress.stat(Balance.LIFE))
+	var life := int(progress.stat(Balance.LIFE))
 	if max_health > 0 and life > max_health and not _dead:
 		health += life - max_health
 	max_health = life
 	health = mini(health, max_health)
-	_defense = Progress.stat(Balance.DEFENSE)
-	var damage := Balance.damage_scale(Progress.stat(Balance.ATTACK))
-	var cooldown := Balance.cooldown_scale(Progress.stat(Balance.SPEED))
+	_defense = progress.stat(Balance.DEFENSE)
+	var damage := Balance.damage_scale(progress.stat(Balance.ATTACK))
+	var cooldown := Balance.cooldown_scale(progress.stat(Balance.SPEED))
 	_stamina_drain_scale = cooldown
 	for slot in _slots:
 		slot.damage_scale = damage
@@ -554,11 +559,11 @@ func _apply_stats() -> void:
 	health_changed.emit(health, max_health)
 
 
-## 挂一个异常状态（子弹、手雷打中时调）。抗性来自身上的装备（Progress.resistance）。
+## 挂一个异常状态（子弹、手雷打中时调）。抗性来自身上的装备（自己那份进度的 resistance）。
 func apply_status(effect: StatusEffect) -> void:
 	if _dead or effect == null:
 		return
-	statuses.apply(effect, Progress.resistance(effect.id))
+	statuses.apply(effect, progress.resistance(effect.id))
 
 
 ## 异常状态的持续伤害：不吃防御、不触发无敌时间、不击退（防它靠抗性）。
@@ -572,7 +577,9 @@ func take_status_damage(amount: int) -> void:
 
 
 ## 被敌人子弹或接触伤害调用。`source_position` 用来决定击退方向。防御按 Balance.damage_taken 减伤。
-func take_damage(amount: int, source_position := Vector2.INF) -> void:
+## `from` 是打人的那一方，玩家这边用不上（敌人用它记奖励算谁的），但签名要和敌人的一模一样——
+## `Bullet` 是靠 `has_method("take_damage")` 找目标的，两边必须同名同签名。
+func take_damage(amount: int, source_position := Vector2.INF, _from: Node = null) -> void:
 	if _dead or is_invincible():
 		return
 	health -= Balance.damage_taken(amount, _defense)
