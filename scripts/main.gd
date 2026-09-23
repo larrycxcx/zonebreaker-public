@@ -8,6 +8,9 @@ extends Node2D
 
 ## 2 号玩家出生在 1 号旁边多远。
 @export var second_player_offset := Vector2(-28, 0)
+## 掉到这个高度以下就算掉出关卡（坑底）。地面在 y=320，画面底边 360，
+## 再往下 40px 才算数——这样贴着地面跑不会误判，掉进坑里又立刻就死。
+@export var fall_y := 400.0
 
 @onready var _player: Player = $Player
 ## 全灭之后让玩家选「再来一次 / 回主菜单」的那一层。关卡里没有就照老样子自动重开。
@@ -72,6 +75,20 @@ func _anyone_left() -> bool:
 ## 关卡里才算游戏时长：菜单和暂停不算（暂停时整棵树停了，这里本来就不跑）。
 func _process(delta: float) -> void:
 	Progress.tick_playtime(delta)
+
+
+## 掉进坑里的收干净。玩家直接死；敌人照常 `die()`——
+## 把追着你的 D 引到坑边推下去，经验照给（没人打过的算 1 号的，见 `Progress`）。
+func _physics_process(_delta: float) -> void:
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var player := node as Player
+		if player != null and player.is_alive() and player.global_position.y > fall_y:
+			player.fall_out()
+	for node in get_tree().get_nodes_in_group(Enemy.GROUP):
+		var enemy := node as Enemy
+		# 已经排队等删的别再 die 一次，不然 enemy_death 会报两遍、奖励也发两份
+		if enemy != null and not enemy.is_queued_for_deletion() and enemy.global_position.y > fall_y:
+			enemy.die()
 
 
 func _on_player_died() -> void:

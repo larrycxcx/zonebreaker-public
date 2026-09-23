@@ -40,6 +40,7 @@ const SUITES := {
 	"main_menu": "res://tests/test_main_menu.gd",
 	"progression": "res://tests/test_progression.gd",
 	"coop": "res://tests/test_coop.gd",
+	"pits": "res://tests/test_pits.gd",
 	"status": "res://tests/test_status.gd",
 	"audio": "res://tests/test_audio.gd",
 }

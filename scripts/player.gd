@@ -684,6 +684,15 @@ func revive() -> void:
 	GameEvents.report(&"player_revive", self)
 
 
+## 掉出关卡（踩空掉进坑里）。**直接死，不走倒地那一套**：
+## 人在坑底下，队友走不过去也救不了，挂着个救不起来的倒计时只是让人干等。
+## 也**不吃无敌帧**——刚挨完打的无敌时间不该让你在坑里飘着。
+func fall_out() -> void:
+	if _dead:
+		return
+	_die()
+
+
 func _die() -> void:
 	_dead = true
 	_downed = false
