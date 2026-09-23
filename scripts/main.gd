@@ -29,6 +29,8 @@ func _add_players() -> void:
 	var second := (load(_player.scene_file_path) as PackedScene).instantiate() as Player
 	second.name = "Player2"
 	second.player_index = 1
+	# 换一个角色，同屏时看得出谁是谁。素材包里没有这一项就还是和 1 号长得一样（默认包就是这样）。
+	second.skin_key = &"player2"
 	add_child(second)
 	move_child(second, _player.get_index() + 1)
 	second.global_position = _player.global_position + second_player_offset

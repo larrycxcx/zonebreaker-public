@@ -1,6 +1,7 @@
-"""从原始素材包生成赛博朋克皮肤包的玩家贴图，输出到 skins/cyberpunk/player/。
+"""从原始素材包生成赛博朋克皮肤包的玩家贴图，一个玩家一个目录（skins/cyberpunk/player、player2）。
 
-    python tools/skin_build.py            # 全部重新生成
+    python tools/skin_build.py            # 两个玩家都重新生成
+    python tools/skin_build.py player2    # 只生成 2 号玩家（Punk）
     python tools/skin_build.py --check    # 只检查有没有内容被画布切掉，不写文件
 
 素材来源是 CraftPix 那套「Free Guns for Cyberpunk Characters」，解压在 art_in/default/
@@ -29,9 +30,22 @@ import zlib
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "..", "art_in", "default")
 OWN = os.path.join(HERE, "..", "art_src")
-OUT = os.path.join(HERE, "..", "skins", "cyberpunk", "player")
+SKIN = os.path.join(HERE, "..", "skins", "cyberpunk")
 
-CHARACTER = "1 Biker"
+# 哪个皮肤键用哪个角色。1 号玩家是 Biker，2 号是 Punk——双人同屏时两个人得看得出区别。
+# 三个角色在素材包里规格完全一样（48×48、同样的 10 张手臂、同一套动作名），所以除了名字什么都不用改。
+# 死亡动画各自在自己的文件夹里（`<角色>_death.png`）。
+CHARACTERS = {
+	"player": "1 Biker",
+	"player2": "2 Punk",
+}
+
+# 下面这三个是「当前正在生成哪个角色」，由 use_character() 切换。
+# 做成全局而不是一路往下传参数：这个脚本从头到尾都在处理同一个角色，
+# 每个函数多一个参数只会让本来就长的调用链更难读。
+CHARACTER = ""
+OUT = ""
+DEATH = ""
 # 每种枪的外观用素材包里哪一把（`2 Guns/` 里的编号）。键就是 `Weapon.look`，
 # 每把输出一整套手臂贴图 `arms_<外观>_<方向>_<朝向>.png`，玩家切武器时外观层换一套。
 # **别挑太小的枪**：素材里的后手臂是按「大部分被枪挡住」画的，1 号枪只有 26×7，
@@ -96,7 +110,6 @@ STREAK = (255, 246, 174)
 # 从开始后仰那帧播，枪消失的那一下被倒地的动作盖住。
 # **不按躯干逐帧对齐**：人是往后倒的，逐帧把躯干拉回原点会把后倒的位移抵消掉，变成原地打转。
 # 所以整组只按第 1 帧（站立）的躯干定一次位，后面几帧保留画师原本的摆位。
-DEATH = os.path.join(HERE, "..", "art_in", "extra", "biker_death.png")
 DEATH_FRAMES = [1, 2, 3, 4, 5]
 
 # 趴下和爬行**不在素材包里**（CraftPix 那套只有单膝跪姿），是自己画的，放在 art_src/（进仓库）。
@@ -508,19 +521,40 @@ def save_strip(name, frames, write):
 	print("  %s  %d 帧" % (name, len(frames)))
 
 
-def main():
-	write = "--check" not in sys.argv
-	if not os.path.isdir(SRC):
-		sys.exit("找不到原始素材包 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(SRC))
-	print("身体（%s，无手臂版）：" % CHARACTER)
+## 切到某个角色：素材从哪个文件夹读、贴图写到哪、死亡动画用哪张。
+def use_character(key):
+	global CHARACTER, OUT, DEATH
+	CHARACTER = CHARACTERS[key]
+	OUT = os.path.join(SKIN, key)
+	# 死亡动画在角色自己的文件夹里，文件名是角色名去掉前面的编号：`1 Biker` → `Biker_death.png`
+	DEATH = os.path.join(SRC, "1 Characters", CHARACTER, "%s_death.png" % CHARACTER.split(" ", 1)[1])
+	if not os.path.isdir(OUT):
+		os.makedirs(OUT)
+
+
+def build_character(key, write):
+	use_character(key)
+	print("== %s（%s）==" % (key, CHARACTER))
+	print("身体（脱掉素材自带的手臂）：")
 	build_bodies(write)
-	print("死亡（CraftPix，art_in/extra/）：")
+	print("死亡（角色自己那张 %s）：" % os.path.basename(DEATH))
 	build_death(write)
-	print("趴姿和爬行（自己画的 art_src/%s，原生分辨率）：" % PRONE)
+	print("趴姿和爬行（自己画的 art_src/%s，原生分辨率，颜色贴回这个角色的调色板）：" % PRONE)
 	build_prone(write)
 	print("手臂 + 枪：")
 	check_hands()
 	build_arms(write)
+
+
+def main():
+	write = "--check" not in sys.argv
+	if not os.path.isdir(SRC):
+		sys.exit("找不到原始素材包 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(SRC))
+	only = [a for a in sys.argv[1:] if not a.startswith("--")]
+	for key in (only if only else CHARACTERS):
+		if key not in CHARACTERS:
+			sys.exit("没有这个角色：%s（有的是 %s）" % (key, ", ".join(CHARACTERS)))
+		build_character(key, write)
 	if _clipped:
 		print("\n有内容被画布切掉了：")
 		for line in _clipped[:20]:

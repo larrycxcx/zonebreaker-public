@@ -155,6 +155,37 @@ func test_a_dead_player_neither_drags_the_camera_nor_gets_dragged() -> void:
 		"%.1f vs %.1f" % [camera_rig().global_position.x, player.global_position.x])
 
 
+# ---------------------------------------------------------------- 2 号玩家长什么样
+
+func test_the_second_player_wears_a_different_character() -> void:
+	# 同屏两个人得看得出谁是谁：2 号用素材包里的另一个角色（Punk）。
+	var skin := load(CYBERPUNK) as SkinPack
+	await reset_scene(false, false, skin, 2)
+	var one: Node = player.get_node("Visual")
+	var two: Node = player2.get_node("Visual")
+	check("both are wearing the pack's sprites", one is SpriteAppearance and two is SpriteAppearance)
+	check("but not the same character", one.get(&"art_dir") != two.get(&"art_dir"),
+		"%s / %s" % [one.get(&"art_dir"), two.get(&"art_dir")])
+	check("and the second one is the second player's set", String(two.get(&"art_dir")).ends_with("player2"),
+		str(two.get(&"art_dir")))
+
+
+func test_a_different_character_changes_nothing_about_the_rules() -> void:
+	# 换外观不能换规则：两个人的判定框、出膛点、跳跃高度必须一模一样。
+	var skin := load(CYBERPUNK) as SkinPack
+	await reset_scene(false, false, skin, 2)
+	player.global_position = Vector2(200, 304)
+	player2.global_position = Vector2(300, 304)
+	await frames(10)
+	var box_one: RectangleShape2D = (player.get_node("CollisionShape2D") as CollisionShape2D).shape
+	var box_two: RectangleShape2D = (player2.get_node("CollisionShape2D") as CollisionShape2D).shape
+	check("same collision box", box_one.size == box_two.size, "%s vs %s" % [box_one.size, box_two.size])
+	for aim in [Vector2.RIGHT, Vector2.UP, Vector2(1, -1).normalized(), Vector2(1, 1).normalized(), Vector2.DOWN]:
+		var one := player._muzzle_position(aim) - player.global_position
+		var two := player2._muzzle_position(aim) - player2.global_position
+		check("same muzzle aiming %s" % aim, one == two, "%s vs %s" % [one, two])
+
+
 # ---------------------------------------------------------------- 濒死与营救
 
 ## 把两个人放到互相够不着的地方，免得刚倒地就被顺手救起来。
