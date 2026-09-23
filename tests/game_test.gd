@@ -93,9 +93,15 @@ func add_wall(x: float, height: float, wall_name := "TestWall") -> Platform:
 ## 瞬移玩家之后让摄像机立刻跟上。摄像机每帧是在物理更新**之后**才跟的，瞬移那一帧敌人看到的还是上一帧的画面范围——
 ## 敌人「在屏幕里就看得见玩家」，这一帧就可能误把玩家看见（D 还会带着 2 秒记忆追过来）。
 func snap_camera() -> void:
-	var camera := player.get_node_or_null("Camera2D") as Camera2D
+	var camera := camera_rig()
 	if camera != null:
+		camera._physics_process(0.0)
 		camera.force_update_scroll()
+
+
+## 关卡共用的摄像机（跟两个玩家的中点，不再挂在玩家身上）。
+func camera_rig() -> CameraRig:
+	return main.get_node_or_null("Camera2D") as CameraRig
 
 
 ## 关卡里的敌人（只要真正的敌人）。敌人的子弹和手雷也挂在 Enemies 下（敌人死了它们照样飞完），

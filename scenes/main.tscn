@@ -13,7 +13,7 @@
 [ext_resource type="PackedScene" path="res://scenes/boss_a.tscn" id="11"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_walker_f.tscn" id="12"]
 [ext_resource type="Script" path="res://scripts/fx.gd" id="13"]
-[ext_resource type="Script" path="res://scripts/screen_shake.gd" id="17"]
+[ext_resource type="Script" path="res://scripts/camera_rig.gd" id="17"]
 [ext_resource type="PackedScene" path="res://scenes/muzzle_flash.tscn" id="14"]
 [ext_resource type="PackedScene" path="res://scenes/hit_spark.tscn" id="15"]
 [ext_resource type="PackedScene" path="res://scenes/impact_spark.tscn" id="16"]
@@ -133,7 +133,9 @@ explosion_scene = ExtResource("18")
 [node name="Player" parent="." instance=ExtResource("2")]
 position = Vector2(64, 304)
 
-[node name="Camera2D" type="Camera2D" parent="Player"]
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(64, 296)
 script = ExtResource("17")
 limit_left = 0
 limit_top = 0

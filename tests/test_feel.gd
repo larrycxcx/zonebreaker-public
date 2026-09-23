@@ -3,7 +3,7 @@ extends GameTest
 ## 两者都只改表现——抖动只动摄像机 offset，后坐力只动 Visual 的位置，玩法判定一点都不碰。
 
 func camera() -> ScreenShake:
-	return player.get_node("Camera2D")
+	return main.get_node("Camera2D")
 
 
 ## 报告一个事件，等抖动生效。

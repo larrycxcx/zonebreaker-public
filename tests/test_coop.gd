@@ -95,6 +95,66 @@ func test_the_second_player_shoots_with_its_own_key() -> void:
 			shots.all(func(shot: Bullet) -> bool: return absf(shot.global_position.x - player2.global_position.x) < 60.0), str(shots.size()))
 
 
+# ---------------------------------------------------------------- 共用摄像机
+
+func test_the_camera_belongs_to_the_level_not_to_a_player() -> void:
+	await reset_scene()
+	check("the level owns the camera", camera_rig() != null and camera_rig() is CameraRig)
+	check("and no player carries one", player.get_node_or_null("Camera2D") == null)
+
+
+func test_solo_keeps_the_camera_on_the_one_player() -> void:
+	# 单人时中点就是这个玩家本人，画面和摄像机还挂在玩家身上那会儿一模一样。
+	await reset_scene()
+	player.global_position = Vector2(400, 304)
+	await frames(3)
+	check("the camera sits on the player", absf(camera_rig().global_position.x - player.global_position.x) < 0.5,
+		"%.1f vs %.1f" % [camera_rig().global_position.x, player.global_position.x])
+	# 对照：单人永远夹不到人，走到哪都不会被镜头推着走
+	var spot := player.global_position
+	await frames(5)
+	check("and never pushes them around", absf(player.global_position.x - spot.x) < 0.5, str(player.global_position - spot))
+
+
+func test_co_op_follows_the_middle_of_the_two() -> void:
+	await reset_scene(false, false, null, 2)
+	player.global_position = Vector2(300, 304)
+	player2.global_position = Vector2(500, 304)
+	await frames(3)
+	check("the camera sits between them",
+		absf(camera_rig().global_position.x - 400.0) < 1.0, "%.1f" % camera_rig().global_position.x)
+
+
+func test_neither_player_can_be_pushed_off_screen() -> void:
+	# 魂斗罗的规矩：镜头跟中点，谁落在画面外就被拖回来。分头走只能走到画面两边为止。
+	await reset_scene(false, false, null, 2)
+	player.global_position = Vector2(200, 304)
+	player2.global_position = Vector2(1100, 304)
+	await frames(3)
+	var view := camera_rig().view_rect()
+	check("setup: they are further apart than one screen", view.size.x < 900.0, "画面宽 %.0f" % view.size.x)
+	for who in [player, player2]:
+		check("%s is back inside the view" % who.name, view.grow(-1.0).has_point(who.global_position),
+			"x=%.1f，画面 %.1f..%.1f" % [who.global_position.x, view.position.x, view.end.x])
+	check("and they really did get dragged together",
+		absf(player2.global_position.x - player.global_position.x) < 900.0,
+		"%.1f" % absf(player2.global_position.x - player.global_position.x))
+
+
+func test_a_dead_player_neither_drags_the_camera_nor_gets_dragged() -> void:
+	await reset_scene(false, false, null, 2)
+	player.global_position = Vector2(300, 304)
+	player2.global_position = Vector2(700, 304)
+	await frames(3)
+	check("setup: the camera is between them", absf(camera_rig().global_position.x - 500.0) < 1.0,
+		"%.1f" % camera_rig().global_position.x)
+	player2.take_damage(player2.health)
+	await frames(3)
+	check("once one dies the camera follows the living one",
+		absf(camera_rig().global_position.x - player.global_position.x) < 1.0,
+		"%.1f vs %.1f" % [camera_rig().global_position.x, player.global_position.x])
+
+
 # ---------------------------------------------------------------- 敌人认两个玩家
 
 func test_an_enemy_goes_for_the_nearest_player_it_can_see() -> void:
