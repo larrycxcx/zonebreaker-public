@@ -41,6 +41,7 @@ const SUITES := {
 	"progression": "res://tests/test_progression.gd",
 	"coop": "res://tests/test_coop.gd",
 	"pits": "res://tests/test_pits.gd",
+	"level_1": "res://tests/test_level_1.gd",
 	"status": "res://tests/test_status.gd",
 	"audio": "res://tests/test_audio.gd",
 }

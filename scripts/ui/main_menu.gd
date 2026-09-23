@@ -12,7 +12,8 @@ extends Node2D
 ##
 ## 界面一律英文大写（素材包的字模没有汉字，见 CLAUDE.md）。
 
-const LEVEL := "res://scenes/main.tscn"
+## 正式第一关（`tools/level_build.py` 生成的）。`scenes/main.tscn` 留作测试关，测试都跑在那上面。
+const LEVEL := "res://scenes/level_1.tscn"
 ## 游戏名，写在标题牌里那一格。以后定了再改这里。
 const TITLE := "FIRST GAME"
 const SUBTITLE := "A RUN AND GUN"

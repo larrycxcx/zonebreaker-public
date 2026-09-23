@@ -1,0 +1,303 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="6"]
+[ext_resource type="Script" path="res://scripts/fx.gd" id="13"]
+[ext_resource type="PackedScene" path="res://scenes/muzzle_flash.tscn" id="14"]
+[ext_resource type="PackedScene" path="res://scenes/hit_spark.tscn" id="15"]
+[ext_resource type="PackedScene" path="res://scenes/impact_spark.tscn" id="16"]
+[ext_resource type="Script" path="res://scripts/camera_rig.gd" id="17"]
+[ext_resource type="PackedScene" path="res://scenes/explosion.tscn" id="18"]
+[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="19"]
+[ext_resource type="PackedScene" path="res://scenes/ui/death_screen.tscn" id="20"]
+[ext_resource type="PackedScene" path="res://scenes/boss_a.tscn" id="e0"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_chaser.tscn" id="e1"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_flyer.tscn" id="e2"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_turret.tscn" id="e3"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_walker_a.tscn" id="e4"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_walker_b.tscn" id="e5"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_walker_c.tscn" id="e6"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_walker_f.tscn" id="e7"]
+
+[node name="Level1" type="Node2D"]
+script = ExtResource("3")
+
+[node name="Level" type="Node2D" parent="."]
+
+[node name="Ground1" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(0, 320)
+size = Vector2(4000, 40)
+
+[node name="Ground2" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(4096, 320)
+size = Vector2(164, 40)
+
+[node name="Ground3" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(4356, 320)
+size = Vector2(164, 40)
+
+[node name="Ground4" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(4616, 320)
+size = Vector2(3284, 40)
+
+[node name="Ground5" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(8028, 320)
+size = Vector2(172, 40)
+
+[node name="Ground6" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(8296, 320)
+size = Vector2(2504, 40)
+
+[node name="Ground7" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(10896, 320)
+size = Vector2(154, 40)
+
+[node name="Ground8" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(11146, 320)
+size = Vector2(1654, 40)
+
+[node name="WallLeft" parent="Level" instance=ExtResource("1")]
+position = Vector2(-16, 0)
+size = Vector2(16, 360)
+
+[node name="WallRight" parent="Level" instance=ExtResource("1")]
+position = Vector2(12800, 0)
+size = Vector2(16, 360)
+
+[node name="Ledge1" parent="Level" instance=ExtResource("1")]
+position = Vector2(320, 256)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge2" parent="Level" instance=ExtResource("1")]
+position = Vector2(600, 256)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge3" parent="Level" instance=ExtResource("1")]
+position = Vector2(1400, 264)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge4" parent="Level" instance=ExtResource("1")]
+position = Vector2(1560, 216)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge5" parent="Level" instance=ExtResource("1")]
+position = Vector2(1720, 176)
+size = Vector2(128, 16)
+one_way = true
+
+[node name="Ledge6" parent="Level" instance=ExtResource("1")]
+position = Vector2(3400, 248)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge7" parent="Level" instance=ExtResource("1")]
+position = Vector2(4380, 248)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge8" parent="Level" instance=ExtResource("1")]
+position = Vector2(5300, 256)
+size = Vector2(128, 16)
+one_way = true
+
+[node name="Ledge9" parent="Level" instance=ExtResource("1")]
+position = Vector2(5520, 208)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge10" parent="Level" instance=ExtResource("1")]
+position = Vector2(6640, 264)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge11" parent="Level" instance=ExtResource("1")]
+position = Vector2(6800, 216)
+size = Vector2(128, 16)
+one_way = true
+
+[node name="Ledge12" parent="Level" instance=ExtResource("1")]
+position = Vector2(7952, 272)
+size = Vector2(48, 16)
+one_way = true
+
+[node name="Ledge13" parent="Level" instance=ExtResource("1")]
+position = Vector2(8440, 248)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge14" parent="Level" instance=ExtResource("1")]
+position = Vector2(9100, 248)
+size = Vector2(160, 16)
+one_way = true
+
+[node name="Ledge15" parent="Level" instance=ExtResource("1")]
+position = Vector2(9360, 200)
+size = Vector2(160, 16)
+one_way = true
+
+[node name="Ledge16" parent="Level" instance=ExtResource("1")]
+position = Vector2(9900, 248)
+size = Vector2(128, 16)
+one_way = true
+
+[node name="Ledge17" parent="Level" instance=ExtResource("1")]
+position = Vector2(12000, 248)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Crawl1" parent="Level" instance=ExtResource("1")]
+position = Vector2(2760, 240)
+size = Vector2(200, 50)
+
+[node name="Crawl2" parent="Level" instance=ExtResource("1")]
+position = Vector2(10400, 240)
+size = Vector2(160, 50)
+
+[node name="Walls" type="Node2D" parent="Level"]
+
+[node name="Wall1" parent="Level/Walls" instance=ExtResource("1")]
+position = Vector2(1980, 264)
+size = Vector2(16, 56)
+
+[node name="Wall2" parent="Level/Walls" instance=ExtResource("1")]
+position = Vector2(6520, 264)
+size = Vector2(16, 56)
+
+[node name="Wall3" parent="Level/Walls" instance=ExtResource("1")]
+position = Vector2(7000, 264)
+size = Vector2(16, 56)
+
+[node name="Wall4" parent="Level/Walls" instance=ExtResource("1")]
+position = Vector2(11400, 280)
+size = Vector2(16, 40)
+
+[node name="Wall5" parent="Level/Walls" instance=ExtResource("1")]
+position = Vector2(11560, 264)
+size = Vector2(16, 56)
+
+[node name="Enemies" type="Node2D" parent="."]
+
+[node name="WarmupWalkerA" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(500, 304)
+
+[node name="WarmupWalkerA" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(900, 304)
+
+[node name="WarmupWalkerA" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(1150, 304)
+
+[node name="StairsWalkerB" parent="Enemies" instance=ExtResource("e5")]
+position = Vector2(1780, 160)
+
+[node name="StairsTurret" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(2100, 304)
+
+[node name="StairsWalkerA" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(2360, 304)
+
+[node name="CrawlTurret" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(3100, 304)
+
+[node name="CrawlFlyerE" parent="Enemies" instance=ExtResource("e2")]
+position = Vector2(3000, 88)
+
+[node name="CrawlWalkerA" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(3600, 304)
+
+[node name="CrawlWalkerC" parent="Enemies" instance=ExtResource("e6")]
+position = Vector2(3780, 304)
+
+[node name="PitsChaserD" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(4720, 304)
+
+[node name="PitsWalkerA" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(4920, 304)
+
+[node name="BreatherWalkerA" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(6100, 304)
+
+[node name="GrenadierWalkerF" parent="Enemies" instance=ExtResource("e7")]
+position = Vector2(6850, 200)
+
+[node name="GrenadierWalkerA" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(7300, 304)
+
+[node name="GrenadierTurret" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(7550, 304)
+
+[node name="GrenadierWalkerA" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(7640, 304)
+
+[node name="SkiesFlyerE" parent="Enemies" instance=ExtResource("e2")]
+position = Vector2(8000, 88)
+
+[node name="SkiesFlyerE" parent="Enemies" instance=ExtResource("e2")]
+position = Vector2(8500, 88)
+
+[node name="SkiesWalkerC" parent="Enemies" instance=ExtResource("e6")]
+position = Vector2(8800, 304)
+
+[node name="CrossfireWalkerB" parent="Enemies" instance=ExtResource("e5")]
+position = Vector2(9160, 232)
+
+[node name="CrossfireTurret" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(9440, 184)
+
+[node name="CrossfireWalkerA" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(9660, 304)
+
+[node name="CrossfireWalkerC" parent="Enemies" instance=ExtResource("e6")]
+position = Vector2(10100, 304)
+
+[node name="CrossfireWalkerF" parent="Enemies" instance=ExtResource("e7")]
+position = Vector2(9940, 232)
+
+[node name="SprintChaserD" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(10660, 304)
+
+[node name="SprintChaserD" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(11250, 304)
+
+[node name="SprintWalkerA" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(11480, 304)
+
+[node name="BossArenaBossA" parent="Enemies" instance=ExtResource("e0")]
+position = Vector2(12400, 296)
+
+[node name="Fx" type="Node2D" parent="."]
+script = ExtResource("13")
+muzzle_flash_scene = ExtResource("14")
+hit_spark_scene = ExtResource("15")
+impact_spark_scene = ExtResource("16")
+explosion_scene = ExtResource("18")
+
+[node name="Player" parent="." instance=ExtResource("2")]
+position = Vector2(64, 304)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(64, 296)
+script = ExtResource("17")
+limit_left = 0
+limit_top = 0
+limit_right = 12800
+limit_bottom = 360
+
+[node name="HUD" parent="." instance=ExtResource("6")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("19")]
+
+[node name="DeathScreen" parent="." instance=ExtResource("20")]
