@@ -123,8 +123,12 @@ const PORTRAIT_CROP := Rect2(16, 17, 26, 39)
 
 
 ## 某个角色待机第一帧、裁到人身上的那一块（人物设置界面上的头像）。素材包没有就返回 null。
+## **按当前皮肤包的目录找**，不写死哪个包：DLC 角色的贴图可能在另一个包里。
 static func portrait(look: StringName) -> Texture2D:
-	var path := "res://skins/cyberpunk/%s/body_idle_r.png" % look
+	var folder := "res://skins/cyberpunk"
+	if Skins.current != null and not Skins.current.resource_path.is_empty():
+		folder = Skins.current.resource_path.get_base_dir()
+	var path := "%s/%s/body_idle_r.png" % [folder, look]
 	if not ResourceLoader.exists(path):
 		return null
 	var atlas := AtlasTexture.new()

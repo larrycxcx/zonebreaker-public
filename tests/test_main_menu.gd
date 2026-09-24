@@ -321,7 +321,7 @@ func test_the_other_player_s_character_is_skipped() -> void:
 	var one: SetupColumn = menu.setup().columns()[0]
 	var two: SetupColumn = menu.setup().columns()[1]
 	await at_row(one, SetupColumn.Row.LOOK)
-	for i in SetupColumn.LOOKS.size() + 1:
+	for i in SetupColumn.looks().size() + 1:
 		await press(&"move_right")
 		check("never lands on what the other player wears", one.progress.look != two.progress.look,
 			"%s / %s" % [one.progress.look, two.progress.look])
@@ -362,7 +362,7 @@ func test_the_column_says_what_level_the_character_is() -> void:
 	var column: SetupColumn = menu.setup().columns()[0]
 	check("the level is written beside the faces", column._level.text == "LEVEL %d" % mine.level,
 		column._level.text)
-	var faces := column._portraits[SetupColumn.LOOKS.size() - 1]
+	var faces := column._portraits[SetupColumn.looks().size() - 1]
 	check("and it sits to their right", column._level.position.x >= faces.position.x + faces.size.x,
 		"%.0f vs %.0f" % [column._level.position.x, faces.position.x + faces.size.x])
 	check("with room for the words", column._level.position.x + column._level.get_theme_font("font")
@@ -719,7 +719,7 @@ func test_everyone_has_to_accept_before_the_level_starts() -> void:
 		if tree.current_scene != null:
 			break
 	check("once both are ready it starts", tree.current_scene != null
-		and tree.current_scene.scene_file_path == MainMenu.LEVEL, str(tree.current_scene))
+		and tree.current_scene.scene_file_path == MainMenu.level_scene(), str(tree.current_scene))
 	if is_instance_valid(menu):
 		menu.free()
 	tree.unload_current_scene()
@@ -750,7 +750,7 @@ func test_finishing_the_last_seat_starts_the_level() -> void:
 			break
 	# 按**场景文件**认，不按根节点的名字：正式关卡是 level_1.tscn，测试关才叫 main.tscn
 	check("the level is loaded", tree.current_scene != null
-		and tree.current_scene.scene_file_path == MainMenu.LEVEL, str(tree.current_scene))
+		and tree.current_scene.scene_file_path == MainMenu.level_scene(), str(tree.current_scene))
 	# 收尾要收两样东西，少收一样都会祸害后面的用例：
 	# 1. **菜单节点自己**——它是手动 add_child 到 root 上的，`change_scene_to_file` 只换 current_scene，
 	#    不会动它。留着的话它还在每帧收按键，后面的用例一按 A 就被它当成菜单确认。

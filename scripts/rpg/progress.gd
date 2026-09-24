@@ -21,7 +21,8 @@ const DEFAULT_SAVE := "user://save.json"
 ## 没名字的角色（老存档迁移过来的、测试里现开的）按座位起个名。
 const DEFAULT_NAMES := ["PLAYER 1", "PLAYER 2"]
 ## 没挑外观时按座位给一套，免得双人时两个人长得一样。
-const DEFAULT_LOOKS: Array[StringName] = [&"biker", &"punk"]
+## 新角色默认长什么样：**第几个座位就拿清单里的第几个**（`Catalog.looks()`），
+## 这样两个玩家默认不会撞脸。清单是扫 `characters/` 来的，不在这里点名。
 
 ## 是否读写存档。测试关掉它。
 var persist := true
@@ -208,7 +209,9 @@ func _find(character_name: String) -> PlayerProgress:
 func fresh(index: int) -> PlayerProgress:
 	var profile := _new_profile()
 	profile.character_name = _free_name(DEFAULT_NAMES[mini(index, DEFAULT_NAMES.size() - 1)])
-	profile.look = DEFAULT_LOOKS[mini(index, DEFAULT_LOOKS.size() - 1)]
+	var looks := Catalog.looks()
+	if not looks.is_empty():
+		profile.look = looks[mini(index, looks.size() - 1)].key
 	roster.append(profile)
 	return profile
 

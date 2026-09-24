@@ -12,8 +12,12 @@ extends Node2D
 ##
 ## 界面一律英文大写（素材包的字模没有汉字，见 CLAUDE.md）。
 
-## 正式第一关（`tools/level_build.py` 生成的）。`scenes/main.tscn` 留作测试关，测试都跑在那上面。
-const LEVEL := "res://scenes/level_1.tscn"
+## 从哪一关开始：**扫 `levels/` 目录**得来的第一关（见 `Catalog`），不在代码里点名。
+## 这样加一关就是往那儿丢一个 `.tres`，DLC 也走同一条路。
+## （`scenes/main.tscn` 是测试关，不在清单里，测试直接加载它。）
+static func level_scene() -> String:
+	var first := Catalog.first_level()
+	return first.scene_path if first != null else ""
 ## 游戏名，写在标题牌里那一格。以后定了再改这里。
 const TITLE := "FIRST GAME"
 const SUBTITLE := "A RUN AND GUN"
@@ -340,4 +344,4 @@ func _next_seat() -> void:
 
 func start_game() -> void:
 	Progress.save_game()
-	get_tree().change_scene_to_file(LEVEL)
+	get_tree().change_scene_to_file(level_scene())

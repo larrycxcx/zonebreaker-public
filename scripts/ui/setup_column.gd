@@ -44,8 +44,13 @@ const GEAR_Y := 206.0
 const DETAIL_Y := 282.0
 const FOOT_Y := 300.0
 
-## 三个可选角色，顺序就是界面上从左到右。
-const LOOKS: Array[StringName] = [&"biker", &"punk", &"cyborg"]
+## 可选角色，顺序就是界面上从左到右——**扫 `characters/` 目录**得来的（见 `Catalog`），
+## 不在代码里点名，所以 DLC 丢个 `.tres` 进来就多一个角色。
+static func looks() -> Array[StringName]:
+	var keys: Array[StringName] = []
+	for look in Catalog.looks():
+		keys.append(look.key)
+	return keys
 const STAT_LABELS := {&"life": "LIFE", &"attack": "ATTACK", &"defense": "DEFENSE", &"speed": "SPEED"}
 
 var who: Player
@@ -77,6 +82,8 @@ var _bag_menu: MenuList
 var _bag_items: Array[Equipment] = []
 ## 另一个玩家选了哪个外观（那个就不能选了，两个人长一样同屏分不清）。
 var _taken := &""
+## 这一栏能选的几个角色（`Catalog.looks()` 的键）。扫一次记下来，不是每帧去翻目录。
+var _looks: Array[StringName] = []
 ## 这一栏里内容那一片的左边和宽度（`_boxes()` 要按它算每一行的选中框）。
 var _left := 0.0
 var _wide := 0.0
@@ -85,6 +92,7 @@ var _wide := 0.0
 func build(player: Player, index: int, taken_look: StringName) -> void:
 	who = player
 	progress = player.progress
+	_looks = looks()
 	custom_minimum_size = Vector2(WIDTH, HEIGHT)
 	add_child(UiKit.window(Rect2(Vector2.ZERO, Vector2(WIDTH, HEIGHT))))
 	var left := 26.0
@@ -97,17 +105,17 @@ func build(player: Player, index: int, taken_look: StringName) -> void:
 	add_child(UiKit.box(Rect2(left, NAME_Y, wide, 22.0)))
 	_name = UiKit.label("", Rect2(left + 6.0, NAME_Y + 2.0, wide - 12.0, 18.0), UiKit.CYAN)
 	add_child(_name)
-	for i in LOOKS.size():
+	for i in _looks.size():
 		var at := Vector2(left + i * (PORTRAIT.x + 8.0), LOOK_Y)
 		var box := UiKit.box(Rect2(at, PORTRAIT))
 		add_child(box)
 		_portraits.append(box)
 		var face := UiKit.picture("", at + Vector2(2.0, 2.0))
-		face.texture = UiKit.portrait(LOOKS[i])
+		face.texture = UiKit.portrait(_looks[i])
 		add_child(face)
 	# 头像右边那块空地：这个角色练到几级了（读档进来的一眼就看得到）。
 	# 经验值没跟着写：那一行放得下 `LEVEL 10`，放不下 `XP 3500/3844`（130px 的地方要 150px）。
-	var beside := left + LOOKS.size() * (PORTRAIT.x + 8.0) + 4.0
+	var beside := left + _looks.size() * (PORTRAIT.x + 8.0) + 4.0
 	_level = UiKit.label("", Rect2(beside, LOOK_Y + 12.0, left + wide - beside, 18.0), UiKit.GOLD)
 	add_child(_level)
 	for i in Balance.STATS.size():
@@ -175,7 +183,7 @@ func set_taken_look(taken: StringName) -> void:
 
 
 func look_index() -> int:
-	return maxi(0, LOOKS.find(progress.look))
+	return maxi(0, _looks.find(progress.look))
 
 
 func row() -> int:
@@ -205,9 +213,9 @@ func refresh() -> void:
 	# **字模里没有 `$`**（素材包的符号表里就没有），写出来是个缺字方块，所以用 CASH 这个词
 	_money.text = "CASH %d" % progress.money
 	_ready_mark.text = "READY" if confirmed else ""
-	for i in LOOKS.size():
+	for i in _looks.size():
 		var chosen := i == look_index()
-		var blocked := LOOKS[i] == _taken
+		var blocked := _looks[i] == _taken
 		# 选中的那个用**绿色**，不用金色：金框专门表示「光标现在在哪」，两个都金的话分不清
 		_portraits[i].color = UiKit.GREEN if chosen else (Color(0.2, 0.22, 0.34) if blocked else Color(0.27, 0.35, 0.55))
 	for i in Balance.STATS.size():
@@ -329,11 +337,11 @@ func _row_kind(index: int) -> int:
 ## 换个外观，跳过另一个玩家已经选走的那个。
 func _pick_look(direction: int) -> void:
 	var at := look_index()
-	for _try in LOOKS.size():
-		at = wrapi(at + direction, 0, LOOKS.size())
-		if LOOKS[at] != _taken:
+	for _try in _looks.size():
+		at = wrapi(at + direction, 0, _looks.size())
+		if _looks[at] != _taken:
 			break
-	progress.look = LOOKS[at]
+	progress.look = _looks[at]
 	refresh()
 
 
