@@ -84,6 +84,24 @@ func test_a_new_character_takes_the_seat() -> void:
 	check("and it sits in the first seat", Progress.seat_of(Progress.of(0)) == 0)
 
 
+func test_the_hint_names_a_key_that_actually_works() -> void:
+	# 标题上原来写的是「ENTER OR A TO START」，可 Enter 根本没绑——菜单确认走的是 `jump`。
+	# 提示上写哪个键，那个键就得真的按得动。
+	await open_menu()
+	var hint := ""
+	for child in menu._body.get_children():
+		if child is Label and (child as Label).text.ends_with("TO START"):
+			hint = (child as Label).text
+	check("the title says how to start", hint != "", hint)
+	var named := hint.split(" ")[0]
+	var bound := false
+	for event in InputMap.action_get_events(&"jump"):
+		var key := event as InputEventKey
+		if key != null and OS.get_keycode_string(key.physical_keycode).to_upper() == named:
+			bound = true
+	check("and %s really is bound to confirm" % named, bound, hint)
+
+
 func test_the_menu_switches_the_music_over_to_its_own_slot() -> void:
 	# 主菜单归 `intro` 这个用途管。**现在包里没有这首**（原来那首不合适，撤了等换），
 	# 所以进菜单是安静的；以后往包里放一首就会响，这条测试两种情况都成立。

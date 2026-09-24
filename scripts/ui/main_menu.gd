@@ -123,7 +123,7 @@ func _show(page_: Page) -> void:
 	match page_:
 		Page.TITLE:
 			_draw_title(screen)
-			_lay_out(["1 PLAYER", "2 PLAYERS", "QUIT"], screen, 186.0, "ENTER OR A TO START")
+			_lay_out(["1 PLAYER", "2 PLAYERS", "QUIT"], screen, 186.0, "SPACE OR A TO START")
 		Page.SOURCE:
 			_heading("PLAYER %d" % (_seat + 1), screen)
 			_lay_out(["NEW CHARACTER", "LOAD CHARACTER", "BACK"], screen, 150.0, "A CHOOSE    B BACK")
