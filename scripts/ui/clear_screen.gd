@@ -18,9 +18,11 @@ signal chosen(index: int)
 
 ## 开着的时候在这个组里。暂停菜单据此让路——两边都在改 `tree.paused`。
 const GROUP := &"clear_screen"
-const NEXT := 0
-const MAIN_MENU := 1
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
+## 菜单上那几项。**按名字认，不按下标**：有没有「下一关」是看打完的是不是最后一关。
+const NEXT_STAGE := "NEXT STAGE"
+const SHOP := "SHOP"
+const MAIN_MENU := "MAIN MENU"
 
 ## 一栏多宽（双人时两栏并排）。
 const COLUMN := 280.0
@@ -30,6 +32,8 @@ var _root: Control
 var _menu: MenuList
 var _title: Label
 var _panels: Control
+## 开着的商店（**这里是关卡之间唯一的另一个入口**，另一个在人物设置界面）。
+var _shop: ShopScreen
 
 
 func _ready() -> void:
@@ -79,8 +83,10 @@ func open(results: Array, has_next: bool) -> void:
 		_panels.add_child(_panel(results[i], left + i * (COLUMN + GAP)))
 	var items: Array[String] = []
 	if has_next:
-		items.append("NEXT STAGE")
-	items.append("MAIN MENU")
+		items.append(NEXT_STAGE)
+	# **打完一关就是逛商店的时候**：刚赚的钱正好花出去，下一关之前还能换装备
+	items.append(SHOP)
+	items.append(MAIN_MENU)
 	_menu.build(items, screen_x)
 	_root.show()
 	add_to_group(GROUP)
@@ -111,15 +117,49 @@ func _panel(result: Dictionary, x: float) -> Control:
 	return box
 
 
+## 开着的商店，没开就是 null（测试用）。
+func shop() -> ShopScreen:
+	return _shop if is_instance_valid(_shop) else null
+
+
+## 进商店：结算页先藏起来（不然两层菜单一起收键），逛完再回来。
+func _open_shop() -> void:
+	if is_instance_valid(_shop):
+		return
+	_root.hide()
+	var players: Array = []
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var player := node as Player
+		if player != null and player.progress != null:
+			players.append(player)
+	players.sort_custom(func(a: Player, b: Player) -> bool:
+		return a.player_index < b.player_index)
+	_shop = ShopScreen.new()
+	add_child(_shop)
+	_shop.build(players)
+	_shop.finished.connect(_close_shop)
+
+
+func _close_shop() -> void:
+	if is_instance_valid(_shop):
+		_shop.queue_free()
+	_shop = null
+	_root.show()
+	_menu.ignore_this_frame()   # 商店就是用这一下 B 退出来的
+
+
 func _on_chosen(index: int) -> void:
-	var tree := get_tree()
 	var items := _menu._items
+	if items[index] == SHOP:
+		_open_shop()
+		return
+	var tree := get_tree()
 	_root.hide()
 	remove_from_group(GROUP)
 	tree.paused = false
 	Progress.save_game()
 	chosen.emit(index)
-	if items[index] == "MAIN MENU":
+	if items[index] == MAIN_MENU:
 		tree.change_scene_to_file(MENU_SCENE)
 		return
 	var next := Catalog.levels()

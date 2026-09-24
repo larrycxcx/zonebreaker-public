@@ -112,7 +112,10 @@ func setup() -> SetupScreen:
 
 
 func _physics_process(_delta: float) -> void:
-	if _page == Page.LOAD_LIST and not _listed.is_empty() and Input.is_action_just_pressed(&"menu_delete"):
+	# **按这个座位自己那一份**（1 号是 `menu_delete`、2 号是 `p2_menu_delete`）：
+	# 两个座位轮流选，删的是轮到谁的那一页，不该被另一只手柄按到。
+	var del := &"menu_delete" if _seat == 0 else StringName("p%d_menu_delete" % (_seat + 1))
+	if _page == Page.LOAD_LIST and not _listed.is_empty() and Input.is_action_just_pressed(del):
 		_doomed = _listed[_menu.index]
 		_show(Page.CONFIRM)
 

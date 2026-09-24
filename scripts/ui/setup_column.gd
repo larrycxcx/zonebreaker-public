@@ -6,15 +6,20 @@ extends Control
 ## 上下换行，左右在行内选（换角色、在八个装备格之间挪），A 确认，B 返回。
 ## 这样只有一套导航规则，手柄上的手不用换位置，两栏也能各按各的。
 ##
+## **装备那一行是只读的**：左右挪着看身上穿的是什么，按 A 不会换——换装备统一在商店的背包页
+## （`ShopColumn`）。不这么分的话同一件事有两个入口，两边的规则（等级门槛、卖出）迟早要打架。
+##
 ## 界面一律英文大写（素材包的字模没有汉字，见 CLAUDE.md）。
 
 ## 这一栏确定了 / 取消了确定。
 signal readiness_changed(confirmed: bool)
 ## 这一栏按了返回（还没确定的时候）。
 signal backed_out
-## 打开了 / 关上了一个盖在这一栏上的小面板（改名字、换装备）。
+## 打开了 / 关上了一个盖在这一栏上的小面板（改名字）。
 ## 外面据此知道这一栏正忙着，别的地方先别抢键。
 signal overlay_changed(open: bool)
+## 这一栏要进商店（整个界面共用一个商店，所以由 `SetupScreen` 去开）。
+signal shop_requested
 
 const WIDTH := 300.0
 const HEIGHT := 338.0
@@ -75,11 +80,8 @@ var _accept: Label
 var _portraits: Array[ColorRect] = []
 var _stat_rows: Array[Dictionary] = []
 var _slot_icons: Array[TextureRect] = []
-## 盖在这一栏上的小面板：改名字的字母格 / 换装备的列表。同时只会有一个。
+## 盖在这一栏上的小面板：改名字的字母格。
 var _grid: LetterGrid
-var _bag: Control
-var _bag_menu: MenuList
-var _bag_items: Array[Equipment] = []
 ## 另一个玩家选了哪个外观（那个就不能选了，两个人长一样同屏分不清）。
 var _taken := &""
 ## 这一栏能选的几个角色（`Catalog.looks()` 的键）。扫一次记下来，不是每帧去翻目录。
@@ -190,6 +192,10 @@ func row() -> int:
 	return _menu.index
 
 
+func menu_list() -> MenuList:
+	return _menu
+
+
 ## 光标挪到第几行（测试用；界面上就是按上下）。
 func go_to_row(index: int) -> void:
 	_menu.index = clampi(index, 0, ROW_COUNT - 1)
@@ -238,9 +244,8 @@ func refresh() -> void:
 	# 读档进来名字又是淡的，看上去就像光标默认停在 ACCEPT 上。
 	var on_shop := _menu != null and _menu.index == Row.SHOP
 	var on_accept := _menu != null and _menu.index == Row.ACCEPT
-	var broke := progress.money <= 0
-	_shop.add_theme_color_override("font_color",
-		UiKit.DIM.darkened(0.3) if broke else (UiKit.WHITE if on_shop else UiKit.DIM))
+	# 没钱也进得去：商店里还能卖东西，钱是在那儿挣出来的
+	_shop.add_theme_color_override("font_color", UiKit.WHITE if on_shop else UiKit.DIM)
 	_accept.add_theme_color_override("font_color",
 		UiKit.GREEN if confirmed else (UiKit.WHITE if on_accept else UiKit.DIM))
 	# 装备那一行的选中框框的是**当前那一格**，所以挪格子要重新给一遍
@@ -290,7 +295,9 @@ func _on_chosen(index: int) -> void:
 			if progress.spend_point(Balance.STATS[index - Row.STAT]):
 				refresh()
 		Row.GEAR:
-			_open_bag()
+			pass          # 只读：换装备在商店的背包页
+		Row.SHOP:
+			shop_requested.emit()
 		Row.ACCEPT:
 			confirmed = not confirmed
 			refresh()
@@ -345,19 +352,15 @@ func _pick_look(direction: int) -> void:
 	refresh()
 
 
-# ---------------------------------------------------------------- 改名字 / 换装备
+# ---------------------------------------------------------------- 改名字
 
-## 正忙着改名字或换装备吗（忙着的时候这一栏自己的上下选不动）。
+## 正忙着改名字吗（忙着的时候这一栏自己的上下选不动）。
 func busy() -> bool:
-	return is_instance_valid(_grid) or is_instance_valid(_bag)
+	return is_instance_valid(_grid)
 
 
 func grid() -> LetterGrid:
 	return _grid if is_instance_valid(_grid) else null
-
-
-func bag() -> MenuList:
-	return _bag_menu if is_instance_valid(_bag) else null
 
 
 ## 字母格盖在头像和属性那一片上，名字那一行还露着，边打边看得见。
@@ -384,46 +387,6 @@ func _close_grid() -> void:
 	_grid.queue_free()
 	_grid = null
 	_menu.show()
-	refresh()
-	overlay_changed.emit(false)
-
-
-## 换装备：列出背包里装得到这个位置上的东西，外加一个「空着」。
-func _open_bag() -> void:
-	_menu.hide()
-	_bag_items = progress.fits(slot)
-	var rows: Array[String] = ["NONE"]
-	for item in _bag_items:
-		rows.append(item.display_name)
-	_bag = UiKit.box(Rect2(20.0, GEAR_Y - 6.0, WIDTH - 40.0, 24.0 + rows.size() * MenuList.ROW_HEIGHT))
-	add_child(_bag)
-	# 标题挂在盒子里面，关的时候跟着一起没
-	_bag.add_child(UiKit.label(Equipment.SLOT_NAMES[slot], Rect2(10.0, 6.0, WIDTH - 60.0, 18.0), UiKit.DIM))
-	_bag_menu = MenuList.new()
-	_bag_menu.listens_to = who.player_index
-	add_child(_bag_menu)
-	_bag_menu.build(rows, WIDTH - 60.0)
-	_bag_menu.position = Vector2(20.0, GEAR_Y + 18.0)
-	_bag_menu.chosen.connect(_on_bag_chosen)
-	_bag_menu.cancelled.connect(_close_bag)
-	overlay_changed.emit(true)
-
-
-func _on_bag_chosen(index: int) -> void:
-	if index == 0:
-		progress.unequip(slot)
-	else:
-		progress.equip(_bag_items[index - 1])
-	_close_bag()
-
-
-func _close_bag() -> void:
-	if is_instance_valid(_bag):
-		_bag.queue_free()
-	if is_instance_valid(_bag_menu):
-		_bag_menu.queue_free()
-	_bag = null
-	_bag_menu = null
-	_menu.show()
+	_menu.ignore_this_frame()
 	refresh()
 	overlay_changed.emit(false)

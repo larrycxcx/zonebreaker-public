@@ -430,6 +430,34 @@ func test_the_skinned_hud_is_mirrored_too() -> void:
 		"%.0f vs %.0f" % [slot_left.global_position.x, slot_right.global_position.x])
 
 
+## Boss 血条是两个人共用的，所以它**只能摆在正上方居中**——右上角是 2 号玩家的地盘。
+## 占位 HUD 早就挪过来了，素材包那套（`SpriteHud`）当时忘了跟着挪，双人时和 2 号的血条叠在一起。
+func test_the_boss_bar_keeps_clear_of_the_second_player() -> void:
+	var skin := load(CYBERPUNK) as SkinPack
+	await reset_scene(false, false, skin, 2)
+	var screen := float(ProjectSettings.get_setting("display/window/size/viewport_width", 640))
+	# 占位的那条
+	var placeholder: Control = main.get_node("HUD/BossBar")
+	var here := placeholder.position.x + placeholder.size.x / 2.0
+	check("the placeholder bar sits in the middle", absf(here - screen / 2.0) < 24.0,
+		"%.0f vs %.0f" % [here, screen / 2.0])
+	# 素材包那条：血条左端到头像框右端算一整块
+	var look: SpriteHud = main.get_node("HUD").look()
+	check("setup: the pack really brought a HUD look", look != null)
+	if look == null:
+		return
+	var panel: Control = look.get_node("BossPanel")
+	var block := Rect2(look.boss_bar_at.x, 0.0,
+		panel.position.x + panel.size.x - look.boss_bar_at.x, 1.0)
+	check("and so does the skin's", absf(block.position.x + block.size.x / 2.0 - screen / 2.0) < 24.0,
+		"%.0f..%.0f" % [block.position.x, block.position.x + block.size.x])
+	# 2 号玩家那套整个在右边：Boss 那一块不能伸进去
+	var theirs: Control = main.get_node("HUD2").look()
+	check("it stops short of the second player's HUD",
+		block.position.x + block.size.x <= theirs.position.x,
+		"%.0f vs %.0f" % [block.position.x + block.size.x, theirs.position.x])
+
+
 func test_each_hud_shows_its_own_player() -> void:
 	await reset_scene(false, false, null, 2)
 	var fill_one: ColorRect = main.get_node("HUD/HealthBar/Fill")

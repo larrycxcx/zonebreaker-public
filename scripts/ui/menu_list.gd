@@ -117,6 +117,12 @@ func _physics_process(_delta: float) -> void:
 		nudged.emit(index, 1)
 
 
+## **这一帧别收键**。盖在上面的面板（商店的确认框、改名字的字母格）就是用这一下按键关掉的，
+## 同一帧露出来的这一层不该再吃一次——`build()` 自带这个保护，只是重新 `show()` 走不到那儿。
+func ignore_this_frame() -> void:
+	_built_frame = Engine.get_physics_frames()
+
+
 ## 这一项在哪一行（别的控件想跟着光标走时用）。
 func row_top(row: int) -> float:
 	return row * ROW_HEIGHT

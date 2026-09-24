@@ -189,22 +189,60 @@ func unequip(slot: Equipment.Slot) -> bool:
 	return true
 
 
-## 背包里能装在这个位置上的东西（人物设置界面里换装备时列的就是它）。
-func fits(slot: Equipment.Slot) -> Array[Equipment]:
-	var found: Array[Equipment] = []
-	for item in owned:
-		if item.slot == slot:
-			found.append(item)
-	return found
+## 这件装备够不够得着（等级门槛）。**买得到但穿不上**：钱多的时候先屯着，练到级再穿——
+## 没有这道门槛的话，刷够钱就能提前穿上顶级货，23 关的曲线当场塌掉。
+func can_equip(item: Equipment) -> bool:
+	return item != null and item.min_level <= level
 
 
-## 穿上背包里的一件装备（同一位置原来那件留在背包里）。
+## 穿上背包里的一件装备（同一位置原来那件留在背包里）。等级不够穿不上。
 func equip(item: Equipment) -> bool:
-	if item == null or not owned.has(item):
+	if item == null or not owned.has(item) or not can_equip(item):
 		return false
 	equipped[item.slot] = item
 	_changed(true)
 	return true
+
+
+## 卖出的价钱：**原价的一半**。游戏里不掉装备，所以卖出不会变成刷钱的漏洞。
+static func sell_price(item: Equipment) -> int:
+	return 0 if item == null else item.price / 2
+
+
+## 卖得掉吗。**白给的东西卖不掉**（初始的步枪和手雷没标价，和 `Catalog.gear_for_sale()` 同一条线）：
+## 卖价是 0，让它卖得掉的话玩家能把自己唯一一把枪换成零块钱，纯粹是个坑。
+static func can_sell(item: Equipment) -> bool:
+	return item != null and item.price > 0
+
+
+## 卖掉一件装备（**身上穿着的也能卖**，会自动脱下来）。返回卖了多少钱，没卖成是 0。
+func sell(item: Equipment) -> int:
+	if item == null or not owned.has(item) or not can_sell(item):
+		return 0
+	var paid := sell_price(item)
+	if equipped.get(item.slot) == item:
+		equipped.erase(item.slot)
+	owned.erase(item)
+	money += paid
+	_changed(true)
+	return paid
+
+
+## 把这件穿上（`wear`）或者脱下（不 wear）之后，四个属性会变成多少。
+## 商店里那行「现在 → 之后」就靠它；**算完把身上恢复原样**，不真的换。
+func stat_preview(item: Equipment, wear: bool) -> Dictionary:
+	if item == null:
+		return {}
+	var before := equipped.duplicate()
+	if wear:
+		equipped[item.slot] = item
+	elif equipped.get(item.slot) == item:
+		equipped.erase(item.slot)
+	var out := {}
+	for name: StringName in Balance.STATS:
+		out[name] = stat(name)
+	equipped = before
+	return out
 
 
 # ---------------------------------------------------------------- 存档（`Progress` 负责读写文件）

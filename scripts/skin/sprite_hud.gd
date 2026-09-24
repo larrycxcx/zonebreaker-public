@@ -29,7 +29,10 @@ const TIRED := 8
 @export var energy_segments := 4
 @export var ultimate_at := Vector2(58, 48)
 @export var ultimate_step := 10.0
-@export var boss_bar_at := Vector2(452, 25)
+## Boss 那条血条摆在哪。**正上方居中，不是右上角**：右上角双人时是 2 号玩家的地盘，
+## 摆那儿两套会叠在一起（占位 HUD 早就挪过来了，这套精灵图的忘了跟着挪）。
+## 血条 4×32 = 128，加上中间 8px 和 40px 的头像框一共 176，(640 - 176) / 2 = 232。
+@export var boss_bar_at := Vector2(232, 25)
 @export var boss_segments := 4
 
 ## 现在显示的状态（测试读）。

@@ -157,7 +157,18 @@ def build_title(write):
 GEAR_ICONS = {
     "rifle": "2 Guns/Icon15_01.png",
     "grenade": "2 Guns/Icon15_26.png",
+    # 商店里卖的枪（`tools/gear_build.py` 的 WEAPONS 表按名字引用这些）
+    "rifle_mk2": "2 Guns/Icon15_07.png",
+    "plasma_rifle": "2 Guns/Icon15_19.png",
+    "cluster_bomb": "2 Guns/Icon15_31.png",
 }
+## 防具图标：`armor/Icon24_NN.png` **每套 5 件，头/身/腿/脚/手**，一套一个配色。
+## 键要和 `gear_build.py` 里 `gear_<档位>_<部位>` 的拼法对上。
+ARMOR_SETS = [("scrap", 1), ("combat", 2), ("titan", 3)]
+ARMOR_PARTS = ["head", "body", "legs", "feet", "hands"]
+for _name, _set in ARMOR_SETS:
+    for _i, _part in enumerate(ARMOR_PARTS):
+        GEAR_ICONS["%s_%s" % (_name, _part)] = "armor/Icon24_%02d.png" % ((_set - 1) * 5 + _i + 1)
 
 
 def build_gear(write):

@@ -16,6 +16,8 @@ const GAP := 16.0
 
 var _columns: Array[SetupColumn] = []
 var _stand_ins: Array[Player] = []
+## 开着的商店（**整个界面共用一个**：两栏并排，谁按 SHOP 都是开这一个）。
+var _shop: ShopScreen
 
 
 func _ready() -> void:
@@ -41,6 +43,7 @@ func build(seats: int, locked: Array[int] = []) -> void:
 		column.build(_stand_in(i), i, &"")
 		column.readiness_changed.connect(_on_readiness_changed)
 		column.backed_out.connect(func() -> void: cancelled.emit())
+		column.shop_requested.connect(_open_shop)
 		_columns.append(column)
 	_share_looks()
 	add_child(UiKit.label("A CHOOSE    B BACK", Rect2(0, screen.y - 16.0, screen.x, 16.0),
@@ -49,6 +52,36 @@ func build(seats: int, locked: Array[int] = []) -> void:
 
 func columns() -> Array[SetupColumn]:
 	return _columns
+
+
+## 开着的商店，没开就是 null（测试用）。
+func shop() -> ShopScreen:
+	return _shop if is_instance_valid(_shop) else null
+
+
+## 进商店。**两个人的栏一起开**：一个人要买东西，另一个也就顺便逛了——
+## 分别进出的话两边的界面会在同一块屏幕上抢地方。设置界面这几栏先藏起来，免得它们也在收键
+## （`MenuList` 看的是 `is_visible_in_tree()`）。
+func _open_shop() -> void:
+	if is_instance_valid(_shop):
+		return
+	for column in _columns:
+		column.hide()
+	_shop = ShopScreen.new()
+	add_child(_shop)
+	_shop.build(_stand_ins)
+	_shop.finished.connect(_close_shop)
+
+
+func _close_shop() -> void:
+	if is_instance_valid(_shop):
+		_shop.queue_free()
+	_shop = null
+	for column in _columns:
+		column.show()
+		# 商店就是用这一下 B 退出来的，同一帧这一层不该再吃一次（那会把整页退回去）
+		column.menu_list().ignore_this_frame()
+		column.refresh()
 
 
 ## 场上还没有真玩家，造一个只带编号和进度的替身给这一栏用。

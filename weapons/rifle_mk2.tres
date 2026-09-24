@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="Weapon" format=3]
+
+[ext_resource type="Script" path="res://scripts/weapons/weapon.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/bullet.tscn" id="2"]
+[ext_resource type="Texture2D" path="res://skins/cyberpunk/ui/gear_rifle_mk2.png" id="icon"]
+
+[resource]
+script = ExtResource("1")
+display_name = "RIFLE MK2"
+projectile = ExtResource("2")
+cooldown = 0.13
+automatic = true
+max_ammo = -1
+fire_event = &"player_shoot"
+look = &"rifle"
+slot = 0
+power = 1.5
+price = 1280
+min_level = 5
+icon = ExtResource("icon")

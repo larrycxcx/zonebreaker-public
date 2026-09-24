@@ -671,37 +671,53 @@ func test_a_loaded_name_cannot_be_typed_over() -> void:
 	check("no grid for a loaded character", column.grid() == null)
 
 
-# ---------------------------------------------------------------- 换装备
+# ---------------------------------------------------------------- 装备格 / 商店入口
 
-func test_swapping_what_is_in_a_slot() -> void:
+func test_the_gear_row_only_shows_what_you_are_wearing() -> void:
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	await at_row(column, SetupColumn.Row.GEAR)
 	check("setup: the gun slot has the rifle", column.progress.gear(Equipment.Slot.GUN) != null)
 	await press(&"jump")
-	check("the bag opens", column.bag() != null and column.busy())
-	await press(&"jump")                      # 第一项是 NONE
-	check("picking none empties the slot", column.progress.gear(Equipment.Slot.GUN) == null)
-	check("and the bag closes", column.bag() == null and not column.busy())
-	await press(&"jump")
-	await press(&"aim_down")
-	await press(&"jump")                      # 再选回来
-	check("the rifle goes back on", column.progress.gear(Equipment.Slot.GUN) != null,
-		str(column.progress.gear(Equipment.Slot.GUN)))
-
-
-func test_an_empty_slot_only_offers_none() -> void:
-	await reach_setup(1)
-	var column: SetupColumn = menu.setup().columns()[0]
-	await at_row(column, SetupColumn.Row.GEAR)
+	# **只读**：装备只能在商店的背包页换，这里按 A 什么也不该发生
+	check("A does not open anything", not column.busy() and menu.setup().shop() == null)
+	check("and the rifle is still on", column.progress.gear(Equipment.Slot.GUN) != null)
 	for i in Equipment.Slot.HEAD:
 		await press(&"move_right")
-	check("setup: on the head slot", column.slot == Equipment.Slot.HEAD, str(column.slot))
+	check("left and right still walk the slots", column.slot == Equipment.Slot.HEAD, str(column.slot))
+
+
+func test_the_shop_row_opens_the_shop() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.SHOP)
 	await press(&"jump")
-	check("the bag opens with nothing to wear", column.bag() != null and column.bag()._items.size() == 1,
-		str(column.bag()._items if column.bag() != null else []))
+	var shop := menu.setup().shop()
+	check("the shop opens", shop != null and shop.columns().size() == 1)
+	check("and the setup column stops listening", not column.is_visible_in_tree())
 	await press(&"cancel")
-	check("and closes again", column.bag() == null)
+	await frames(2)
+	check("backing out closes it again", menu.setup().shop() == null)
+	check("and the setup column is back", column.is_visible_in_tree())
+	# 退出商店那一下 B **不该**被设置界面再吃一次（那会把整页退回去）
+	check("without falling out of setup", menu.page() == MainMenu.Page.SETUP,
+		str(menu.page()))
+
+
+func test_both_players_shop_side_by_side() -> void:
+	await reach_setup(2)
+	var one: SetupColumn = menu.setup().columns()[0]
+	await at_row(one, SetupColumn.Row.SHOP)
+	await press(&"jump")
+	var shop := menu.setup().shop()
+	check("one player asking opens both columns", shop != null and shop.columns().size() == 2)
+	await press(&"cancel")
+	await frames(2)
+	check("and one player leaving is not enough", menu.setup().shop() != null)
+	check("that column waits for the other", shop.columns()[0].done and not shop.columns()[1].done)
+	await tap(&"p2_cancel")
+	await frames(2)
+	check("both leaving closes the shop", menu.setup().shop() == null)
 
 
 func test_everyone_has_to_accept_before_the_level_starts() -> void:
