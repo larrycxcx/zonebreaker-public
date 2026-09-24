@@ -211,7 +211,7 @@ func refresh() -> void:
 	_points.text = "POINTS %d" % progress.points
 	_points.add_theme_color_override("font_color", UiKit.GOLD if progress.points > 0 else UiKit.DIM)
 	# **字模里没有 `$`**（素材包的符号表里就没有），写出来是个缺字方块，所以用 CASH 这个词
-	_money.text = "CASH %d" % progress.money
+	_money.text = "CASH %s" % UiKit.number(progress.money)
 	_ready_mark.text = "READY" if confirmed else ""
 	for i in _looks.size():
 		var chosen := i == look_index()

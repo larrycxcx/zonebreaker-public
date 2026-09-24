@@ -343,5 +343,7 @@ func _next_seat() -> void:
 
 
 func start_game() -> void:
+	# 关卡加载之前先把「打的是哪一关」定下来：敌人在 `_ready` 里就要按它缩放强度
+	Stage.use(Catalog.first_level())
 	Progress.save_game()
 	get_tree().change_scene_to_file(level_scene())

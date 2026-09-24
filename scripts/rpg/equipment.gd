@@ -28,6 +28,9 @@ const SLOT_NAMES := {
 @export var slot := Slot.GUN
 ## 商店价格。
 @export var price := 0
+## 要几级才买得起 / 用得了。商店只卖门槛 ≤ 当前等级的（更高的画灰当胡萝卜）。
+## **没有门槛的话钱一多就能买到过强的东西**，23 关的曲线就塌了。
+@export var min_level := 1
 ## 属性加成：属性名（`Balance.STATS`）→ 加多少，直接加在属性上（可以是负数：重武器减射速之类）。
 @export var bonuses: Dictionary[StringName, float] = {}
 ## 异常状态抗性：状态名（`StatusEffect.id`）→ 0..1，1 = 完全免疫。多件装备取最大的那个。

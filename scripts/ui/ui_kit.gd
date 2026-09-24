@@ -40,6 +40,23 @@ const STAT_COLORS := {
 
 
 ## 这个字号该用哪张图集：标题用 14 那套，正文用 10 那套。两套都只按整数倍放大。
+## 界面上的数字：**过千就写成 K**。经验和金钱到后面都是五六位数（一周目总收入九万），
+## 原样写会把一行字撑爆，读起来也累。
+## 1000 以下原样；一万以下留一位小数（`1.2K`，整数的不留 `.0`）；再往上取整（`13K`、`154K`）。
+static func number(value: int) -> String:
+	if value < 1000:
+		return str(value)
+	if value < 1000000:
+		var thousands := value / 1000.0
+		if thousands < 10.0 and not is_equal_approx(thousands, roundf(thousands)):
+			return "%.1fK" % thousands
+		return "%dK" % roundi(thousands)
+	var millions := value / 1000000.0
+	if millions < 10.0 and not is_equal_approx(millions, roundf(millions)):
+		return "%.1fM" % millions
+	return "%dM" % roundi(millions)
+
+
 static func font(size := TEXT_SIZE) -> Font:
 	return load(FONT if size >= TITLE_SIZE else FONT_SMALL) as Font
 

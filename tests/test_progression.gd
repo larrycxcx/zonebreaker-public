@@ -43,6 +43,77 @@ func fire_one() -> Bullet:
 
 # ---------------------------------------------------------------- 1 级 = 原来的手感
 
+# ---------------------------------------------------------------- 23 关的数值规划
+#
+# 这几条把「为 23 关定下来的那套数字」钉住。它们看着像在测常量，但那正是要守的东西：
+# 曲线、上限、每级给几点是一起算出来的，谁单独动一个，整条成长线就塌了。
+
+func test_the_level_curve_is_a_power_not_an_exponential() -> void:
+	# 原来是 `100 × 1.5^(L-1)`，到 23 级升一级要 74 万经验——那是给十来级的游戏用的曲线。
+	# 次方曲线每翻一倍等级只贵三倍左右，23 关才跑得完。
+	var balance := Progress.balance
+	var ten := balance.xp_to_next(10)
+	var twenty := balance.xp_to_next(20)
+	check("setup: it does get more expensive", twenty > ten, "%d vs %d" % [ten, twenty])
+	check("but not exponentially so", float(twenty) / ten < 4.0,
+		"level 20 costs %.1f times level 10" % (float(twenty) / ten))
+
+
+func test_one_run_through_the_game_is_worth_about_one_level_per_stage() -> void:
+	# 规划：一周目 23 关打完大约 23 级，23 → 30 要靠刷。
+	# 累计经验对不上的话，要么关数变了、要么曲线动了——两边得一起算。
+	var balance := Progress.balance
+	var total := 0
+	for level in range(1, 23):
+		total += balance.xp_to_next(level)
+	check("getting to 23 costs six figures of xp", total > 100000 and total < 200000,
+		"{:,}".format(total) if false else str(total))
+
+
+func test_levelling_stops_at_the_cap() -> void:
+	var me := Progress.of(0)
+	me.level = me.balance.max_level
+	me.xp = 0
+	var points := me.points
+	me.add_xp(999999)
+	check("the cap holds", me.level == me.balance.max_level, str(me.level))
+	check("and hands out no more points", me.points == points, str(me.points))
+	check("the bar reads as maxed", me.is_max_level())
+
+
+func test_every_stat_has_a_ceiling() -> void:
+	# 四个都要有上限，否则装备加成做多少都没意义——防御能堆到 400（伤害除以 5）
+	for stat: StringName in Balance.STATS:
+		check("%s is capped" % stat, Progress.balance.cap.has(stat), str(Progress.balance.cap))
+
+
+func test_points_are_refused_once_a_stat_is_maxed() -> void:
+	# 到顶了还收的话，点数扣了、allocated 加了，stat() 却夹在上限不动——玩家看不出自己在白扔
+	var me := Progress.of(0)
+	me.points = 999
+	var stat := Balance.SPEED
+	while not me.is_capped(stat) and me.spend_point(stat):
+		pass
+	check("setup: it really reached the ceiling", me.is_capped(stat), str(me.stat(stat)))
+	var points := me.points
+	var spent: int = me.allocated.get(stat, 0)
+	check("no more points go in", not me.spend_point(stat))
+	check("and none were quietly eaten", me.points == points and me.allocated.get(stat, 0) == spent,
+		"%d / %d" % [me.points, me.allocated.get(stat, 0)])
+
+
+func test_points_come_two_at_a_time() -> void:
+	# 每级 2 点：30 级满级手上 63 点，点满四个属性要 88 点 —— 必须取舍
+	check("two per level", Progress.balance.points_per_level == 2,
+		str(Progress.balance.points_per_level))
+	var need := 0
+	for stat: StringName in Balance.STATS:
+		var per: float = Progress.balance.per_point.get(stat, 1.0)
+		need += ceili((Progress.balance.cap[stat] - Progress.balance.base.get(stat, 0.0)) / per)
+	var have := Progress.balance.starting_points 		+ (Progress.balance.max_level - 1) * Progress.balance.points_per_level
+	check("a maxed character cannot max everything", have < need, "%d points vs %d needed" % [have, need])
+
+
 func test_a_new_game_feels_like_before() -> void:
 	await reset_scene()
 	check("level 1, no xp, no money", me().level == 1 and me().xp == 0 and me().money == 0)

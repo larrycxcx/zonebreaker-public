@@ -89,6 +89,85 @@ func test_the_shop_list_is_sorted_by_price() -> void:
 		last = item.price
 
 
+# ---------------------------------------------------------------- 关卡强度
+
+func test_a_level_scales_the_enemies_it_holds() -> void:
+	# 23 关用同一批敌人，靠每关一组倍率拉开强度（`Stage`）。
+	await reset_scene(true)
+	var plain: Enemy = main.get_node("Enemies/WalkerA")
+	var base_health := plain.max_health
+	var base_contact := plain.contact_damage
+	check("setup: no level set means no scaling", is_equal_approx(Stage.health_scale(), 1.0))
+	var tough := LevelInfo.new()
+	tough.enemy_health_scale = 3.0
+	tough.enemy_damage_scale = 2.0
+	# **强度要在加载之前定**：敌人在 `_ready` 里就按它缩放，所以走 `reset_scene` 的参数
+	await reset_scene(true, false, null, 1, "res://scenes/main.tscn", tough)
+	var scaled: Enemy = main.get_node("Enemies/WalkerA")
+	check("its health went up with the level", scaled.max_health == base_health * 3,
+		"%d vs %d" % [scaled.max_health, base_health])
+	check("it starts at that health", scaled.health == scaled.max_health)
+	check("and it hits harder too", scaled.contact_damage == base_contact * 2,
+		"%d vs %d" % [scaled.contact_damage, base_contact])
+
+
+func test_a_level_scales_what_the_enemies_are_worth() -> void:
+	var rich := LevelInfo.new()
+	rich.reward_scale = 4.0
+	await reset_scene(true, false, null, 1, "res://scenes/main.tscn", rich)
+	var me := player.progress
+	var money := me.money
+	var enemy: Enemy = main.get_node("Enemies/WalkerA")
+	var worth := enemy.money_reward
+	enemy.die()
+	await frames(2)
+	check("the pay packet is scaled too", me.money - money == worth * 4,
+		"%d for a %d enemy" % [me.money - money, worth])
+
+
+func test_the_shop_only_stocks_what_your_level_allows() -> void:
+	# 没有等级门槛的话，钱一多就能买到过强的东西，23 关的曲线就塌了
+	for item in Catalog.gear_for_sale(5):
+		check("%s is within reach at level 5" % item.display_name, item.min_level <= 5,
+			str(item.min_level))
+	check("asking for everything gives at least as much",
+		Catalog.gear_for_sale().size() >= Catalog.gear_for_sale(5).size())
+
+
+# ---------------------------------------------------------------- 数字怎么写
+
+func test_big_numbers_are_written_with_k() -> void:
+	# 经验和金钱到后面都是五六位数，原样写会把一行字撑爆
+	check("under a thousand stays as it is", UiKit.number(858) == "858", UiKit.number(858))
+	check("a round thousand loses the decimal", UiKit.number(1000) == "1K", UiKit.number(1000))
+	check("1200 reads as 1.2K", UiKit.number(1200) == "1.2K", UiKit.number(1200))
+	check("and 1250 rounds up to 1.3K", UiKit.number(1250) == "1.3K", UiKit.number(1250))
+	check("past ten thousand it rounds off", UiKit.number(12500) == "13K", UiKit.number(12500))
+	check("and six figures too", UiKit.number(153993) == "154K", UiKit.number(153993))
+	check("zero is still zero", UiKit.number(0) == "0", UiKit.number(0))
+
+
+func test_the_hud_writes_money_the_short_way() -> void:
+	await reset_scene()
+	await frames(2)
+	player.progress.add_money(12500)
+	await frames(1)
+	var label: Label = main.get_node("HUD/ProgressLabel")
+	check("the HUD uses the short form", label.text.contains("13K"), label.text)
+	check("and not the long one", not label.text.contains("12500"), label.text)
+
+
+func test_at_max_level_the_bar_says_so() -> void:
+	# 满级之后经验不再累计，`XP 0/0` 会让人以为是 bug
+	await reset_scene()
+	await frames(2)
+	player.progress.level = player.progress.balance.max_level
+	player.progress.progress_changed.emit()
+	await frames(1)
+	var label: Label = main.get_node("HUD/ProgressLabel")
+	check("it says MAX instead of 0/0", label.text.contains("XP MAX"), label.text)
+
+
 # ---------------------------------------------------------------- 目录不在也不能崩
 
 func test_a_missing_folder_is_just_an_empty_shelf() -> void:

@@ -238,5 +238,7 @@ func _on_event(event: StringName, source: Node) -> void:
 		return
 	var killer: Variant = source.get(&"killed_by")
 	var who := of(killer.player_index if killer is Player else 0)
-	who.add_money(int(source.get(&"money_reward")) if source.get(&"money_reward") != null else 0)
-	who.add_xp(int(source.get(&"xp_reward")) if source.get(&"xp_reward") != null else 0)
+	# 奖励也按这一关的倍率给：越往后的关卡打一个敌人赚得越多（`Stage`）
+	var scale := Stage.reward_scale()
+	who.add_money(roundi(int(source.get(&"money_reward")) * scale) if source.get(&"money_reward") != null else 0)
+	who.add_xp(roundi(int(source.get(&"xp_reward")) * scale) if source.get(&"xp_reward") != null else 0)

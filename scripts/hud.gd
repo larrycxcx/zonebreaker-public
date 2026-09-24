@@ -217,7 +217,9 @@ func _on_boss_died() -> void:
 ## **一律英文大写**：菜单和 HUD 用的是同一套规矩（素材包的字模没有汉字，见 CLAUDE.md）。
 func _on_progress_changed() -> void:
 	var me := Progress.of(player_index)
-	var second := "XP %d/%d" % [me.xp, me.balance.xp_to_next(me.level)]
+	# 满级之后经验不再累计（`xp_to_next` 返回 0），写 `XP 0/0` 会让人以为是 bug
+	var second := "XP MAX" if me.is_max_level() else "XP %s/%s" % [
+		UiKit.number(me.xp), UiKit.number(me.balance.xp_to_next(me.level))]
 	if me.points > 0:
 		second += "  +%d PTS" % me.points
-	_progress_label.text = "LV %d  CASH %d\n%s" % [me.level, me.money, second]
+	_progress_label.text = "LV %d  CASH %s\n%s" % [me.level, UiKit.number(me.money), second]

@@ -62,14 +62,18 @@ func release_all_input() -> void:
 ## `skin` 传了就用它加载这一关（角色在 _ready 里按当前包装外观，所以必须在加载之前定好）；
 ## 不传就恢复默认包。
 ## `scene` 默认是**测试关**（`main.tscn`，1280 宽、地面一整条）；正式关卡传它自己的路径。
+## `stage` 是这一关的强度（敌人血量 / 伤害 / 奖励的倍率），**必须在加载之前定**——
+## 敌人在 `_ready` 里就按它缩放。留空 = 倍率全 1，老用例跑的就是这一档。
 func reset_scene(keep_enemies := false, keep_walls := false, skin: SkinPack = null, players := 1,
-		scene := "res://scenes/main.tscn") -> void:
+		scene := "res://scenes/main.tscn", stage: LevelInfo = null) -> void:
 	release_all_input()
 	free_scene()
 	# 终极武器会暂停整棵树：用例中途出错、没等到恢复，也不能把暂停带进下一条用例。
 	tree.paused = false
 	# 素材包是全局状态：换过包的用例如果中途出错没换回来，会影响后面所有用例，所以每次都恢复默认包。
 	Skins.use(skin if skin != null else Skins.default_skin())
+	# 「打的是哪一关」也是全局状态（敌人按它缩放强度）：默认回到「没有关卡」= 倍率全 1
+	Stage.use(stage)
 	# 成长进度也是全局状态：每条用例都从新开一局开始（1 级、初始武器），并且不读写玩家的真实存档
 	Progress.persist = false
 	Progress.new_game()

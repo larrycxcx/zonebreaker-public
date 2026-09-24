@@ -108,17 +108,24 @@ func gear(slot: Equipment.Slot) -> Equipment:
 
 # ---------------------------------------------------------------- 经验、等级、技能点、金钱
 
+## 满级了吗。满级之后经验不再累计（`xp_to_next` 返回 0，界面上显示 MAX）。
+func is_max_level() -> bool:
+	return level >= balance.max_level
+
+
 func add_xp(amount: int) -> void:
-	if amount <= 0:
+	if amount <= 0 or is_max_level():
 		return
 	xp += amount
 	var gained := false
-	while xp >= balance.xp_to_next(level):
+	while not is_max_level() and xp >= balance.xp_to_next(level):
 		xp -= balance.xp_to_next(level)
 		level += 1
 		points += balance.points_per_level
 		gained = true
 		leveled_up.emit(level)
+	if is_max_level():
+		xp = 0
 	_changed(gained)
 
 
@@ -142,9 +149,15 @@ func unspend_point(name: StringName) -> bool:
 	return true
 
 
-## 把一个技能点加到某个属性上。没点数或属性名不对就不加，返回是否加上了。
+## 这个属性已经到顶了吗（加点 + 装备加起来碰到 `Balance.cap`）。
+func is_capped(name: StringName) -> bool:
+	return balance.cap.has(name) and stat(name) >= balance.cap[name]
+
+
+## 把一个技能点加到某个属性上。没点数、属性名不对、**或者这个属性已经到顶**都不加，返回是否加上了。
+## 到顶了还收的话，点数扣了、`allocated` 加了，`stat()` 却夹在上限不动——玩家看不出自己在白扔点数。
 func spend_point(name: StringName) -> bool:
-	if points <= 0 or not Balance.STATS.has(name):
+	if points <= 0 or not Balance.STATS.has(name) or is_capped(name):
 		return false
 	points -= 1
 	allocated[name] = allocated.get(name, 0) + 1

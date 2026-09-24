@@ -51,13 +51,17 @@ static func looks() -> Array[CharacterLook]:
 ## 商店里卖的东西：扫到的装备里**标了价的**那些。
 ## 没标价的不是商品——初始的步枪和手雷（白给）、终极武器（它连装备位都没配，
 ## 真混进货单里会变成一把白送的「枪」）都因此被挡在外面。
-static func gear_for_sale() -> Array[Equipment]:
+## `level` 给了就只列门槛 ≤ 它的（商店按当前等级上货）；留空（0）列全部。
+static func gear_for_sale(level := 0) -> Array[Equipment]:
 	var found: Array[Equipment] = []
 	for folder in GEAR:
 		for item in _scan(folder):
 			var piece := item as Equipment
-			if piece != null and piece.price > 0:
-				found.append(piece)
+			if piece == null or piece.price <= 0:
+				continue
+			if level > 0 and piece.min_level > level:
+				continue
+			found.append(piece)
 	found.sort_custom(func(a: Equipment, b: Equipment) -> bool: return a.price < b.price)
 	return found
 

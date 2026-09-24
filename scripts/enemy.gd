@@ -108,6 +108,10 @@ var _aim_timer := 0.0
 func _ready() -> void:
 	_visual = Skins.build_appearance(self, skin_key)
 	add_to_group(GROUP)
+	# 这一关的强度倍率（`Stage`）：23 关用同一批敌人，血量、伤害、奖励都按关卡缩放。
+	# 没设关卡（测试关、直接加载场景）时倍率都是 1，什么都不变。
+	max_health = maxi(1, roundi(max_health * Stage.health_scale()))
+	contact_damage = maxi(1, roundi(contact_damage * Stage.damage_scale()))
 	health = max_health
 	statuses.on_damage = take_status_damage
 	_apply_visual_facing()
@@ -318,6 +322,9 @@ func try_shoot(delta: float, target: Node2D) -> void:
 func _fire_one() -> void:
 	var bullet := bullet_scene.instantiate() as Bullet
 	bullet.direction = _burst_direction
+	# 子弹的伤害也按关卡缩放（子弹场景里写的是第 1 关的值）
+	if not is_equal_approx(Stage.damage_scale(), 1.0) and bullet.has_method("scale_damage"):
+		bullet.scale_damage(Stage.damage_scale())
 	last_shot_direction = bullet.direction
 	last_muzzle_position = _muzzle_position()
 	get_parent().add_child(bullet)
