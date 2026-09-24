@@ -57,6 +57,11 @@ BLOCK_CLEAR = 16.0
 CRAWL_CLEAR = 30.0
 ## 矮通道那块砖画多厚。
 CRAWL_THICK = 50.0
+## 出生点往后多远之内不许摆敌人。
+## **人一进来就在挨打，连看清楚周围都来不及**（2026-09 试玩发现）。
+## 摄像机一开始夹在关卡左边，画面就是 x 0..640，而敌人**只要有一部分在画面里就算够得着**
+## （见 CLAUDE.md 的「视野对等」），所以第一个敌人得在画面外，再留一点余量。
+SAFE_START = 700.0
 
 ## 装饰物：名字 → 横着排了几帧（1 = 静止）。贴图在 `skins/cyberpunk/props/`，
 ## 由 `tools/terrain_build.py` 从地形素材包里挑出来。**纯显示，没有碰撞**，
@@ -104,12 +109,13 @@ ENEMIES = {
 
 SECTIONS = [
 	("Warmup", {                                  # 唯一一段让你站稳脚跟的地方
+		# **头一屏空着**（见 `SAFE_START`）：让人走两步、试试手感，再碰上第一个敌人
 		"props": [("fountain", 300, GROUND_Y), ("bench", 560, GROUND_Y),
 			("bench2", 1180, GROUND_Y)],
 		"ledges": [(260, 256, 96), (420, 208, 96), (640, 256, 112), (860, 200, 96),
 			(1060, 248, 96)],
-		"enemies": [("walker_a", 180, GROUND_Y), ("walker_a", 500, GROUND_Y),
-			("walker_a", 700, 256), ("turret", 900, 200), ("walker_a", 1000, GROUND_Y),
+		"enemies": [("walker_a", 720, 256), ("walker_a", 780, GROUND_Y),
+			("turret", 900, 200), ("walker_a", 1000, GROUND_Y),
 			("walker_b", 1100, 248), ("walker_a", 1240, GROUND_Y)],
 	}),
 	("Stairs", {                                  # 爬上去，顺便认识第一块「下面走不通」
@@ -351,8 +357,11 @@ def check_level(level):
 			problems.append("%s 底下没有能起跳的地方" % name)
 		elif best > MAX_STEP:
 			problems.append("%s 比底下的面高 %.0f，一次跳最多 %.0f" % (name, best, MAX_STEP))
-	# 敌人：站在地上的不能悬空，也不能塞进矮通道（它们 32 高，净空只有 30，会卡死不动）
+	# 敌人：出生点那一屏不许有；站在地上的不能悬空，也不能塞进矮通道（32 高，净空只有 30，会卡死）
 	for name, kind, x, y in level.enemies:
+		if x < SAFE_START:
+			problems.append("%s 摆在 x %.0f，出生点那一屏里（%.0f 以内不许放），人一进来就在挨打"
+				% (name, x, SAFE_START))
 		if kind == "flyer_e":
 			continue
 		feet = y + (BOSS_STAND if kind == "boss_a" else STAND)

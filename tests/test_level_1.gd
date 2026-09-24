@@ -263,6 +263,35 @@ func test_every_enemy_stands_on_something() -> void:
 	check("setup: there are enemies to check", checked >= 20, str(checked))
 
 
+func test_the_player_gets_a_moment_before_the_first_enemy() -> void:
+	# **人一进来就在挨打的话，连看清楚周围都来不及**（试玩发现）。
+	# 摄像机一开始夹在关卡左边，画面就是 x 0..640，而敌人**只要有一部分在画面里就算够得着**
+	# （「视野对等」，见 CLAUDE.md），所以头一屏必须空着。
+	await open_level()
+	var camera: Camera2D = main.get_node("Camera2D")
+	var first_screen := float(ProjectSettings.get_setting("display/window/size/viewport_width", 640))
+	check("setup: the camera starts pinned to the left edge", camera.limit_left == 0)
+	var nearest := INF
+	for node in main.get_node("Enemies").get_children():
+		var enemy := node as Enemy
+		if enemy != null:
+			nearest = minf(nearest, enemy.position.x)
+	check("setup: there are enemies further in", nearest < INF)
+	check("but none of them on the opening screen", nearest > first_screen,
+		"the first one is at %.0f" % nearest)
+
+
+func test_nothing_shoots_the_player_on_arrival() -> void:
+	# 上一条量的是位置，这一条是真跑：放着不动两秒，不该掉一滴血
+	await open_level()
+	await frames(2)
+	var health := player.health
+	await frames(120)
+	check("the player is left alone at the start", player.health == health,
+		"%d -> %d" % [health, player.health])
+	check("and nothing is flying at them", bullets(16).is_empty(), str(bullets(16).size()))
+
+
 func test_no_enemy_is_stuck_in_a_crawl_passage() -> void:
 	# 敌人 32 高、矮通道净空 30，摆进去就卡死不动（CLAUDE.md 里记过这条坑）
 	await open_level()

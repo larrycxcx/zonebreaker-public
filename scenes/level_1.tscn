@@ -1297,24 +1297,21 @@ size = Vector2(16, 56)
 [node name="Enemies" type="Node2D" parent="."]
 
 [node name="WarmupWalkerA1" parent="Enemies" instance=ExtResource("e4")]
-position = Vector2(180, 304)
+position = Vector2(720, 240)
 
 [node name="WarmupWalkerA2" parent="Enemies" instance=ExtResource("e4")]
-position = Vector2(500, 304)
-
-[node name="WarmupWalkerA3" parent="Enemies" instance=ExtResource("e4")]
-position = Vector2(700, 240)
+position = Vector2(780, 304)
 
 [node name="WarmupTurret1" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(900, 184)
 
-[node name="WarmupWalkerA4" parent="Enemies" instance=ExtResource("e4")]
+[node name="WarmupWalkerA3" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(1000, 304)
 
 [node name="WarmupWalkerB1" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(1100, 232)
 
-[node name="WarmupWalkerA5" parent="Enemies" instance=ExtResource("e4")]
+[node name="WarmupWalkerA4" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(1240, 304)
 
 [node name="StairsWalkerA1" parent="Enemies" instance=ExtResource("e4")]
