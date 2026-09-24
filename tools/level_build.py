@@ -221,9 +221,9 @@ class Level:
 	def _build(self):
 		counts = {}
 
-		def name(kind):
-			counts[kind] = counts.get(kind, 0) + 1
-			return "%s%d" % (kind, counts[kind])
+		def name(prefix):
+			counts[prefix] = counts.get(prefix, 0) + 1
+			return "%s%d" % (prefix, counts[prefix])
 
 		for index, (label, parts) in enumerate(SECTIONS):
 			base = index * SECTION
@@ -241,7 +241,10 @@ class Level:
 				self.props.append((name("Prop"), prop, base + x, surface))
 			for kind, x, surface in parts.get("enemies", []):
 				y = FLY_Y if surface is None else surface - (BOSS_STAND if kind == "boss_a" else STAND)
-				self.enemies.append((label + kind.title().replace("_", ""), kind, base + x, y))
+				# **名字必须各不相同**：一段里有好几个巡逻兵 A，重名的话 `.tscn` 里会出现同名节点，
+				# 引擎的子节点名字表就对不上了（free 一批敌人时刷一屏
+				# 「Children name does not match parent name in hashtable」）。
+				self.enemies.append((name(label + kind.title().replace("_", "")), kind, base + x, y))
 		self.ground = self._ground_runs()
 		self._scatter()
 
@@ -380,6 +383,7 @@ HEAD = """[gd_scene format=3]
 [ext_resource type="PackedScene" path="res://scenes/explosion.tscn" id="18"]
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="19"]
 [ext_resource type="PackedScene" path="res://scenes/ui/death_screen.tscn" id="20"]
+[ext_resource type="PackedScene" path="res://scenes/ui/clear_screen.tscn" id="22"]
 """
 
 
@@ -458,6 +462,7 @@ def build(level, write):
 	out.append('\n[node name="HUD" parent="." instance=ExtResource("6")]\n')
 	out.append('\n[node name="PauseMenu" parent="." instance=ExtResource("19")]\n')
 	out.append('\n[node name="DeathScreen" parent="." instance=ExtResource("20")]\n')
+	out.append('\n[node name="ClearScreen" parent="." instance=ExtResource("22")]\n')
 
 	if write:
 		with open(OUT, "w", newline="\n", encoding="utf-8") as f:

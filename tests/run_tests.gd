@@ -43,6 +43,7 @@ const SUITES := {
 	"pits": "res://tests/test_pits.gd",
 	"level_1": "res://tests/test_level_1.gd",
 	"catalog": "res://tests/test_catalog.gd",
+	"clear": "res://tests/test_clear.gd",
 	"status": "res://tests/test_status.gd",
 	"audio": "res://tests/test_audio.gd",
 }

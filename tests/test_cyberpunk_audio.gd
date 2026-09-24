@@ -8,8 +8,10 @@ extends GameTest
 const SKIN := "res://skins/cyberpunk/cyberpunk_skin.tres"
 ## 包里对不上、回落到默认包 8-bit 音效的事件。
 ## 赛博朋克音效包里没有对得上的，回落到默认包的 8-bit 音效（风格会有点混，以后找到合适的再补）。
+## 赛博朋克包里没有、回落到默认包 8-bit 音效的那几个（风格会有点混，以后找到合适的再补）。
 const FROM_DEFAULT := [&"jump", &"stamina_exhausted", &"enemy_prone", &"chaser_alert",
-	&"player_down", &"player_revive", &"menu_move", &"menu_select", &"menu_back"]
+	&"player_down", &"player_revive", &"menu_move", &"menu_select", &"menu_back",
+	&"level_clear"]
 
 
 func skin() -> SkinPack:

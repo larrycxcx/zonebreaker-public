@@ -70,6 +70,21 @@ func test_one_run_through_the_game_is_worth_about_one_level_per_stage() -> void:
 		"{:,}".format(total) if false else str(total))
 
 
+func test_how_far_you_got_is_saved_too() -> void:
+	# 只存角色不存进度的话，每次都得从第一关重来——练强了之后前几关就只剩无聊
+	var me := Progress.of(0)
+	me.reached = 7
+	var copy := PlayerProgress.new(Progress.balance)
+	copy.from_dict(me.to_dict())
+	check("the save remembers how far you got", copy.reached == 7, str(copy.reached))
+	# 老存档没有这一项：读进来就是「只解锁了第一关」，不能崩也不能变成 0
+	var old_save := me.to_dict()
+	old_save.erase("reached")
+	var fresh := PlayerProgress.new(Progress.balance)
+	fresh.from_dict(old_save)
+	check("a save from before this feature still opens", fresh.reached == 1, str(fresh.reached))
+
+
 func test_levelling_stops_at_the_cap() -> void:
 	var me := Progress.of(0)
 	me.level = me.balance.max_level

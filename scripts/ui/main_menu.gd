@@ -28,6 +28,7 @@ enum Page {
 	LOAD_LIST,  ## 从名册里挑一个
 	CONFIRM,    ## 真的要删吗
 	SETUP,      ## 人物设置（每人一栏，都确定了才开始）
+	STAGE,      ## 从解锁了的关卡里挑一关（只有一关可选时直接跳过）
 }
 
 ## 名册列表一页显示几行。存档多过这个数就滚动，不是把后面的砍掉。
@@ -141,8 +142,16 @@ func _show(page_: Page) -> void:
 			_setup = SetupScreen.new()
 			_body.add_child(_setup)
 			_setup.build(Session.player_count, _loaded)
-			_setup.finished.connect(start_game)
+			_setup.finished.connect(_after_setup)
 			_setup.cancelled.connect(_back_to_source)
+		Page.STAGE:
+			_heading("SELECT STAGE", screen)
+			var names: Array[String] = []
+			for level in _unlocked():
+				names.append("%d  %s" % [Catalog.index_of(level) + 1, level.display_name])
+			_lay_out(names, screen, 130.0, "A CHOOSE    B BACK")
+			# 光标停在最靠后的那一关 = 「接着上次打」，想重打前面的往上走
+			_menu.index = maxi(0, names.size() - 1)
 	# 菜单是 `_ready` 里就加好的，每页的窗口都是后加的——**后加的画在上面**，
 	# 不挪的话金色选中框会被窗口盖住，界面上看不出光标在哪。
 	_body.move_child(_menu, -1)
@@ -306,6 +315,10 @@ func _on_chosen(index: int) -> void:
 				Progress.remove(_doomed)
 			_doomed = null
 			_show(Page.LOAD_LIST)
+		Page.STAGE:
+			var picked := _unlocked()
+			if index < picked.size():
+				start_game(picked[index])
 
 
 func _on_cancelled() -> void:
@@ -325,6 +338,26 @@ func _on_cancelled() -> void:
 			_show(Page.LOAD_LIST)
 		Page.SETUP:
 			pass
+		Page.STAGE:
+			_show(Page.SETUP)
+
+
+## 解锁了的那几关。**双人取两个人里最高的**：老手带新人时朋友也能一起往后打，
+## 不用卡着新角色重打十几关（通关时两个人的进度都往前推，见 `main.gd._unlock_next()`）。
+func _unlocked() -> Array[LevelInfo]:
+	var reached := 1
+	for index in Session.player_count:
+		reached = maxi(reached, Progress.of(index).reached)
+	var all := Catalog.levels()
+	return all.slice(0, clampi(reached, 1, all.size()))
+
+
+## 人物都设置好了：只解锁了一关就直接开打，有得选才问一句。
+func _after_setup() -> void:
+	if _unlocked().size() <= 1:
+		start_game(Catalog.first_level())
+		return
+	_show(Page.STAGE)
 
 
 ## 从人物设置退回来：回到第一个座位重新选 NEW / LOAD。
@@ -342,8 +375,11 @@ func _next_seat() -> void:
 		_show(Page.SETUP)
 
 
-func start_game() -> void:
-	# 关卡加载之前先把「打的是哪一关」定下来：敌人在 `_ready` 里就要按它缩放强度
-	Stage.use(Catalog.first_level())
+## 开打。**关卡加载之前**先把「打的是哪一关」定下来：
+## 敌人和平台在各自的 `_ready` 里就要问这一关的素材包要外观、按倍率缩放强度。
+func start_game(level: LevelInfo = null) -> void:
+	var going: LevelInfo = level if level != null else Catalog.first_level()
+	Stage.use(going)
 	Progress.save_game()
-	get_tree().change_scene_to_file(level_scene())
+	if going != null:
+		get_tree().change_scene_to_file(going.scene_path)

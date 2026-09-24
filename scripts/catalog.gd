@@ -31,6 +31,23 @@ static func levels() -> Array[LevelInfo]:
 	return found
 
 
+## 这一关排第几（从 0 数）。**按场景路径认**，不按对象认：`Stage.current` 可能是另一份实例。
+## 不在清单里返回 -1。
+static func index_of(level: LevelInfo) -> int:
+	if level == null:
+		return -1
+	var all := levels()
+	for i in all.size():
+		if all[i].scene_path == level.scene_path:
+			return i
+	return -1
+
+
+## 一共几关。
+static func count() -> int:
+	return levels().size()
+
+
 ## 从头开始玩的那一关（没有关卡资源时返回 null——那说明装包装漏了）。
 static func first_level() -> LevelInfo:
 	var all := levels()

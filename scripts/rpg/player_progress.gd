@@ -46,6 +46,9 @@ var played_seconds := 0.0
 var saved_at := ""
 
 var level := 1
+## 这个角色**打到第几关**了：已经解锁几关（1 = 只解锁了第一关）。
+## **记在角色身上**，不是全局——每个角色是自己的一周目，新建一个从第 1 关开始，和名册的设计一致。
+var reached := 1
 var xp := 0
 var money := 0
 ## 还没分配的技能点。
@@ -210,7 +213,7 @@ func to_dict() -> Dictionary:
 	return {
 		"name": character_name, "look": String(look),
 		"played": played_seconds, "saved_at": saved_at,
-		"level": level, "xp": xp, "money": money, "points": points,
+		"level": level, "xp": xp, "money": money, "points": points, "reached": reached,
 		"allocated": allocated,
 		"owned": owned.map(func(item: Equipment) -> String: return item.resource_path),
 		"equipped": equipped.values().map(func(item: Equipment) -> String: return item.resource_path),
@@ -223,6 +226,8 @@ func from_dict(data: Dictionary) -> void:
 	played_seconds = float(data.get("played", 0.0))
 	saved_at = String(data.get("saved_at", ""))
 	level = int(data.get("level", 1))
+	# 老存档没有这一项，读进来就是「只解锁了第一关」
+	reached = maxi(1, int(data.get("reached", 1)))
 	xp = int(data.get("xp", 0))
 	money = int(data.get("money", 0))
 	points = int(data.get("points", 0))

@@ -296,10 +296,12 @@ func test_nobody_walks_off_a_ledge_on_their_own() -> void:
 	# 浮台上摆了一半的敌人，要是有谁一开场就自己走下去摔死，关卡会悄悄变空。
 	# 巡逻兵在边缘会掉头，但摆错地方（半个身子悬空）照样会掉，所以放着跑两秒看看。
 	await open_level()
-	var before := main.get_node("Enemies").get_child_count()
+	# **数敌人，不数子节点**：敌人的子弹和手雷也挂在 `Enemies` 下（见 CLAUDE.md），
+	# 数子节点的话开几枪就多几个，过一会儿子弹没了又少几个
+	var before := enemies().size()
 	check("setup: the level is full of enemies", before >= 80, str(before))
 	await frames(120)
-	var after := main.get_node("Enemies").get_child_count()
+	var after := enemies().size()
 	check("they are all still there", after >= before, "%d -> %d" % [before, after])
 
 
@@ -369,6 +371,18 @@ func test_the_fountain_actually_runs() -> void:
 			break
 	check("and it really cycles its frames", animated.region_rect != first,
 		"%s vs %s" % [animated.region_rect, first])
+
+
+func test_nothing_in_the_level_shares_a_name() -> void:
+	# 同名节点会让引擎的子节点名字表对不上——free 一批敌人时刷一屏
+	# 「Children name does not match parent name in hashtable, this is a bug」。
+	# 生成脚本给每个敌人编号就是为了这个。
+	await open_level()
+	for group in ["Enemies", "Level", "Props"]:
+		var seen := {}
+		for child in main.get_node(group).get_children():
+			check("%s/%s appears once" % [group, child.name], not seen.has(child.name), str(child.name))
+			seen[child.name] = true
 
 
 func test_the_level_runs_on_its_own() -> void:

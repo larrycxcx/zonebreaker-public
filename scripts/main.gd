@@ -14,12 +14,19 @@ extends Node2D
 ## 掉到这个高度以下就算掉出关卡（坑底）。地面在 y=320，画面底边 360，
 ## 再往下 40px 才算数——这样贴着地面跑不会误判，掉进坑里又立刻就死。
 @export var fall_y := 400.0
+## Boss 倒下之后隔多久摆成绩单：让爆炸和屏幕抖动走完。
+@export var clear_delay := 1.5
 
 @onready var _player: Player = $Player
 ## 全灭之后让玩家选「再来一次 / 回主菜单」的那一层。关卡里没有就照老样子自动重开。
 @onready var _death: DeathScreen = get_node_or_null("DeathScreen")
-## 这一关已经结束了。双人时两个人可能同一帧死，没这个会报两次 game_over。
+## 打完之后摆成绩单的那一层。关卡里没有就只好什么都不做（打完站在原地）。
+@onready var _clear: ClearScreen = get_node_or_null("ClearScreen")
+## 这一关已经结束了（全灭或者打完）。双人时两个人可能同一帧死，没这个会报两次 game_over；
+## 也免得 Boss 倒下的同一刻最后一个玩家也死了，两页一起弹出来。
 var _over := false
+## 进关卡那一刻每个座位的经验、金钱、等级——结算页要拿它们算「这一关赚了多少」。
+var _started: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -30,6 +37,9 @@ func _ready() -> void:
 	Music.play(&"level")
 	for node in get_tree().get_nodes_in_group(&"player"):
 		(node as Player).died.connect(_on_player_died)
+	_remember_start()
+	# Boss 可能是关卡中途生出来的，所以走总线等它出场，再接它的死讯
+	GameEvents.boss_appeared.connect(_on_boss_appeared)
 
 
 ## 双人时在 1 号旁边放一个 2 号：同一个玩家场景，`player_index` = 1（读 p2_ 那套输入、用自己那份进度）。
@@ -93,6 +103,68 @@ func _physics_process(_delta: float) -> void:
 		# 已经排队等删的别再 die 一次，不然 enemy_death 会报两遍、奖励也发两份
 		if enemy != null and not enemy.is_queued_for_deletion() and enemy.global_position.y > fall_y:
 			enemy.die()
+
+
+## 进关卡那一刻先把每个座位的经验、金钱、等级记下来，结算页拿它们算差值。
+func _remember_start() -> void:
+	_started.clear()
+	for index in Session.player_count:
+		var who := Progress.of(index)
+		_started.append({"xp": who.xp, "money": who.money, "level": who.level})
+
+
+func _on_boss_appeared(boss: Node2D) -> void:
+	var it := boss as Boss
+	if it != null and not it.died.is_connected(_on_boss_died):
+		it.died.connect(_on_boss_died)
+
+
+## Boss 倒下 = 这一关打完了。以前打死 Boss 什么都不会发生，
+## 关卡只有一个出口——全灭；23 关要接得上，就得有「打完了」这件事。
+func _on_boss_died() -> void:
+	if _over:
+		return
+	_over = true
+	GameEvents.report(&"level_clear", self)
+	_unlock_next()
+	await get_tree().create_timer(clear_delay).timeout
+	if _clear != null:
+		_clear.open(_results(), Catalog.index_of(Stage.current) + 1 < Catalog.count())
+
+
+## 把进度往前推一关。**双人取两个人里最高的**，然后两个人都设成它——
+## 老手带新人时，朋友的新角色也跟着解锁，不用卡着重打十几关。
+func _unlock_next() -> void:
+	var at := Catalog.index_of(Stage.current)
+	if at < 0:
+		return                                    # 测试关不在清单里，没有进度可推
+	var unlocked := at + 2                        # 关卡从 0 数，解锁数从 1 数
+	for index in Session.player_count:
+		unlocked = maxi(unlocked, Progress.of(index).reached)
+	# **只往上推，不往下夹**：卸载了关卡 DLC 之后存档里的进度不该被抹掉
+	#（真要用的时候 `MainMenu._unlocked()` 会按现有关卡数切一刀）
+	for index in Session.player_count:
+		var who := Progress.of(index)
+		who.reached = maxi(who.reached, unlocked)
+	Progress.save_game()
+
+
+## 每个座位这一关赚了多少（结算页照着摆，双人两栏）。
+func _results() -> Array:
+	var out := []
+	for index in Session.player_count:
+		var who := Progress.of(index)
+		var before: Dictionary = _started[index] if index < _started.size() else {}
+		var gained := who.level - int(before.get("level", who.level))
+		# 升了级的话经验会清零重算，差值就不对了——按「升了几级」把跨过的那几档补回来
+		var xp: int = who.xp - int(before.get("xp", 0))
+		for step in gained:
+			xp += who.balance.xp_to_next(int(before.get("level", 1)) + step)
+		out.append({
+			"name": who.character_name, "level": who.level, "levels_gained": gained,
+			"xp": maxi(0, xp), "money": maxi(0, who.money - int(before.get("money", 0))),
+		})
+	return out
 
 
 func _on_player_died() -> void:

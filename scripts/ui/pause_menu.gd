@@ -73,6 +73,8 @@ func _may_open() -> bool:
 	var tree := get_tree()
 	if not tree.get_nodes_in_group(Ultimate.GROUP).is_empty():
 		return false
+	if not tree.get_nodes_in_group(ClearScreen.GROUP).is_empty():
+		return false
 	return tree.get_nodes_in_group(DeathScreen.GROUP).is_empty()
 
 

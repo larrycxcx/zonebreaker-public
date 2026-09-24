@@ -192,6 +192,13 @@ SOUNDS = {
         voice("triangle", freq=NOTE["C3"], freq_end=NOTE["G2"], duration=0.7, offset=0.66,
               vibrato_depth=0.03, vibrato_speed=6, volume=1.2),
     ], 0.7),
+    "level_clear": ("通关：上行三音 + 亮堂堂的长音", [
+        voice("square", duration=0.66, duty=0.5, decay=0.6,
+              notes=[(0.0, NOTE["C4"]), (0.18, NOTE["E4"]), (0.36, NOTE["G4"])]),
+        voice("square", freq=NOTE["C5"], duration=0.8, offset=0.54, duty=0.25,
+              vibrato_depth=0.02, vibrato_speed=7, volume=1.1),
+        voice("triangle", freq=NOTE["C3"], duration=0.9, offset=0.54, volume=0.8),
+    ], 0.7),
     # ---- 建议加 ----
     "chaser_alert": ("D 发现玩家：两声急促的上扬「哔哔！」", [
         voice("square", freq=NOTE["A5"], duration=0.07, duty=0.5),
