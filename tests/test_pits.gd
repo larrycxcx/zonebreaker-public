@@ -71,6 +71,47 @@ func test_a_pit_does_not_care_about_the_invincible_frames() -> void:
 	check("the pit takes its cut anyway", player.health < full - HIT, str(player.health))
 
 
+func test_the_last_fall_puts_you_down_not_out_when_a_mate_is_around() -> void:
+	# 掉进坑里扣完最后一点血：**单人直接死，双人是倒地**——而且因为倒地的人掉坑里也会被捞，
+	# 他会落在最后站稳的地方，队友走过来还救得起来。不是「没办法救所以直接死」。
+	await reset_scene(false, false, null, 2)
+	player.global_position = Vector2(200, 304)
+	player2.global_position = Vector2(700, 304)
+	await frames(5)
+	var stood := player2.global_position
+	player2.health = maxi(1, ceili(player2.max_health * player2.fall_damage_ratio))
+	player2._shield_timer = 0.0
+	player2.global_position = Vector2(stood.x + 200.0, below_the_level())
+	for i in 20:
+		await tree.physics_frame
+		if player2.is_downed():
+			break
+	check("the last third puts them down", player2.is_downed() and not player2.is_alive(),
+		"down=%s health=%d" % [player2.is_downed(), player2.health])
+	await frames(4)
+	check("and they are fished out of the pit", player2.global_position.y < main.fall_y,
+		str(player2.global_position))
+	check("back where they last stood", player2.global_position.distance_to(stood) < 24.0,
+		"%s vs %s" % [player2.global_position, stood])
+	# 队友走过去还救得起来
+	player.global_position = player2.global_position + Vector2(16, 0)
+	await frames(4)
+	check("so the mate can still pick them up", player2.is_alive() and not player2.is_downed())
+
+
+func test_alone_in_a_pit_there_is_no_getting_up() -> void:
+	# 单人没人救，所以扣完最后一点血就是死
+	await reset_scene()
+	player.global_position = Vector2(200, 304)
+	await frames(5)
+	player.health = maxi(1, ceili(player.max_health * player.fall_damage_ratio))
+	player._shield_timer = 0.0
+	player.global_position = Vector2(400, below_the_level())
+	await frames(4)
+	check("it is a real death, not a knockdown", not player.is_alive() and not player.is_downed(),
+		"health=%d" % player.health)
+
+
 func test_in_co_op_a_downed_player_is_fished_out_too() -> void:
 	# 倒地的人已经没血可扣，但扔在坑底下队友永远够不着，所以也要捞回来
 	await reset_scene(false, false, null, 2)
