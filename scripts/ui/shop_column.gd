@@ -140,7 +140,7 @@ func _physics_process(_delta: float) -> void:
 
 
 func _pressed(action: StringName) -> bool:
-	return Input.is_action_just_pressed(who.act(action))
+	return Session.just_pressed(action, who.player_index)
 
 
 ## 换一页：重算货架，光标回到第一行。

@@ -193,15 +193,7 @@ func _refresh() -> void:
 		_cursor.visible = not greyed.has(index)
 
 
-## 按了自己这一份的某个动作。`listens_to` 是 -1 就谁按都算。
+## 按了自己这一份的某个动作。`listens_to` 是 -1 就谁按都算，**单人时也一样**——
+## 规则在 `Session.just_pressed()` 那儿，那边有为什么。
 func _pressed(action: StringName) -> bool:
-	if listens_to >= 0:
-		return Input.is_action_just_pressed(_named(action, listens_to))
-	for index_ in Session.MAX_PLAYERS:
-		if Input.is_action_just_pressed(_named(action, index_)):
-			return true
-	return false
-
-
-func _named(action: StringName, player: int) -> StringName:
-	return action if player == 0 else StringName("p%d_%s" % [player + 1, action])
+	return Session.just_pressed(action, listens_to)

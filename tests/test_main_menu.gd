@@ -671,6 +671,37 @@ func test_a_loaded_name_cannot_be_typed_over() -> void:
 	check("no grid for a loaded character", column.grid() == null)
 
 
+## **一个人玩的时候，人物设置界面不该只认 1 号那套键**。
+## 前面几页的菜单 `listens_to` 是 -1（谁按都算），人物设置是整个菜单里第一个按玩家过滤输入的页面，
+## 所以同一只手柄在前几页好好的、到这一页整页全死——手柄插在第二个槽位上就会这样
+## （前一个槽被没拔干净的幽灵设备占着是常事）。键盘上的 ↑ 同理：单人时它既是 1 号的跳跃、
+## 又是 2 号的「上」，只认 1 号那套的话它在这一页从「上移」变成了「确认」。
+func test_playing_alone_is_not_tied_to_one_controller() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.GEAR)
+	await tap(&"p2_aim_down")
+	check("the other seat's keys still move the cursor", column.row() == SetupColumn.Row.SHOP,
+		str(column.row()))
+	await tap(&"p2_jump")
+	check("and still choose", menu.setup().shop() != null)
+	await tap(&"p2_cancel")
+	await frames(2)
+	check("and still back out", menu.setup().shop() == null)
+
+
+## 双人时反过来：每个座位只认自己那套，不然两个人会互相把对方的光标带着走。
+func test_two_players_stay_on_their_own_controllers() -> void:
+	await reach_setup(2)
+	var one: SetupColumn = menu.setup().columns()[0]
+	var two: SetupColumn = menu.setup().columns()[1]
+	await at_row(one, SetupColumn.Row.GEAR)
+	await at_row(two, SetupColumn.Row.GEAR)
+	await tap(&"p2_aim_down")
+	check("player two moved", two.row() == SetupColumn.Row.SHOP, str(two.row()))
+	check("player one did not", one.row() == SetupColumn.Row.GEAR, str(one.row()))
+
+
 # ---------------------------------------------------------------- 装备格 / 商店入口
 
 func test_the_gear_row_only_shows_what_you_are_wearing() -> void:
