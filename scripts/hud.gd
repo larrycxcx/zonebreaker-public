@@ -121,11 +121,16 @@ func _mirror() -> void:
 
 
 ## 跟着挪的那几块：自己场景里除了共用部分和那行字之外的顶层控件（那行字单独安排）。
+## **素材包的外观（`Look`）也要排除**：它下面几行单独挪一次，留在这里会被挪两次，
+## 直接飞出屏幕——双人时 2 号的 HUD 因此整套都看不见（试玩才发现，老测试只断言了
+## 「比左边那套靠右 200px」，飞到 1016 照样算通过）。
 func _movable() -> Array[Control]:
 	var found: Array[Control] = []
 	for child in get_children():
 		var control := child as Control
-		if control != null and control != _progress_label and not SHARED_PARTS.has(String(control.name)):
+		if control == null or control == _progress_label or control == _look:
+			continue
+		if not SHARED_PARTS.has(String(control.name)):
 			found.append(control)
 	return found
 

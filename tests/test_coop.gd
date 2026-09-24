@@ -293,6 +293,52 @@ func test_a_team_mate_who_walks_over_picks_you_up() -> void:
 	check("and a moment of safety", player2.is_invincible())
 
 
+## 一段时间里「身上的透明度」变了几次 —— 也就是闪了几下。
+func blinks_in(who: Player, seconds: float) -> int:
+	var visual: CanvasItem = who.get_node("Visual")
+	var last := visual.modulate.a
+	var count := 0
+	for i in int(seconds * 60.0):
+		await tree.physics_frame
+		if not is_equal_approx(visual.modulate.a, last):
+			count += 1
+			last = visual.modulate.a
+	return count
+
+
+func test_a_downed_player_blinks_faster_as_time_runs_out() -> void:
+	# 倒计时不写成 HUD 上的数字，而是**人身上越闪越快**：队友的眼睛本来就盯着人。
+	await reset_scene(false, false, null, 2)
+	await stand_apart()
+	player2.down_time = 4.0
+	player2.take_damage(player2.max_health)
+	await frames(2)
+	check("setup: down, not dead", player2.is_downed())
+	var early := await blinks_in(player2, 1.0)
+	check("it blinks while it waits", early > 0, str(early))
+	# 跳到快没时间的时候
+	player2._down_timer = 0.8
+	var late := await blinks_in(player2, 0.6)
+	check("and blinks faster near the end", float(late) / 0.6 > float(early) / 1.0,
+		"%d in 1s -> %d in 0.6s" % [early, late])
+
+
+func test_being_revived_stops_the_blinking() -> void:
+	# **用精灵图那套皮肤跑**：占位方块的 `revive()` 顺手把 modulate 整个设回白色，
+	# 所以就算忘了把闪烁归零也看不出来；精灵图的 `revive()` 只退出倒地动画，不碰透明度。
+	await reset_scene(false, false, load(CYBERPUNK) as SkinPack, 2)
+	await stand_apart()
+	player2.take_damage(player2.max_health)
+	await frames(2)
+	check("setup: down and flashing", player2.is_downed())
+	player.global_position = player2.global_position + Vector2(16, 0)
+	await frames(3)
+	check("setup: back up", not player2.is_downed())
+	await frames(20)
+	var visual: CanvasItem = player2.get_node("Visual")
+	check("and solid again, not half see-through", visual.modulate.a > 0.9, str(visual.modulate.a))
+
+
 func test_nobody_comes_and_the_countdown_runs_out() -> void:
 	await reset_scene(false, false, null, 2)
 	await stand_apart()
@@ -371,6 +417,12 @@ func test_the_skinned_hud_is_mirrored_too() -> void:
 	var right: Control = main.get_node("HUD2").look()
 	check("the second player's art moved to the right", right.position.x > left.position.x + 200.0,
 		"%.0f vs %.0f" % [left.position.x, right.position.x])
+	# **还得在屏幕里**：只断言「靠右 200px」的话，挪两次飞到 1016 也算通过（试玩才发现）
+	var screen := float(ProjectSettings.get_setting("display/window/size/viewport_width", 640))
+	var bars: Control = main.get_node("HUD2/HealthBar")
+	check("and stayed on screen", right.position.x < screen, "%.0f vs %.0f" % [right.position.x, screen])
+	check("right where the placeholder bars went", absf(right.position.x - bars.position.x) < 24.0,
+		"%.0f vs %.0f" % [right.position.x, bars.position.x])
 	# 它画出来的东西也跟着走了：武器槽是外观里的节点，位置按外观根节点算
 	var slot_left: Control = left.get_node("WeaponSlot")
 	var slot_right: Control = right.get_node("WeaponSlot")

@@ -27,6 +27,10 @@ var max_health := 0
 ## 倒地之后还能撑多久（秒）。撑完就真死了。**只在双人时会进这个状态**——
 ## 一个人玩没人来救，倒地只会变成站着等死。
 @export var down_time := 10.0
+## 掉进坑里扣掉最大血量的几分之几。
+@export var fall_damage_ratio := 1.0 / 3.0
+## 掉进坑里捞回来之后给多久无敌（够你看清楚周围再动）。
+@export var fall_grace := 1.5
 ## 队友走到这么近（像素，身体原点之间）就自动把人拉起来。不用按键。
 @export var revive_range := 28.0
 ## 救起来回多少血（占上限的比例），外加一小段无敌免得刚起来又被同一发子弹打倒。
@@ -90,6 +94,12 @@ const DIAGONAL_DOWN_MUZZLE := Vector2(19, 7)
 const DOWN_MUZZLE := Vector2(9, 13)
 
 ## 站立/蹲下的碰撞体高度。脚底位置不变，只压低头顶。
+## 倒地时一秒闪几次：刚倒下慢，快到头了急。
+const DOWN_BLINK_SLOW := 1.5
+const DOWN_BLINK_FAST := 7.0
+## 闪到最暗时多透明。
+const DOWN_BLINK_DIM := 0.25
+
 const STAND_HEIGHT := 32.0
 ## 趴下的碰撞体高度。敌人站着开的枪离地 21~25px（枪举在胸口），趴下必须矮于 21px 才躲得开；
 ## 取 12 是为了和趴姿贴图（12~14px）差不多高，见 CLAUDE.md「所有人按素材对齐」。
@@ -130,6 +140,11 @@ var _invincible_timer := 0.0
 ## 不闪烁的无敌（终极武器用）。暂停期间玩家的计时也停着，所以它能覆盖整个定格。
 var _shield_timer := 0.0
 var _dead := false
+## 最后一次**站稳**的地方：掉进坑里就捞回这儿。只在脚踏实地、没在被击退的时候记，
+## 所以不会记到半空中，也不会记到正往坑里掉的那一瞬。
+var _safe_spot := Vector2.ZERO
+## 倒地闪烁走到哪儿了（整数部分 = 闪了几次）。
+var _down_blink := 0.0
 ## 濒死（双人专用）：血空了先倒地，队友走过来就能拉起来，没人来救、倒计时走完才真的死。
 var _downed := false
 var _down_timer := 0.0
@@ -209,6 +224,8 @@ func _ready() -> void:
 		_ultimate.equip(ultimate_weapon)
 	_apply_stats()
 	health = max_health
+	# 还没走过一步就掉下去的话，捞回出生点（不设的话会被捞到世界原点去）
+	_safe_spot = global_position
 	health_changed.emit(health, max_health)
 	progress.stats_changed.connect(_apply_stats)
 	statuses.on_damage = take_status_damage
@@ -244,7 +261,15 @@ func _physics_process(delta: float) -> void:
 	_update_invincibility(delta)
 	_shield_timer -= delta
 	_check_contact_damage()
+	_remember_safe_ground()
 	_visual.motion(_motion_state())
+
+
+## 记下最后一次站稳的地方。**要真的站住**：踩在地上、横竖都不在飞，
+## 才算一个能把人捞回来的落脚点。
+func _remember_safe_ground() -> void:
+	if is_on_floor() and absf(velocity.y) < 1.0:
+		_safe_spot = global_position
 
 
 ## 这一帧在做什么，交给外观去选动画。趴下不在这里说，它走 `pose()`（见 Appearance.Motion）。
@@ -650,6 +675,7 @@ func _go_down() -> void:
 	_downed = true
 	health = 0
 	_down_timer = down_time
+	_down_blink = 0.0
 	velocity.x = 0.0
 	if is_crouching:
 		_set_crouching(false)
@@ -666,8 +692,17 @@ func _update_downed(delta: float) -> void:
 			revive()
 			return
 	_down_timer -= delta
+	_blink_while_down(delta)
 	if _down_timer <= 0.0:
 		_die()
+
+
+## 倒地的人**身上越闪越快**——时间还剩得多就慢慢闪，快到头了闪得急，
+## 队友一眼就看得出还来不来得及。比在 HUD 上写个数字直观：眼睛本来就盯着人。
+func _blink_while_down(delta: float) -> void:
+	var left := clampf(_down_timer / maxf(down_time, 0.001), 0.0, 1.0)
+	_down_blink += delta * lerpf(DOWN_BLINK_FAST, DOWN_BLINK_SLOW, left)
+	_visual.blink(DOWN_BLINK_DIM if fmod(_down_blink, 1.0) < 0.5 else 1.0)
 
 
 ## 被队友拉起来：回一半血，给一小段无敌，接着打。
@@ -676,6 +711,8 @@ func revive() -> void:
 		return
 	_downed = false
 	_down_timer = 0.0
+	_down_blink = 0.0
+	_visual.blink(1.0)
 	health = maxi(1, int(max_health * revive_health_ratio))
 	health_changed.emit(health, max_health)
 	_visual.revive()
@@ -684,13 +721,32 @@ func revive() -> void:
 	GameEvents.report(&"player_revive", self)
 
 
-## 掉出关卡（踩空掉进坑里）。**直接死，不走倒地那一套**：
-## 人在坑底下，队友走不过去也救不了，挂着个救不起来的倒计时只是让人干等。
-## 也**不吃无敌帧**——刚挨完打的无敌时间不该让你在坑里飘着。
+## 掉出关卡（踩空掉进坑里）：**扣掉三分之一的血，捞回最后站稳的地方**，再给一小段无敌，
+## 不是直接判死。坑在这一关里到处都是，一脚踩空就重来一整关太狠了。
+## 扣完血还剩得下才捞人；扣没了就照常走死亡那条路（双人时是倒地等人救）。
+## **不吃无敌帧**：刚挨完打的那一秒不该让你在坑里飘着。
 func fall_out() -> void:
 	if _dead:
 		return
-	_die()
+	if _downed:
+		# 倒地的人掉下去：已经没血可扣了，捞回来接着等队友
+		_respawn_at_safe_ground()
+		return
+	health -= maxi(1, ceili(max_health * fall_damage_ratio))
+	health_changed.emit(health, max_health)
+	if health <= 0:
+		health = 0
+		_go_down()
+		return
+	GameEvents.report(&"player_hurt", self)
+	_respawn_at_safe_ground()
+
+
+## 捞回最后一次站稳的地方，站定、给一小段无敌。
+func _respawn_at_safe_ground() -> void:
+	global_position = _safe_spot
+	velocity = Vector2.ZERO
+	grant_invincibility(fall_grace)
 
 
 func _die() -> void:

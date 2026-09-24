@@ -115,8 +115,9 @@ func test_player_hurt_death_and_game_over() -> void:
 		player._invincible_timer = 0.0
 		player.take_damage(HIT, player.global_position + Vector2(40, 0))
 		await frames(2)
-	check("game_over waits for the death sound", not events.has(&"game_over"))
-	await frames(40) # game_over_delay 0.5 秒
+	# game_over 现在是**当场报**（`game_over_delay` 已经改成 0）：声音走 Sfx 单例，
+	# 弹出那一页不会截断它，没必要为了让死亡音效先响而干等
+	await frames(4)
 	expect_events([&"player_hurt", &"player_death", &"game_over"], "losing all health")
 	check("hurt twice before dying", events.count(&"player_hurt") == 2, str(events.count(&"player_hurt")))
 

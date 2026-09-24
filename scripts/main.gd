@@ -1,10 +1,13 @@
 extends Node2D
 ## 关卡根节点：玩家死亡后重开本关。
 
-@export var respawn_delay := 1.2
-## 玩家死亡后隔多久报告 game_over（让死亡音效先响一会儿）。
-## 声音由 Sfx 单例播放，关卡重载不会把它截断。
-@export var game_over_delay := 0.5
+## 全灭后隔多久弹出「再来一次 / 回主菜单」。**0.5 秒 = 倒地动画的长度**，
+## 原来是 1.2 秒，试玩嫌干等；但也不能是 0——那一页会把整棵树定住，
+## 人刚中枪就定格，倒地动画一帧都播不出来。
+@export var respawn_delay := 0.5
+## 全灭后隔多久报告 game_over（**0，当场报**）。声音由 Sfx 单例播放（`PROCESS_MODE_ALWAYS`），
+## 弹出那一页也不会把它截断，所以不用为了声音留时间。
+@export var game_over_delay := 0.0
 
 ## 2 号玩家出生在 1 号旁边多远。
 @export var second_player_offset := Vector2(-28, 0)
@@ -77,12 +80,13 @@ func _process(delta: float) -> void:
 	Progress.tick_playtime(delta)
 
 
-## 掉进坑里的收干净。玩家直接死；敌人照常 `die()`——
+## 掉进坑里的收干净。玩家扣血捞回最后站稳的地方（`Player.fall_out()`）；敌人照常 `die()`——
 ## 把追着你的 D 引到坑边推下去，经验照给（没人打过的算 1 号的，见 `Progress`）。
 func _physics_process(_delta: float) -> void:
 	for node in get_tree().get_nodes_in_group(&"player"):
 		var player := node as Player
-		if player != null and player.is_alive() and player.global_position.y > fall_y:
+		# 倒地的也要捞：他已经没血可扣，但扔在坑底下队友永远够不着
+		if player != null and (player.is_alive() or player.is_downed()) 				and player.global_position.y > fall_y:
 			player.fall_out()
 	for node in get_tree().get_nodes_in_group(Enemy.GROUP):
 		var enemy := node as Enemy
