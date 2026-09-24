@@ -134,6 +134,41 @@ func test_the_shop_only_stocks_what_your_level_allows() -> void:
 		Catalog.gear_for_sale().size() >= Catalog.gear_for_sale(5).size())
 
 
+func test_a_level_brings_its_own_art() -> void:
+	# **23 关各有各的场景、敌人、Boss、音乐**，所以「用哪套素材」是**关卡**的属性，
+	# 不是项目设置里那一个全局包——共用一个包的话 23 关只能共用一张背景、一首曲子、一套地砖。
+	var zone := load("res://skins/cyberpunk/cyberpunk_skin.tres") as SkinPack
+	var level := LevelInfo.new()
+	level.skin = zone
+	Skins.use(Skins.default_skin())
+	check("setup: on the default pack", Skins.current != zone)
+	Stage.use(level)
+	check("loading a level switches to its pack", Skins.current == zone, str(Skins.current))
+	# 没配包的关卡不动当前那套（测试关就是这一档，所以老用例一条都没改）
+	var plain := LevelInfo.new()
+	Stage.use(plain)
+	check("a level without its own pack leaves it alone", Skins.current == zone)
+	Stage.clear()
+
+
+func test_the_first_level_names_the_pack_it_wants() -> void:
+	var first := Catalog.first_level()
+	check("there is a first level", first != null)
+	check("and it brings its own art", first != null and first.skin != null,
+		"" if first == null else str(first.skin))
+
+
+func test_the_difficulty_dials_start_neutral() -> void:
+	# 正式关卡的倍率都是 1：每关敌人本来就不一样，血量伤害写在各自的敌人场景里。
+	# 这三个数是留给**难度 DLC** 的——同一关同一批敌人，只把倍率调高。
+	for level in Catalog.levels():
+		var name := level.resource_path.get_file()
+		check("%s does not scale health" % name, is_equal_approx(level.enemy_health_scale, 1.0),
+			str(level.enemy_health_scale))
+		check("%s does not scale damage" % name, is_equal_approx(level.enemy_damage_scale, 1.0),
+			str(level.enemy_damage_scale))
+
+
 # ---------------------------------------------------------------- 数字怎么写
 
 func test_big_numbers_are_written_with_k() -> void:

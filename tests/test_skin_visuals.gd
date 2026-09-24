@@ -40,10 +40,27 @@ func test_keys_cover_everyone() -> void:
 	}
 	for actor in actors:
 		var key: StringName = actor.get(&"skin_key")
-		check("%s's key (%s) is in the list" % [actor.name, key], SkinPack.APPEARANCE_KEYS.has(key),
-			str(SkinPack.APPEARANCE_KEYS.keys()))
 		check("%s uses the %s skin" % [actor.name, expected.get(String(actor.name), "?")],
 			key == expected.get(String(actor.name)), str(key))
+
+
+func test_the_key_list_is_a_readme_not_a_whitelist() -> void:
+	# `APPEARANCE_KEYS` 是给做素材的人看的说明。**不能拿它当白名单**：
+	# 23 关各有各的敌人和 Boss，新键会一直加，当白名单的话「加一种敌人」就得改常量，DLC 更是改不到。
+	# 要守的是反过来那条：**包里填的每一个键，都得真能画出东西来**。
+	var pack := load("res://skins/cyberpunk/cyberpunk_skin.tres") as SkinPack
+	for key: StringName in pack.appearances:
+		var scene: PackedScene = pack.appearances[key]
+		check("%s brings a scene" % key, scene != null)
+		var made := scene.instantiate() if scene != null else null
+		check("%s's scene really is an Appearance" % key, made is Appearance, str(made))
+		if made != null:
+			made.free()
+	# 现场造一个表里没有的键，照样装得上——以后加新敌人不用回来改常量
+	var invented := SkinPack.new()
+	invented.fallback = Skins.default_skin()
+	invented.appearances = {&"zone_09_sniper": pack.appearances.get(&"walker_a")}
+	check("a key nobody listed still resolves", invented.find_appearance(&"zone_09_sniper") != null)
 
 
 func test_default_skin_leaves_the_built_in_art_alone() -> void:

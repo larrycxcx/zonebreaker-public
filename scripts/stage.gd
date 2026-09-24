@@ -13,9 +13,13 @@ extends RefCounted
 static var current: LevelInfo
 
 
-## 换一关（关卡加载之前调）。
+## 换一关（**关卡加载之前**调）。这一关配了素材包就顺手换上：
+## 地砖、背景、音乐、敌人贴图都从包里来，而敌人和平台在各自的 `_ready` 里就要问包要外观，
+## 所以必须赶在场景实例化之前换好。没配包就不动（用项目设置里那个）。
 static func use(level: LevelInfo) -> void:
 	current = level
+	if level != null and level.skin != null:
+		Skins.use(level.skin)
 
 
 ## 回到「没有关卡」的状态：所有倍率都是 1。
