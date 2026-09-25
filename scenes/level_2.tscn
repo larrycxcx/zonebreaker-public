@@ -1,0 +1,1623 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="6"]
+[ext_resource type="Script" path="res://scripts/fx.gd" id="13"]
+[ext_resource type="PackedScene" path="res://scenes/muzzle_flash.tscn" id="14"]
+[ext_resource type="PackedScene" path="res://scenes/hit_spark.tscn" id="15"]
+[ext_resource type="PackedScene" path="res://scenes/impact_spark.tscn" id="16"]
+[ext_resource type="Script" path="res://scripts/camera_rig.gd" id="17"]
+[ext_resource type="PackedScene" path="res://scenes/explosion.tscn" id="18"]
+[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="19"]
+[ext_resource type="PackedScene" path="res://scenes/ui/death_screen.tscn" id="20"]
+[ext_resource type="PackedScene" path="res://scenes/ui/clear_screen.tscn" id="22"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_2_a.tscn" id="e0"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_2_b.tscn" id="e1"]
+[ext_resource type="PackedScene" path="res://scenes/boss_2.tscn" id="e2"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_2_c.tscn" id="e3"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_2_d.tscn" id="e4"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_2_e.tscn" id="e5"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_2_f.tscn" id="e6"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/barrel.png" id="p0"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/barrel_rust.png" id="p1"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/bench.png" id="p2"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/board.png" id="p3"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/box.png" id="p4"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/box_open.png" id="p5"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/bucket.png" id="p6"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/conveyor.png" id="p7"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/crate.png" id="p8"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/extinguisher.png" id="p9"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/flag.png" id="p10"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/ladder.png" id="p11"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/locker.png" id="p12"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/screen.png" id="p13"]
+[ext_resource type="Texture2D" path="res://skins/industrial/props/sign.png" id="p14"]
+[ext_resource type="Script" path="res://scripts/prop.gd" id="21"]
+
+[node name="Level1" type="Node2D"]
+script = ExtResource("3")
+
+[node name="Props" type="Node2D" parent="."]
+
+[node name="Prop1" type="Sprite2D" parent="Props"]
+texture = ExtResource("p7")
+script = ExtResource("21")
+position = Vector2(300, 320)
+frames = 4
+
+[node name="Prop2" type="Sprite2D" parent="Props"]
+texture = ExtResource("p13")
+script = ExtResource("21")
+position = Vector2(620, 320)
+frames = 4
+
+[node name="Prop3" type="Sprite2D" parent="Props"]
+texture = ExtResource("p2")
+script = ExtResource("21")
+position = Vector2(1180, 320)
+
+[node name="Prop4" type="Sprite2D" parent="Props"]
+texture = ExtResource("p7")
+script = ExtResource("21")
+position = Vector2(3260, 320)
+frames = 4
+
+[node name="Prop5" type="Sprite2D" parent="Props"]
+texture = ExtResource("p13")
+script = ExtResource("21")
+position = Vector2(6800, 320)
+frames = 4
+
+[node name="Prop6" type="Sprite2D" parent="Props"]
+texture = ExtResource("p7")
+script = ExtResource("21")
+position = Vector2(11780, 320)
+frames = 4
+
+[node name="Prop7" type="Sprite2D" parent="Props"]
+texture = ExtResource("p13")
+script = ExtResource("21")
+position = Vector2(12140, 320)
+frames = 4
+
+[node name="Prop8" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(24, 320)
+
+[node name="Prop9" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(93, 320)
+
+[node name="Prop10" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(140, 320)
+
+[node name="Prop11" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
+script = ExtResource("21")
+position = Vector2(213, 320)
+
+[node name="Prop12" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(292, 320)
+
+[node name="Prop13" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(371, 320)
+
+[node name="Prop14" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(472, 320)
+
+[node name="Prop15" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(527, 320)
+
+[node name="Prop16" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(610, 320)
+
+[node name="Prop17" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(657, 320)
+
+[node name="Prop18" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(754, 320)
+
+[node name="Prop19" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(873, 320)
+
+[node name="Prop20" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(968, 320)
+
+[node name="Prop21" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(1077, 320)
+
+[node name="Prop22" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(1178, 320)
+
+[node name="Prop23" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(1283, 320)
+
+[node name="Prop24" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(1340, 320)
+
+[node name="Prop25" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(1407, 320)
+
+[node name="Prop26" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(1522, 320)
+
+[node name="Prop27" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
+script = ExtResource("21")
+position = Vector2(1611, 320)
+
+[node name="Prop28" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(1738, 320)
+
+[node name="Prop29" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(1817, 320)
+
+[node name="Prop30" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(1862, 320)
+
+[node name="Prop31" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(1909, 320)
+
+[node name="Prop32" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(1972, 320)
+
+[node name="Prop33" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(2031, 320)
+
+[node name="Prop34" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(2106, 320)
+
+[node name="Prop35" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(2177, 320)
+
+[node name="Prop36" type="Sprite2D" parent="Props"]
+texture = ExtResource("p9")
+script = ExtResource("21")
+position = Vector2(166, 320)
+
+[node name="Prop37" type="Sprite2D" parent="Props"]
+texture = ExtResource("p9")
+script = ExtResource("21")
+position = Vector2(486, 320)
+
+[node name="Prop38" type="Sprite2D" parent="Props"]
+texture = ExtResource("p12")
+script = ExtResource("21")
+position = Vector2(864, 320)
+
+[node name="Prop39" type="Sprite2D" parent="Props"]
+texture = ExtResource("p12")
+script = ExtResource("21")
+position = Vector2(1236, 320)
+
+[node name="Prop40" type="Sprite2D" parent="Props"]
+texture = ExtResource("p9")
+script = ExtResource("21")
+position = Vector2(1534, 320)
+
+[node name="Prop41" type="Sprite2D" parent="Props"]
+texture = ExtResource("p12")
+script = ExtResource("21")
+position = Vector2(1778, 320)
+
+[node name="Prop42" type="Sprite2D" parent="Props"]
+texture = ExtResource("p9")
+script = ExtResource("21")
+position = Vector2(2164, 320)
+
+[node name="Prop43" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(2392, 320)
+
+[node name="Prop44" type="Sprite2D" parent="Props"]
+texture = ExtResource("p1")
+script = ExtResource("21")
+position = Vector2(2518, 320)
+
+[node name="Prop45" type="Sprite2D" parent="Props"]
+texture = ExtResource("p1")
+script = ExtResource("21")
+position = Vector2(2562, 320)
+
+[node name="Prop46" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(2636, 320)
+
+[node name="Prop47" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(2756, 320)
+
+[node name="Prop48" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(2878, 320)
+
+[node name="Prop49" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(3002, 320)
+
+[node name="Prop50" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(3096, 320)
+
+[node name="Prop51" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(3192, 320)
+
+[node name="Prop52" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(3248, 320)
+
+[node name="Prop53" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(3350, 320)
+
+[node name="Prop54" type="Sprite2D" parent="Props"]
+texture = ExtResource("p1")
+script = ExtResource("21")
+position = Vector2(3462, 320)
+
+[node name="Prop55" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(3520, 320)
+
+[node name="Prop56" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(3612, 320)
+
+[node name="Prop57" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(3724, 320)
+
+[node name="Prop58" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(3840, 320)
+
+[node name="Prop59" type="Sprite2D" parent="Props"]
+texture = ExtResource("p1")
+script = ExtResource("21")
+position = Vector2(3960, 320)
+
+[node name="Prop60" type="Sprite2D" parent="Props"]
+texture = ExtResource("p1")
+script = ExtResource("21")
+position = Vector2(4024, 320)
+
+[node name="Prop61" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(4078, 320)
+
+[node name="Prop62" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(4140, 320)
+
+[node name="Prop63" type="Sprite2D" parent="Props"]
+texture = ExtResource("p1")
+script = ExtResource("21")
+position = Vector2(4180, 320)
+
+[node name="Prop64" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(4236, 320)
+
+[node name="Prop65" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(4328, 320)
+
+[node name="Prop66" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(4378, 320)
+
+[node name="Prop67" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(4418, 320)
+
+[node name="Prop68" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(4544, 320)
+
+[node name="Prop69" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(4598, 320)
+
+[node name="Prop70" type="Sprite2D" parent="Props"]
+texture = ExtResource("p1")
+script = ExtResource("21")
+position = Vector2(4710, 320)
+
+[node name="Prop71" type="Sprite2D" parent="Props"]
+texture = ExtResource("p6")
+script = ExtResource("21")
+position = Vector2(4822, 320)
+
+[node name="Prop72" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(4942, 320)
+
+[node name="Prop73" type="Sprite2D" parent="Props"]
+texture = ExtResource("p6")
+script = ExtResource("21")
+position = Vector2(5044, 320)
+
+[node name="Prop74" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(5134, 320)
+
+[node name="Prop75" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(5206, 320)
+
+[node name="Prop76" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(5304, 320)
+
+[node name="Prop77" type="Sprite2D" parent="Props"]
+texture = ExtResource("p10")
+script = ExtResource("21")
+position = Vector2(2437, 320)
+
+[node name="Prop78" type="Sprite2D" parent="Props"]
+texture = ExtResource("p12")
+script = ExtResource("21")
+position = Vector2(2732, 320)
+
+[node name="Prop79" type="Sprite2D" parent="Props"]
+texture = ExtResource("p10")
+script = ExtResource("21")
+position = Vector2(3001, 320)
+
+[node name="Prop80" type="Sprite2D" parent="Props"]
+texture = ExtResource("p11")
+script = ExtResource("21")
+position = Vector2(3356, 320)
+
+[node name="Prop81" type="Sprite2D" parent="Props"]
+texture = ExtResource("p14")
+script = ExtResource("21")
+position = Vector2(3745, 320)
+
+[node name="Prop82" type="Sprite2D" parent="Props"]
+texture = ExtResource("p12")
+script = ExtResource("21")
+position = Vector2(4028, 320)
+
+[node name="Prop83" type="Sprite2D" parent="Props"]
+texture = ExtResource("p14")
+script = ExtResource("21")
+position = Vector2(4321, 320)
+
+[node name="Prop84" type="Sprite2D" parent="Props"]
+texture = ExtResource("p12")
+script = ExtResource("21")
+position = Vector2(4612, 320)
+
+[node name="Prop85" type="Sprite2D" parent="Props"]
+texture = ExtResource("p14")
+script = ExtResource("21")
+position = Vector2(4981, 320)
+
+[node name="Prop86" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(5540, 320)
+
+[node name="Prop87" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(5611, 320)
+
+[node name="Prop88" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(5668, 320)
+
+[node name="Prop89" type="Sprite2D" parent="Props"]
+texture = ExtResource("p14")
+script = ExtResource("21")
+position = Vector2(5578, 320)
+
+[node name="Prop90" type="Sprite2D" parent="Props"]
+texture = ExtResource("p1")
+script = ExtResource("21")
+position = Vector2(5852, 320)
+
+[node name="Prop91" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(5962, 320)
+
+[node name="Prop92" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(6184, 320)
+
+[node name="Prop93" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
+script = ExtResource("21")
+position = Vector2(6303, 320)
+
+[node name="Prop94" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(6364, 320)
+
+[node name="Prop95" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(6471, 320)
+
+[node name="Prop96" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(6538, 320)
+
+[node name="Prop97" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(6639, 320)
+
+[node name="Prop98" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(6682, 320)
+
+[node name="Prop99" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(6735, 320)
+
+[node name="Prop100" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
+script = ExtResource("21")
+position = Vector2(6844, 320)
+
+[node name="Prop101" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(6965, 320)
+
+[node name="Prop102" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
+script = ExtResource("21")
+position = Vector2(7058, 320)
+
+[node name="Prop103" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(7173, 320)
+
+[node name="Prop104" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(7282, 320)
+
+[node name="Prop105" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
+script = ExtResource("21")
+position = Vector2(7331, 320)
+
+[node name="Prop106" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(7444, 320)
+
+[node name="Prop107" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(7541, 320)
+
+[node name="Prop108" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(7654, 320)
+
+[node name="Prop109" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(7743, 320)
+
+[node name="Prop110" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(7790, 320)
+
+[node name="Prop111" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(7879, 320)
+
+[node name="Prop112" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(7952, 320)
+
+[node name="Prop113" type="Sprite2D" parent="Props"]
+texture = ExtResource("p12")
+script = ExtResource("21")
+position = Vector2(6316, 320)
+
+[node name="Prop114" type="Sprite2D" parent="Props"]
+texture = ExtResource("p9")
+script = ExtResource("21")
+position = Vector2(6718, 320)
+
+[node name="Prop115" type="Sprite2D" parent="Props"]
+texture = ExtResource("p9")
+script = ExtResource("21")
+position = Vector2(7098, 320)
+
+[node name="Prop116" type="Sprite2D" parent="Props"]
+texture = ExtResource("p10")
+script = ExtResource("21")
+position = Vector2(7400, 320)
+
+[node name="Prop117" type="Sprite2D" parent="Props"]
+texture = ExtResource("p10")
+script = ExtResource("21")
+position = Vector2(7692, 320)
+
+[node name="Prop118" type="Sprite2D" parent="Props"]
+texture = ExtResource("p6")
+script = ExtResource("21")
+position = Vector2(8156, 320)
+
+[node name="Prop119" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(8220, 320)
+
+[node name="Prop120" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(8338, 320)
+
+[node name="Prop121" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(8416, 320)
+
+[node name="Prop122" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(8456, 320)
+
+[node name="Prop123" type="Sprite2D" parent="Props"]
+texture = ExtResource("p11")
+script = ExtResource("21")
+position = Vector2(8233, 320)
+
+[node name="Prop124" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
+script = ExtResource("21")
+position = Vector2(8620, 320)
+
+[node name="Prop125" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(8701, 320)
+
+[node name="Prop126" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(8798, 320)
+
+[node name="Prop127" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(8895, 320)
+
+[node name="Prop128" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(8984, 320)
+
+[node name="Prop129" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(9045, 320)
+
+[node name="Prop130" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(9162, 320)
+
+[node name="Prop131" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(9277, 320)
+
+[node name="Prop132" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
+script = ExtResource("21")
+position = Vector2(9326, 320)
+
+[node name="Prop133" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(9385, 320)
+
+[node name="Prop134" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(9496, 320)
+
+[node name="Prop135" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(9547, 320)
+
+[node name="Prop136" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(9596, 320)
+
+[node name="Prop137" type="Sprite2D" parent="Props"]
+texture = ExtResource("p12")
+script = ExtResource("21")
+position = Vector2(8722, 320)
+
+[node name="Prop138" type="Sprite2D" parent="Props"]
+texture = ExtResource("p14")
+script = ExtResource("21")
+position = Vector2(9126, 320)
+
+[node name="Prop139" type="Sprite2D" parent="Props"]
+texture = ExtResource("p12")
+script = ExtResource("21")
+position = Vector2(9464, 320)
+
+[node name="Prop140" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(9776, 320)
+
+[node name="Prop141" type="Sprite2D" parent="Props"]
+texture = ExtResource("p6")
+script = ExtResource("21")
+position = Vector2(9856, 320)
+
+[node name="Prop142" type="Sprite2D" parent="Props"]
+texture = ExtResource("p1")
+script = ExtResource("21")
+position = Vector2(9930, 320)
+
+[node name="Prop143" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(10012, 320)
+
+[node name="Prop144" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(10096, 320)
+
+[node name="Prop145" type="Sprite2D" parent="Props"]
+texture = ExtResource("p1")
+script = ExtResource("21")
+position = Vector2(10214, 320)
+
+[node name="Prop146" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(10260, 320)
+
+[node name="Prop147" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(10302, 320)
+
+[node name="Prop148" type="Sprite2D" parent="Props"]
+texture = ExtResource("p6")
+script = ExtResource("21")
+position = Vector2(10402, 320)
+
+[node name="Prop149" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
+script = ExtResource("21")
+position = Vector2(10526, 320)
+
+[node name="Prop150" type="Sprite2D" parent="Props"]
+texture = ExtResource("p11")
+script = ExtResource("21")
+position = Vector2(9897, 320)
+
+[node name="Prop151" type="Sprite2D" parent="Props"]
+texture = ExtResource("p9")
+script = ExtResource("21")
+position = Vector2(10208, 320)
+
+[node name="Prop152" type="Sprite2D" parent="Props"]
+texture = ExtResource("p14")
+script = ExtResource("21")
+position = Vector2(10521, 320)
+
+[node name="Prop153" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
+script = ExtResource("21")
+position = Vector2(10780, 320)
+
+[node name="Prop154" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(10875, 320)
+
+[node name="Prop155" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(10930, 320)
+
+[node name="Prop156" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(11053, 320)
+
+[node name="Prop157" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(11112, 320)
+
+[node name="Prop158" type="Sprite2D" parent="Props"]
+texture = ExtResource("p11")
+script = ExtResource("21")
+position = Vector2(10818, 320)
+
+[node name="Prop159" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(11264, 320)
+
+[node name="Prop160" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(11446, 320)
+
+[node name="Prop161" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
+script = ExtResource("21")
+position = Vector2(11571, 320)
+
+[node name="Prop162" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(11622, 320)
+
+[node name="Prop163" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(11741, 320)
+
+[node name="Prop164" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
+script = ExtResource("21")
+position = Vector2(11834, 320)
+
+[node name="Prop165" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(11889, 320)
+
+[node name="Prop166" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(11962, 320)
+
+[node name="Prop167" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(12033, 320)
+
+[node name="Prop168" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(12094, 320)
+
+[node name="Prop169" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(12215, 320)
+
+[node name="Prop170" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
+script = ExtResource("21")
+position = Vector2(12260, 320)
+
+[node name="Prop171" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(12335, 320)
+
+[node name="Prop172" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(12378, 320)
+
+[node name="Prop173" type="Sprite2D" parent="Props"]
+texture = ExtResource("p0")
+script = ExtResource("21")
+position = Vector2(12499, 320)
+
+[node name="Prop174" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(12570, 320)
+
+[node name="Prop175" type="Sprite2D" parent="Props"]
+texture = ExtResource("p8")
+script = ExtResource("21")
+position = Vector2(12667, 320)
+
+[node name="Prop176" type="Sprite2D" parent="Props"]
+texture = ExtResource("p5")
+script = ExtResource("21")
+position = Vector2(12770, 320)
+
+[node name="Prop177" type="Sprite2D" parent="Props"]
+texture = ExtResource("p12")
+script = ExtResource("21")
+position = Vector2(11536, 320)
+
+[node name="Prop178" type="Sprite2D" parent="Props"]
+texture = ExtResource("p12")
+script = ExtResource("21")
+position = Vector2(11972, 320)
+
+[node name="Prop179" type="Sprite2D" parent="Props"]
+texture = ExtResource("p12")
+script = ExtResource("21")
+position = Vector2(12214, 320)
+
+[node name="Prop180" type="Sprite2D" parent="Props"]
+texture = ExtResource("p9")
+script = ExtResource("21")
+position = Vector2(12582, 320)
+
+[node name="Level" type="Node2D" parent="."]
+
+[node name="Ground1" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(0, 320)
+size = Vector2(2280, 40)
+
+[node name="Ground2" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(2368, 320)
+size = Vector2(3052, 40)
+
+[node name="Ground3" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(5516, 320)
+size = Vector2(224, 40)
+
+[node name="Ground4" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(5828, 320)
+size = Vector2(232, 40)
+
+[node name="Ground5" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(6160, 320)
+size = Vector2(1880, 40)
+
+[node name="Ground6" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(8132, 320)
+size = Vector2(368, 40)
+
+[node name="Ground7" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(8596, 320)
+size = Vector2(1064, 40)
+
+[node name="Ground8" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(9752, 320)
+size = Vector2(908, 40)
+
+[node name="Ground9" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(10756, 320)
+size = Vector2(384, 40)
+
+[node name="Ground10" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(11240, 320)
+size = Vector2(90, 40)
+
+[node name="Ground11" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(11422, 320)
+size = Vector2(1378, 40)
+
+[node name="WallLeft" parent="Level" instance=ExtResource("1")]
+position = Vector2(-16, 0)
+size = Vector2(16, 360)
+
+[node name="WallRight" parent="Level" instance=ExtResource("1")]
+position = Vector2(12800, 0)
+size = Vector2(16, 360)
+
+[node name="Ledge1" parent="Level" instance=ExtResource("1")]
+position = Vector2(280, 256)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge2" parent="Level" instance=ExtResource("1")]
+position = Vector2(440, 208)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge3" parent="Level" instance=ExtResource("1")]
+position = Vector2(660, 256)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Ledge4" parent="Level" instance=ExtResource("1")]
+position = Vector2(880, 208)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge5" parent="Level" instance=ExtResource("1")]
+position = Vector2(1080, 248)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge6" parent="Level" instance=ExtResource("1")]
+position = Vector2(1380, 264)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge7" parent="Level" instance=ExtResource("1")]
+position = Vector2(1540, 216)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge8" parent="Level" instance=ExtResource("1")]
+position = Vector2(1700, 168)
+size = Vector2(128, 16)
+one_way = true
+
+[node name="Ledge9" parent="Level" instance=ExtResource("1")]
+position = Vector2(1900, 160)
+size = Vector2(240, 16)
+one_way = true
+
+[node name="Ledge10" parent="Level" instance=ExtResource("1")]
+position = Vector2(2180, 216)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge11" parent="Level" instance=ExtResource("1")]
+position = Vector2(2360, 256)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Ledge12" parent="Level" instance=ExtResource("1")]
+position = Vector2(2800, 248)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Ledge13" parent="Level" instance=ExtResource("1")]
+position = Vector2(2980, 256)
+size = Vector2(80, 16)
+one_way = true
+
+[node name="Ledge14" parent="Level" instance=ExtResource("1")]
+position = Vector2(3080, 200)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge15" parent="Level" instance=ExtResource("1")]
+position = Vector2(3380, 248)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge16" parent="Level" instance=ExtResource("1")]
+position = Vector2(3520, 256)
+size = Vector2(80, 16)
+one_way = true
+
+[node name="Ledge17" parent="Level" instance=ExtResource("1")]
+position = Vector2(3620, 200)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Ledge18" parent="Level" instance=ExtResource("1")]
+position = Vector2(4180, 248)
+size = Vector2(80, 16)
+one_way = true
+
+[node name="Ledge19" parent="Level" instance=ExtResource("1")]
+position = Vector2(4240, 208)
+size = Vector2(64, 16)
+one_way = true
+
+[node name="Ledge20" parent="Level" instance=ExtResource("1")]
+position = Vector2(4280, 160)
+size = Vector2(240, 16)
+one_way = true
+
+[node name="Ledge21" parent="Level" instance=ExtResource("1")]
+position = Vector2(4560, 248)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge22" parent="Level" instance=ExtResource("1")]
+position = Vector2(4840, 200)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge23" parent="Level" instance=ExtResource("1")]
+position = Vector2(5000, 256)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge24" parent="Level" instance=ExtResource("1")]
+position = Vector2(5300, 248)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge25" parent="Level" instance=ExtResource("1")]
+position = Vector2(5580, 264)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge26" parent="Level" instance=ExtResource("1")]
+position = Vector2(5880, 248)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Ledge27" parent="Level" instance=ExtResource("1")]
+position = Vector2(6200, 256)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge28" parent="Level" instance=ExtResource("1")]
+position = Vector2(6620, 256)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge29" parent="Level" instance=ExtResource("1")]
+position = Vector2(6860, 256)
+size = Vector2(80, 16)
+one_way = true
+
+[node name="Ledge30" parent="Level" instance=ExtResource("1")]
+position = Vector2(6960, 208)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Ledge31" parent="Level" instance=ExtResource("1")]
+position = Vector2(7300, 256)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge32" parent="Level" instance=ExtResource("1")]
+position = Vector2(7420, 256)
+size = Vector2(80, 16)
+one_way = true
+
+[node name="Ledge33" parent="Level" instance=ExtResource("1")]
+position = Vector2(7520, 208)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge34" parent="Level" instance=ExtResource("1")]
+position = Vector2(7860, 264)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge35" parent="Level" instance=ExtResource("1")]
+position = Vector2(8000, 216)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Ledge36" parent="Level" instance=ExtResource("1")]
+position = Vector2(8200, 264)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge37" parent="Level" instance=ExtResource("1")]
+position = Vector2(8380, 216)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Ledge38" parent="Level" instance=ExtResource("1")]
+position = Vector2(8580, 264)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge39" parent="Level" instance=ExtResource("1")]
+position = Vector2(8760, 216)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Ledge40" parent="Level" instance=ExtResource("1")]
+position = Vector2(9080, 264)
+size = Vector2(128, 16)
+one_way = true
+
+[node name="Ledge41" parent="Level" instance=ExtResource("1")]
+position = Vector2(9300, 208)
+size = Vector2(128, 16)
+one_way = true
+
+[node name="Ledge42" parent="Level" instance=ExtResource("1")]
+position = Vector2(9520, 152)
+size = Vector2(160, 16)
+one_way = true
+
+[node name="Ledge43" parent="Level" instance=ExtResource("1")]
+position = Vector2(9780, 208)
+size = Vector2(128, 16)
+one_way = true
+
+[node name="Ledge44" parent="Level" instance=ExtResource("1")]
+position = Vector2(10000, 264)
+size = Vector2(128, 16)
+one_way = true
+
+[node name="Ledge45" parent="Level" instance=ExtResource("1")]
+position = Vector2(10560, 248)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge46" parent="Level" instance=ExtResource("1")]
+position = Vector2(10760, 184)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge47" parent="Level" instance=ExtResource("1")]
+position = Vector2(11080, 248)
+size = Vector2(64, 16)
+one_way = true
+
+[node name="Ledge48" parent="Level" instance=ExtResource("1")]
+position = Vector2(11260, 248)
+size = Vector2(64, 16)
+one_way = true
+
+[node name="Ledge49" parent="Level" instance=ExtResource("1")]
+position = Vector2(11700, 248)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge50" parent="Level" instance=ExtResource("1")]
+position = Vector2(11880, 200)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge51" parent="Level" instance=ExtResource("1")]
+position = Vector2(12080, 248)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Ledge52" parent="Level" instance=ExtResource("1")]
+position = Vector2(12280, 216)
+size = Vector2(128, 16)
+one_way = true
+
+[node name="Ledge53" parent="Level" instance=ExtResource("1")]
+position = Vector2(12480, 256)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Ledge54" parent="Level" instance=ExtResource("1")]
+position = Vector2(12640, 208)
+size = Vector2(112, 16)
+one_way = true
+
+[node name="Ledge55" parent="Level" instance=ExtResource("1")]
+position = Vector2(12400, 160)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Ledge56" parent="Level" instance=ExtResource("1")]
+position = Vector2(12580, 152)
+size = Vector2(96, 16)
+one_way = true
+
+[node name="Crawl1" parent="Level" instance=ExtResource("1")]
+position = Vector2(4040, 240)
+size = Vector2(200, 50)
+
+[node name="Crawl2" parent="Level" instance=ExtResource("1")]
+position = Vector2(4640, 240)
+size = Vector2(180, 50)
+
+[node name="Crawl3" parent="Level" instance=ExtResource("1")]
+position = Vector2(10400, 240)
+size = Vector2(180, 50)
+
+[node name="Crawl4" parent="Level" instance=ExtResource("1")]
+position = Vector2(10900, 240)
+size = Vector2(160, 50)
+
+[node name="Block1" parent="Level" instance=ExtResource("1")]
+position = Vector2(1940, 208)
+size = Vector2(64, 112)
+
+[node name="Block2" parent="Level" instance=ExtResource("1")]
+position = Vector2(4360, 208)
+size = Vector2(64, 112)
+
+[node name="Block3" parent="Level" instance=ExtResource("1")]
+position = Vector2(10780, 208)
+size = Vector2(56, 112)
+
+[node name="Walls" type="Node2D" parent="Level"]
+
+[node name="Wall1" parent="Level/Walls" instance=ExtResource("1")]
+position = Vector2(1460, 280)
+size = Vector2(16, 40)
+
+[node name="Wall2" parent="Level/Walls" instance=ExtResource("1")]
+position = Vector2(7140, 264)
+size = Vector2(16, 56)
+
+[node name="Wall3" parent="Level/Walls" instance=ExtResource("1")]
+position = Vector2(11460, 280)
+size = Vector2(16, 40)
+
+[node name="Wall4" parent="Level/Walls" instance=ExtResource("1")]
+position = Vector2(11560, 264)
+size = Vector2(16, 56)
+
+[node name="Enemies" type="Node2D" parent="."]
+
+[node name="2-C-1" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(740, 240)
+
+[node name="2-C-2" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(800, 304)
+
+[node name="2-B-1" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(940, 304)
+
+[node name="2-C-3" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(1120, 232)
+
+[node name="2-C-4" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(1240, 304)
+
+[node name="2-C-5" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(1430, 304)
+
+[node name="2-C-6" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(1580, 200)
+
+[node name="2-E-1" parent="Enemies" instance=ExtResource("e5")]
+position = Vector2(1780, 88)
+
+[node name="2-C-7" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(1760, 152)
+
+[node name="2-B-2" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(1940, 304)
+
+[node name="2-C-8" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(1980, 144)
+
+[node name="2-C-9" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(2100, 144)
+
+[node name="2-C-10" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(2230, 200)
+
+[node name="2-B-3" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(2380, 304)
+
+[node name="2-C-11" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(2420, 240)
+
+[node name="2-A-1" parent="Enemies" instance=ExtResource("e0")]
+position = Vector2(2880, -40)
+
+[node name="2-C-12" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(2840, 232)
+
+[node name="2-A-2" parent="Enemies" instance=ExtResource("e0")]
+position = Vector2(3220, -40)
+
+[node name="2-B-4" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(3180, 304)
+
+[node name="2-C-13" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(3120, 184)
+
+[node name="2-A-3" parent="Enemies" instance=ExtResource("e0")]
+position = Vector2(3560, -40)
+
+[node name="2-C-14" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(3440, 232)
+
+[node name="2-B-5" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(3700, 304)
+
+[node name="2-C-15" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(3680, 184)
+
+[node name="2-D-1" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(4300, 304)
+
+[node name="2-C-16" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(4340, 144)
+
+[node name="2-D-2" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(4600, 304)
+
+[node name="2-C-17" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(4600, 232)
+
+[node name="2-E-2" parent="Enemies" instance=ExtResource("e5")]
+position = Vector2(4740, 88)
+
+[node name="2-C-18" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(4880, 184)
+
+[node name="2-D-3" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(4960, 304)
+
+[node name="2-C-19" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(5040, 240)
+
+[node name="2-C-20" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(5320, 232)
+
+[node name="2-E-3" parent="Enemies" instance=ExtResource("e5")]
+position = Vector2(5460, 88)
+
+[node name="2-C-21" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(5620, 248)
+
+[node name="2-B-6" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(5880, 304)
+
+[node name="2-C-22" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(5920, 232)
+
+[node name="2-E-4" parent="Enemies" instance=ExtResource("e5")]
+position = Vector2(6000, 88)
+
+[node name="2-F-1" parent="Enemies" instance=ExtResource("e6")]
+position = Vector2(6180, 304)
+
+[node name="2-C-23" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(6240, 240)
+
+[node name="2-C-24" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(6360, 304)
+
+[node name="2-F-2" parent="Enemies" instance=ExtResource("e6")]
+position = Vector2(6580, 304)
+
+[node name="2-C-25" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(6660, 240)
+
+[node name="2-F-3" parent="Enemies" instance=ExtResource("e6")]
+position = Vector2(7020, 304)
+
+[node name="2-C-26" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(7000, 192)
+
+[node name="2-F-4" parent="Enemies" instance=ExtResource("e6")]
+position = Vector2(7220, 304)
+
+[node name="2-C-27" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(7340, 240)
+
+[node name="2-B-7" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(7460, 304)
+
+[node name="2-F-5" parent="Enemies" instance=ExtResource("e6")]
+position = Vector2(7580, 304)
+
+[node name="2-C-28" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(7560, 192)
+
+[node name="2-E-5" parent="Enemies" instance=ExtResource("e5")]
+position = Vector2(7940, 88)
+
+[node name="2-C-29" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(8040, 200)
+
+[node name="2-E-6" parent="Enemies" instance=ExtResource("e5")]
+position = Vector2(8280, 88)
+
+[node name="2-C-30" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(8240, 248)
+
+[node name="2-C-31" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(8420, 200)
+
+[node name="2-E-7" parent="Enemies" instance=ExtResource("e5")]
+position = Vector2(8620, 88)
+
+[node name="2-C-32" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(8620, 248)
+
+[node name="2-A-4" parent="Enemies" instance=ExtResource("e0")]
+position = Vector2(8820, -40)
+
+[node name="2-C-33" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(8800, 200)
+
+[node name="2-C-34" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(9120, 248)
+
+[node name="2-B-8" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(9220, 304)
+
+[node name="2-C-35" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(9340, 192)
+
+[node name="2-C-36" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(9560, 136)
+
+[node name="2-C-37" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(9620, 136)
+
+[node name="2-E-8" parent="Enemies" instance=ExtResource("e5")]
+position = Vector2(9660, 88)
+
+[node name="2-C-38" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(9820, 192)
+
+[node name="2-B-9" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(9940, 304)
+
+[node name="2-C-39" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(10040, 248)
+
+[node name="2-D-4" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(10160, 304)
+
+[node name="2-D-5" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(10620, 304)
+
+[node name="2-C-40" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(10600, 232)
+
+[node name="2-F-6" parent="Enemies" instance=ExtResource("e6")]
+position = Vector2(10860, 304)
+
+[node name="2-C-41" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(10800, 168)
+
+[node name="2-E-9" parent="Enemies" instance=ExtResource("e5")]
+position = Vector2(10860, 88)
+
+[node name="2-D-6" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(11110, 304)
+
+[node name="2-C-42" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(11100, 232)
+
+[node name="2-F-7" parent="Enemies" instance=ExtResource("e6")]
+position = Vector2(11240, 304)
+
+[node name="2-B-10" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(11440, 304)
+
+[node name="2-D-7" parent="Enemies" instance=ExtResource("e4")]
+position = Vector2(11660, 304)
+
+[node name="2-C-43" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(11740, 232)
+
+[node name="2-F-8" parent="Enemies" instance=ExtResource("e6")]
+position = Vector2(11940, 304)
+
+[node name="2-C-44" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(11920, 184)
+
+[node name="2-B-11" parent="Enemies" instance=ExtResource("e1")]
+position = Vector2(12140, 304)
+
+[node name="2-C-45" parent="Enemies" instance=ExtResource("e3")]
+position = Vector2(12120, 232)
+
+[node name="2-Boss-1" parent="Enemies" instance=ExtResource("e2")]
+position = Vector2(12520, 170)
+
+[node name="Fx" type="Node2D" parent="."]
+script = ExtResource("13")
+muzzle_flash_scene = ExtResource("14")
+hit_spark_scene = ExtResource("15")
+impact_spark_scene = ExtResource("16")
+explosion_scene = ExtResource("18")
+
+[node name="Player" parent="." instance=ExtResource("2")]
+position = Vector2(64, 304)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(64, 296)
+script = ExtResource("17")
+limit_left = 0
+limit_top = 0
+limit_right = 12800
+limit_bottom = 360
+
+[node name="HUD" parent="." instance=ExtResource("6")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("19")]
+
+[node name="DeathScreen" parent="." instance=ExtResource("20")]
+
+[node name="ClearScreen" parent="." instance=ExtResource("22")]

@@ -20,7 +20,7 @@ import sys
 sys.stdout.reconfigure(encoding="utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "..", "scenes", "level_1.tscn")
+SCENES = os.path.join(HERE, "..", "scenes")
 
 # ---------------------------------------------------------------- 关卡的尺子
 
@@ -57,6 +57,12 @@ BLOCK_CLEAR = 16.0
 CRAWL_CLEAR = 30.0
 ## 矮通道那块砖画多厚。
 CRAWL_THICK = 50.0
+## 摆在半空里：段落表里第三个值写 `("air", y)` 就是「原点直接放在这个 y」，
+## 给的是**绝对高度**，不是脚下那个面。两种用法：
+## 从天而降的 2-A 吊在画面顶边以上（`HANG_Y`），以及飘在空中的 Boss。
+AIR = "air"
+HANG_Y = -40.0
+
 ## 出生点往后多远之内不许摆敌人。
 ## **人一进来就在挨打，连看清楚周围都来不及**（2026-09 试玩发现）。
 ## 摄像机一开始夹在关卡左边，画面就是 x 0..640，而敌人**只要有一部分在画面里就算够得着**
@@ -66,17 +72,17 @@ SAFE_START = 700.0
 ## 装饰物：名字 → 横着排了几帧（1 = 静止）。贴图在 `skins/cyberpunk/props/`，
 ## 由 `tools/terrain_build.py` 从地形素材包里挑出来。**纯显示，没有碰撞**，
 ## 画在所有东西后面，再密也不挡敌人和子弹（`scripts/prop.gd`）。
-PROP_FRAMES = {"fountain": 4}
+PROP_FRAMES_1 = {"fountain": 4}
 ## 沿着地面随手撒的小东西。
-SCATTER = ["grass_tuft", "grass_blade", "grass_tuft", "rock_small", "bush_flat",
+SCATTER_1 = ["grass_tuft", "grass_blade", "grass_tuft", "rock_small", "bush_flat",
 	"bush_wide", "rock", "bin", "box", "bush_big", "grass_blade"]
 ## 隔一段撒一棵树。
-TREES = ["tree_small", "tree_big", "tree_small"]
+TREES_1 = ["tree_small", "tree_big", "tree_small"]
 ## 撒的间隔（像素）：小东西密一点，树疏一点。
 SCATTER_STEP = (40, 130)
 TREE_STEP = (240, 460)
 ## 撒的随机种子。**固定**：产物是要进仓库的，重新生成必须一模一样。
-SCATTER_SEED = 20260924
+SCATTER_SEED_1 = 20260924
 
 ## 敌人在关卡里叫什么：键 `1_a` → `1-A`、`1_boss` → `1-Boss`。
 ## **编号带着关卡号**：23 关每关都有自己的一套敌人，字母只是这一关的序号（不代表打法），
@@ -87,7 +93,7 @@ def enemy_label(kind):
 
 
 ## 敌人类型 → 场景路径。键就是 `SECTIONS` 里写的名字。
-ENEMIES = {
+ENEMIES_1 = {
 	"1_a": "res://scenes/enemy_1_a.tscn",
 	"1_b": "res://scenes/enemy_1_b.tscn",
 	"1_c": "res://scenes/enemy_1_c.tscn",
@@ -97,6 +103,8 @@ ENEMIES = {
 	"1_e": "res://scenes/enemy_1_e.tscn",
 	"1_boss": "res://scenes/boss_1.tscn",
 }
+
+FLYING_1 = {"1_e"}
 
 # ---------------------------------------------------------------- 第一关的段落
 #
@@ -115,7 +123,7 @@ ENEMIES = {
 # 「站在哪个顶边上」写的是**脚下那个面的 y**（地面就是 GROUND_Y，浮台就是它的顶边），
 # 生成时自动换算成敌人的原点高度；飞行的 E 写 None。
 
-SECTIONS = [
+SECTIONS_1 = [
 	("Warmup", {                                  # 唯一一段让你站稳脚跟的地方
 		# **头一屏空着**（见 `SAFE_START`）：让人走两步、试试手感，再碰上第一个敌人
 		"props": [("fountain", 300, GROUND_Y), ("bench", 560, GROUND_Y),
@@ -217,6 +225,168 @@ SECTIONS = [
 SPAWN = (64.0, GROUND_Y - STAND)
 
 
+# ---------------------------------------------------------------- 第二关（工业区）的段落
+#
+# 和第一关同样是 10 段 = 20 屏，难度对齐（坑的宽度、墙的高度、堵块的高路都走同一套自检）。
+# 这一关的新东西：
+#   2-A 吊在画面顶边以上（`("air", HANG_Y)`），玩家走到脚下才砸下来——**这一关的伏击**；
+#   2-D 抡锤，摆在窄道和矮通道出口，逼玩家在它起手之后退开；
+#   2-F 自爆，摆在开阔地和窄道里，逼玩家提前打掉；
+#   2-E 飞在头顶投弹，摆在坑区和空旷段；
+#   Boss 区**多摆平台**（它飘在空中、不追出地盘，玩家得跳上去才够得着）。
+
+PROP_FRAMES_2 = {"screen": 4, "conveyor": 4}
+SCATTER_2 = ["barrel", "box", "crate", "bucket", "board", "barrel_rust", "box_open",
+	"box", "barrel", "crate"]
+TREES_2 = ["locker", "ladder", "flag", "sign", "extinguisher"]
+SCATTER_SEED_2 = 20260925
+FLYING_2 = {"2_e"}
+
+ENEMIES_2 = {
+	"2_a": "res://scenes/enemy_2_a.tscn",
+	"2_b": "res://scenes/enemy_2_b.tscn",
+	"2_c": "res://scenes/enemy_2_c.tscn",
+	"2_d": "res://scenes/enemy_2_d.tscn",
+	"2_e": "res://scenes/enemy_2_e.tscn",
+	"2_f": "res://scenes/enemy_2_f.tscn",
+	"2_boss": "res://scenes/boss_2.tscn",
+}
+
+## Boss 飘在这个高度：再高缆绳就够不着地面上的玩家（见 boss_operator.gd 的 arm_max_length）。
+BOSS2_AIR_Y = 170.0
+
+SECTIONS_2 = [
+	("Yard", {                                    # 厂区门口：走两步、认识 2-C 和 2-B
+		"props": [("conveyor", 300, GROUND_Y), ("screen", 620, GROUND_Y),
+			("bench", 1180, GROUND_Y)],
+		"ledges": [(280, 256, 96), (440, 208, 96), (660, 256, 112), (880, 208, 96),
+			(1080, 248, 96)],
+		"enemies": [("2_c", 740, 256), ("2_c", 800, GROUND_Y),
+			("2_b", 940, GROUND_Y), ("2_c", 1120, 248), ("2_c", 1240, GROUND_Y)],
+	}),
+	("Catwalks", {                                # 爬钢架，头顶开始有直升机
+		"ledges": [(100, 264, 96), (260, 216, 96), (420, 168, 128), (620, 160, 240),
+			(900, 216, 96), (1080, 256, 112)],
+		"walls": [(180, 40)],
+		"gaps": [(1000, 88)],
+		"blocks": [(660, 64, 112)],
+		"enemies": [("2_c", 150, GROUND_Y), ("2_c", 300, 216), ("2_e", 500, None),
+			("2_c", 480, 168), ("2_b", 660, GROUND_Y), ("2_c", 700, 160),
+			("2_c", 820, 160), ("2_c", 950, 216), ("2_b", 1100, GROUND_Y),
+			("2_c", 1140, 256)],
+	}),
+	("Ambush", {                                  # 第一次被从天而降的 Worker 砸
+		"props": [("conveyor", 700, GROUND_Y)],
+		"ledges": [(240, 248, 112), (420, 256, 80), (520, 200, 96), (820, 248, 96),
+			(960, 256, 80), (1060, 200, 112)],
+		"enemies": [("2_a", 320, (AIR, HANG_Y)), ("2_c", 280, 248),
+			("2_a", 660, (AIR, HANG_Y)), ("2_b", 620, GROUND_Y),
+			("2_c", 560, 200), ("2_a", 1000, (AIR, HANG_Y)), ("2_c", 880, 248),
+			("2_b", 1140, GROUND_Y), ("2_c", 1120, 200)],
+	}),
+	("Presses", {                                 # 矮通道 + 堵死的下层：出口都有锤子兵
+		"crawl": [(200, 200), (800, 180)],
+		"blocks": [(520, 64, 112)],
+		# 340 / 400 那两块是垫脚：从地面一跳最多上 72，直接上 160 的钢架跳不上去
+		"ledges": [(340, 248, 80), (400, 208, 64), (440, 160, 240), (720, 248, 96),
+			(1000, 200, 96), (1160, 256, 96)],
+		"enemies": [("2_d", 460, GROUND_Y), ("2_c", 500, 160),
+			("2_d", 760, GROUND_Y), ("2_c", 760, 248), ("2_e", 900, None),
+			("2_c", 1040, 200), ("2_d", 1120, GROUND_Y), ("2_c", 1200, 256)],
+	}),
+	("Sumps", {                                   # 坑区：直升机在头上投弹，逼你不能慢慢跳
+		"gaps": [(300, 96), (620, 88), (940, 100)],
+		"ledges": [(180, 248, 96), (460, 264, 96), (760, 248, 112), (1080, 256, 96)],
+		"enemies": [("2_c", 200, 248), ("2_e", 340, None), ("2_c", 500, 264),
+			("2_b", 760, GROUND_Y), ("2_c", 800, 248), ("2_e", 880, None),
+			("2_f", 1060, GROUND_Y), ("2_c", 1120, 256), ("2_c", 1240, GROUND_Y)],
+	}),
+	("Sirens", {                                  # 自爆机的地盘：开阔，但它们冲得快
+		"props": [("screen", 400, GROUND_Y)],
+		"ledges": [(220, 256, 96), (460, 256, 80), (560, 208, 112), (900, 256, 96),
+			(1020, 256, 80), (1120, 208, 96)],
+		"walls": [(740, 56)],
+		"enemies": [("2_f", 180, GROUND_Y), ("2_c", 260, 256), ("2_f", 620, GROUND_Y),
+			("2_c", 600, 208), ("2_f", 820, GROUND_Y), ("2_c", 940, 256),
+			("2_b", 1060, GROUND_Y), ("2_f", 1180, GROUND_Y), ("2_c", 1160, 208)],
+	}),
+	("Skyline", {                                 # 空战段：一路都在浮台上，头顶三架
+		"gaps": [(360, 92), (820, 96)],
+		"ledges": [(180, 264, 96), (320, 216, 112), (520, 264, 96), (700, 216, 112),
+			(900, 264, 96), (1080, 216, 112)],
+		"enemies": [("2_e", 260, None), ("2_c", 360, 216), ("2_e", 600, None),
+			("2_c", 560, 264), ("2_c", 740, 216), ("2_e", 940, None),
+			("2_c", 940, 264), ("2_a", 1140, (AIR, HANG_Y)), ("2_c", 1120, 216)],
+	}),
+	("Crossfire", {                               # 三层交叉火力
+		"ledges": [(120, 264, 128), (340, 208, 128), (560, 152, 160), (820, 208, 128),
+			(1040, 264, 128)],
+		"gaps": [(700, 92)],
+		"enemies": [("2_c", 160, 264), ("2_b", 260, GROUND_Y), ("2_c", 380, 208),
+			("2_c", 600, 152), ("2_c", 660, 152), ("2_e", 700, None),
+			("2_c", 860, 208), ("2_b", 980, GROUND_Y), ("2_c", 1080, 264),
+			("2_d", 1200, GROUND_Y)],
+	}),
+	("Narrows", {                                 # 窄道：坑、矮通道、锤子兵和自爆机挤在一起
+		"crawl": [(160, 180), (660, 160)],
+		"gaps": [(420, 96), (900, 100), (1090, 92)],
+		"ledges": [(320, 248, 96), (520, 184, 96), (840, 248, 64), (1020, 248, 64)],
+		"walls": [(1220, 40)],
+		"blocks": [(540, 56, 112)],
+		"enemies": [("2_d", 380, GROUND_Y), ("2_c", 360, 248), ("2_f", 620, GROUND_Y),
+			("2_c", 560, 184), ("2_e", 620, None), ("2_d", 870, GROUND_Y),
+			("2_c", 860, 248), ("2_f", 1000, GROUND_Y), ("2_b", 1200, GROUND_Y)],
+	}),
+	("BossArena", {                               # Boss 区：**多摆平台**，它飘在空中要跳上去打
+		"props": [("conveyor", 260, GROUND_Y), ("screen", 620, GROUND_Y)],
+		"walls": [(40, 56)],
+		"ledges": [(180, 248, 96), (360, 200, 96), (560, 248, 112),
+			(760, 216, 128), (960, 256, 112), (1120, 208, 112),
+			(880, 160, 96), (1060, 152, 96)],
+		"enemies": [("2_d", 140, GROUND_Y), ("2_c", 220, 248), ("2_f", 420, GROUND_Y),
+			("2_c", 400, 200), ("2_b", 620, GROUND_Y), ("2_c", 600, 248),
+			("2_boss", 1000, (AIR, BOSS2_AIR_Y))],
+	}),
+]
+
+# ---------------------------------------------------------------- 一关 = 一条配置
+#
+# 加一关就往这张表里加一条，跑 `python tools/level_build.py 2`。
+# 关卡之间**什么都不共用**：敌人、装饰、段落各写各的——23 关里每一关的敌人和素材都不一样，
+# 共用一份只会让「调第二关的节奏」把第一关也改掉。
+STAGES = {
+	"1": {
+		"out": "level_1.tscn", "root": "Level1", "prop_dir": "cyberpunk",
+		"sections": SECTIONS_1, "enemies": ENEMIES_1, "flying": FLYING_1,
+		"prop_frames": PROP_FRAMES_1, "scatter": SCATTER_1, "trees": TREES_1,
+		"seed": SCATTER_SEED_1,
+	},
+	"2": {
+		"out": "level_2.tscn", "root": "Level2", "prop_dir": "industrial",
+		"sections": SECTIONS_2, "enemies": ENEMIES_2, "flying": FLYING_2,
+		"prop_frames": PROP_FRAMES_2, "scatter": SCATTER_2, "trees": TREES_2,
+		"seed": SCATTER_SEED_2,
+	},
+}
+
+
+def use_stage(key):
+	"""把这一关的表装进全局，后面的代码照常读。"""
+	global OUT, ROOT, PROP_DIR, SECTIONS, ENEMIES, FLYING
+	global PROP_FRAMES, SCATTER, TREES, SCATTER_SEED
+	stage = STAGES[key]
+	OUT = os.path.join(SCENES, stage["out"])
+	ROOT = stage["root"]
+	PROP_DIR = stage["prop_dir"]
+	SECTIONS = stage["sections"]
+	ENEMIES = stage["enemies"]
+	FLYING = stage["flying"]
+	PROP_FRAMES = stage["prop_frames"]
+	SCATTER = stage["scatter"]
+	TREES = stage["trees"]
+	SCATTER_SEED = stage["seed"]
+
+
 # ---------------------------------------------------------------- 摊平成一整关
 
 class Level:
@@ -228,6 +398,7 @@ class Level:
 		self.blocks = []      # (名字, x, 宽, 高)
 		self.crawls = []      # (名字, x, 宽)
 		self.enemies = []     # (名字, 类型, x, y)
+		self.floating = set() # 直接摆在半空里的那几个的名字（吊着的 2-A、飘着的 Boss）
 		self.props = []       # (名字, 装饰名, x, 底边 y)
 		self.ground = []      # (x, 宽)
 		self._build()
@@ -254,11 +425,21 @@ class Level:
 			for prop, x, surface in parts.get("props", []):
 				self.props.append((name("Prop"), prop, base + x, surface))
 			for kind, x, surface in parts.get("enemies", []):
-				y = FLY_Y if surface is None else surface - (BOSS_STAND if kind == "1_boss" else STAND)
+				floats = False
+				if surface is None:
+					y = FLY_Y
+				elif isinstance(surface, tuple) and surface[0] == AIR:
+					y = surface[1]
+					floats = True
+				else:
+					y = surface - (BOSS_STAND if kind.endswith("_boss") else STAND)
 				# **名字必须各不相同**：一段里有好几个 1-A，重名的话 `.tscn` 里会出现同名节点，
 				# 引擎的子节点名字表就对不上了（free 一批敌人时刷一屏
 				# 「Children name does not match parent name in hashtable」）。
-				self.enemies.append((name(enemy_label(kind) + "-"), kind, base + x, y))
+				label = name(enemy_label(kind) + "-")
+				if floats:
+					self.floating.add(label)
+				self.enemies.append((label, kind, base + x, y))
 		self.ground = self._ground_runs()
 		self._scatter()
 
@@ -370,9 +551,13 @@ def check_level(level):
 		if x < SAFE_START:
 			problems.append("%s 摆在 x %.0f，出生点那一屏里（%.0f 以内不许放），人一进来就在挨打"
 				% (name, x, SAFE_START))
-		if kind == "1_e":
+		if kind in FLYING or name in level.floating:
+			# 飞的、以及吊在画面上边的：脚下本来就没有面。
+			# 吊着的那个要落得下来——底下得是实地，不能是坑。
+			if y < 0.0 and level.surface_at(x) is None:
+				problems.append("%s 吊在 x %.0f 的坑上面，掉下来就摔死了" % (name, x))
 			continue
-		feet = y + (BOSS_STAND if kind == "1_boss" else STAND)
+		feet = y + (BOSS_STAND if kind.endswith("_boss") else STAND)
 		on_ledge = any(left - 8 <= x <= right + 8 and abs(top - feet) < 1.0
 			for left, right, top in level.surfaces())
 		if not on_ledge:
@@ -425,8 +610,8 @@ def build(level, write):
 	prop_ids = {}
 	for index, prop in enumerate(sorted({p[1] for p in level.props})):
 		prop_ids[prop] = "p%d" % index
-		extra.append('[ext_resource type="Texture2D" path="res://skins/cyberpunk/props/%s.png" id="%s"]'
-			% (prop, prop_ids[prop]))
+		extra.append('[ext_resource type="Texture2D" path="res://skins/%s/props/%s.png" id="%s"]'
+			% (PROP_DIR, prop, prop_ids[prop]))
 	extra.append('[ext_resource type="Script" path="res://scripts/prop.gd" id="21"]')
 	out = [HEAD + "\n".join(extra) + "\n"]
 	out.append('\n[node name="Level1" type="Node2D"]\nscript = ExtResource("3")\n')
@@ -489,6 +674,15 @@ def build(level, write):
 
 def main():
 	write = "--check" not in sys.argv
+	wanted = [a for a in sys.argv[1:] if not a.startswith("--")] or list(STAGES)
+	for key in wanted:
+		if key not in STAGES:
+			sys.exit("没有第 %s 关（有的是 %s）" % (key, "、".join(STAGES)))
+		use_stage(key)
+		build_stage(key, write)
+
+
+def build_stage(key, write):
 	level = Level()
 	problems = check_level(level)
 	if problems:
@@ -497,7 +691,7 @@ def main():
 			print("  -", p)
 		sys.exit(1)
 	build(level, write)
-	print("第一关：%d 宽（%d 段 / %d 屏）" % (level.width, len(SECTIONS), level.width // 640))
+	print("第 %s 关：%d 宽（%d 段 / %d 屏）" % (key, level.width, len(SECTIONS), level.width // 640))
 	print("  地面 %d 段、坑 %d 个（最宽 %.0f，走着跳的上限 %.0f）"
 		% (len(level.ground), len(level.gaps),
 			max([w for _, w in level.gaps] or [0]), MAX_GAP))
@@ -510,7 +704,7 @@ def main():
 	print("  敌人 %d 个：%s" % (len(level.enemies),
 		"、".join("%s×%d" % (k, n) for k, n in sorted(kinds.items()))))
 	if write:
-		print("  写入 scenes/level_1.tscn")
+		print("  写入 scenes/%s" % STAGES[key]["out"])
 
 
 if __name__ == "__main__":

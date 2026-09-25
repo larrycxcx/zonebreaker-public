@@ -166,8 +166,14 @@ func clip() -> StringName:
 	return &"idle"
 
 
+## 这个瞄准方向的开火动作。**贴图里没有就退回水平那组**——
+## 不是每套素材都画了斜射：赛博朋克那个巡逻兵自带水平 / 斜上 / 斜下三组，
+## 工业区那套只有水平一组。没有这条兜底的话，2-C 一斜着瞄就去加载一张不存在的图，
+## 刷一屏「Resource file not found」，画面上那一帧也没了。
 func _attack_clip() -> StringName:
-	return ATTACK_BY_AIM.get(Vector2(absf(signf(_aim.x)), signf(_aim.y)), &"attack_level")
+	var wanted: StringName = ATTACK_BY_AIM.get(
+		Vector2(absf(signf(_aim.x)), signf(_aim.y)), &"attack_level")
+	return _first([wanted, &"attack_level"])
 
 
 func _aiming_diagonally() -> bool:

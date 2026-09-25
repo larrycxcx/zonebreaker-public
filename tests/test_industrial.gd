@@ -606,19 +606,41 @@ func test_the_operator_is_a_boss_and_shows_up_on_the_hud() -> void:
 		boss.ultimate_damage() == roundi(boss.max_health * 0.25), str(boss.ultimate_damage()))
 
 
-func test_it_drifts_around_its_own_patch_of_air() -> void:
+func test_it_drifts_in_eight_directions() -> void:
+	# 「八个方向飞」这件事**直接问方向选取**，不要靠实跑去撞：
+	# 五秒里它只挑三四次方向，全挑成竖直的概率有百分之一——那样用例会偶发失败，
+	# 而且失败的时候看着像 Boss 坏了。
+	await reset_scene(false, true, pack())
+	var boss := spawn_boss()
+	var seen := {}
+	for i in 400:
+		boss._pick_heading()
+		seen[boss._heading.snapped(Vector2(0.01, 0.01))] = true
+	check("all eight headings come up", seen.size() == 8, str(seen.size()))
+	var flat := 0
+	var slanted := 0
+	for heading: Vector2 in seen:
+		if is_zero_approx(heading.y):
+			flat += 1
+		elif not is_zero_approx(heading.x):
+			slanted += 1
+	check("two of them are straight across", flat == 2, str(flat))
+	check("and four are diagonal", slanted == 4, str(slanted))
+
+
+func test_it_never_leaves_its_own_patch_of_air() -> void:
 	# 它不追人——追击是 D 的定位，它靠居高临下压制，所以不能跟着玩家跑出地盘
 	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 500.0, STAND_Y))
 	var home: Vector2 = boss._home
-	var moved := Vector2.ZERO
+	var moved := 0.0
 	var strayed := Vector2.ZERO
 	for i in 300:
 		await tree.physics_frame
 		var off: Vector2 = boss.global_position - home
-		moved = Vector2(maxf(moved.x, absf(off.x)), maxf(moved.y, absf(off.y)))
+		moved = maxf(moved, off.length())
 		strayed = Vector2(maxf(strayed.x, absf(off.x) - boss.roam_range.x),
 			maxf(strayed.y, absf(off.y) - boss.roam_range.y))
-	check("it really moves in both directions", moved.x > 20.0 and moved.y > 10.0, str(moved))
+	check("it really moves", moved > 20.0, "%.0f" % moved)
 	check("but never leaves its patch", strayed.x < 16.0 and strayed.y < 16.0, str(strayed))
 
 
@@ -787,3 +809,21 @@ func test_it_holds_still_while_the_arm_is_out() -> void:
 		strayed = maxf(strayed, boss.global_position.distance_to(anchored))
 	check("it stays put from the moment the cable pays out", strayed < 2.0, "%.1f" % strayed)
 	check("setup: the arm really finished in this test", boss.arm_state() == BossOperator.Arm.IN)
+
+
+func test_aiming_off_the_level_falls_back_to_the_art_this_pack_has() -> void:
+	# **这套素材只画了水平开火**（赛博朋克那个巡逻兵自带水平 / 斜上 / 斜下三组）。
+	# 2-C 照样会斜着打——规则不变，只是画面上还是水平端枪的样子。
+	# 没有这条兜底的话，它一斜着瞄就去加载一张不存在的图，刷一屏「Resource file not found」，
+	# 画面上那一帧也没了。**这是截图才发现的**：无头测试一条都没红。
+	check("setup: this pack really has no diagonal firing art",
+		not has_clip(&"2_c", "attack_up") and not has_clip(&"2_c", "attack_down"))
+	await reset_scene(false, true, pack())
+	var spec := spawn("res://scenes/enemy_2_c.tscn", Vector2(500, STAND_Y))
+	var visual: EnemySpriteAppearance = spec.get_node("Visual")
+	for aim: Vector2 in [Vector2(1, 0), Vector2(1, -1), Vector2(1, 1)]:
+		visual.aim(aim)
+		visual.fire()
+		var clip := visual.clip()
+		check("aiming %s picks a clip this pack actually has" % aim,
+			ResourceLoader.exists("%s/enemies/2_c/%s_r.png" % [ART, clip]), String(clip))

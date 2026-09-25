@@ -43,6 +43,7 @@ const SUITES := {
 	"coop": "res://tests/test_coop.gd",
 	"pits": "res://tests/test_pits.gd",
 	"level_1": "res://tests/test_level_1.gd",
+	"level_2": "res://tests/test_level_2.gd",
 	"catalog": "res://tests/test_catalog.gd",
 	"clear": "res://tests/test_clear.gd",
 	"shop": "res://tests/test_shop.gd",

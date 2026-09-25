@@ -344,13 +344,21 @@ func _on_cancelled() -> void:
 			_show(Page.SETUP)
 
 
+## 项目设置里的开关：打开时**所有关卡都能选**，不管打到哪儿了。
+## 做关卡的时候要随时跳到任意一关去试，不然每调一次第 5 关就得先把前四关打一遍。
+## **发布前记得关掉**——开着就没有「一关一关打过去」这回事了。
+const UNLOCK_ALL := "game/unlock_all_levels"
+
+
 ## 解锁了的那几关。**双人取两个人里最高的**：老手带新人时朋友也能一起往后打，
 ## 不用卡着新角色重打十几关（通关时两个人的进度都往前推，见 `main.gd._unlock_next()`）。
 func _unlocked() -> Array[LevelInfo]:
+	var all := Catalog.levels()
+	if ProjectSettings.get_setting(UNLOCK_ALL, false):
+		return all
 	var reached := 1
 	for index in Session.player_count:
 		reached = maxi(reached, Progress.of(index).reached)
-	var all := Catalog.levels()
 	return all.slice(0, clampi(reached, 1, all.size()))
 
 

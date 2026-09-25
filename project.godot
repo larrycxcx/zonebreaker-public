@@ -36,6 +36,10 @@ window/stretch/mode="viewport"
 
 skin="res://skins/cyberpunk/cyberpunk_skin.tres"
 
+; 开着 = 主菜单的选关页列出全部关卡，不看打到哪儿了。
+; 做关卡时随时跳到任意一关去试用的，**发布前改成 false**。
+unlock_all_levels=true
+
 [input]
 
 move_left={

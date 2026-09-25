@@ -7,14 +7,32 @@ extends GameTest
 ## 跳得过去的距离是**实测**的：在测试关的平地上按住跳跃 + 右走，量离地到落地之间走了多远。
 ## 不用公式算，这样玩家的重力、跳跃力、走路速度哪个变了，这里都会说话。
 
-const LEVEL := "res://scenes/level_1.tscn"
 const GROUND_Y := 320.0
 ## 站着 32 高过不去、站姿子弹离地 21~25 过得去，矮通道净空就卡在这中间（见 CLAUDE.md）。
 const CRAWL_CLEAR := 30.0
 
 
+## 哪一关。**这一组是所有正式关卡的基类**：`test_level_2.gd` 继承它、只改这两个方法，
+## 上面那一整套几何检查（坑跳得过去、墙翻得过去、堵块有高路、矮通道净空、敌人没悬空、
+## 装饰没有碰撞、没有重名……）就整套捡过去了——每加一关都重写一遍才是真的会漏。
+func level_path() -> String:
+	return "res://scenes/level_1.tscn"
+
+
+## 这一关配的那套素材（`levels/*.tres`）。返回 null 就用默认包跑（几何检查和皮肤无关）。
+func level_stage() -> LevelInfo:
+	return null
+
+
 func open_level() -> void:
-	await reset_scene(true, true, null, 1, LEVEL)
+	var stage := level_stage()
+	await reset_scene(true, true, stage.skin if stage != null else null, 1, level_path(), stage)
+
+
+## 这个敌人是不是**有意**摆在半空里的：会飞的、飘着的 Boss、
+## 以及吊在画面顶边以上等着掉下来的（第二关的 2-A）。这几种「脚下没有面」是对的。
+func hangs_in_the_air(enemy: Enemy) -> bool:
+	return enemy is EnemyFlyer 		or enemy.motion_mode == CharacterBody2D.MOTION_MODE_FLOATING 		or enemy.position.y < 0.0
 
 
 ## 关卡里所有的地形块（`Level` 底下的，含 `Level/Walls` 里的竖墙）。
@@ -249,7 +267,7 @@ func test_every_enemy_stands_on_something() -> void:
 	var checked := 0
 	for node in main.get_node("Enemies").get_children():
 		var enemy := node as Enemy
-		if enemy == null or enemy is EnemyFlyer:
+		if enemy == null or hangs_in_the_air(enemy):
 			continue
 		var feet: float = enemy_feet(enemy)
 		var standing := false
@@ -297,7 +315,7 @@ func test_no_enemy_is_stuck_in_a_crawl_passage() -> void:
 	await open_level()
 	for node in main.get_node("Enemies").get_children():
 		var enemy := node as Enemy
-		if enemy == null or enemy is EnemyFlyer:
+		if enemy == null or hangs_in_the_air(enemy):
 			continue
 		if absf(enemy_feet(enemy) - GROUND_Y) > 1.0:
 			continue

@@ -582,12 +582,9 @@ func test_a_loaded_character_starts_on_accept() -> void:
 	check("and it is the lit-up row", column._accept.get_theme_color("font_color") == UiKit.WHITE,
 		str(column._accept.get_theme_color("font_color")))
 	await press(&"jump")
-	check("so one press is enough to start", column.confirmed)
-	# 单人按下去就直接进关卡了，两样都得收干净（见 test_finishing_the_last_seat_starts_the_level）
-	for i in 30:
-		await tree.physics_frame
-		if tree.current_scene != null:
-			break
+	# **按下去之后这一栏就没了**（设置界面整个被选关页换掉），所以查的是页面，不是 `column.confirmed`
+	check("so one press is enough to finish setting up",
+		menu.page() == MainMenu.Page.STAGE, str(menu.page()))
 	if is_instance_valid(menu):
 		menu.free()
 	tree.unload_current_scene()
@@ -761,12 +758,16 @@ func test_everyone_has_to_accept_before_the_level_starts() -> void:
 	check("but the level waits", tree.current_scene == null, str(tree.current_scene))
 	await at_row(two, SetupColumn.Row.ACCEPT)
 	await tap(&"p2_jump")
+	await frames(2)
+	check("once both are ready setting up is done",
+		menu.page() == MainMenu.Page.STAGE, str(menu.page()))
+	await choose(0)
 	for i in 30:
 		await tree.physics_frame
 		if tree.current_scene != null:
 			break
-	check("once both are ready it starts", tree.current_scene != null
-		and tree.current_scene.scene_file_path == MainMenu.level_scene(), str(tree.current_scene))
+	check("and picking a stage starts it", tree.current_scene != null
+		and tree.current_scene.scene_file_path != "", str(tree.current_scene))
 	if is_instance_valid(menu):
 		menu.free()
 	tree.unload_current_scene()
@@ -775,15 +776,52 @@ func test_everyone_has_to_accept_before_the_level_starts() -> void:
 
 
 func test_backing_out_of_ready_and_then_out_of_setup() -> void:
+	# **这条得用双人来测**：单人按一下 ACCEPT 就整页翻到选关了，那一栏当场被拆掉，
+	# 「先取消 ACCEPT、再退出设置」这两步只有在「另一个人还没好」的时候才走得到。
+	await reach_setup(2)
+	var one: SetupColumn = menu.setup().columns()[0]
+	await at_row(one, SetupColumn.Row.ACCEPT)
+	await press(&"jump")
+	check("setup: ready, and still on the setup screen because the other one is not",
+		one.confirmed and menu.page() == MainMenu.Page.SETUP)
+	await press(&"cancel")
+	check("backing out cancels ready first", not one.confirmed and menu.setup() != null)
+	await press(&"cancel")
+	check("and again leaves the setup screen",
+		menu.setup() == null and menu.page() == MainMenu.Page.SOURCE)
+
+
+func test_backing_out_of_the_stage_list_returns_to_setup() -> void:
+	# 选关页是设置界面之后那一页，B 退回来还能改人
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	await at_row(column, SetupColumn.Row.ACCEPT)
 	await press(&"jump")
-	check("setup: ready", column.confirmed)
+	check("setup: it moved on to the stage list", menu.page() == MainMenu.Page.STAGE,
+		str(menu.page()))
 	await press(&"cancel")
-	check("backing out cancels ready first", not column.confirmed and menu.setup() != null)
-	await press(&"cancel")
-	check("and again leaves the setup screen", menu.setup() == null and menu.page() == MainMenu.Page.SOURCE)
+	check("backing out comes back to the setup screen",
+		menu.page() == MainMenu.Page.SETUP and menu.setup() != null, str(menu.page()))
+	check("and nothing was started", tree.current_scene == null, str(tree.current_scene))
+
+
+func test_every_stage_is_listed_while_the_unlock_switch_is_on() -> void:
+	# 项目设置 `game/unlock_all_levels`：开着时选关页列出全部关卡，不看打到哪儿了。
+	# 做关卡时要随时跳到任意一关去试——**发布前要关掉**。
+	check("the switch is on while levels are being built",
+		ProjectSettings.get_setting("game/unlock_all_levels", false), "记得发布前关掉")
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_row(column, SetupColumn.Row.ACCEPT)
+	await press(&"jump")
+	check("setup: the stage list is up", menu.page() == MainMenu.Page.STAGE)
+	var listed := menu._unlocked()
+	check("a brand new character can still pick any stage",
+		listed.size() == Catalog.levels().size(),
+		"%d / %d，角色只解锁了 %d 关"
+			% [listed.size(), Catalog.levels().size(), Progress.of(0).reached])
+	check("setup: this character really has not unlocked them all",
+		Progress.of(0).reached < Catalog.levels().size(), str(Progress.of(0).reached))
 
 
 func test_finishing_the_last_seat_starts_the_level() -> void:
@@ -791,13 +829,16 @@ func test_finishing_the_last_seat_starts_the_level() -> void:
 	var column: SetupColumn = menu.setup().columns()[0]
 	await at_row(column, SetupColumn.Row.ACCEPT)
 	await press(&"jump")
+	check("setting up is done", menu.page() == MainMenu.Page.STAGE, str(menu.page()))
+	await choose(0)
 	for i in 30:
 		await tree.physics_frame
 		if tree.current_scene != null:
 			break
-	# 按**场景文件**认，不按根节点的名字：正式关卡是 level_1.tscn，测试关才叫 main.tscn
+	# 按**场景文件**认，不按根节点的名字：正式关卡是 level_N.tscn，测试关才叫 main.tscn
 	check("the level is loaded", tree.current_scene != null
-		and tree.current_scene.scene_file_path == MainMenu.level_scene(), str(tree.current_scene))
+		and tree.current_scene.scene_file_path == Catalog.levels()[0].scene_path,
+		str(tree.current_scene))
 	# 收尾要收两样东西，少收一样都会祸害后面的用例：
 	# 1. **菜单节点自己**——它是手动 add_child 到 root 上的，`change_scene_to_file` 只换 current_scene，
 	#    不会动它。留着的话它还在每帧收按键，后面的用例一按 A 就被它当成菜单确认。
