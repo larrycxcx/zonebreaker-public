@@ -46,6 +46,7 @@ CHARACTERS = {
 # 做成全局而不是一路往下传参数：这个脚本从头到尾都在处理同一个角色，
 # 每个函数多一个参数只会让本来就长的调用链更难读。
 CHARACTER = ""
+KEY = ""
 OUT = ""
 DEATH = ""
 # 每种枪的外观用素材包里哪一把（`2 Guns/` 里的编号）。键就是 `Weapon.look`，
@@ -472,16 +473,30 @@ def build_prone(write):
 	save_strip("body_crawl_l.png", [mirror(f) for f in crawl], write)
 
 
+## 自己补的无臂版在哪：`art_src/<皮肤键>_<动作>.png`（格式和素材包一样，一排 48×48）。
+## **有它就直接用，不再跑 `strip_arms()`**——那个是按肤色连通块找胳膊的，只对 biker 好使：
+## punk 那条胳膊裹着袖子、cyborg 那条整个是护甲，一个像素都匹配不上，原样留着就成了三条胳膊。
+## 按各自调色板重跑也不行，那些颜色同时是躯干和腿的颜色，整个身子会被吃掉。
+def own_body(name):
+	path = os.path.join(OWN, "%s_%s.png" % (KEY, name))
+	return path if os.path.exists(path) else None
+
+
 def build_bodies(write):
 	for name, (source, frames) in BODIES.items():
-		path = os.path.join(SRC, "1 Characters", CHARACTER, source + ".png")
+		mine = own_body(name)
+		path = mine or os.path.join(SRC, "1 Characters", CHARACTER, source + ".png")
 		_, _, pixels = read_png(path)
 		right = []
 		for index in frames:
-			frame = strip_arms(cut(pixels, index * CELL, 0, CELL, CELL))
+			frame = cut(pixels, index * CELL, 0, CELL, CELL)
+			if mine is None:
+				frame = strip_arms(frame)
 			right.append(place(frame, torso_center(frame), "%s 第%d帧" % (name, index + 1)))
 		save_strip("body_%s_r.png" % name, right, write)
 		save_strip("body_%s_l.png" % name, [mirror(f) for f in right], write)
+		if mine is not None:
+			print("    （用的是自己补的无臂版 art_src/%s）" % os.path.basename(mine))
 
 
 def grip_in(gun, aim):
@@ -581,8 +596,9 @@ def save_strip(name, frames, write):
 
 ## 切到某个角色：素材从哪个文件夹读、贴图写到哪、死亡动画用哪张。
 def use_character(key):
-	global CHARACTER, OUT, DEATH, PRONE, PRONE_TORSO, PRONE_TOLERANCE, PRONE_TORSO_X
+	global CHARACTER, KEY, OUT, DEATH, PRONE, PRONE_TORSO, PRONE_TOLERANCE, PRONE_TORSO_X
 	CHARACTER = CHARACTERS[key]
+	KEY = key
 	OUT = os.path.join(SKIN, key)
 	# 死亡动画在角色自己的文件夹里，文件名是角色名去掉前面的编号：`1 Biker` → `Biker_death.png`
 	DEATH = os.path.join(SRC, "1 Characters", CHARACTER, "%s_death.png" % CHARACTER.split(" ", 1)[1])

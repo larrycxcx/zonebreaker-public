@@ -763,6 +763,33 @@ func test_the_pack_only_overrides_what_has_been_drawn() -> void:
 		and not (unpainted is SpriteAppearance) and not (unpainted is EnemySpriteAppearance))
 
 
+## 身体贴图**必须是脱了胳膊的**：瞄准手臂是另贴上去的，身上再留一条就是三条胳膊。
+## `portrait.png` 是同一个角色、同一帧待机的**原画**（自带那条胳膊，见 `UiKit.portrait()`），
+## 拿它当对照最直接：脱干净了，身体的像素一定比原画少一条胳膊那么多。
+##
+## **`strip_arms()` 只对 biker 好使**：它按肤色连通块找胳膊，而 punk 那条裹着袖子、
+## cyborg 那条整个是护甲，一个像素都匹配不上，原样留着——三个角色里只有 biker 是被程序脱的，
+## punk 和 cyborg 用的是自己补的无臂图（`art_src/<角色>_idle.png`，见 `skin_build.py` 的 `own_body()`）。
+##
+## **冲刺那组（`run` ← 素材的 Dash）还没补**，punk 和 cyborg 现在还带着原本那条胳膊，
+## 所以下面只查待机。补进来之后把 `run` 加进这个清单。
+const ARMLESS_CLIPS := ["idle"]
+
+
+func test_the_body_art_has_its_arms_stripped() -> void:
+	await reset_scene(false, false, skin())
+	for art_dir in [ART_DIR, ART_DIR_2, ART_DIR_3]:
+		var who := String(art_dir).get_file()
+		var drawn := _ink(UiKit.portrait(StringName(who)).get_image())
+		check("%s has a portrait to compare against" % who, drawn > 0)
+		for clip: String in ARMLESS_CLIPS:
+			var sheet := (load("%s/body_%s_r.png" % [art_dir, clip]) as Texture2D).get_image()
+			var side := sheet.get_height()
+			var body := _ink(sheet.get_region(Rect2i(0, 0, side, side)))
+			check("%s %s lost an arm's worth of pixels" % [who, clip], body < drawn - 20,
+				"身体 %d 个像素，原画 %d 个" % [body, drawn])
+
+
 # ---------------------------------------------------------------- 人物选择界面上的头像
 
 ## 不透明的像素有多少（拿来比「这张图上的人是不是少了一条胳膊」）。
