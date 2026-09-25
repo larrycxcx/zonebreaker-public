@@ -139,6 +139,75 @@ FLYER_FRAME = 48
 FLYER_ANCHOR = (24, 24)
 
 
+# ---------------------------------------------------------------- 工业区（第二关）
+# 素材 CraftPix Industrial Zone Enemies（不进仓库）。格式和赛博朋克那套一样（48×48、脚底在帧底边），
+# 所以五个走地上的直接走 `build_singles`、会飞的走 `build_flyer`，一行新代码都不用写。
+# 值是 (素材目录, 拿哪个动作的第 1 帧定位, {输出动作名: (文件, 取哪几帧)})。
+#
+# 这套素材**没有斜射姿势**（赛博朋克那个巡逻兵自带水平 / 斜上 / 斜下三组，这套只有水平一组），
+# 所以 2-C 斜着打时画面上还是水平端枪的样子。要做准就得像炮台那样手改几帧放进 `art_in/extra/`。
+IND_PACK = os.path.join(HERE, "..", "art_in", "default", "industrial-zone-tileset", "industrial-zone-enemies")
+IND_OUT = os.path.join(HERE, "..", "skins", "industrial", "enemies")
+IND_SINGLES = {
+	# 2-A Worker：从天而降，落地后冲向玩家（复用 D 那套追击）。跑和冲用同一组。
+	"2_a": ("1 Worker", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Run.png", [0, 1, 2, 3, 4, 5]),
+		"run": ("Run.png", [0, 1, 2, 3, 4, 5]),
+		"air": ("Run.png", [2]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+	# 2-B Heaver：光膀子的壮汉，也是冲撞。Attack 是双手举过头顶砸下来，当冲撞时的姿势。
+	"2_b": ("3 Heaver", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Run.png", [0, 1, 2, 3, 4, 5]),
+		"run": ("Run.png", [0, 1, 2, 3, 4, 5]),
+		"air": ("Run.png", [2]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+	# 2-C Specialist：巡逻 + 射击。Attack 8 帧是一整轮连发（1~2 帧枪口火光、5~8 帧退壳），
+	# 单发只取前 3 帧，和赛博朋克巡逻兵一组的长度一致。
+	"2_c": ("2 Specialist", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Run.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack.png", [0, 1, 2]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+	# 2-D Hammer：履带机器人，走近了抡锤砸。Attack 8 帧是完整一抡——抬起、蓄力、砸下，
+	# **第 6 帧锤头正砸在身前地上**，伤害判定要卡在那一帧（见 enemy_hammer.gd 的 HIT_FRAME）。
+	"2_d": ("6 Hammer", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Run.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3, 4, 5, 6, 7]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3]),
+	}),
+	# 2-F Alarmobot：小履带机器人，发现玩家就拉警报冲过来贴身自爆。
+	# Alarm 那组（红色声波）就是「拉响了、要炸了」的样子；Death 本身就是爆炸。
+	"2_f": ("4 Alarmobot", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3, 4, 5]),
+		"walk": ("Run.png", [0, 1, 2, 3]),
+		"run": ("Run.png", [0, 1, 2, 3]),
+		"attack_level": ("Alarm.png", [0, 1, 2, 3]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+}
+# 2-E Copter：直升机无人机，飞在头顶往下扔炸弹（复用 E 的飞行 + 现成的手雷）。
+# Attack 6 帧里**第 3 帧炸弹脱钩**，所以手雷在那一帧出手（见 enemy_copter.gd）。
+# 机身是哪几行（桅杆和桨叶以下）：这架的机身底边和桨叶一样宽，自动判据认不出来。
+IND_FLYER_BODY = (20, 34)
+IND_FLYER = {
+	"idle": ("Idle.png", [0, 1, 2, 3]),
+	"attack_down": ("Attack.png", [0, 1, 2, 3, 4, 5]),
+	"hurt": ("Hurt.png", [0, 1]),
+	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+}
+
+
 def palette_of(folder):
 	"""素材自己的调色板：自己画的帧要贴回这套颜色（有损压缩会带进一堆近似色）。"""
 	seen = {}
@@ -198,8 +267,8 @@ def mirror(frame):
 	return mirror_about(frame, ANCHOR[0])
 
 
-def save(folder, name, frames, write):
-	save_frames(folder, name, frames, FRAME_W, FRAME_H, write)
+def save(folder, name, frames, write, out=None):
+	save_frames(folder, name, frames, FRAME_W, FRAME_H, write, out)
 
 
 def build_walkers(write):
@@ -219,15 +288,16 @@ def build_walkers(write):
 			save(variant, "%s_l.png" % name, [mirror(f) for f in right], write)
 
 
-def build_singles(write):
-	for name, (number, anchor_clip, table) in SINGLES.items():
-		folder = os.path.join(PACK, number)
+def build_singles(write, singles=None, pack=None, out=None):
+	"""一个素材出一种敌人：动作直接对上，整个角色按一帧的躯干定一次位。"""
+	for name, (number, anchor_clip, table) in (singles if singles else SINGLES).items():
+		folder = os.path.join(pack if pack else PACK, number)
 		clips = {clip: frames_of(os.path.join(folder, f), idx) for clip, (f, idx) in table.items()}
 		anchor_x = sb.torso_center(clips[anchor_clip][0])
 		for clip, frames in clips.items():
 			right = [place(f, anchor_x, "%s %s" % (name, clip)) for f in frames]
-			save(name, "%s_r.png" % clip, right, write)
-			save(name, "%s_l.png" % clip, [mirror(f) for f in right], write)
+			save(name, "%s_r.png" % clip, right, write, out)
+			save(name, "%s_l.png" % clip, [mirror(f) for f in right], write, out)
 
 
 def build_boss(write):
@@ -362,16 +432,25 @@ def most_common(frame, skip):
 	return max(count, key=count.get)
 
 
-def build_flyer(write):
-	"""E：整组按待机第一帧的机身（螺旋桨以下）定一次位，机身中心对准锚点。"""
-	folder = os.path.join(PACK, "5")
-	clips = {name: frames_of(os.path.join(folder, f), idx) for name, (f, idx) in FLYER_CLIPS.items()}
+def build_flyer(write, key="1_e", number="5", table=None, pack=None, out_root=None, body_rows=None):
+	"""会飞的那个：整组按待机第一帧的机身（螺旋桨以下）定一次位，机身中心对准锚点。"""
+	folder = os.path.join(pack if pack else PACK, number)
+	clips = {name: frames_of(os.path.join(folder, f), idx)
+		for name, (f, idx) in (table if table else FLYER_CLIPS).items()}
 	first = clips["idle"][0]
-	# 机身 = 螺旋桨下面那一截：从最宽的那几行（螺旋桨）往下数，跳过桅杆
+	# 机身 = 螺旋桨下面那一截：从最宽的那几行（螺旋桨）往下数，跳过桅杆。
 	rows = [y for y, row in enumerate(first) if any(c[3] > 8 for c in row)]
 	widths = {y: sum(1 for c in first[y] if c[3] > 8) for y in rows}
-	rotor_bottom = max(y for y in rows if widths[y] == max(widths.values()))
-	body = [(x, y) for y in rows if y > rotor_bottom and widths[y] > 6 for x, c in enumerate(first[y]) if c[3] > 8]
+	if body_rows is None:
+		rotor_bottom = max(y for y in rows if widths[y] == max(widths.values()))
+		body = [(x, y) for y in rows if y > rotor_bottom and widths[y] > 6
+			for x, c in enumerate(first[y]) if c[3] > 8]
+	else:
+		# **机身和桨叶一样宽的画法，上面那句认不出来**（工业区那架直升机机身底边和桨叶都是 17 宽，
+		# 「最宽的最后一行」直接取到机身底边、下面一行都不剩）。这种就直接把机身是哪几行写出来。
+		# 不改上面那句的判据：绿区那架已经对好了，为了新素材去动它会把整张图挪掉 1px。
+		body = [(x, y) for y in range(body_rows[0], body_rows[1]) if y in widths
+			for x, c in enumerate(first[y]) if c[3] > 8]
 	xs = [x for x, _ in body]
 	top = min(y for y in rows)
 	bottom = max(y for y in rows)
@@ -381,12 +460,13 @@ def build_flyer(write):
 	for name, frames in clips.items():
 		right = []
 		for f in frames:
-			out = sb.blank(FLYER_FRAME, FLYER_FRAME)
-			sb.blit(out, f, dx, dy, "flyer %s" % name)
-			right.append(out)
+			# 注意这里不能叫 out：会盖掉参数里那个输出目录
+			placed = sb.blank(FLYER_FRAME, FLYER_FRAME)
+			sb.blit(placed, f, dx, dy, "flyer %s" % name)
+			right.append(placed)
 		left = [mirror_about(f, FLYER_ANCHOR[0]) for f in right]
-		save_frames("1_e", "%s_r.png" % name, right, FLYER_FRAME, FLYER_FRAME, write)
-		save_frames("1_e", "%s_l.png" % name, left, FLYER_FRAME, FLYER_FRAME, write)
+		save_frames(key, "%s_r.png" % name, right, FLYER_FRAME, FLYER_FRAME, write, out_root)
+		save_frames(key, "%s_l.png" % name, left, FLYER_FRAME, FLYER_FRAME, write, out_root)
 
 
 def mirror_about(frame, column):
@@ -402,17 +482,30 @@ def mirror_about(frame, column):
 	return out
 
 
-def save_frames(folder, name, frames, width, height, write):
+def save_frames(folder, name, frames, width, height, write, out=None):
 	strip = sb.blank(width * len(frames), height)
 	for index, frame in enumerate(frames):
 		sb.blit(strip, frame, index * width, 0, "%s/%s" % (folder, name))
 	if write:
-		sb.write_png(os.path.join(OUT, folder, name), strip)
+		sb.write_png(os.path.join(out if out else OUT, folder, name), strip)
 	print("  %s/%s  %d 帧" % (folder, name, len(frames)))
+
+
+def build_industrial(write):
+	if not os.path.isdir(IND_PACK):
+		sys.exit("找不到工业区敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(IND_PACK))
+	build_singles(write, IND_SINGLES, IND_PACK, IND_OUT)
+	build_flyer(write, "2_e", "5 Copter", IND_FLYER, IND_PACK, IND_OUT, IND_FLYER_BODY)
 
 
 def main():
 	write = "--check" not in sys.argv
+	only = [a for a in sys.argv[1:] if not a.startswith("--")]
+	if only == ["industrial"]:
+		print("工业区（第二关）的六种敌人：")
+		build_industrial(write)
+		_report(write)
+		return
 	if not os.path.isdir(PACK):
 		sys.exit("找不到敌人素材包 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(PACK))
 	print("巡逻兵 A/B/C（2 号）：")
@@ -425,6 +518,12 @@ def main():
 	build_turret(write)
 	print("飞行的 E（5 号）：")
 	build_flyer(write)
+	print("工业区（第二关）的六种敌人：")
+	build_industrial(write)
+	_report(write)
+
+
+def _report(write):
 	if sb._clipped:
 		print("\n有内容被画布切掉了：")
 		for line in sb._clipped[:20]:

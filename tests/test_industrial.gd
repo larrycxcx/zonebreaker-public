@@ -32,14 +32,16 @@ func platforms() -> Array[Platform]:
 # ---------------------------------------------------------------- 只装自己独有的
 
 func test_the_pack_brings_its_own_terrain_and_a_backdrop() -> void:
-	# 一个区独有的就这四样：三种地形 + 背景。别的一样都不该在它自己的表里。
+	# 一个区独有的就这几样：三种地形 + 这一关的敌人 + 背景。
+	# **玩家、子弹、特效、HUD 一个都不该在它自己的表里**——那些 23 关共用，配在这儿就等于抄了一份。
 	var mine := pack()
 	var keys: Array[String] = []
 	for key: StringName in mine.appearances:
 		keys.append(String(key))
 	keys.sort()
-	check("it only declares the three terrains", keys == ["terrain_ground", "terrain_ledge", "terrain_stone"],
-		str(keys))
+	check("it declares the three terrains and this stage's enemies",
+		keys == ["2_a", "2_b", "2_c", "2_d", "2_e", "2_f",
+			"terrain_ground", "terrain_ledge", "terrain_stone"], str(keys))
 	check("and a backdrop of its own", mine.backdrop != null
 		and mine.backdrop.resource_path.contains("industrial"), str(mine.backdrop))
 	check("sounds and music are left to the fallback", mine.sounds.is_empty() and mine.music.is_empty(),
@@ -166,3 +168,182 @@ func test_this_zone_changes_nothing_about_the_rules() -> void:
 	for key: String in blocks:
 		check("%s is the same in this zone" % key, blocks[key] == industrial[key],
 			"方块 %s，工业区 %s" % [blocks[key], industrial[key]])
+
+
+# ---------------------------------------------------------------- 这一关的敌人
+
+## 这一关的六种敌人：皮肤键 → [外观帧宽, 帧高, 锚点 x, 锚点 y, 有没有脚（飞的那个没有）]
+const ENEMIES := {
+	&"2_a": [80, 56, 40, 40, true],   # Worker：从天而降，落地冲人
+	&"2_b": [80, 56, 40, 40, true],   # Heaver：冲撞
+	&"2_c": [80, 56, 40, 40, true],   # Specialist：巡逻 + 射击 + 斜射
+	&"2_d": [80, 56, 40, 40, true],   # Hammer：走近了抡锤
+	&"2_e": [48, 48, 24, 24, false],  # Copter：飞在头顶投弹
+	&"2_f": [80, 56, 40, 40, true],   # Alarmobot：冲过来自爆
+}
+## 脚底落在锚点下方这么多像素（和玩家、第一关的敌人同一条线）。
+const FOOT_BELOW_ANCHOR := 16
+
+
+func sheet(key: StringName, clip: String, side := "r") -> Image:
+	return (load("%s/enemies/%s/%s_%s.png" % [ART, key, clip, side]) as Texture2D).get_image()
+
+
+func has_clip(key: StringName, clip: String) -> bool:
+	return ResourceLoader.exists("%s/enemies/%s/%s_r.png" % [ART, key, clip])
+
+
+func test_every_enemy_the_pack_names_really_has_art() -> void:
+	# 包里填了键却没贴图的话，游戏里那个敌人是一团看不见的东西——照样会打你
+	var mine := pack()
+	for key: StringName in ENEMIES:
+		var scene := mine.appearances.get(key) as PackedScene
+		check("%s is registered" % key, scene != null)
+		check("%s has an idle, a hurt and a death" % key,
+			has_clip(key, "idle") and has_clip(key, "hurt") and has_clip(key, "death"))
+		var spec: Array = ENEMIES[key]
+		var img := sheet(key, "idle")
+		check("%s draws at %dx%d" % [key, spec[0], spec[1]],
+			img.get_height() == spec[1] and img.get_width() % spec[0] == 0,
+			"%dx%d" % [img.get_width(), img.get_height()])
+
+
+func test_the_art_is_mirrored_left_and_right() -> void:
+	# 转身只是换一张贴图（不用 flip_h，更不用负的 scale），所以两张必须是严格的镜像
+	for key: StringName in ENEMIES:
+		var spec: Array = ENEMIES[key]
+		var anchor: int = spec[2]
+		var right := sheet(key, "idle")
+		var left := sheet(key, "idle", "l")
+		var wrong := 0
+		for y in right.get_height():
+			for x in right.get_width():
+				var frame := x / int(spec[0])
+				var within := x % int(spec[0])
+				var sx := frame * int(spec[0]) + 2 * anchor - within
+				if sx < 0 or sx >= right.get_width() or sx / int(spec[0]) != frame:
+					continue
+				if right.get_pixel(x, y) != left.get_pixel(sx, y):
+					wrong += 1
+		check("%s mirrors about its anchor" % key, wrong == 0, "%d 个像素对不上" % wrong)
+
+
+func test_the_ones_that_walk_stand_on_the_same_line() -> void:
+	# 脚底落在锚点下方 16px：和玩家、和第一关的敌人同一条线，换关不会有人陷进地里或者浮着
+	for key: StringName in ENEMIES:
+		var spec: Array = ENEMIES[key]
+		if not spec[4]:
+			continue
+		var img := sheet(key, "idle")
+		var lowest := -1
+		for y in img.get_height():
+			for x in int(spec[0]):
+				if img.get_pixel(x, y).a > 0.0:
+					lowest = y
+					break
+		check("%s has its feet on the ground line" % key,
+			lowest == int(spec[3]) + FOOT_BELOW_ANCHOR - 1,
+			"最低一行 y=%d，应该是 %d" % [lowest, int(spec[3]) + FOOT_BELOW_ANCHOR - 1])
+
+
+func test_the_one_that_flies_is_centred_on_its_anchor() -> void:
+	# 走地上的靠脚底那条线对齐，飞的没有脚——它的判定框 28×20 是**以原点为中心**的，
+	# 所以横向要对准锚点那一列。差几像素的话，玩家瞄着机身打却打空。
+	var spec: Array = ENEMIES[&"2_e"]
+	var img := sheet(&"2_e", "idle")
+	var left := int(spec[0])
+	var right := -1
+	for y in img.get_height():
+		for x in int(spec[0]):
+			if img.get_pixel(x, y).a > 0.0:
+				left = mini(left, x)
+				right = maxi(right, x)
+	var middle := (left + right) / 2.0
+	check("2-E's body sits on the anchor column", absf(middle - float(spec[2])) <= 1.0,
+		"机身 x %d..%d，中心 %.1f，锚点 %d" % [left, right, middle, spec[2]])
+
+
+func test_the_ones_that_fight_have_the_frames_their_behaviour_needs() -> void:
+	# 每种敌人的打法都卡在某一帧上，贴图少一组的话行为就没有画面
+	check("2-C has a firing pose", has_clip(&"2_c", "attack_level"))
+	check("2-D has the full hammer swing", has_clip(&"2_d", "attack_level")
+		and sheet(&"2_d", "attack_level").get_width() / 80 == 8,
+		str(sheet(&"2_d", "attack_level").get_width() / 80))
+	check("2-E has the bomb drop", has_clip(&"2_e", "attack_down"))
+	check("2-F has the siren it flashes before it blows", has_clip(&"2_f", "attack_level"))
+	for key: StringName in [&"2_a", &"2_b", &"2_f"]:
+		check("%s has a charging pose" % key, has_clip(key, "run"))
+
+
+# ---------------------------------------------------------------- 接上去的两种
+
+func spawn(scene_path: String, at: Vector2) -> Enemy:
+	var enemy := (load(scene_path) as PackedScene).instantiate() as Enemy
+	main.get_node("Enemies").add_child(enemy)
+	enemy.global_position = at
+	return enemy
+
+
+func test_the_heaver_charges_like_the_chaser_does() -> void:
+	await reset_scene(false, true, pack())
+	var heaver := spawn("res://scenes/enemy_2_b.tscn", Vector2(500, 300))
+	player.global_position = Vector2(340, 304)
+	snap_camera()
+	await frames(4)
+	var started: float = heaver.global_position.x
+	await frames(40)
+	check("it is a chaser", heaver is EnemyChaser)
+	check("and it really closes in", heaver.global_position.x < started - 20.0,
+		"%.0f -> %.0f" % [started, heaver.global_position.x])
+	check("it wears this zone's art", (heaver.get_node("Visual") as Node).get("art_dir") == "%s/enemies/2_b" % ART,
+		str((heaver.get_node("Visual") as Node).get("art_dir")))
+
+
+func test_the_specialist_shoots_and_can_aim_off_the_level() -> void:
+	await reset_scene(false, true, pack())
+	var spec := spawn("res://scenes/enemy_2_c.tscn", Vector2(500, 300))
+	spec.facing = -1
+	player.global_position = Vector2(380, 304)
+	snap_camera()
+	await frames(4)
+	check("it never lies down — this pack has no prone art", not spec.can_go_prone)
+	check("but it can aim off the level", spec.can_aim_diagonally)
+	# 斜射判定是纯函数，**当场问它**：让玩家自己飞上去不行，重力会立刻把人拽回地面，
+	# 瞄的就成了水平，这条用例会变成「测了个水平射击」还照样绿。
+	var stood := player.global_position
+	player.global_position = stood + Vector2(0, -104)
+	check("a player up on a ledge is a diagonal target",
+		spec.aim_for(player) == Enemy.Aim.DIAGONAL_UP, str(spec.aim_for(player)))
+	player.global_position = stood + Vector2(0, 104)
+	check("and one down in a pit is the other way",
+		spec.aim_for(player) == Enemy.Aim.DIAGONAL_DOWN, str(spec.aim_for(player)))
+	player.global_position = stood
+	# `shot_fired` 不带参数，lambda 的参数多一个就连不上（表现成「一枪都没开」）
+	var fired: Array[int] = []
+	spec.shot_fired.connect(func() -> void: fired.append(1))
+	await frames(180)
+	check("and it really fires at the player in front of it", not fired.is_empty(), str(fired.size()))
+
+
+func test_this_zone_enemies_change_nothing_about_the_rules() -> void:
+	# 贴图换了，判定框、巡逻、出膛点都不该跟着动
+	var out := []
+	for skin: SkinPack in [Skins.default_skin(), pack()]:
+		await reset_scene(false, true, skin)
+		var spec := spawn("res://scenes/enemy_2_c.tscn", Vector2(500, 300))
+		player.global_position = Vector2(-4000, 304)
+		snap_camera()
+		await frames(4)
+		var shape := spec.get_node("CollisionShape2D") as CollisionShape2D
+		var walked_from: float = spec.global_position.x
+		await frames(90)
+		out.append({
+			"box": (shape.shape as RectangleShape2D).size,
+			"muzzle": spec.level_muzzle_position() - spec.global_position,
+			"walked": snappedf(absf(spec.global_position.x - walked_from), 0.5),
+		})
+	check("it really patrolled in this test", out[0]["walked"] > 20.0, str(out[0]))
+	for key: String in out[0]:
+		check("%s is the same with either skin" % key, out[0][key] == out[1][key],
+			"方块 %s，工业区 %s" % [out[0][key], out[1][key]])
+

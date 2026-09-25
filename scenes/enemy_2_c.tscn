@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/enemy_walker.tscn" id="1"]
+
+[node name="EnemySpecialist" instance=ExtResource("1")]
+skin_key = &"2_c"
+max_health = 22
+contact_damage = 42
+detect_range = 400.0
+can_aim_diagonally = true
+xp_reward = 11
+money_reward = 6
+
+[node name="Body" parent="Visual" index="0"]
+color = Color(0.55, 0.35, 0.7, 1)
