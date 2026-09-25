@@ -1,19 +1,19 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://scripts/boss_a.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/boss_missile.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/boss_bullet.tscn" id="2"]
-[ext_resource type="Texture2D" path="res://skins/default/portraits/boss_a.png" id="3"]
+[ext_resource type="Texture2D" path="res://skins/default/portraits/boss_1.png" id="3"]
 [ext_resource type="Script" path="res://scripts/appearance.gd" id="99"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 resource_local_to_scene = true
 size = Vector2(56, 48)
 
-[node name="BossA" type="CharacterBody2D"]
+[node name="BossMissile" type="CharacterBody2D"]
 collision_layer = 8
 collision_mask = 1
 script = ExtResource("1")
-skin_key = &"boss_a"
+skin_key = &"1_boss"
 display_name = "Boss A"
 portrait = ExtResource("3")
 ultimate_damage_ratio = 0.25

@@ -40,7 +40,7 @@ const ATTACK_BY_AIM := {
 }
 
 ## 贴图放在哪个目录下。三种巡逻兵用同一个脚本，只是这个目录不同（换色版）。
-@export_dir var art_dir := "res://skins/cyberpunk/enemies/walker_a"
+@export_dir var art_dir := "res://skins/cyberpunk/enemies/1_a"
 ## Boss 在 HUD 上的头像（换皮肤时头像跟着换）；普通敌人留空。
 @export var portrait: Texture2D
 ## 这套贴图每帧多大、锚点在哪（生成脚本定的，场景里照抄）。

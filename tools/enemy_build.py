@@ -53,9 +53,9 @@ PRONE_TORSO_X = 5
 # 不用绿色：F 的素材（1 号）本身就是绿衣服。
 SHIRT = [(0x66, 0x3b, 0x93), (0x8b, 0x72, 0xde)]
 VARIANTS = {
-	"walker_a": {},
-	"walker_b": {SHIRT[0]: (0xa8, 0x4a, 0x12), SHIRT[1]: (0xf0, 0x8c, 0x2c)},
-	"walker_c": {SHIRT[0]: (0x8e, 0x16, 0x2a), SHIRT[1]: (0xd8, 0x3c, 0x4c)},
+	"1_a": {},
+	"1_b": {SHIRT[0]: (0xa8, 0x4a, 0x12), SHIRT[1]: (0xf0, 0x8c, 0x2c)},
+	"1_c": {SHIRT[0]: (0x8e, 0x16, 0x2a), SHIRT[1]: (0xd8, 0x3c, 0x4c)},
 }
 
 
@@ -66,7 +66,7 @@ VARIANTS = {
 # F：扔手雷 = 用球棒把手雷打出去。素材 Attack 前 3 帧是准备（和待机几乎一样），第 4 帧是挥棒的弧光，
 #    所以开火动作从第 4 帧开始：手雷飞出去的那一刻画面上正好是球棒打中，扔的时机不用改。
 SINGLES = {
-	"chaser": ("3", "walk", {
+	"1_d": ("3", "walk", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
 		"run": ("Attack.png", [0, 1, 2, 3]),
@@ -74,7 +74,7 @@ SINGLES = {
 		"hurt": ("Hurt2.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
-	"grenadier": ("1", "idle", {
+	"1_f": ("1", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
 		"attack_level": ("Attack.png", [3, 4, 5]),
@@ -244,15 +244,15 @@ def build_boss(write):
 		right = []
 		for f in frames:
 			out = sb.blank(BOSS_FRAME_W, BOSS_FRAME_H)
-			sb.blit(out, f, dx, dy, "boss_a %s" % name)
+			sb.blit(out, f, dx, dy, "1_boss %s" % name)
 			right.append(out)
-		save_frames("boss_a", "%s_r.png" % name, right, BOSS_FRAME_W, BOSS_FRAME_H, write)
-		save_frames("boss_a", "%s_l.png" % name, [mirror_about(f, BOSS_ANCHOR[0]) for f in right],
+		save_frames("1_boss", "%s_r.png" % name, right, BOSS_FRAME_W, BOSS_FRAME_H, write)
+		save_frames("1_boss", "%s_l.png" % name, [mirror_about(f, BOSS_ANCHOR[0]) for f in right],
 			BOSS_FRAME_W, BOSS_FRAME_H, write)
 	x, y, w, h = BOSS_PORTRAIT
 	if write:
-		sb.write_png(os.path.join(OUT, "boss_a", "portrait.png"), sb.cut(first, x, y, w, h))
-	print("  boss_a/portrait.png  %dx%d" % (w, h))
+		sb.write_png(os.path.join(OUT, "1_boss", "portrait.png"), sb.cut(first, x, y, w, h))
+	print("  1_boss/portrait.png  %dx%d" % (w, h))
 
 
 def build_turret(write):
@@ -275,8 +275,8 @@ def build_turret(write):
 	anchor_x = (min(column) + max(column)) / 2.0
 	for name, frames in clips.items():
 		right = [place(f, anchor_x, "turret %s" % name) for f in frames]
-		save("turret", "%s_r.png" % name, right, write)
-		save("turret", "%s_l.png" % name, [mirror(f) for f in right], write)
+		save("1_g", "%s_r.png" % name, right, write)
+		save("1_g", "%s_l.png" % name, [mirror(f) for f in right], write)
 
 
 def diag_sheet(path, idle):
@@ -385,8 +385,8 @@ def build_flyer(write):
 			sb.blit(out, f, dx, dy, "flyer %s" % name)
 			right.append(out)
 		left = [mirror_about(f, FLYER_ANCHOR[0]) for f in right]
-		save_frames("flyer", "%s_r.png" % name, right, FLYER_FRAME, FLYER_FRAME, write)
-		save_frames("flyer", "%s_l.png" % name, left, FLYER_FRAME, FLYER_FRAME, write)
+		save_frames("1_e", "%s_r.png" % name, right, FLYER_FRAME, FLYER_FRAME, write)
+		save_frames("1_e", "%s_l.png" % name, left, FLYER_FRAME, FLYER_FRAME, write)
 
 
 def mirror_about(frame, column):

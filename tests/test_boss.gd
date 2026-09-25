@@ -12,8 +12,8 @@ var boss: Boss
 ## 只留 Boss A（x=1200），玩家在关卡最左边，Boss 在屏幕外。
 func start(extra := []) -> void:
 	await reset_scene(true)
-	keep_only_enemies(["BossA"] + extra)
-	boss = main.get_node("Enemies/BossA")
+	keep_only_enemies(["BossMissile"] + extra)
+	boss = main.get_node("Enemies/BossMissile")
 	await frames(5)
 
 
@@ -65,8 +65,8 @@ func test_classification() -> void:
 			bosses.append(enemy.name)
 		else:
 			check("%s is a normal enemy" % enemy.name, enemy is Enemy)
-	check("the level has one boss", bosses == [&"BossA"], str(bosses))
-	var b: Boss = main.get_node("Enemies/BossA")
+	check("the level has one boss", bosses == [&"BossMissile"], str(bosses))
+	var b: Boss = main.get_node("Enemies/BossMissile")
 	check("boss has a portrait", b.portrait != null)
 	check("boss is much tougher than normal enemies", b.max_health >= 30)
 	check("one ultimate does not kill it", b.ultimate_damage() < b.max_health)

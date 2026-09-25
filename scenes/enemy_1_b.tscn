@@ -3,7 +3,7 @@
 [ext_resource type="PackedScene" path="res://scenes/enemy_walker.tscn" id="1"]
 
 [node name="EnemyWalkerB" instance=ExtResource("1")]
-skin_key = &"walker_b"
+skin_key = &"1_b"
 burst_min = 2
 burst_max = 3
 can_aim_diagonally = true

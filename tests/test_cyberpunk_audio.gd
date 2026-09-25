@@ -83,8 +83,8 @@ func test_the_level_track_is_ours_and_loops_without_a_seam() -> void:
 
 func test_the_boss_brings_its_own_track() -> void:
 	await reset_scene(true, false, skin())
-	keep_only_enemies(["BossA"])
-	(main.get_node("Enemies/BossA") as Boss).appear()
+	keep_only_enemies(["BossMissile"])
+	(main.get_node("Enemies/BossMissile") as Boss).appear()
 	await frames(1)
 	check("the boss switches the music", Music.current == &"boss" and Music.playing_stream() == skin().find_music(&"boss"),
 		str(Music.current))

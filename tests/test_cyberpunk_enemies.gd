@@ -8,7 +8,7 @@ extends GameTest
 
 const SKIN := "res://skins/cyberpunk/cyberpunk_skin.tres"
 const ART := "res://skins/cyberpunk/enemies"
-const VARIANTS := [&"walker_a", &"walker_b", &"walker_c"]
+const VARIANTS := [&"1_a", &"1_b", &"1_c"]
 const CLIPS := [&"idle", &"walk", &"attack_level", &"attack_down", &"attack_up", &"prone", &"hurt", &"death"]
 const FW := EnemySpriteAppearance.FRAME_W
 const FH := EnemySpriteAppearance.FRAME_H
@@ -90,8 +90,8 @@ func test_every_clip_is_there_for_every_walker() -> void:
 
 func test_the_two_facings_are_mirrors() -> void:
 	for clip: StringName in [&"idle", &"attack_up", &"prone", &"death"]:
-		var right := image(&"walker_a", clip, "r")
-		var left := image(&"walker_a", clip, "l")
+		var right := image(&"1_a", clip, "r")
+		var left := image(&"1_a", clip, "l")
 		var same := right.get_size() == left.get_size()
 		if same:
 			for y in right.get_height():
@@ -110,8 +110,8 @@ func test_the_two_facings_are_mirrors() -> void:
 func test_the_three_walkers_differ_only_in_colour() -> void:
 	# 同一套素材换色：轮廓（哪些像素不透明）一模一样，颜色不一样——一眼能分出 A/B/C，但动作完全同步
 	for clip: StringName in [&"idle", &"attack_level"]:
-		var a := image(&"walker_a", clip)
-		for other: StringName in [&"walker_b", &"walker_c"]:
+		var a := image(&"1_a", clip)
+		for other: StringName in [&"1_b", &"1_c"]:
 			var b := image(other, clip)
 			var same_shape := a.get_size() == b.get_size()
 			var recoloured := 0
@@ -131,7 +131,7 @@ func test_the_three_walkers_differ_only_in_colour() -> void:
 func test_the_art_stands_on_the_collision_box() -> void:
 	# 脚底落在身体原点下方 16px（碰撞体 32 高），和玩家同一条地面线
 	for clip: StringName in [&"idle", &"walk", &"attack_level", &"death"]:
-		var img := image(&"walker_a", clip)
+		var img := image(&"1_a", clip)
 		for f in img.get_width() / FW:
 			var lowest := -INF
 			for p in ink(img, f):
@@ -144,7 +144,7 @@ func test_the_prone_art_fits_the_rules() -> void:
 	# 趴着的敌人：画面高度要和 12px 的判定框差不多，而且整个藏在玩家水平子弹下面——
 	# 玩家站着平射本来就打不到趴着的敌人（得斜着往下打），画面上也不能看着像打中了。
 	var shot_bottom := 16.0 - Player.LEVEL_MUZZLE.y - 2.0   # 玩家水平子弹最低处离地多高（子弹 4px 高）
-	var img := image(&"walker_c", &"prone")
+	var img := image(&"1_c", &"prone")
 	for f in img.get_width() / FW:
 		var top := INF
 		var lowest := -INF
@@ -171,7 +171,7 @@ func test_bullets_leave_from_the_gun_in_the_art() -> void:
 	c._burst_aim = Enemy.Aim.LEVEL
 	c._burst_direction = Vector2.RIGHT
 	var rule := c._muzzle_position() - c.global_position
-	var art := tip(ink(image(&"walker_c", &"attack_level"), 0, true), Vector2.RIGHT)
+	var art := tip(ink(image(&"1_c", &"attack_level"), 0, true), Vector2.RIGHT)
 	check("level: shots leave from the barrel", art.distance_to(rule) <= 3.0, "贴图 %s，出膛点 %s" % [art, rule])
 	# 斜上 / 斜下（斜下只看腰以上：脚尖比枪口还往右下）
 	for pair in [[Enemy.Aim.DIAGONAL_UP, &"attack_up", Vector2(1, -1), INF],
@@ -179,12 +179,12 @@ func test_bullets_leave_from_the_gun_in_the_art() -> void:
 		c._burst_aim = pair[0]
 		c._burst_direction = (pair[2] as Vector2).normalized()
 		rule = c._muzzle_position() - c.global_position
-		art = tip(ink(image(&"walker_c", pair[1]), 0, true), pair[2], pair[3])
+		art = tip(ink(image(&"1_c", pair[1]), 0, true), pair[2], pair[3])
 		check("%s: shots leave from the barrel" % pair[1], art.distance_to(rule) <= 3.0, "贴图 %s，出膛点 %s" % [art, rule])
 	# 趴着
 	c.set_prone(true)
 	rule = c.level_muzzle_position() - c.global_position
-	art = tip(ink(image(&"walker_c", &"prone"), 0, true), Vector2.RIGHT)
+	art = tip(ink(image(&"1_c", &"prone"), 0, true), Vector2.RIGHT)
 	check("prone: shots leave from the barrel", art.distance_to(rule) <= 3.0, "贴图 %s，出膛点 %s" % [art, rule])
 
 
@@ -224,11 +224,14 @@ func test_the_sprite_skin_changes_nothing_about_the_rules() -> void:
 
 func test_each_walker_wears_its_own_colours() -> void:
 	await reset_scene(true, false, skin())
-	for name in ["WalkerA", "WalkerB", "WalkerC"]:
+	# 测试关（`main.tscn`）里的节点名还是老的 WalkerA/B/C（那是夹具，被一堆用例引用着），
+	# 贴图目录已经按新编号改成 1_a/1_b/1_c，所以这里要把两边对起来。
+	for pair in [["WalkerA", "1_a"], ["WalkerB", "1_b"], ["WalkerC", "1_c"]]:
+		var name: String = pair[0]
 		var visual: Node = main.get_node("Enemies/%s/Visual" % name)
 		check("%s wears the sprite appearance" % name, visual is EnemySpriteAppearance, str(visual))
 		if visual is EnemySpriteAppearance:
-			check("%s uses its own art" % name, (visual as EnemySpriteAppearance).art_dir.ends_with(name.to_lower().replace("walker", "walker_")),
+			check("%s uses its own art" % name, (visual as EnemySpriteAppearance).art_dir.ends_with(pair[1]),
 				(visual as EnemySpriteAppearance).art_dir)
 
 
@@ -319,7 +322,7 @@ const BOLT := Color8(91, 236, 241)
 
 
 func e_image(clip: StringName, side := "r") -> Image:
-	return (load("%s/flyer/%s_%s.png" % [ART, clip, side]) as Texture2D).get_image()
+	return (load("%s/1_e/%s_%s.png" % [ART, clip, side]) as Texture2D).get_image()
 
 
 ## E 某一帧看得见的像素（本体坐标）；only_bolt 只要闪电，否则只要机身（不算闪电）。
@@ -351,14 +354,14 @@ func place_e(pack: SkinPack, x := 400.0) -> EnemyFlyer:
 func test_every_clip_is_there_for_the_flyer() -> void:
 	for clip: StringName in E_CLIPS:
 		for side in ["r", "l"]:
-			var path := "%s/flyer/%s_%s.png" % [ART, clip, side]
+			var path := "%s/1_e/%s_%s.png" % [ART, clip, side]
 			var texture := load(path) as Texture2D
 			check("flyer %s_%s exists" % [clip, side], texture != null, path)
 			if texture != null:
 				check("flyer %s_%s is one row of %dx%d frames" % [clip, side, E_SIZE, E_SIZE],
 					texture.get_height() == E_SIZE and texture.get_width() % E_SIZE == 0,
 					"%d x %d" % [texture.get_width(), texture.get_height()])
-	var scene: EnemySpriteAppearance = (load("res://scenes/skins/cyberpunk_flyer.tscn") as PackedScene).instantiate()
+	var scene: EnemySpriteAppearance = (load("res://scenes/skins/cyberpunk_1_e.tscn") as PackedScene).instantiate()
 	check("the flyer scene uses the flyer frame size", scene.frame_size == Vector2i(E_SIZE, E_SIZE)
 		and scene.anchor == Vector2i(E_ANCHOR, E_ANCHOR), "%s / %s" % [scene.frame_size, scene.anchor])
 	scene.free()
@@ -458,7 +461,7 @@ func test_the_flyer_wears_the_drone() -> void:
 	var visual: Node = main.get_node("Enemies/FlyerE/Visual")
 	check("E wears the sprite appearance", visual is EnemySpriteAppearance, str(visual))
 	if visual is EnemySpriteAppearance:
-		check("E uses the drone art", (visual as EnemySpriteAppearance).art_dir.ends_with("/flyer"),
+		check("E uses the drone art", (visual as EnemySpriteAppearance).art_dir.ends_with("/1_e"),
 			(visual as EnemySpriteAppearance).art_dir)
 
 
@@ -517,7 +520,7 @@ const T_CLIPS := [&"idle", &"idle_up", &"idle_down", &"attack_level", &"attack_u
 
 
 func t_image(clip: StringName, side := "r") -> Image:
-	return image(&"turret", clip, side)
+	return image(&"1_g", clip, side)
 
 
 ## 只留一座炮台，摆在右边空地上朝左；玩家在 player_x（默认在射程外）。
@@ -539,7 +542,7 @@ func place_turret(pack: SkinPack, player_x := 400.0) -> EnemyTurret:
 func test_every_clip_is_there_for_the_turret() -> void:
 	for clip: StringName in T_CLIPS:
 		for side in ["r", "l"]:
-			var path := "%s/turret/%s_%s.png" % [ART, clip, side]
+			var path := "%s/1_g/%s_%s.png" % [ART, clip, side]
 			var texture := load(path) as Texture2D
 			check("turret %s_%s exists" % [clip, side], texture != null, path)
 			if texture != null:
@@ -634,7 +637,7 @@ func test_the_turret_wears_its_art() -> void:
 		var visual: Node = main.get_node("Enemies/%s/Visual" % name)
 		check("%s wears the sprite appearance" % name, visual is EnemySpriteAppearance, str(visual))
 		if visual is EnemySpriteAppearance:
-			check("%s uses the turret art" % name, (visual as EnemySpriteAppearance).art_dir.ends_with("/turret"),
+			check("%s uses the turret art" % name, (visual as EnemySpriteAppearance).art_dir.ends_with("/1_g"),
 				(visual as EnemySpriteAppearance).art_dir)
 			var sprite := visual as EnemySpriteAppearance
 			check("%s draws the art at its anchor" % name, sprite.frame_size == Vector2i(FW, FH) and sprite.anchor == Vector2i(AX, AY),
@@ -690,8 +693,8 @@ func test_the_turret_really_fires_its_shot_pose() -> void:
 # ---------------------------------------------------------------- D（3 号滑板手）和 F（1 号球棒手）
 
 const SINGLE_CLIPS := {
-	&"chaser": [&"idle", &"walk", &"run", &"air", &"hurt", &"death"],
-	&"grenadier": [&"idle", &"walk", &"attack_level", &"hurt", &"death"],
+	&"1_d": [&"idle", &"walk", &"run", &"air", &"hurt", &"death"],
+	&"1_f": [&"idle", &"walk", &"attack_level", &"hurt", &"death"],
 }
 
 
@@ -764,7 +767,7 @@ func test_d_and_f_stand_on_the_ground() -> void:
 
 func test_d_and_f_wear_their_art() -> void:
 	await reset_scene(true, false, skin())
-	for pair in [["ChaserD", "/chaser"], ["WalkerF", "/grenadier"]]:
+	for pair in [["ChaserD", "/1_d"], ["WalkerF", "/1_f"]]:
 		var visual: Node = main.get_node("Enemies/%s/Visual" % pair[0])
 		check("%s wears the sprite appearance" % pair[0], visual is EnemySpriteAppearance, str(visual))
 		if visual is EnemySpriteAppearance:
@@ -835,7 +838,7 @@ func test_f_bats_the_grenade_out_of_the_swing() -> void:
 	# 出手点落在挥棒那一帧的弧光上：画面上手雷是从球棒打到的地方飞出去的
 	var offset := EnemyGrenadier.THROW_OFFSET
 	var near := INF
-	for p in ink(image(&"grenadier", &"attack_level"), 0):
+	for p in ink(image(&"1_f", &"attack_level"), 0):
 		near = minf(near, p.distance_to(offset))
 	check("the grenade leaves from the swing", near <= 2.0, "出手点 %s 离弧光最近 %.1fpx" % [offset, near])
 
@@ -912,10 +915,10 @@ func b_ink(img: Image, frame: int) -> Array[Vector2]:
 
 
 ## 只留 Boss、让它出场、站定不跳，玩家在 player_x。
-func place_boss(pack: SkinPack, player_x := 900.0) -> BossA:
+func place_boss(pack: SkinPack, player_x := 900.0) -> BossMissile:
 	await reset_scene(true, false, pack)
-	keep_only_enemies(["BossA"])
-	var boss: BossA = main.get_node("Enemies/BossA")
+	keep_only_enemies(["BossMissile"])
+	var boss: BossMissile = main.get_node("Enemies/BossMissile")
 	player.health = 999
 	player.global_position = Vector2(player_x, 304)
 	player.velocity = Vector2.ZERO
@@ -927,7 +930,7 @@ func place_boss(pack: SkinPack, player_x := 900.0) -> BossA:
 func test_every_clip_is_there_for_the_boss() -> void:
 	for clip: StringName in B_CLIPS:
 		for side in ["r", "l"]:
-			var path := "%s/boss_a/%s_%s.png" % [ART, clip, side]
+			var path := "%s/1_boss/%s_%s.png" % [ART, clip, side]
 			var texture := load(path) as Texture2D
 			check("boss %s_%s exists" % [clip, side], texture != null, path)
 			if texture != null:
@@ -938,8 +941,8 @@ func test_every_clip_is_there_for_the_boss() -> void:
 
 func test_the_boss_facings_are_mirrors() -> void:
 	for clip: StringName in [&"idle", &"attack_walk", &"air", &"death"]:
-		var right := image(&"boss_a", clip, "r")
-		var left := image(&"boss_a", clip, "l")
+		var right := image(&"1_boss", clip, "r")
+		var left := image(&"1_boss", clip, "l")
 		var same := right.get_size() == left.get_size()
 		if same:
 			for y in right.get_height():
@@ -959,7 +962,7 @@ func test_the_boss_art_fits_its_hitbox() -> void:
 	# 脚底落在判定框底边（原点下方 24px），机身和判定框差不多大（判定框略小一圈，擦边不算打中）
 	var box := Vector2(56, 48)
 	for clip: StringName in [&"idle", &"walk", &"attack_level", &"attack_walk", &"hurt"]:
-		var img := image(&"boss_a", clip)
+		var img := image(&"1_boss", clip)
 		for f in img.get_width() / B_W:
 			var points := b_ink(img, f)
 			var r := Rect2(points[0], Vector2.ZERO)
@@ -976,9 +979,9 @@ func test_the_boss_art_fits_its_hitbox() -> void:
 
 func test_missiles_leave_from_the_pod_in_the_art() -> void:
 	# 出膛点在画面上的导弹巢口：离它最近的机身像素不超过 3px，而且在机身顶部那一截
-	var muzzle := BossA.POD_MUZZLE
+	var muzzle := BossMissile.POD_MUZZLE
 	var near := INF
-	for p in b_ink(image(&"boss_a", &"attack_level"), 1):
+	for p in b_ink(image(&"1_boss", &"attack_level"), 1):
 		near = minf(near, p.distance_to(muzzle))
 	check("the missile pod mouth is on the art", near <= 3.0, "出膛点 %s 离贴图最近 %.1fpx" % [muzzle, near])
 	check("and it is up on the pod, not the hull", muzzle.y < -16.0, str(muzzle))

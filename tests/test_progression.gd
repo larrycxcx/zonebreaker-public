@@ -164,7 +164,7 @@ func test_kills_pay_xp_and_money() -> void:
 
 func test_every_enemy_pays_and_the_boss_pays_most() -> void:
 	await reset_scene(true)
-	var boss: Enemy = main.get_node("Enemies/BossA")
+	var boss: Enemy = main.get_node("Enemies/BossMissile")
 	for enemy: Enemy in enemies():
 		check("%s pays xp and money" % enemy.name, enemy.xp_reward > 0 and enemy.money_reward > 0)
 		if enemy != boss:

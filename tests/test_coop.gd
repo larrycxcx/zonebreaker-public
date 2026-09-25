@@ -483,8 +483,8 @@ func test_each_hud_shows_its_own_progress() -> void:
 
 func test_the_shared_parts_show_up_once() -> void:
 	await reset_scene(true, false, null, 2)
-	keep_only_enemies(["BossA"])
-	(main.get_node("Enemies/BossA") as Boss).appear()
+	keep_only_enemies(["BossMissile"])
+	(main.get_node("Enemies/BossMissile") as Boss).appear()
 	await frames(2)
 	check("the boss bar is on the first player's HUD", (main.get_node("HUD/BossBar") as Control).visible)
 	check("and never on the second's", not (main.get_node("HUD2/BossBar") as Control).visible)

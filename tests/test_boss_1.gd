@@ -4,18 +4,18 @@ extends GameTest
 
 const GRENADE_SCENE := "res://scenes/grenade.tscn"
 const NORMAL_ENEMIES := [
-	"res://scenes/enemy_walker_a.tscn", "res://scenes/enemy_walker_b.tscn", "res://scenes/enemy_walker_c.tscn",
-	"res://scenes/enemy_turret.tscn", "res://scenes/enemy_flyer.tscn", "res://scenes/enemy_chaser.tscn",
+	"res://scenes/enemy_1_a.tscn", "res://scenes/enemy_1_b.tscn", "res://scenes/enemy_1_c.tscn",
+	"res://scenes/enemy_1_g.tscn", "res://scenes/enemy_1_e.tscn", "res://scenes/enemy_1_d.tscn",
 ]
 
-var boss: BossA
+var boss: BossMissile
 
 
 ## 只留 Boss A（出生点 x=1200），玩家站在 player_x。玩家血量调得很高，免得被 Boss 打死打乱用例。
 func start(player_x := 940.0) -> void:
 	await reset_scene(true)
-	keep_only_enemies(["BossA"])
-	boss = main.get_node("Enemies/BossA")
+	keep_only_enemies(["BossMissile"])
+	boss = main.get_node("Enemies/BossMissile")
 	player.health = 999
 	player.global_position = Vector2(player_x, 304)
 	player.velocity = Vector2.ZERO

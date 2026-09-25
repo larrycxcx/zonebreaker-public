@@ -17,8 +17,8 @@ func screen() -> ClearScreen:
 func face_the_boss(players := 1) -> Boss:
 	var level := load(LEVEL_1) as LevelInfo
 	await reset_scene(true, true, null, players, level.scene_path, level)
-	keep_only_enemies(["BossArenaBossA1"])
-	var boss: Boss = main.get_node("Enemies/BossArenaBossA1")
+	keep_only_enemies(["1-Boss-1"])
+	var boss: Boss = main.get_node("Enemies/1-Boss-1")
 	player.global_position = boss.global_position + Vector2(-160, -16)
 	player.health = 9999
 	if player2 != null:

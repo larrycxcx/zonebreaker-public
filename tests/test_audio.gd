@@ -240,7 +240,7 @@ func test_ultimate_events() -> void:
 
 func test_boss_appear_event() -> void:
 	await reset_scene(true)
-	keep_only_enemies(["BossA"])
+	keep_only_enemies(["BossMissile"])
 	player.global_position = Vector2(1120, 304)
 	await frames(10)
 	expect_events([&"boss_appear"], "a boss coming on screen")
@@ -249,8 +249,8 @@ func test_boss_appear_event() -> void:
 func test_level_clear_event() -> void:
 	# Boss 倒下 = 这一关打完了。以前打死 Boss 什么都不会发生，关卡只有一个出口——全灭。
 	await reset_scene(true)
-	keep_only_enemies(["BossA"])
-	var boss: Boss = main.get_node("Enemies/BossA")
+	keep_only_enemies(["BossMissile"])
+	var boss: Boss = main.get_node("Enemies/BossMissile")
 	player.global_position = Vector2(1120, 304)
 	await frames(10)
 	boss.take_damage(boss.max_health)

@@ -1,4 +1,4 @@
-class_name BossA
+class_name BossMissile
 extends Boss
 ## Boss A：四条腿的导弹机甲。体型大、会跳、不会趴下，靠背上的导弹巢打扇形弹幕；不主动追击，
 ## 碰到玩家照样造成接触伤害（基类规则）。

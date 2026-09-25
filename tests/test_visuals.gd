@@ -8,7 +8,7 @@ extends GameTest
 ## 关卡里各种角色的节点路径。
 const ACTORS := [
 	"Player", "Enemies/WalkerA", "Enemies/WalkerB", "Enemies/WalkerC",
-	"Enemies/ChaserD", "Enemies/FlyerE", "Enemies/Turret1", "Enemies/WalkerF", "Enemies/BossA",
+	"Enemies/ChaserD", "Enemies/FlyerE", "Enemies/Turret1", "Enemies/WalkerF", "Enemies/BossMissile",
 ]
 
 

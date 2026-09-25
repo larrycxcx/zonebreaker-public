@@ -742,9 +742,9 @@ func test_the_pack_only_overrides_what_has_been_drawn() -> void:
 	var drawn := pack.appearances.keys().map(func(k: StringName) -> String: return String(k))
 	drawn.sort()
 	check("it overrides the player, every enemy, every projectile and the terrain",
-		drawn == ["biker", "boss_a", "boss_bullet", "chaser", "cyborg", "enemy_bullet", "enemy_grenade", "flyer", "flyer_bullet",
-			"grenadier", "player_bullet", "player_grenade", "punk", "terrain_ground", "terrain_ledge", "terrain_stone",
-			"turret", "turret_bullet", "walker_a", "walker_b", "walker_c"],
+		drawn == ["1_a", "1_b", "1_boss", "1_c", "1_d", "1_e", "1_f", "1_g", "biker", "boss_bullet", "cyborg",
+			"enemy_bullet", "enemy_grenade", "flyer_bullet", "player_bullet", "player_grenade", "punk",
+			"terrain_ground", "terrain_ledge", "terrain_stone", "turret_bullet"],
 		str(drawn))
 	var effects := pack.effects.keys().map(func(k: StringName) -> String: return String(k))
 	effects.sort()
@@ -754,11 +754,11 @@ func test_the_pack_only_overrides_what_has_been_drawn() -> void:
 	# 包里缺哪个角色的贴图，那个角色就保留自己的占位方块：临时拿掉 Boss 的贴图来看
 	var partial := pack.duplicate() as SkinPack
 	partial.appearances = pack.appearances.duplicate()
-	partial.appearances.erase(&"boss_a")
+	partial.appearances.erase(&"1_boss")
 	await reset_scene(true, false, partial)
-	keep_only_enemies(["BossA"])
+	keep_only_enemies(["BossMissile"])
 	await frames(5)
-	var unpainted: Node = main.get_node("Enemies/BossA/Visual")
+	var unpainted: Node = main.get_node("Enemies/BossMissile/Visual")
 	check("an enemy missing from the pack keeps its placeholder blocks", unpainted is Appearance
 		and not (unpainted is SpriteAppearance) and not (unpainted is EnemySpriteAppearance))
 

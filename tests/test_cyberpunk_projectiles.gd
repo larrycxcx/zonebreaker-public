@@ -99,7 +99,7 @@ func test_each_shooter_fires_its_own_projectile() -> void:
 	grenade.free()
 	await reset_scene(true)
 	for pair in [["WalkerA", &"enemy_bullet"], ["WalkerB", &"enemy_bullet"], ["WalkerC", &"enemy_bullet"],
-			["BossA", &"boss_bullet"], ["Turret1", &"turret_bullet"], ["FlyerE", &"flyer_bullet"]]:
+			["BossMissile", &"boss_bullet"], ["Turret1", &"turret_bullet"], ["FlyerE", &"flyer_bullet"]]:
 		var enemy: Enemy = main.get_node("Enemies/" + pair[0])
 		var shot := enemy.bullet_scene.instantiate()
 		check("%s fires %s" % [pair[0], pair[1]], shot.skin_key == pair[1], str(shot.skin_key))

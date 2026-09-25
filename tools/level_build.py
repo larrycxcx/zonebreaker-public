@@ -78,16 +78,24 @@ TREE_STEP = (240, 460)
 ## 撒的随机种子。**固定**：产物是要进仓库的，重新生成必须一模一样。
 SCATTER_SEED = 20260924
 
+## 敌人在关卡里叫什么：键 `1_a` → `1-A`、`1_boss` → `1-Boss`。
+## **编号带着关卡号**：23 关每关都有自己的一套敌人，字母只是这一关的序号（不代表打法），
+## 所以第二关的就是 `2-A`、`2-B`……字母不带关卡号的话很快就不够分了。
+def enemy_label(kind):
+	level, _, rest = kind.partition("_")
+	return "%s-%s" % (level, "Boss" if rest == "boss" else rest.upper())
+
+
 ## 敌人类型 → 场景路径。键就是 `SECTIONS` 里写的名字。
 ENEMIES = {
-	"walker_a": "res://scenes/enemy_walker_a.tscn",
-	"walker_b": "res://scenes/enemy_walker_b.tscn",
-	"walker_c": "res://scenes/enemy_walker_c.tscn",
-	"walker_f": "res://scenes/enemy_walker_f.tscn",
-	"turret": "res://scenes/enemy_turret.tscn",
-	"chaser_d": "res://scenes/enemy_chaser.tscn",
-	"flyer_e": "res://scenes/enemy_flyer.tscn",
-	"boss_a": "res://scenes/boss_a.tscn",
+	"1_a": "res://scenes/enemy_1_a.tscn",
+	"1_b": "res://scenes/enemy_1_b.tscn",
+	"1_c": "res://scenes/enemy_1_c.tscn",
+	"1_f": "res://scenes/enemy_1_f.tscn",
+	"1_g": "res://scenes/enemy_1_g.tscn",
+	"1_d": "res://scenes/enemy_1_d.tscn",
+	"1_e": "res://scenes/enemy_1_e.tscn",
+	"1_boss": "res://scenes/boss_1.tscn",
 }
 
 # ---------------------------------------------------------------- 第一关的段落
@@ -114,36 +122,36 @@ SECTIONS = [
 			("bench2", 1180, GROUND_Y)],
 		"ledges": [(260, 256, 96), (420, 208, 96), (640, 256, 112), (860, 200, 96),
 			(1060, 248, 96)],
-		"enemies": [("walker_a", 720, 256), ("walker_a", 780, GROUND_Y),
-			("turret", 900, 200), ("walker_a", 1000, GROUND_Y),
-			("walker_b", 1100, 248), ("walker_a", 1240, GROUND_Y)],
+		"enemies": [("1_a", 720, 256), ("1_a", 780, GROUND_Y),
+			("1_g", 900, 200), ("1_a", 1000, GROUND_Y),
+			("1_b", 1100, 248), ("1_a", 1240, GROUND_Y)],
 	}),
 	("Stairs", {                                  # 爬上去，顺便认识第一块「下面走不通」
 		"ledges": [(100, 264, 96), (260, 216, 96), (420, 168, 128), (620, 160, 240),
 			(900, 248, 96)],
 		"blocks": [(700, 64, 112)],
 		"walls": [(180, 40)],
-		"enemies": [("walker_a", 150, GROUND_Y), ("walker_b", 300, 216),
-			("turret", 480, 168), ("walker_a", 660, GROUND_Y), ("walker_c", 700, 160),
-			("turret", 820, 160), ("walker_a", 950, 248), ("walker_a", 1100, GROUND_Y),
-			("chaser_d", 1220, GROUND_Y)],
+		"enemies": [("1_a", 150, GROUND_Y), ("1_b", 300, 216),
+			("1_g", 480, 168), ("1_a", 660, GROUND_Y), ("1_c", 700, 160),
+			("1_g", 820, 160), ("1_a", 950, 248), ("1_a", 1100, GROUND_Y),
+			("1_d", 1220, GROUND_Y)],
 	}),
 	("Crawl", {                                   # 两道矮通道，出口都有炮台等着
 		"crawl": [(180, 220), (760, 180)],
 		"ledges": [(460, 248, 112), (620, 200, 96), (980, 248, 112), (1140, 200, 96)],
-		"enemies": [("turret", 430, GROUND_Y), ("flyer_e", 300, None),
-			("walker_a", 520, 248), ("walker_b", 660, 200), ("walker_a", 700, GROUND_Y),
-			("turret", 1000, GROUND_Y), ("walker_c", 1020, 248), ("flyer_e", 900, None),
-			("walker_a", 1240, GROUND_Y)],
+		"enemies": [("1_g", 430, GROUND_Y), ("1_e", 300, None),
+			("1_a", 520, 248), ("1_b", 660, 200), ("1_a", 700, GROUND_Y),
+			("1_g", 1000, GROUND_Y), ("1_c", 1020, 248), ("1_e", 900, None),
+			("1_a", 1240, GROUND_Y)],
 	}),
 	("Pits", {                                    # 四个坑，最后一个宽到要踩中间那块小台
 		"gaps": [(120, 96), (330, 100), (520, 96), (760, 160)],
 		"ledges": [(230, 248, 96), (440, 208, 80), (800, 272, 72), (960, 248, 128),
 			(1140, 200, 96)],
-		"enemies": [("chaser_d", 60, GROUND_Y), ("walker_a", 280, 248),
-			("turret", 470, 208), ("flyer_e", 600, None), ("walker_a", 660, GROUND_Y),
-			("chaser_d", 1000, GROUND_Y), ("walker_b", 1000, 248),
-			("walker_a", 1180, 200), ("walker_a", 1250, GROUND_Y)],
+		"enemies": [("1_d", 60, GROUND_Y), ("1_a", 280, 248),
+			("1_g", 470, 208), ("1_e", 600, None), ("1_a", 660, GROUND_Y),
+			("1_d", 1000, GROUND_Y), ("1_b", 1000, 248),
+			("1_a", 1180, 200), ("1_a", 1250, GROUND_Y)],
 	}),
 	("Fortress", {                                # 一整片高台，底下被堵死
 		"props": [("fountain", 860, GROUND_Y), ("fence", 200, GROUND_Y),
@@ -151,56 +159,56 @@ SECTIONS = [
 		"ledges": [(140, 264, 96), (280, 248, 96), (420, 176, 280), (760, 248, 96),
 			(920, 184, 96), (1100, 248, 112)],
 		"blocks": [(520, 64, 120)],
-		"enemies": [("walker_a", 100, GROUND_Y), ("walker_b", 320, 248),
-			("turret", 500, 176), ("walker_c", 620, 176), ("walker_a", 740, GROUND_Y),
-			("walker_f", 800, 248), ("turret", 950, 184), ("walker_a", 1150, 248),
-			("chaser_d", 1240, GROUND_Y)],
+		"enemies": [("1_a", 100, GROUND_Y), ("1_b", 320, 248),
+			("1_g", 500, 176), ("1_c", 620, 176), ("1_a", 740, GROUND_Y),
+			("1_f", 800, 248), ("1_g", 950, 184), ("1_a", 1150, 248),
+			("1_d", 1240, GROUND_Y)],
 	}),
 	("Grenadier", {                               # 两个 F 从高处扔，地面只有掩体墙
 		"ledges": [(120, 256, 96), (300, 200, 128), (520, 248, 96), (700, 192, 128),
 			(940, 248, 96), (1120, 192, 96)],
 		"blocks": [(760, 64, 112)],
 		"walls": [(200, 56), (560, 64), (900, 56)],
-		"enemies": [("walker_a", 250, GROUND_Y), ("walker_f", 360, 200),
-			("flyer_e", 500, None), ("turret", 600, GROUND_Y), ("walker_a", 640, GROUND_Y),
-			("walker_f", 740, 192), ("walker_b", 980, 248), ("walker_a", 1050, GROUND_Y),
-			("turret", 1150, 192), ("walker_a", 1250, GROUND_Y)],
+		"enemies": [("1_a", 250, GROUND_Y), ("1_f", 360, 200),
+			("1_e", 500, None), ("1_g", 600, GROUND_Y), ("1_a", 640, GROUND_Y),
+			("1_f", 740, 192), ("1_b", 980, 248), ("1_a", 1050, GROUND_Y),
+			("1_g", 1150, 192), ("1_a", 1250, GROUND_Y)],
 	}),
 	("Skies", {                                   # 四个坑 + 三个 E：一边跳一边朝上打
 		"gaps": [(180, 128), (420, 96), (640, 160), (900, 100)],
 		"ledges": [(220, 272, 48), (340, 248, 80), (520, 216, 96), (690, 272, 64),
 			(820, 248, 80), (1010, 248, 96), (1160, 200, 96)],
-		"enemies": [("flyer_e", 250, None), ("walker_c", 380, 248), ("turret", 560, 216),
-			("flyer_e", 700, None), ("walker_a", 850, 248), ("walker_b", 1060, 248),
-			("flyer_e", 1100, None), ("walker_a", 1200, 200), ("walker_a", 1250, GROUND_Y)],
+		"enemies": [("1_e", 250, None), ("1_c", 380, 248), ("1_g", 560, 216),
+			("1_e", 700, None), ("1_a", 850, 248), ("1_b", 1060, 248),
+			("1_e", 1100, None), ("1_a", 1200, 200), ("1_a", 1250, GROUND_Y)],
 	}),
 	("Crossfire", {                               # 三层高台交叉火力，底下又是一块堵死
 		"ledges": [(120, 248, 160), (340, 200, 160), (560, 168, 240), (860, 248, 128),
 			(1040, 200, 96), (1180, 152, 96)],
 		"blocks": [(640, 64, 128)],
-		"enemies": [("walker_b", 180, 248), ("walker_a", 260, GROUND_Y),
-			("turret", 400, 200), ("walker_a", 560, GROUND_Y), ("walker_c", 600, 168),
-			("walker_f", 740, 168), ("turret", 900, 248), ("walker_a", 1080, 200),
-			("walker_b", 1220, 152), ("chaser_d", 1240, GROUND_Y)],
+		"enemies": [("1_b", 180, 248), ("1_a", 260, GROUND_Y),
+			("1_g", 400, 200), ("1_a", 560, GROUND_Y), ("1_c", 600, 168),
+			("1_f", 740, 168), ("1_g", 900, 248), ("1_a", 1080, 200),
+			("1_b", 1220, 152), ("1_d", 1240, GROUND_Y)],
 	}),
 	("Gauntlet", {                                # 矮通道 + 三个坑 + 两个 D，一路被撵着走
 		"crawl": [(140, 180), (620, 160)],
 		"gaps": [(400, 96), (900, 100), (1080, 96)],
 		"ledges": [(300, 248, 96), (490, 200, 96), (820, 248, 64), (1010, 248, 64)],
 		"walls": [(1220, 40)],
-		"enemies": [("walker_a", 60, GROUND_Y), ("chaser_d", 360, GROUND_Y),
-			("turret", 340, 248), ("walker_a", 540, 200), ("flyer_e", 600, None),
-			("chaser_d", 850, GROUND_Y), ("walker_c", 1040, 248),
-			("walker_a", 1200, GROUND_Y), ("walker_b", 1250, GROUND_Y)],
+		"enemies": [("1_a", 60, GROUND_Y), ("1_d", 360, GROUND_Y),
+			("1_g", 340, 248), ("1_a", 540, 200), ("1_e", 600, None),
+			("1_d", 850, GROUND_Y), ("1_c", 1040, 248),
+			("1_a", 1200, GROUND_Y), ("1_b", 1250, GROUND_Y)],
 	}),
 	("BossArena", {                               # 打到门口还有一队守着
 		"props": [("fence", 300, GROUND_Y), ("fountain", 800, GROUND_Y),
 			("bench2", 560, GROUND_Y)],
 		"walls": [(40, 56)],
 		"ledges": [(200, 248, 96), (380, 200, 96), (620, 248, 112)],
-		"enemies": [("turret", 160, GROUND_Y), ("walker_a", 260, 248),
-			("turret", 420, 200), ("walker_a", 500, GROUND_Y), ("walker_c", 660, 248),
-			("boss_a", 1000, GROUND_Y)],
+		"enemies": [("1_g", 160, GROUND_Y), ("1_a", 260, 248),
+			("1_g", 420, 200), ("1_a", 500, GROUND_Y), ("1_c", 660, 248),
+			("1_boss", 1000, GROUND_Y)],
 	}),
 ]
 
@@ -246,11 +254,11 @@ class Level:
 			for prop, x, surface in parts.get("props", []):
 				self.props.append((name("Prop"), prop, base + x, surface))
 			for kind, x, surface in parts.get("enemies", []):
-				y = FLY_Y if surface is None else surface - (BOSS_STAND if kind == "boss_a" else STAND)
-				# **名字必须各不相同**：一段里有好几个巡逻兵 A，重名的话 `.tscn` 里会出现同名节点，
+				y = FLY_Y if surface is None else surface - (BOSS_STAND if kind == "1_boss" else STAND)
+				# **名字必须各不相同**：一段里有好几个 1-A，重名的话 `.tscn` 里会出现同名节点，
 				# 引擎的子节点名字表就对不上了（free 一批敌人时刷一屏
 				# 「Children name does not match parent name in hashtable」）。
-				self.enemies.append((name(label + kind.title().replace("_", "")), kind, base + x, y))
+				self.enemies.append((name(enemy_label(kind) + "-"), kind, base + x, y))
 		self.ground = self._ground_runs()
 		self._scatter()
 
@@ -362,9 +370,9 @@ def check_level(level):
 		if x < SAFE_START:
 			problems.append("%s 摆在 x %.0f，出生点那一屏里（%.0f 以内不许放），人一进来就在挨打"
 				% (name, x, SAFE_START))
-		if kind == "flyer_e":
+		if kind == "1_e":
 			continue
-		feet = y + (BOSS_STAND if kind == "boss_a" else STAND)
+		feet = y + (BOSS_STAND if kind == "1_boss" else STAND)
 		on_ledge = any(left - 8 <= x <= right + 8 and abs(top - feet) < 1.0
 			for left, right, top in level.surfaces())
 		if not on_ledge:

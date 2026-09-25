@@ -34,9 +34,9 @@ func test_keys_cover_everyone() -> void:
 	actors.append_array(enemies())
 	# 每个角色用的是哪个键要对得上，不能漏填（漏填会退回基类默认的 walker，画面上看不出来）
 	var expected := {
-		"Player": PlayerProgress.DEFAULT_LOOK, "WalkerA": &"walker_a", "WalkerB": &"walker_b", "WalkerC": &"walker_c",
-		"WalkerF": &"grenadier", "Turret1": &"turret", "Turret2": &"turret",
-		"FlyerE": &"flyer", "ChaserD": &"chaser", "BossA": &"boss_a",
+		"Player": PlayerProgress.DEFAULT_LOOK, "WalkerA": &"1_a", "WalkerB": &"1_b", "WalkerC": &"1_c",
+		"WalkerF": &"1_f", "Turret1": &"1_g", "Turret2": &"1_g",
+		"FlyerE": &"1_e", "ChaserD": &"1_d", "BossMissile": &"1_boss",
 	}
 	for actor in actors:
 		var key: StringName = actor.get(&"skin_key")
@@ -59,7 +59,7 @@ func test_the_key_list_is_a_readme_not_a_whitelist() -> void:
 	# 现场造一个表里没有的键，照样装得上——以后加新敌人不用回来改常量
 	var invented := SkinPack.new()
 	invented.fallback = Skins.default_skin()
-	invented.appearances = {&"zone_09_sniper": pack.appearances.get(&"walker_a")}
+	invented.appearances = {&"zone_09_sniper": pack.appearances.get(&"1_a")}
 	check("a key nobody listed still resolves", invented.find_appearance(&"zone_09_sniper") != null)
 
 

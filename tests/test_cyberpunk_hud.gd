@@ -109,8 +109,8 @@ func test_the_ultimate_count_follows_its_ammo() -> void:
 
 func test_the_boss_bar_appears_and_drains_from_the_right() -> void:
 	await reset_scene(true, false, skin())
-	keep_only_enemies(["BossA"])
-	var boss: BossA = main.get_node("Enemies/BossA")
+	keep_only_enemies(["BossMissile"])
+	var boss: BossMissile = main.get_node("Enemies/BossMissile")
 	check("no boss bar before it appears", not look().boss_visible())
 	boss.appear()
 	await frames(1)

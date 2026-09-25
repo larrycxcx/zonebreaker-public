@@ -22,7 +22,7 @@ PALETTE = {
 }
 
 PORTRAITS = {
-    "boss_a": [
+    "1_boss": [
         "................",
         "....hhhhhhhh....",
         "...hHHhhhhhhh...",

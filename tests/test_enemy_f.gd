@@ -180,7 +180,7 @@ func test_its_grenade_spares_enemies_and_itself() -> void:
 	await start()
 	f.move_speed = 0.0
 	# 在落点附近放一个同伴，看它会不会被炸到
-	var mate: Enemy = load("res://scenes/enemy_walker_a.tscn").instantiate()
+	var mate: Enemy = load("res://scenes/enemy_1_a.tscn").instantiate()
 	main.get_node("Enemies").add_child(mate)
 	mate.global_position = Vector2(1244, 304)
 	mate.move_speed = 0.0
