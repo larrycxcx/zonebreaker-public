@@ -521,6 +521,30 @@ def check_hands():
 				% (name, hand[0], hand[1], pose, pose + 5, best))
 
 
+## 人物选择界面上的头像：**直接用素材原本的待机第一帧**（角色自带胳膊、手里没枪）。
+## 不能拿游戏里那张身体贴图——那是脱过胳膊的（见 `strip_arms`），头像上的人会空着两只袖子；
+## 也不必把瞄准手臂贴回去，那会带出一根伸到框外的枪管，而选人的时候要看的是这个人长什么样。
+PORTRAIT_SRC = "Idle1"
+PORTRAIT_FRAME = 0
+## 裁哪一块（源帧里的 x, y, 宽, 高）。三个角色四帧待机的并集是 x 2..22、y 13..47，各边留一点余量。
+## **三个角色用同一个框**，界面上三张头像才对得齐、高矮才有可比性。
+PORTRAIT_BOX = (2, 12, 22, 36)
+
+
+def build_portrait(write):
+	source = os.path.join(SRC, "1 Characters", CHARACTER, "%s.png" % PORTRAIT_SRC)
+	_, height, art = read_png(source)
+	left = PORTRAIT_FRAME * height + PORTRAIT_BOX[0]
+	cut = blank(PORTRAIT_BOX[2], PORTRAIT_BOX[3])
+	for y in range(PORTRAIT_BOX[3]):
+		for x in range(PORTRAIT_BOX[2]):
+			cut[y][x] = art[PORTRAIT_BOX[1] + y][left + x]
+	if write:
+		write_png(os.path.join(OUT, "portrait.png"), cut)
+	print("  portrait.png  %d×%d（%s 第 %d 帧）" % (PORTRAIT_BOX[2], PORTRAIT_BOX[3],
+		PORTRAIT_SRC, PORTRAIT_FRAME + 1))
+
+
 def save_strip(name, frames, write):
 	strip = blank(FRAME * len(frames), FRAME)
 	for index, frame in enumerate(frames):
@@ -553,6 +577,8 @@ def build_character(key, write):
 	print("手臂 + 枪：")
 	check_hands()
 	build_arms(write)
+	print("人物选择界面上的头像（素材原本的待机，自带胳膊、没有枪）：")
+	build_portrait(write)
 
 
 def main():

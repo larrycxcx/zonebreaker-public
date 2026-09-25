@@ -756,3 +756,63 @@ func test_the_pack_only_overrides_what_has_been_drawn() -> void:
 	var unpainted: Node = main.get_node("Enemies/BossA/Visual")
 	check("an enemy missing from the pack keeps its placeholder blocks", unpainted is Appearance
 		and not (unpainted is SpriteAppearance) and not (unpainted is EnemySpriteAppearance))
+
+
+# ---------------------------------------------------------------- 人物选择界面上的头像
+
+## 不透明的像素有多少（拿来比「这张图上的人是不是少了一条胳膊」）。
+func _ink(image: Image) -> int:
+	var count := 0
+	for y in image.get_height():
+		for x in image.get_width():
+			if image.get_pixel(x, y).a > 0.03:
+				count += 1
+	return count
+
+
+## **头像不能拿游戏里那张身体贴图来画**：那是脱过胳膊的（胳膊按瞄准方向单独烘，见 `strip_arms()`），
+## 人物选择界面上的人会空着两只袖子（2026-09 试玩看出来的）。
+## 现在用的是素材包里现成的 `portrait.png`（`skin_build.py` 从素材原本的待机裁的），
+## 所以它一定比脱过胳膊的身体多出一条胳膊那么多像素。
+func test_the_portrait_is_not_the_armless_game_body() -> void:
+	await reset_scene(false, false, skin())
+	var shot := UiKit.portrait(&"biker")
+	check("biker has a portrait", shot != null)
+	if shot == null:
+		return
+	var body := (load("%s/body_idle_r.png" % ART_DIR) as Texture2D).get_image()
+	var side := body.get_height()
+	var frame := body.get_region(Rect2i(0, 0, side, side))
+	var face := _ink(shot.get_image())
+	var bare := _ink(frame)
+	check("it brings the arm the game body had stripped", face > bare + 40,
+		"头像 %d 个像素、身体 %d 个" % [face, bare])
+
+
+## 三个角色的头像要一样大，界面上三张才对得齐、高矮才有可比性。
+func test_every_character_has_a_portrait_the_same_size() -> void:
+	await reset_scene(false, false, skin())
+	var size := Vector2i.ZERO
+	for look: StringName in [&"biker", &"punk", &"cyborg"]:
+		var shot := UiKit.portrait(look)
+		check("%s has a portrait" % look, shot != null)
+		if shot == null:
+			continue
+		var here := Vector2i(shot.get_width(), shot.get_height())
+		if size == Vector2i.ZERO:
+			size = here
+		check("%s is the same size as the others" % look, here == size, "%s vs %s" % [here, size])
+
+
+## 头像得装得进格子里，不然会盖到旁边那一格上。
+func test_the_portrait_fits_its_slot() -> void:
+	await reset_scene(false, false, skin())
+	var shot := UiKit.portrait(&"biker")
+	check("setup: there is a portrait", shot != null)
+	if shot == null:
+		return
+	# 格子里图标摆在 (2, 2)，所以四边各要留出 2px
+	check("it fits the setup screen's slot",
+		shot.get_width() <= SetupColumn.PORTRAIT.x - 4.0
+		and shot.get_height() <= SetupColumn.PORTRAIT.y - 4.0,
+		"%dx%d vs %s" % [shot.get_width(), shot.get_height(), SetupColumn.PORTRAIT])

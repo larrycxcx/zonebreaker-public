@@ -27,8 +27,9 @@ const HEIGHT := 338.0
 enum Row { NAME, LOOK, STAT, GEAR = 6, SHOP, ACCEPT }
 const ROW_COUNT := 9
 
-## 头像格比裁出来的那块（`UiKit.PORTRAIT_CROP`）各边大 2px，人整个装在框里。
-const PORTRAIT := Vector2(30, 43)
+## 头像格比素材包那张 `portrait.png`（22×36）各边大 2px，人整个装在框里。
+## 图变了这里要跟着变，`test_cyberpunk_skin.gd` 有一条量着。
+const PORTRAIT := Vector2(26, 40)
 ## 装备格：图标 32×32、里头的内容最大 30×30，格子做到 36 图标四周才留得出两三像素。
 ## 34 的时候图标四角正好压在描边上，看着就是「东西太大装不下」；
 ## 再大就挤不下了——一栏总共就 338 高，八个格子两行，上面还有名字、头像、四个属性。

@@ -65,6 +65,13 @@ func take_seat(index: int, profile: PlayerProgress) -> void:
 		if other != index and _seats[other] == profile:
 			_seats[other] = null
 			seat_changed.emit(other)
+	# **按了 NEW 又改主意的那个不留在名册里**：菜单里每选一次 NEW 就现开一个角色，
+	# 退回去重选会把上一个永远留在存档列表里——玩家一晚上攒了十几个没玩过的空角色。
+	# 只丢「一分钟都没玩过、一点也没加过」的那种，认真捏过的照样留着。
+	var leaving := _seats[index]
+	if leaving != null and leaving != profile and leaving.is_untouched():
+		roster.erase(leaving)
+		roster_changed.emit()
 	_seats[index] = profile
 	seat_changed.emit(index)
 	save_game()
@@ -145,9 +152,10 @@ func save_game() -> void:
 	for profile in _seats:
 		if profile != null:
 			profile.saved_at = now
+	# 座位记的是**名册里的第几个**，不是名字：名字是玩家改的，万一重了就认错人
 	var data := {
 		"characters": roster.map(func(p: PlayerProgress) -> Dictionary: return p.to_dict()),
-		"seats": _seats.map(func(p: PlayerProgress) -> String: return p.character_name if p != null else ""),
+		"seats": _seats.map(func(p: PlayerProgress) -> int: return roster.find(p) if p != null else -1),
 	}
 	var file := FileAccess.open(save_path, FileAccess.WRITE)
 	if file != null:
@@ -171,18 +179,21 @@ func load_game() -> void:
 			continue
 		var profile := _new_profile()
 		profile.from_dict(entry)
+		# 名字空的给一个，**重了的也当场改掉**：老存档里可能已经攒着一堆同名的
+		# （见 `_free_name` 那段），留着的话列表上全是一模一样的行、座位也认错人。
 		if profile.character_name.is_empty():
 			profile.character_name = _free_name(DEFAULT_NAMES[mini(roster.size(), DEFAULT_NAMES.size() - 1)])
+		elif name_taken(profile.character_name):
+			profile.character_name = _free_name(profile.character_name)
 		roster.append(profile)
-	# 座位：按名字找回上次坐着的那个，找不到就按顺序拿名册里的，再不够就现开
-	# 座位：按名字找回上次坐着的那个，找不到就按顺序拿名册里的；名册里也没有就留空，
+	# 座位：找回上次坐着的那个，找不到就按顺序拿名册里的；名册里也没有就留空，
 	# 等真有玩家来坐（`of()`）再现开，免得单人玩也在名册里留一个没人玩的 2 号。
 	var wanted: Array = (data as Dictionary).get("seats", [])
 	for index in _seats.size():
-		var named := _find(String(wanted[index])) if index < wanted.size() else null
-		if named == null and index < roster.size():
-			named = roster[index]
-		_seats[index] = named
+		var seated := _seated(wanted[index]) if index < wanted.size() else null
+		if seated == null and index < roster.size():
+			seated = roster[index]
+		_seats[index] = seated
 	roster_changed.emit()
 
 
@@ -194,6 +205,14 @@ func _characters_in(data: Dictionary) -> Array:
 	if data.has("players"):
 		return data["players"]
 	return [data] if data.has("level") else []
+
+
+## 存档里记的那个座位坐着谁。新格式是名册下标，**老存档记的是名字**，两种都认。
+func _seated(mark: Variant) -> PlayerProgress:
+	if mark is float or mark is int:
+		var at := int(mark)
+		return roster[at] if at >= 0 and at < roster.size() else null
+	return _find(String(mark))
 
 
 func _find(character_name: String) -> PlayerProgress:
@@ -223,11 +242,20 @@ func _new_profile() -> PlayerProgress:
 
 
 ## 没被占用的名字：先用想要的那个，重了就在后面加数字。
+##
+## **加数字之前先给数字腾地方**：名字最多 `NAME_LIMIT`(10) 个字符，直接拼再截的话
+## `PLAYER 1` + ` 10` 会截回 `PLAYER 1 1`，从 11 往后每一个都截成同一串、全被占着，
+## 数完就把重复的那个原样交出去——玩家的存档里于是攒出了六个一模一样的 `PLAYER 1`
+## （2026-09 实际踩到，存档列表整页都是同名的行，座位也按名字认错人）。
+## 腾了地方之后每个候选的数字尾巴都不一样，所以一定互不相同，
+## 名册里有几个人就最多试几次，必定找得到没被占的那个。
 func _free_name(wanted: String) -> String:
 	if not name_taken(wanted):
 		return wanted
-	for n in range(2, 100):
-		var tried := PlayerProgress.sanitize_name("%s %d" % [wanted, n])
+	for n in range(2, roster.size() + 3):
+		var suffix := " %d" % n
+		var base := wanted.substr(0, PlayerProgress.NAME_LIMIT - suffix.length())
+		var tried := PlayerProgress.sanitize_name(base + suffix)
 		if not name_taken(tried):
 			return tried
 	return wanted

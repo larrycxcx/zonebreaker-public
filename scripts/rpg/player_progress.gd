@@ -112,6 +112,20 @@ func gear(slot: Equipment.Slot) -> Equipment:
 # ---------------------------------------------------------------- 经验、等级、技能点、金钱
 
 ## 满级了吗。满级之后经验不再累计（`xp_to_next` 返回 0，界面上显示 MAX）。
+## 关卡一加载就开始记时长（`main.gd` 每帧调 `tick_playtime()`），所以「没玩过」不能卡在 0 上——
+## 坐进去那几帧也会记上一点。给一秒宽限：真玩过的哪怕只玩了几秒也留着，
+## 只有「坐下就又站起来」的才算没玩过。
+const UNPLAYED_GRACE := 1.0
+
+
+## 这个角色**一分钟都没玩过、一点也没加过**吗。菜单里按 NEW 就现开一个角色，
+## 退回去重选时靠它判断上一个该不该留在名册里（见 `Progress.take_seat()`）。
+## 名字和外观不算——改个名、换张脸还没决定要不要玩，不该因此在存档列表里占一行。
+func is_untouched() -> bool:
+	return (played_seconds < UNPLAYED_GRACE and allocated.is_empty()
+		and level == 1 and xp == 0 and money == 0)
+
+
 func is_max_level() -> bool:
 	return level >= balance.max_level
 

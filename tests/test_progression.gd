@@ -341,10 +341,29 @@ func test_a_character_can_only_sit_in_one_seat() -> void:
 	Progress.take_seat(0, mine)
 	check("the first seat takes them", Progress.of(0) == mine and Progress.seat_of(mine) == 0)
 	var was := Progress.of(1)
+	# **时长要自己定**：关卡一加载就开始记时（`main.gd` 每帧 `tick_playtime()`），
+	# 跑得慢的时候这几帧能记上一秒多，这条用例问的是「刚建好还没玩」，不该看机器快慢。
+	was.played_seconds = 0.0
 	Progress.take_seat(1, mine)
 	check("moving them over empties the old seat", Progress.of(1) == mine and Progress.of(0) != mine)
 	check("and the first seat gets somebody else", Progress.of(0) != null and Progress.of(0) != mine)
-	check("the character who was there is untouched", Progress.roster.has(was))
+	# 被挤走的那个**一分钟都没玩过**，不留在名册里占一行（菜单里按 NEW 又改主意就是这条）
+	check("the empty character who was there is dropped", not Progress.roster.has(was))
+
+
+func test_a_character_you_actually_played_is_never_dropped() -> void:
+	await reset_scene(false, false, null, 2)
+	var theirs := Progress.of(1)
+	theirs.played_seconds = 30.0    # 真玩过的（超过 `UNPLAYED_GRACE`）
+	var mine := Progress.create("RYU")
+	Progress.take_seat(1, mine)
+	check("somebody who has played stays in the roster", Progress.roster.has(theirs))
+	check("even though they lost their seat", Progress.seat_of(theirs) < 0)
+	var spent := Progress.of(0)
+	spent.spend_point(&"life")
+	var other := Progress.create("KEN")
+	Progress.take_seat(0, other)
+	check("and so does somebody who spent a point", Progress.roster.has(spent))
 
 
 func test_deleting_a_character_frees_their_seat() -> void:
@@ -417,6 +436,77 @@ func test_saves_from_before_the_roster_still_load() -> void:
 	check("the oldest format becomes one character", Progress.roster.size() == 1 and Progress.of(0).level == 4,
 		"%d 个，Lv%d" % [Progress.roster.size(), Progress.of(0).level])
 	check("and playing solo does not invent a second one", Progress.roster.size() == 1, str(Progress.roster.size()))
+	drop_test_save()
+
+
+## 自动起的名字**不许重**。名字上限 10 个字符，`_free_name` 原先是「拼上数字再截断」——
+## `PLAYER 1` + ` 10` 截回 `PLAYER 1 1`，从 11 往后每一个都截成已经占着的那几串，
+## 数完 99 个就把重复的那个原样交了出去。玩家的存档里因此攒出六个一模一样的 `PLAYER 1`：
+## 存档列表整页同名，座位按名字找回来也会认错人（2026-09 实际踩到）。
+func test_auto_names_stay_unique_past_the_length_limit() -> void:
+	await reset_scene()
+	var names: Array[String] = []
+	var too_long: Array[String] = []
+	# 十几个就会走到两位数的后缀，那正是原先塌掉的地方
+	for i in 20:
+		var made := Progress.fresh(0)
+		names.append(made.character_name)
+		if made.character_name.length() > PlayerProgress.NAME_LIMIT:
+			too_long.append(made.character_name)
+	var seen := {}
+	for character_name in names:
+		seen[character_name] = true
+	check("twenty auto-named characters get twenty different names",
+		seen.size() == names.size(), str(names))
+	check("and every one of them fits the name limit", too_long.is_empty(), str(too_long))
+
+
+## 存档里已经攒着同名的（上面那个 bug 留下的），读进来要当场改掉，
+## 不然列表上全是一模一样的行、座位也认错人。
+func test_a_save_full_of_duplicates_heals_itself() -> void:
+	await reset_scene()
+	var doubles := []
+	for i in 4:
+		doubles.append({"name": "PLAYER 1", "level": i + 1})
+	var file := FileAccess.open(SAVE_FOR_TEST, FileAccess.WRITE)
+	# 坐着的是第 3 个（等级 3）。**按名字是找不回他的**——四个人都叫 PLAYER 1，
+	# 按名字找只会拿到第一个，玩家读档进来就是另一个角色了。
+	file.store_string(JSON.stringify({"characters": doubles, "seats": [2, -1]}))
+	file.close()
+	Progress.save_path = SAVE_FOR_TEST
+	Progress.load_game()
+	check("all four are still there", Progress.roster.size() == 4, str(Progress.roster.size()))
+	var seen := {}
+	for profile in Progress.roster:
+		seen[profile.character_name] = true
+	check("but no two of them share a name now", seen.size() == 4, str(seen.keys()))
+	check("and their progress is untouched", Progress.roster[2].level == 3,
+		str(Progress.roster[2].level))
+	check("the seat came back to the right one of them", Progress.of(0).level == 3,
+		"Lv%d" % Progress.of(0).level)
+	drop_test_save()
+
+
+## 座位在存档里记的是**名册下标**，不是名字：名字是玩家改的，改完还得坐回原来那个人。
+func test_a_seat_survives_its_character_being_renamed() -> void:
+	await reset_scene()
+	Progress.save_path = SAVE_FOR_TEST
+	Progress.persist = true
+	var first := Progress.create("ALPHA")
+	var second := Progress.create("BETA")
+	Progress.take_seat(0, second)
+	second.character_name = "OMEGA"
+	Progress.save_game()
+	Progress.new_game()
+	Progress.load_game()
+	check("both characters came back", Progress.roster.size() == 2, str(Progress.roster.size()))
+	check("and the renamed one is still in the seat", Progress.of(0).character_name == "OMEGA",
+		Progress.of(0).character_name)
+	# 存的是下标不是名字：名字重了（上一条用例那种存档）按名字就会认错人
+	var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(SAVE_FOR_TEST))
+	var seats: Array = (saved as Dictionary).get("seats", [])
+	check("and the file records the seat by roster index",
+		not seats.is_empty() and (seats[0] is float or seats[0] is int), str(seats))
 	drop_test_save()
 
 

@@ -134,24 +134,23 @@ static func box(rect: Rect2, edge := Color(0.27, 0.35, 0.55), fill := Color(0.12
 	return frame
 
 
-## 头像在 56×56 的待机帧里截哪一块。三个角色的人都在 x 20~38、y 21~55 之间，
-## 这个框各边留一点余量，**正好装得下人、又不会顶出格子**（整帧 56×56 塞进 44px 的格子是会溢出来的）。
-const PORTRAIT_CROP := Rect2(16, 17, 26, 39)
-
-
-## 某个角色待机第一帧、裁到人身上的那一块（人物设置界面上的头像）。素材包没有就返回 null。
+## 人物选择界面上的头像：**素材包里现成的一张图**（`skins/<包>/<角色>/portrait.png`，
+## 由 `tools/skin_build.py` 的 `build_portrait()` 从素材原本的待机第一帧裁出来）。
+##
+## **不能拿游戏里那张身体贴图来画**：那是脱过胳膊的（胳膊按瞄准方向单独烘，见 `strip_arms()`），
+## 头像上的人会空着两只袖子（2026-09 试玩看出来的）。也不要把瞄准手臂贴回去——
+## 那会带出一根伸到框外的枪管，而且 `strip_arms()` 只脱得干净 biker，
+## punk 和 cyborg 的胳膊是袖子和护甲的颜色、和躯干同色又连在一起，脱不掉，
+## 贴上去就成了三条胳膊。选人的时候要看的是这个人长什么样，用素材原画最省事也最像。
+##
 ## **按当前皮肤包的目录找**，不写死哪个包：DLC 角色的贴图可能在另一个包里。
+## 包里没有这张图就返回 null（界面上那一格空着，不崩）。
 static func portrait(look: StringName) -> Texture2D:
 	var folder := "res://skins/cyberpunk"
 	if Skins.current != null and not Skins.current.resource_path.is_empty():
 		folder = Skins.current.resource_path.get_base_dir()
-	var path := "%s/%s/body_idle_r.png" % [folder, look]
-	if not ResourceLoader.exists(path):
-		return null
-	var atlas := AtlasTexture.new()
-	atlas.atlas = load(path) as Texture2D
-	atlas.region = PORTRAIT_CROP
-	return atlas
+	var path := "%s/%s/portrait.png" % [folder, look]
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
 
 
 ## 把整个画面盖暗一层（暂停时后面的关卡还看得见，但不抢眼）。
