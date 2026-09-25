@@ -120,12 +120,32 @@ DEATH_FRAMES = [1, 2, 3, 4, 5]
 # 以后再补图，**直接导出 1 倍大小的 PNG**，就不用再做这一步。
 # **高度是有规矩的**：每一帧都要藏在敌人站着开枪的子弹下面，又要和 12px 的判定框差不多高，
 # test_cyberpunk_skin.gd 逐帧守着。
+## 每个角色一张趴姿 / 爬行源图，外加**这张图上躯干是什么颜色**——四帧按躯干中心对齐时要认它。
+## 没列出来的角色回落到 biker 那张（`restyle()` 会把颜色贴到它自己的调色板上）。
+##
+## **躯干得按颜色认，通用办法不好使**：试过按外框右缘（头）、按整体重心、按「帧之间重叠最多」
+## 对齐，拿 biker 那组当标准比，三种都差 2~3px——那足够看出来人在原地前后滑。
+## 画师在图里表达的就是「这一块不动」，只能照着认。
+## 挑哪个颜色**按「哪一块最不动」挑**（量出来的滑动量，越小越好）：
+##   biker  上衣的粉（手画原图、没贴过调色板，同一片粉有几十种近似色，所以容差给得大）滑 3.0px
+##   punk   深蓝上衣 0.6px（头发也是粉的，按 biker 那套认会认到头上去）
+##   cyborg 绿头发 1.7px。连体服整件一个颜色分不出上衣；腰上那条深紫试过，滑 4.5px 最差，
+##          而且它在身子偏后，按它对齐会把整个人推出 56px 的画布
+## 最后一个数是**这个标记该落在原点前方几像素**，定的是整组摆在哪；
+## 按「四帧的外框中心平均落在原点上」取，三个角色因此站得一样正。
+PRONE_ART = {
+	"biker": ("biker_prone.png", (252, 60, 95), 80, 5),
+	"punk": ("punk_prone.png", (55, 68, 110), 40, 3),
+	"cyborg": ("cyborg_prone.png", (21, 137, 104), 40, 12),
+}
 PRONE = "biker_prone.png"
+PRONE_TORSO = (252, 60, 95)
+PRONE_TOLERANCE = 80
 PRONE_STILL = 1              # 趴着不动用第几帧（从 0 数）
 PRONE_CRAWL = [0, 1, 2, 3]   # 爬行循环用哪几帧、什么顺序：腿伸直 → 收膝 → 再伸直
 # 四帧按**上衣（躯干）中心**对齐：爬的时候前半身基本不动、腿往上收，按躯干对齐人才不会原地前后滑。
 # 躯干放在身体原点前方 5px，这样静止那帧整体大致对着原点（头在前、脚在后，头短脚长）。
-PRONE_TORSO_X = 5
+PRONE_TORSO_X = 5   # 由 PRONE_ART 按角色覆盖
 
 # 瞄准方向 → (手臂编号, 用哪张枪, 是否上下翻转, 旋转角度, 握枪那只手在 32×32 格子里的位置, 子弹飞的方向)。
 # 手臂 1~5 是后手臂（画在枪后面），6~10 是同样 5 个方向的前手臂（画在枪前面）。
@@ -407,12 +427,17 @@ def restyle(art, colors):
 
 
 def torso_x(art):
-	"""上衣（粉红那几种颜色）的横向中心。
+	"""躯干（`PRONE_TORSO` 那个颜色，容差 `PRONE_TOLERANCE`）的横向中心。
 
-	**要在贴调色板之前量**：自己画的那张趴姿上衣是粉的，贴完某个角色的调色板可能一点粉都不剩
-	（Cyborg 就是），那时候按颜色找就什么也找不到。对齐是画出来的事，和换成谁的颜色无关。
+	**要在贴调色板之前量**：贴完某个角色的调色板，这个颜色可能一点都不剩，
+	那时候按颜色找就什么也找不到。对齐是画出来的事，和换成谁的颜色无关。
 	"""
-	xs = [x for row in art for x, c in enumerate(row) if c[3] and c[0] > 160 and c[1] < 90]
+	limit = PRONE_TOLERANCE ** 2
+	xs = [x for row in art for x, c in enumerate(row)
+		if c[3] and sum((c[i] - PRONE_TORSO[i]) ** 2 for i in range(3)) <= limit]
+	if not xs:
+		raise SystemExit("%s：在 %s 上找不到躯干那个颜色 %s，PRONE_ART 里的数字要跟着素材改"
+			% (CHARACTER, PRONE, PRONE_TORSO))
 	return sum(xs) / len(xs)
 
 
@@ -556,11 +581,12 @@ def save_strip(name, frames, write):
 
 ## 切到某个角色：素材从哪个文件夹读、贴图写到哪、死亡动画用哪张。
 def use_character(key):
-	global CHARACTER, OUT, DEATH
+	global CHARACTER, OUT, DEATH, PRONE, PRONE_TORSO, PRONE_TOLERANCE, PRONE_TORSO_X
 	CHARACTER = CHARACTERS[key]
 	OUT = os.path.join(SKIN, key)
 	# 死亡动画在角色自己的文件夹里，文件名是角色名去掉前面的编号：`1 Biker` → `Biker_death.png`
 	DEATH = os.path.join(SRC, "1 Characters", CHARACTER, "%s_death.png" % CHARACTER.split(" ", 1)[1])
+	PRONE, PRONE_TORSO, PRONE_TOLERANCE, PRONE_TORSO_X = PRONE_ART.get(key, PRONE_ART["biker"])
 	if not os.path.isdir(OUT):
 		os.makedirs(OUT)
 
