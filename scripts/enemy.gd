@@ -335,6 +335,16 @@ func _fire_one() -> void:
 
 
 ## 子弹往哪边飞：按瞄准方向，水平或 45° 斜上/斜下；飞行敌人覆盖成向下。
+## 丢一个**自己算轨迹**的发射物（手雷那种，不走 `bullet_scene` 那条路）。
+## 挂在自己的父节点下，这样自己死了它照样飞完、照常爆炸；`launch()` 按约定在加入场景树之前调。
+func launch_projectile(scene: PackedScene, offset: Vector2, direction: Vector2) -> Node2D:
+	var thrown := scene.instantiate() as Node2D
+	thrown.call(&"launch", direction)
+	get_parent().add_child(thrown)
+	thrown.global_position = global_position + Vector2(offset.x * facing, offset.y)
+	return thrown
+
+
 func shoot_direction() -> Vector2:
 	match aim:
 		Aim.DIAGONAL_UP:

@@ -347,3 +347,220 @@ func test_this_zone_enemies_change_nothing_about_the_rules() -> void:
 		check("%s is the same with either skin" % key, out[0][key] == out[1][key],
 			"方块 %s，工业区 %s" % [out[0][key], out[1][key]])
 
+
+
+# ---------------------------------------------------------------- 四种新打法
+
+## 关卡里的地面顶边，以及站在上面时身体原点的高度。
+const GROUND_TOP := 320.0
+const STAND_Y := GROUND_TOP - 16.0
+## 测试关 x 1096..1280 这一段**头顶什么都没有**（最后一块平台在 1000..1096）。
+## 掉落和追击的用例都摆在这儿：摆在平台底下的话，人会落在平台上，
+## 而站在单向平台上的追击兵会按 D 那条「走到边缘下去」的规矩往反方向走，
+## 用例看到的就是「它朝着远离玩家的方向跑」。
+const OPEN_SKY_X := 1180.0
+
+
+## 敌人没了没有（`is_alive()` 是玩家那边的东西，敌人死了是直接删掉）。
+## **参数不能标类型**：已经释放掉的对象传进一个标了 `Node` 的参数会当场报类型错误。
+func gone(enemy: Variant) -> bool:
+	return not is_instance_valid(enemy) or (enemy as Node).is_queued_for_deletion()
+
+
+## 等这一把锤子**从头**抡起来。直接等 `is_swinging()` 不行：它可能正抡在半路上，
+## 那样量出来的「起手到砸中」只剩个尾巴，用例会误报「还没砸就掉血了」。
+func fresh_swing(hammer: EnemyHammer) -> void:
+	hammer._swing_left = 0.0
+	hammer._smash_timer = 0.0
+	while not hammer.is_swinging():
+		await tree.physics_frame
+
+
+func test_the_worker_hangs_until_someone_walks_under_it() -> void:
+	# 2-A 是这一关的伏击：吊在画面顶边以上，玩家一路走过来什么也看不见
+	await reset_scene(false, true, pack())
+	var worker := spawn("res://scenes/enemy_2_a.tscn", Vector2(OPEN_SKY_X, -40)) as EnemyDropper
+	player.global_position = Vector2(200, STAND_Y)
+	snap_camera()
+	var hung := worker.global_position
+	await frames(60)
+	check("it does not even fall while nobody is near", not worker.has_dropped
+		and worker.global_position.is_equal_approx(hung), str(worker.global_position))
+	player.global_position = Vector2(worker.global_position.x, STAND_Y)
+	snap_camera()
+	await frames(4)
+	check("walking under it lets it go", worker.has_dropped)
+	await frames(90)
+	check("and it comes down to the ground", worker.is_on_floor()
+		and absf(worker.global_position.y - STAND_Y) < 4.0, str(worker.global_position))
+	check("it fell a long way to get there", worker.global_position.y - hung.y > 300.0,
+		str(worker.global_position.y - hung.y))
+
+
+func test_the_worker_lets_go_when_you_shoot_it() -> void:
+	# 不然玩家发现了它也只能对着一个永远不还手的靶子打
+	await reset_scene(false, true, pack())
+	var worker := spawn("res://scenes/enemy_2_a.tscn", Vector2(OPEN_SKY_X, -40)) as EnemyDropper
+	player.global_position = Vector2(OPEN_SKY_X - 400.0, STAND_Y)
+	snap_camera()
+	await frames(10)
+	check("setup: it is still hanging", not worker.has_dropped)
+	worker.take_damage(SHOT, Vector2.INF, player)
+	await frames(2)
+	check("a hit brings it down", worker.has_dropped)
+
+
+func test_the_worker_charges_once_it_lands() -> void:
+	# 落地之后它就是一个普通的冲撞兵（D 那套），没有第二套 AI
+	await reset_scene(false, true, pack())
+	var worker := spawn("res://scenes/enemy_2_a.tscn", Vector2(OPEN_SKY_X, -40)) as EnemyDropper
+	player.global_position = Vector2(OPEN_SKY_X - 80.0, STAND_Y)
+	snap_camera()
+	for i in 120:
+		await tree.physics_frame
+		if worker.is_on_floor():
+			break
+	check("setup: it landed", worker.is_on_floor(), str(worker.global_position))
+	check("it is a chaser underneath", worker is EnemyChaser)
+	# 落地的时候人就在它脚边，早追到了——把玩家挪开，从头量一遍它追过来的这段
+	player.global_position = Vector2(OPEN_SKY_X - 200.0, STAND_Y)
+	snap_camera()
+	await frames(2)
+	# 量的是「有没有把距离拉近」而不是「往哪边走」：贴上之后它会被玩家顶开一段（D 那条规矩），
+	# 正好撞上取样的那一刻的话，看到的就是它在往回走
+	var gap: float = absf(worker.global_position.x - player.global_position.x)
+	var closest := gap
+	for i in 60:
+		await tree.physics_frame
+		closest = minf(closest, absf(worker.global_position.x - player.global_position.x))
+	check("and it comes after you", closest < gap - 40.0, "%.0f -> %.0f" % [gap, closest])
+
+
+func test_the_hammer_only_hurts_you_when_it_lands() -> void:
+	# 画面上锤子还举在半空人就掉血的话，玩家没法从动作判断该什么时候躲
+	await reset_scene(false, true, pack())
+	var hammer := spawn("res://scenes/enemy_2_d.tscn", Vector2(500, STAND_Y)) as EnemyHammer
+	# 接触伤害是另一套机制（基类那条，另有用例守着），这儿关掉：两种伤害都是 42，混在一起分不清谁打的
+	hammer.contact_damage = 0
+	hammer.facing = -1
+	player.global_position = Vector2(500 - hammer.smash_range + 8.0, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	await frames(6)
+	await fresh_swing(hammer)
+	var before: int = player.health
+	check("it winds up first", hammer.is_swinging())
+	await frames(int(EnemyHammer.HIT_DELAY * 60.0) - 4)
+	check("still nothing while the hammer is in the air", player.health == before,
+		"%d -> %d" % [before, player.health])
+	await frames(8)
+	check("and it lands on you", player.health < before, "%d -> %d" % [before, player.health])
+
+
+func test_stepping_back_after_the_windup_dodges_the_hammer() -> void:
+	# 抡的这段时间它站着不动，所以退出锤子够得着的范围就躲掉了
+	await reset_scene(false, true, pack())
+	var hammer := spawn("res://scenes/enemy_2_d.tscn", Vector2(500, STAND_Y)) as EnemyHammer
+	# 接触伤害是另一套机制（基类那条，另有用例守着），这儿关掉：两种伤害都是 42，混在一起分不清谁打的
+	hammer.contact_damage = 0
+	hammer.facing = -1
+	player.global_position = Vector2(500 - hammer.smash_range + 8.0, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	await frames(6)
+	await fresh_swing(hammer)
+	var before: int = player.health
+	player.global_position = Vector2(200, STAND_Y)
+	await frames(int(EnemyHammer.HIT_DELAY * 60.0) + 10)
+	check("the hammer comes down on nothing", player.health == before,
+		"%d -> %d" % [before, player.health])
+
+
+func test_the_hammer_never_shoots() -> void:
+	await reset_scene(false, true, pack())
+	var hammer := spawn("res://scenes/enemy_2_d.tscn", Vector2(500, STAND_Y)) as EnemyHammer
+	check("it has no gun", hammer.bullet_scene == null)
+	hammer.facing = -1
+	player.global_position = Vector2(300, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	await frames(150)
+	check("and never puts a bullet on the field", bullets(16).is_empty())
+
+
+func test_the_alarmobot_stops_and_blows_up_next_to_you() -> void:
+	# 点火之后停住不动：一直贴着追的话玩家根本躲不掉
+	await reset_scene(false, true, pack())
+	var bot := spawn("res://scenes/enemy_2_f.tscn", Vector2(420, STAND_Y)) as EnemyBomber
+	player.global_position = Vector2(300, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	await frames(4)
+	check("setup: it has not gone off yet", not bot.is_lit() and not gone(bot))
+	var before: int = player.health
+	for i in 200:
+		await tree.physics_frame
+		if gone(bot):
+			break
+	check("it reaches you and goes off", gone(bot))
+	check("and the blast hurts", player.health < before, "%d -> %d" % [before, player.health])
+
+
+func test_running_away_from_a_lit_alarmobot_works() -> void:
+	await reset_scene(false, true, pack())
+	var bot := spawn("res://scenes/enemy_2_f.tscn", Vector2(420, STAND_Y)) as EnemyBomber
+	player.global_position = Vector2(390, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	for i in 120:
+		await tree.physics_frame
+		if bot.is_lit():
+			break
+	check("setup: the fuse is lit", bot.is_lit())
+	var stood: float = bot.global_position.x
+	var fuse := bot.fuse_time
+	var before: int = player.health
+	player.global_position = Vector2(stood - 300.0, STAND_Y)
+	# 引信走完它就没了，所以「它没有追过来」要在还活着的时候量
+	var moved := 0.0
+	for i in int(fuse * 60.0) - 4:
+		await tree.physics_frame
+		if gone(bot):
+			break
+		moved = absf(bot.global_position.x - stood)
+	check("it does not chase you once it is lit", moved < 2.0, "%.1f" % moved)
+	await frames(30)
+	check("it still goes off", gone(bot))
+	check("but it goes off on nothing", player.health == before, "%d -> %d" % [before, player.health])
+
+
+func test_the_copter_drops_bombs_on_what_is_under_it() -> void:
+	await reset_scene(false, true, pack())
+	var copter := spawn("res://scenes/enemy_2_e.tscn", Vector2(400, 120)) as EnemyCopter
+	copter.set_anchor(Vector2(400, 120))
+	player.global_position = Vector2(400, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	await frames(4)
+	check("it has no gun, only bombs", copter.bullet_scene == null and copter.bomb_scene != null)
+	var dropped: Array[Node] = []
+	for i in 200:
+		await tree.physics_frame
+		for node in tree.get_nodes_in_group(Grenade.GROUP):
+			if not dropped.has(node):
+				dropped.append(node)
+		if not dropped.is_empty():
+			break
+	check("it drops one", not dropped.is_empty())
+	if dropped.is_empty():
+		return
+	var bomb := dropped[0] as Grenade
+	# **要看速度，不能只看位置**：刚出手那一刻炸弹就在机腹下面，往前扔还是往下丢位置都一样，
+	# 方向只体现在速度上（F 是往前抛的，这一架是直着松手）
+	check("it is released straight down, not thrown forward",
+		absf(bomb.velocity.x) <= 1.0 and bomb.velocity.y > 0.0, str(bomb.velocity))
+	check("out of its belly", absf(bomb.global_position.x - copter.global_position.x) <= 2.0
+		and bomb.global_position.y > copter.global_position.y,
+		str(bomb.global_position - copter.global_position))
+	check("and it is the enemies' grenade, so it cannot hurt its own side",
+		bomb.target_layer == 2, str(bomb.target_layer))

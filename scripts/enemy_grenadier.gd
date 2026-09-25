@@ -69,12 +69,7 @@ func _can_throw_at(player: Player) -> bool:
 	return has_line_of_sight(player.body_center())
 
 
-## 手雷挂在自己的父节点下，这样它死了手雷还会照常飞完、照常爆炸。
 func _throw() -> void:
-	var grenade := grenade_scene.instantiate() as Node2D
-	# launch 要在加入场景树之前调（和玩家的武器槽一样的约定）。
-	grenade.call(&"launch", Vector2(facing, 0))
-	get_parent().add_child(grenade)
-	grenade.global_position = global_position + Vector2(THROW_OFFSET.x * facing, THROW_OFFSET.y)
+	launch_projectile(grenade_scene, THROW_OFFSET, Vector2(facing, 0))
 	_visual.fire()
 	GameEvents.report(throw_event, self)
