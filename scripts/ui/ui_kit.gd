@@ -146,10 +146,12 @@ static func box(rect: Rect2, edge := Color(0.27, 0.35, 0.55), fill := Color(0.12
 ## **按当前皮肤包的目录找**，不写死哪个包：DLC 角色的贴图可能在另一个包里。
 ## 包里没有这张图就返回 null（界面上那一格空着，不崩）。
 static func portrait(look: StringName) -> Texture2D:
-	var folder := "res://skins/cyberpunk"
-	if Skins.current != null and not Skins.current.resource_path.is_empty():
-		folder = Skins.current.resource_path.get_base_dir()
-	var path := "%s/%s/portrait.png" % [folder, look]
+	# **要顺着 fallback 找**，不能只看当前包的目录：每关的包只装这一关独有的东西，
+	# 角色是 23 关共用的、只在最底下那个包里有一份。只看当前包的话，
+	# 打完第二关回主菜单时三个头像会全空（试玩发现）。
+	var path := Skins.file("%s/portrait.png" % look)
+	if path.is_empty():
+		path = "res://skins/cyberpunk/%s/portrait.png" % look
 	return load(path) as Texture2D if ResourceLoader.exists(path) else null
 
 

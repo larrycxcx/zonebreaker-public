@@ -36,6 +36,16 @@ extends Boss
 ## 两次攻击之间歇多久。
 @export var attack_interval := 1.2
 
+@export_group("Enraged")
+## 血掉到这个比例以下就进第二阶段：飞得更快，子弹从一条线变成一把扇形。
+## **第一阶段只会一条线，站开就躲掉了**——血过半之后再不变招，后半场就是站着磨（试玩反馈）。
+@export_range(0.0, 1.0) var enrage_below := 0.5
+## 第二阶段的飞行速度倍率。
+@export var enrage_speed_scale := 1.5
+## 第二阶段一发变几发，每发隔多少度。
+@export var enrage_fan_count := 3
+@export var enrage_fan_spread := 18.0
+
 ## 缆绳从球上哪儿出来、子弹从哪儿打出去（相对身体原点）。两个是同一个口。
 const POD_MUZZLE := Vector2(0, 30)
 
@@ -53,6 +63,8 @@ var _arm_next := true
 ## 正在打一轮子弹（用来判断「这一轮打完了」）。
 var _volleying := false
 var _rest := 0.0
+## 第二阶段这一轮已经打出去几发（用来把扇形铺开）。
+var _fan_index := 0
 
 var _home := Vector2.ZERO
 var _heading := Vector2.ZERO
@@ -166,7 +178,7 @@ func _drift(delta: float) -> void:
 		_heading.x = -_heading.x
 	if absf(offset.y) > roam_range.y and signf(offset.y) == signf(_heading.y):
 		_heading.y = -_heading.y
-	velocity = _heading * roam_speed
+	velocity = _heading * roam_speed * (enrage_speed_scale if is_enraged() else 1.0)
 	if not is_zero_approx(_heading.x):
 		facing = signi(_heading.x)
 		_apply_visual_facing()
@@ -180,12 +192,30 @@ func _pick_heading() -> void:
 	_heading = Vector2(snappedf(cos(angle), 0.001), snappedf(sin(angle), 0.001)).normalized()
 
 
-## 一轮子弹全沿同一条线（「单向」）：`try_shoot` 在一轮开始时锁一次方向，剩下的沿用。
+## 血过半了没有。过半之后飞得更快、子弹变扇形。
+func is_enraged() -> bool:
+	return float(health) <= float(max_health) * enrage_below
+
+
+## 一轮子弹全沿同一条线（「单向」）：基类在一轮开始时调这个锁一次方向，剩下的沿用。
+## **这儿顺手把扇形的计数归零**——它每轮只被调一次，正好是「一轮开始了」那一刻。
 func shoot_direction() -> Vector2:
+	_fan_index = 0
 	var target := find_target()
 	if target == null:
 		return Vector2(facing, 0.0)
 	return (target.call(&"body_center") - _muzzle_position()).normalized()
+
+
+## 这一发朝哪儿飞。第一阶段就是锁定的那条线；**第二阶段每一发各自偏开一点**，
+## 一轮打出一把扇形，躲法从「横向闪开」变成「站进两发之间的空隙」。
+func burst_direction() -> Vector2:
+	if not is_enraged():
+		return super()
+	var middle := (enrage_fan_count - 1) / 2.0
+	var step: float = (_fan_index % enrage_fan_count) - middle
+	_fan_index += 1
+	return super().rotated(deg_to_rad(step * enrage_fan_spread))
 
 
 ## 子弹和缆绳从同一个口出去。

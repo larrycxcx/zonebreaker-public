@@ -254,15 +254,36 @@ func refresh() -> void:
 		_menu.row_boxes = _boxes()
 
 
-## 一件装备加了些什么，写成 ATK +2  SPD +5。
+## 这一格里那件东西的数字。
+## **武器写的是它到底干什么用的**（每发多少伤害、每秒几发），不是属性加成——
+## 武器的强弱全在 `power` 和 `cooldown` 里，不写出来的话，两把枪看着只差一个名字（试玩反馈）。
+## 防具还是写加成（ATK +2  SPD +5）。
 func _bonus_text(item: Equipment) -> String:
 	if item == null:
 		return ""
+	var weapon := item as Weapon
+	if weapon != null:
+		return gun_text(progress.weapon_numbers(weapon))
 	var parts := []
 	for stat: StringName in Balance.STATS:
 		var amount: float = item.bonuses.get(stat, 0.0)
 		if amount != 0.0:
 			parts.append("%s %+d" % [String(STAT_LABELS[stat]).substr(0, 3), roundi(amount)])
+	return "  ".join(parts)
+
+
+## 一把武器的数字写成一行：`DMG 10  RATE 6.7/S`。商店那边也用它，所以是 static 的。
+## 弹药无限的根本不在表里（见 `PlayerProgress.weapon_numbers()`），所以这儿不用再判一次。
+static func gun_text(numbers: Dictionary) -> String:
+	if numbers.is_empty():
+		return ""
+	var parts := []
+	if numbers.has(&"damage"):
+		parts.append("DMG %d" % roundi(numbers[&"damage"]))
+	if numbers.has(&"rate"):
+		parts.append("RATE %.1f/S" % numbers[&"rate"])
+	if numbers.has(&"ammo"):
+		parts.append("AMMO %d" % roundi(numbers[&"ammo"]))
 	return "  ".join(parts)
 
 

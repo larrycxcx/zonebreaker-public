@@ -328,27 +328,65 @@ func _draw_card() -> void:
 
 
 ## 「现在 → 换上之后」。背包里**身上正穿着的**那件比的是脱下来会掉多少，别的都比穿上会涨多少。
+##
+## **武器比的是武器自己的数字**（每发伤害、每秒几发），不是属性——武器的强弱全在
+## `power` 和 `cooldown` 里，按属性比的话两把枪每一行都相同，看着像买了个寂寞（试玩反馈）。
+## 比的对象是**身上那个位置现在装着的那把**，所以「换上之后」是真的换上之后。
 func _draw_compare(item: Equipment) -> void:
 	var wearing := in_bag() and progress.gear(item.slot) == item
-	var after: Dictionary = progress.stat_preview(item, not wearing)
 	var line := 0
+	var weapon := item as Weapon
+	if weapon != null:
+		var mine := progress.gear(weapon.slot) as Weapon
+		var theirs := progress.weapon_numbers(weapon)
+		# 身上这个位置还空着、或者选的就是身上那把，就没得比——直接把它自己的数字写出来
+		var now_numbers: Dictionary = progress.weapon_numbers(mine) if mine != null and mine != weapon 			else {}
+		for key: StringName in [&"damage", &"rate", &"ammo"]:
+			if not theirs.has(key) or line >= 3:
+				continue
+			var later: float = theirs[key]
+			var now: float = now_numbers.get(key, later)
+			line += 1
+			_compare_row(GUN_LABELS[key], now, later, CARD_Y + 46.0 + (line - 1) * 14.0,
+				key == &"rate")
+	var after: Dictionary = progress.stat_preview(item, not wearing)
 	for name: StringName in Balance.STATS:
 		var now := progress.stat(name)
 		var later: float = after.get(name, now)
 		if is_equal_approx(now, later) or line >= 3:
 			continue
-		var y := CARD_Y + 46.0 + line * 14.0
 		line += 1
-		var tint := UiKit.GREEN if later > now else RED
-		_card.add_child(UiKit.label(String(name).substr(0, 3).to_upper(),
-			Rect2(_left, y, 40.0, 14.0), UiKit.DIM))
-		_card.add_child(UiKit.label(str(roundi(now)), Rect2(_left + 34.0, y, 40.0, 14.0),
-			UiKit.WHITE, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT))
-		_card.add_child(UiKit.label(">", Rect2(_left + 80.0, y, 12.0, 14.0), UiKit.DIM))
-		_card.add_child(UiKit.label(str(roundi(later)), Rect2(_left + 92.0, y, 40.0, 14.0),
-			tint, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT))
-		_card.add_child(UiKit.label("%+d" % roundi(later - now),
-			Rect2(_left + 140.0, y, 60.0, 14.0), tint))
+		_compare_row(String(name).substr(0, 3).to_upper(), now, later,
+			CARD_Y + 46.0 + (line - 1) * 14.0)
+
+
+## 武器那几行的叫法。`RATE` 是每秒几发，`AMMO` 是弹药上限。
+const GUN_LABELS := {&"damage": "DMG", &"rate": "RATE", &"ammo": "AMMO"}
+
+
+## 一行「名字  现在 > 之后  差多少」。两个数一样就只写一个，不画箭头——
+## 身上那个位置还空着的时候，写 `10 > 10  +0` 看着像它没用。
+func _compare_row(label: String, now: float, later: float, y: float, fractional := false) -> void:
+	var tint := UiKit.GREEN if later > now else (RED if later < now else UiKit.WHITE)
+	_card.add_child(UiKit.label(label, Rect2(_left, y, 40.0, 14.0), UiKit.DIM))
+	if is_equal_approx(now, later):
+		_card.add_child(UiKit.label(_number(later, fractional),
+			Rect2(_left + 34.0, y, 40.0, 14.0), UiKit.WHITE, UiKit.TEXT_SIZE,
+			HORIZONTAL_ALIGNMENT_RIGHT))
+		return
+	_card.add_child(UiKit.label(_number(now, fractional), Rect2(_left + 34.0, y, 40.0, 14.0),
+		UiKit.WHITE, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT))
+	_card.add_child(UiKit.label(">", Rect2(_left + 80.0, y, 12.0, 14.0), UiKit.DIM))
+	_card.add_child(UiKit.label(_number(later, fractional), Rect2(_left + 92.0, y, 40.0, 14.0),
+		tint, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT))
+	var gap := later - now
+	_card.add_child(UiKit.label("%s%s" % ["+" if gap > 0.0 else "-", _number(absf(gap), fractional)],
+		Rect2(_left + 140.0, y, 60.0, 14.0), tint))
+
+
+## 射速要留一位小数（1.0 和 1.4 差得远），别的取整。
+func _number(value: float, fractional: bool) -> String:
+	return "%.1f" % value if fractional else str(roundi(value))
 
 
 ## 详情框最下面那一行写什么（在这件东西上按 A / X 会发生什么）。

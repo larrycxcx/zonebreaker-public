@@ -244,6 +244,43 @@ func sell(item: Equipment) -> int:
 
 ## 把这件穿上（`wear`）或者脱下（不 wear）之后，四个属性会变成多少。
 ## 商店里那行「现在 → 之后」就靠它；**算完把身上恢复原样**，不真的换。
+## 一把武器**在这个角色手上**的实际数字：每发伤害、每秒几发、弹药上限（-1 = 无限）。
+## 商店和人物设置都读它——攻击力和速度都算进去了，所以同一把枪在不同角色手里写出来的数不一样。
+##
+## 伤害是照着武器槽真正发射时那一套算的（`WeaponSlot.fire()` → `scale_damage(power × 攻击倍率)`），
+## 两边错开的话界面上写的就是一个骗人的数。
+## 子弹看 `damage`、手雷看 `max_damage`（中心那一下），所以两种武器写出来的都是**一次打满能打多少**。
+func weapon_numbers(weapon: Weapon) -> Dictionary:
+	if weapon == null:
+		return {}
+	var out := {
+		&"rate": 1.0 / maxf(0.01, weapon.cooldown * Balance.cooldown_scale(stat(Balance.SPEED))),
+	}
+	# **弹药无限的就不写这一项**：`max_ammo` 是 -1，照抄出来界面上就是一行 `AMMO -1`。
+	# 步枪和手雷都是无限的，所以这一行只有终极武器那种有限弹药的才出现。
+	if weapon.max_ammo >= 0:
+		out[&"ammo"] = float(weapon.max_ammo)
+	var damage := _projectile_damage(weapon)
+	if damage > 0:
+		out[&"damage"] = maxf(1.0, roundf(damage * weapon.power * Balance.damage_scale(stat(Balance.ATTACK))))
+	return out
+
+
+## 发射物本身打多少。**`instantiate()` 不会跑 `_ready`**（要加进场景树才会），
+## 所以这儿造一个出来读完就扔是安全的，不会挂进分组、不会去问皮肤包要外观。
+func _projectile_damage(weapon: Weapon) -> float:
+	if weapon.projectile == null:
+		return 0.0
+	var shot := weapon.projectile.instantiate()
+	var damage := 0.0
+	if shot.get(&"damage") != null:
+		damage = float(shot.get(&"damage"))
+	elif shot.get(&"max_damage") != null:
+		damage = float(shot.get(&"max_damage"))
+	shot.free()
+	return damage
+
+
 func stat_preview(item: Equipment, wear: bool) -> Dictionary:
 	if item == null:
 		return {}

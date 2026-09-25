@@ -321,7 +321,7 @@ func try_shoot(delta: float, target: Node2D) -> void:
 ## 子弹挂在敌人的父节点下，这样敌人死了子弹还能继续飞。
 func _fire_one() -> void:
 	var bullet := bullet_scene.instantiate() as Bullet
-	bullet.direction = _burst_direction
+	bullet.direction = burst_direction()
 	# 子弹的伤害也按关卡缩放（子弹场景里写的是第 1 关的值）
 	if not is_equal_approx(Stage.damage_scale(), 1.0) and bullet.has_method("scale_damage"):
 		bullet.scale_damage(Stage.damage_scale())
@@ -343,6 +343,13 @@ func launch_projectile(scene: PackedScene, offset: Vector2, direction: Vector2) 
 	get_parent().add_child(thrown)
 	thrown.global_position = global_position + Vector2(offset.x * facing, offset.y)
 	return thrown
+
+
+## 这一轮里**这一发**朝哪儿飞。默认就是一轮开始时锁定的那个方向——
+## 水平连发打到一半玩家跳上平台，剩下的子弹不该跟着斜出去。
+## 想让一轮打成扇形的子类覆盖它（工业区那个 Boss 残血之后就是这样）。
+func burst_direction() -> Vector2:
+	return _burst_direction
 
 
 func shoot_direction() -> Vector2:

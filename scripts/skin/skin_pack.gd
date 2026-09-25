@@ -136,6 +136,18 @@ func find_music(key: StringName) -> AudioStream:
 	return fallback.find_music(key) if fallback != null else null
 
 
+## 找包里的一个文件（相对包目录，比如 `biker/portrait.png`）：先看自己，没有再问备用包。
+## **不是每个包都装着全套东西**——每关的包只放这一关独有的，角色、界面这些 23 关共用，
+## 只在最底下那个包里有一份。头像一开始是直接按当前包的目录拼路径的，
+## 打完第二关回主菜单时当前包是工业区、那儿一个角色目录都没有，三个头像就全空了。
+func find_file(relative: String) -> String:
+	if not resource_path.is_empty():
+		var path := "%s/%s" % [resource_path.get_base_dir(), relative]
+		if ResourceLoader.exists(path):
+			return path
+	return fallback.find_file(relative) if fallback != null else ""
+
+
 ## 找 HUD 外观：先看自己，没有再问备用包。
 func find_hud() -> PackedScene:
 	if hud != null:

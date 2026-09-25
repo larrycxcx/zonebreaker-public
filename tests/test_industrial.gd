@@ -827,3 +827,82 @@ func test_aiming_off_the_level_falls_back_to_the_art_this_pack_has() -> void:
 		var clip := visual.clip()
 		check("aiming %s picks a clip this pack actually has" % aim,
 			ResourceLoader.exists("%s/enemies/2_c/%s_r.png" % [ART, clip]), String(clip))
+
+
+func test_the_characters_still_have_faces_in_this_zone() -> void:
+	# **每关的包只装这一关独有的**，角色是 23 关共用的、只在最底下那个包里有一份。
+	# 头像一开始是直接按当前包的目录拼路径的，打完第二关回主菜单时当前包是工业区、
+	# 那儿一个角色目录都没有，三个头像就全空了（试玩发现）。现在顺着 fallback 找。
+	Skins.use(pack())
+	for look: StringName in [&"biker", &"punk", &"cyborg"]:
+		var face := UiKit.portrait(look)
+		check("%s still has a face here" % look, face != null,
+			"包里找到的是 %s" % Skins.file("%s/portrait.png" % look))
+	check("and the pack itself really has no character art",
+		Skins.file("biker/portrait.png").contains("cyberpunk"),
+		Skins.file("biker/portrait.png"))
+
+
+# ---------------------------------------------------------------- Boss 的第二阶段
+
+func test_the_operator_turns_nasty_below_half_health() -> void:
+	# **第一阶段只会一条线，站开就躲掉了**——血过半之后再不变招，后半场就是站着磨（试玩反馈）
+	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
+	check("it starts out calm", not boss.is_enraged(), "%d/%d" % [boss.health, boss.max_health])
+	boss.take_damage(boss.max_health / 2, Vector2.INF, player)
+	await frames(2)
+	check("and turns nasty once it is down to half", boss.is_enraged(),
+		"%d/%d" % [boss.health, boss.max_health])
+
+
+func test_it_flies_faster_once_it_is_hurt() -> void:
+	var out := []
+	for hurt: bool in [false, true]:
+		var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
+		if hurt:
+			boss.take_damage(boss.max_health / 2, Vector2.INF, player)
+		# 方向是随机挑的，所以比的是**速度的长度**，不是跑了多远
+		var fastest := 0.0
+		for i in 240:
+			await tree.physics_frame
+			if boss.arm_state() == BossOperator.Arm.IN:
+				fastest = maxf(fastest, boss.velocity.length())
+		out.append(fastest)
+	check("setup: it really drifts in both runs", out[0] > 1.0, "%.0f" % out[0])
+	check("hurt, it moves faster", out[1] > out[0] * 1.2, "%.0f -> %.0f" % [out[0], out[1]])
+
+
+func test_the_volley_opens_into_a_fan_once_it_is_hurt() -> void:
+	# 第一阶段一条线（横向闪开），第二阶段一把扇形（站进两发之间的空隙）——躲法整个变了
+	var spreads := []
+	for hurt: bool in [false, true]:
+		var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
+		if hurt:
+			boss.take_damage(boss.max_health / 2, Vector2.INF, player)
+		var shots: Array[Node] = []
+		for i in 400:
+			await tree.physics_frame
+			for b in bullets(16):
+				if not shots.has(b):
+					shots.append(b)
+			if shots.size() >= boss.burst_min:
+				break
+		check("it puts a volley on the field", shots.size() >= 2, str(shots.size()))
+		var widest := 0.0
+		if shots.size() >= 2:
+			var first: Vector2 = (shots[0] as Bullet).direction
+			for b in shots:
+				widest = maxf(widest, rad_to_deg(absf(first.angle_to((b as Bullet).direction))))
+		spreads.append(widest)
+	check("calm, every shot goes the same way", spreads[0] < 1.0, "%.1f 度" % spreads[0])
+	check("hurt, the volley opens up", spreads[1] > 10.0, "%.1f 度" % spreads[1])
+
+
+func test_the_fan_is_still_dodgeable() -> void:
+	# 扇形要有缝才叫「躲得掉」：每发之间的夹角要够大，不能糊成一堵墙
+	await reset_scene(false, true, pack())
+	var boss := spawn_boss()
+	check("the shots are spread wide enough to stand between",
+		boss.enrage_fan_spread >= 12.0, str(boss.enrage_fan_spread))
+	check("and there are only a few of them", boss.enrage_fan_count <= 3
+		and boss.enrage_fan_count >= 2, str(boss.enrage_fan_count))

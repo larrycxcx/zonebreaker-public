@@ -415,3 +415,81 @@ func _labels(node: Node) -> Array[Label]:
 			found.append(child)
 		found.append_array(_labels(child))
 	return found
+
+
+# ---------------------------------------------------------------- 武器属性
+
+func test_a_weapon_reads_out_what_it_actually_does() -> void:
+	# 武器的强弱全在 `power` 和 `cooldown` 里，界面上不写的话，
+	# 商店里两把枪看着只差一个名字和一个价钱（试玩反馈）。
+	var me := Progress.of(0)
+	var rifle := load("res://weapons/rifle.tres") as Weapon
+	var numbers := me.weapon_numbers(rifle)
+	check("it says what one shot does", numbers.has(&"damage"), str(numbers))
+	check("and how fast it goes off", numbers.has(&"rate"), str(numbers))
+	# 照着武器槽真正发射时那一套算：发射物的伤害 × power × 攻击倍率
+	var shot := rifle.projectile.instantiate()
+	var base := float(shot.get(&"damage"))
+	shot.free()
+	var want := maxf(1.0, roundf(base * rifle.power * Balance.damage_scale(me.stat(Balance.ATTACK))))
+	check("the damage matches what the gun will really deal", numbers[&"damage"] == want,
+		"%s vs %s" % [numbers[&"damage"], want])
+	check("the rate matches its cooldown",
+		is_equal_approx(numbers[&"rate"], 1.0 / (rifle.cooldown
+			* Balance.cooldown_scale(me.stat(Balance.SPEED)))), str(numbers[&"rate"]))
+
+
+func test_the_numbers_follow_the_character_not_the_gun() -> void:
+	# 同一把枪在不同角色手里是不一样的：攻击力算进伤害、速度算进射速
+	var me := Progress.of(0)
+	var rifle := load("res://weapons/rifle.tres") as Weapon
+	var weak := me.weapon_numbers(rifle)
+	me.allocated[Balance.ATTACK] = 10
+	me.allocated[Balance.SPEED] = 10
+	var strong := me.weapon_numbers(rifle)
+	check("more attack means more damage per shot", strong[&"damage"] > weak[&"damage"],
+		"%s -> %s" % [weak[&"damage"], strong[&"damage"]])
+	check("more speed means more shots per second", strong[&"rate"] > weak[&"rate"],
+		"%.2f -> %.2f" % [weak[&"rate"], strong[&"rate"]])
+	me.allocated.clear()
+
+
+func test_a_grenade_reads_out_its_centre_hit() -> void:
+	# 手雷的伤害是中心 max、边缘 min 两个数。写的是**一次打满能打多少**，和子弹那一列对得上
+	var me := Progress.of(0)
+	var grenade := load("res://weapons/grenade.tres") as Weapon
+	var numbers := me.weapon_numbers(grenade)
+	var shot := grenade.projectile.instantiate()
+	var centre := float(shot.get(&"max_damage"))
+	shot.free()
+	check("it reads the centre of the blast", numbers.has(&"damage")
+		and numbers[&"damage"] == maxf(1.0, roundf(centre * grenade.power
+			* Balance.damage_scale(me.stat(Balance.ATTACK)))), str(numbers))
+
+
+func test_reading_a_weapon_does_not_leave_anything_behind() -> void:
+	# 读伤害是**现造一个发射物出来读完就扔**。`instantiate()` 不跑 `_ready`，
+	# 所以它不会挂进 `grenades` 分组、不会去问皮肤包要外观——漏一个在树外面就是个泄漏。
+	var me := Progress.of(0)
+	var before := tree.get_nodes_in_group(Grenade.GROUP).size()
+	for i in 20:
+		me.weapon_numbers(load("res://weapons/grenade.tres") as Weapon)
+	check("no stray grenades in the group",
+		tree.get_nodes_in_group(Grenade.GROUP).size() == before,
+		"%d -> %d" % [before, tree.get_nodes_in_group(Grenade.GROUP).size()])
+
+
+func test_unlimited_ammo_is_left_off_the_list() -> void:
+	# `max_ammo` 是 -1，照抄出来界面上就是一行「AMMO -1」（截图才看出来的）。
+	# 步枪和手雷都是无限的，这一行只该给终极武器那种有限弹药的留着。
+	var me := Progress.of(0)
+	for path: String in ["res://weapons/rifle.tres", "res://weapons/grenade.tres"]:
+		var weapon := load(path) as Weapon
+		check("setup: %s really is unlimited" % weapon.display_name, weapon.max_ammo < 0)
+		check("so %s says nothing about ammo" % weapon.display_name,
+			not me.weapon_numbers(weapon).has(&"ammo"), str(me.weapon_numbers(weapon)))
+	var ultimate := load("res://weapons/ultimate.tres") as Weapon
+	check("setup: the ultimate really is limited", ultimate.max_ammo >= 0, str(ultimate.max_ammo))
+	check("and it does say how many it holds",
+		me.weapon_numbers(ultimate).get(&"ammo", -1.0) == float(ultimate.max_ammo),
+		str(me.weapon_numbers(ultimate)))

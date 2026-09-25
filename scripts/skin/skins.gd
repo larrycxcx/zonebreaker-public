@@ -28,6 +28,11 @@ func sound(event: StringName) -> AudioStream:
 	return current.find_sound(event) if current != null else null
 
 
+## 当前包（或它的备用包）里的一个文件，找不到返回空串。
+func file(relative: String) -> String:
+	return current.find_file(relative) if current != null else ""
+
+
 ## 当前包里某个特效的场景，没有就返回 fallback_（Fx 节点上配的默认值）。
 func effect(key: StringName, fallback_: PackedScene) -> PackedScene:
 	var scene: PackedScene = current.find_effect(key) if current != null else null
