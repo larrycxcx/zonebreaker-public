@@ -771,9 +771,11 @@ func test_the_pack_only_overrides_what_has_been_drawn() -> void:
 ## cyborg 那条整个是护甲，一个像素都匹配不上，原样留着——三个角色里只有 biker 是被程序脱的，
 ## punk 和 cyborg 用的是自己补的无臂图（`art_src/<角色>_idle.png`，见 `skin_build.py` 的 `own_body()`）。
 ##
-## **冲刺那组（`run` ← 素材的 Dash）还没补**，punk 和 cyborg 现在还带着原本那条胳膊，
-## 所以下面只查待机。补进来之后把 `run` 加进这个清单。
-const ARMLESS_CLIPS := ["idle"]
+## **冲刺那组（`run` ← 素材的 Dash）一起查**：它和待机是两条路，待机补好了不代表冲刺也好了，
+## punk 和 cyborg 的冲刺一度还带着原本那条胳膊（`Dash` 里 1、6 帧就是待机姿势，2~5 帧是另外的，
+## 推不出来，只能另画一张）。`walk` 和 `air` 用的是素材包自带的无臂版，不在这儿查——
+## 它们没有「同一姿势的带臂原画」可以当对照。
+const ARMLESS_CLIPS := ["idle", "run"]
 
 
 func test_the_body_art_has_its_arms_stripped() -> void:
