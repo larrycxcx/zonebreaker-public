@@ -28,45 +28,83 @@ import sys
 import skin_build as sb
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PACK = os.path.join(HERE, "..", "art_in", "default", "green-zone-tileset")
-OUT = os.path.join(HERE, "..", "skins", "cyberpunk")
+ART = os.path.join(HERE, "..", "art_in", "default")
+SKINS = os.path.join(HERE, "..", "skins")
 TILE = 32
 
-# 源图：一排排地砖在图集里的 (行, 列)
-TERRAIN = {
-	"ground": [[(0, 1)], [(1, 1)]],
-	"ledge": [[(4, 0), (4, 1), (4, 2)]],
-	"stone": [[(2, 5)]],
-}
-BACKDROP = {"sky": "1", "buildings": "2", "trees_far": "3", "ground_line": "4", "trees_near": "5"}
-## 装饰物（`3 Objects` / `4 Animated objects`）：名字 → (素材相对路径, 几帧)。
-## **纯显示**，关卡里画在所有东西**后面**，绝不挡住敌人和子弹（规矩和特效一样）。
-## 多帧的是横着一排的动画条（喷泉 288×72 = 4 帧），由 `Prop` 按 `region_rect` 逐帧播。
-PROPS = {
-	"tree_small": ("3 Objects/Other/Tree1.png", 1),
-	"tree_big": ("3 Objects/Other/Tree2.png", 1),
-	"bench": ("3 Objects/Benches/1.png", 1),
-	"bench2": ("3 Objects/Benches/2.png", 1),
-	"bin": ("3 Objects/Other/Garbage_Can1.png", 1),
-	"box": ("3 Objects/Other/Box.png", 1),
-	"fence": ("3 Objects/Fence/1.png", 1),
-	"bush_big": ("3 Objects/Bushes/1.png", 1),
-	"bush_wide": ("3 Objects/Bushes/17.png", 1),
-	"bush_flat": ("3 Objects/Bushes/13.png", 1),
-	"rock_small": ("3 Objects/Stones/2.png", 1),
-	"rock": ("3 Objects/Stones/4.png", 1),
-	"rock_big": ("3 Objects/Stones/6.png", 1),
-	"grass_tuft": ("3 Objects/Grass/1.png", 1),
-	"grass_blade": ("3 Objects/Grass/6.png", 1),
-	"fountain": ("4 Animated objects/Fountain.png", 4),
+## **一套地形素材 = 一个「区」**。加一关就往这张表里加一条，跑 `python tools/terrain_build.py industrial`。
+## 地砖有两种取法，素材包怎么给就怎么取：
+##   `atlas` 一张大图集，`terrain` 里写 (行, 列)；
+##   `tiles` 一砖一个文件（带 `%d` 的模板），`terrain` 里写编号。
+## `terrain` 的三个键是玩法认的（`platform.gd` 的 `skin_key`），不能改名：
+##   `ground` 地面（横贯关卡，第二行往下铺）、`ledge` 浮空单向平台（一行三块：左中右）、`stone` 墙和堵块。
+ZONES = {
+	"cyberpunk": {
+		"pack": "green-zone-tileset",
+		"out": "cyberpunk",
+		"atlas": "Tileset.png",
+		"terrain": {"ground": [[(0, 1)], [(1, 1)]], "ledge": [[(4, 0), (4, 1), (4, 2)]], "stone": [[(2, 5)]]},
+		"backdrop_dir": "2 Background/Day",
+		"backdrop": {"sky": "1", "buildings": "2", "trees_far": "3", "ground_line": "4", "trees_near": "5"},
+		"haze": {"sky": 0.0, "buildings": 0.3, "trees_far": 0.4, "ground_line": 0.25, "trees_near": 0.25},
+		"props": {
+			"tree_small": ("3 Objects/Other/Tree1.png", 1),
+			"tree_big": ("3 Objects/Other/Tree2.png", 1),
+			"bench": ("3 Objects/Benches/1.png", 1),
+			"bench2": ("3 Objects/Benches/2.png", 1),
+			"bin": ("3 Objects/Other/Garbage_Can1.png", 1),
+			"box": ("3 Objects/Other/Box.png", 1),
+			"fence": ("3 Objects/Fence/1.png", 1),
+			"bush_big": ("3 Objects/Bushes/1.png", 1),
+			"bush_wide": ("3 Objects/Bushes/17.png", 1),
+			"bush_flat": ("3 Objects/Bushes/13.png", 1),
+			"rock_small": ("3 Objects/Stones/2.png", 1),
+			"rock": ("3 Objects/Stones/4.png", 1),
+			"rock_big": ("3 Objects/Stones/6.png", 1),
+			"grass_tuft": ("3 Objects/Grass/1.png", 1),
+			"grass_blade": ("3 Objects/Grass/6.png", 1),
+			"fountain": ("4 Animated objects/Fountain.png", 4),
+		},
+	},
+	# 第二关：工业区。地砖是 81 个独立文件，编号 = 行 × 9 + 列 + 1。
+	# **背景第 1 层是底色不是天空**：2 才是天空（只画到地平线 y=247），
+	# 地平线以下露出第 1 层那片雾色，所以两层都不雾化。
+	"industrial": {
+		"pack": "industrial-zone-tileset",
+		"out": "industrial",
+		"tiles": "1 Tiles/IndustrialTile_%02d.png",
+		# 薄条那三块只画了上半格，裁掉下面的空行，否则九宫格会把空白也当成边
+		"terrain": {"ground": [[5], [14]], "ledge": {"tiles": [[77, 78, 79]], "crop": 16}, "stone": [[36]]},
+		"backdrop_dir": "2 Background",
+		"backdrop": {"base": "1", "sky": "2", "far": "3", "mid": "4", "near": "5"},
+		"haze": {"base": 0.0, "sky": 0.0, "far": 0.62, "mid": 0.5, "near": 0.38},
+		"props": {
+			"barrel": ("3 Objects/Barrel1.png", 1),
+			"barrel_rust": ("3 Objects/Barrel3.png", 1),
+			"box": ("3 Objects/Box1.png", 1),
+			"box_open": ("3 Objects/Box3.png", 1),
+			"crate": ("3 Objects/Box7.png", 1),
+			"board": ("3 Objects/Board1.png", 1),
+			"fence": ("3 Objects/Fence1.png", 1),
+			"fence_end": ("3 Objects/Fence3.png", 1),
+			"ladder": ("3 Objects/Ladder1.png", 1),
+			"locker": ("3 Objects/Locker1.png", 1),
+			"extinguisher": ("3 Objects/Fire-extinguisher1.png", 1),
+			"bench": ("3 Objects/Bench.png", 1),
+			"bucket": ("3 Objects/Bucket.png", 1),
+			"sign": ("3 Objects/Pointer1.png", 1),
+			"flag": ("3 Objects/Flag.png", 1),
+			"screen": ("4 Animated objects/Screen1.png", 4),
+			"conveyor": ("4 Animated objects/Transporter1.png", 4),
+		},
+	},
 }
 ## 背景素材只有 324 高，画面是 360——**地面线以下什么都没有**。平时地面盖着看不见，
 ## 但关卡里有坑之后，坑那一块就露出清屏色，看着像一块黑砖。
 ## 生成时把每层最底下那一行往下重复到这个高度，坑里看到的就是背景本身的延续。
 BACKDROP_HEIGHT = 360
-# 往天空色混多少（0 = 原样）。
+# 往天空色混多少（0 = 原样）。两套素材的天空是同一个色。
 HAZE_COLOR = (204, 226, 225)
-HAZE = {"sky": 0.0, "buildings": 0.3, "trees_far": 0.4, "ground_line": 0.25, "trees_near": 0.25}
 
 
 def haze(pixels, amount):
@@ -87,36 +125,62 @@ def extend_down(pixels, height):
 	return out
 
 
-def main():
-	write = "--check" not in sys.argv
-	if not os.path.isdir(PACK):
-		sys.exit("找不到地形素材 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(PACK))
-	_, _, atlas = sb.read_png(os.path.join(PACK, "Tileset.png"))
+def load_tile(zone, pack, atlas, spec):
+	"""取一块地砖。图集那种 `spec` 是 (行, 列)，一砖一文件那种是编号。"""
+	if atlas is not None:
+		ty, tx = spec
+		return sb.cut(atlas, tx * TILE, ty * TILE, TILE, TILE)
+	_, _, pixels = sb.read_png(os.path.join(pack, *(zone["tiles"] % spec).split("/")))
+	return pixels
+
+
+def build_zone(key, write):
+	zone = ZONES[key]
+	pack = os.path.join(ART, zone["pack"])
+	out = os.path.join(SKINS, zone["out"])
+	if not os.path.isdir(pack):
+		sys.exit("找不到地形素材 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(pack))
+	atlas = None
+	if "atlas" in zone:
+		_, _, atlas = sb.read_png(os.path.join(pack, zone["atlas"]))
+	print("== %s（%s）==" % (key, zone["pack"]))
 	print("地形：")
-	for name, rows in TERRAIN.items():
-		out = sb.blank(TILE * len(rows[0]), TILE * len(rows))
+	for name, spec in zone["terrain"].items():
+		rows = spec["tiles"] if isinstance(spec, dict) else spec
+		art = sb.blank(TILE * len(rows[0]), TILE * len(rows))
 		for r, row in enumerate(rows):
-			for c, (ty, tx) in enumerate(row):
-				sb.blit(out, sb.cut(atlas, tx * TILE, ty * TILE, TILE, TILE), c * TILE, r * TILE, name)
+			for c, tile in enumerate(row):
+				sb.blit(art, load_tile(zone, pack, atlas, tile), c * TILE, r * TILE, name)
+		if isinstance(spec, dict) and "crop" in spec:
+			art = art[: spec["crop"]]
 		if write:
-			sb.write_png(os.path.join(OUT, "terrain", name + ".png"), out)
-		print("  terrain/%s.png  %dx%d" % (name, len(out[0]), len(out)))
+			sb.write_png(os.path.join(out, "terrain", name + ".png"), art)
+		print("  terrain/%s.png  %dx%d" % (name, len(art[0]), len(art)))
 	print("背景：")
-	for name, number in BACKDROP.items():
-		width, height, pixels = sb.read_png(os.path.join(PACK, "2 Background", "Day", number + ".png"))
-		art = extend_down(haze(pixels, HAZE[name]), BACKDROP_HEIGHT)
-		if write:
-			sb.write_png(os.path.join(OUT, "backdrop", name + ".png"), art)
-		print("  backdrop/%s.png  %dx%d（素材 %dx%d，往下补到画面底）  往天空色混 %d%%"
-			% (name, len(art[0]), len(art), width, height, HAZE[name] * 100))
-	print("装饰：")
-	for name, (rel, frames) in sorted(PROPS.items()):
-		source = os.path.join(PACK, *rel.split("/"))
+	for name, number in zone["backdrop"].items():
+		source = os.path.join(pack, *zone["backdrop_dir"].split("/"), number + ".png")
 		width, height, pixels = sb.read_png(source)
+		art = extend_down(haze(pixels, zone["haze"][name]), BACKDROP_HEIGHT)
 		if write:
-			sb.write_png(os.path.join(OUT, "props", name + ".png"), pixels)
+			sb.write_png(os.path.join(out, "backdrop", name + ".png"), art)
+		print("  backdrop/%s.png  %dx%d（素材 %dx%d，往下补到画面底）  往天空色混 %d%%"
+			% (name, len(art[0]), len(art), width, height, zone["haze"][name] * 100))
+	print("装饰：")
+	for name, (rel, frames) in sorted(zone["props"].items()):
+		width, height, pixels = sb.read_png(os.path.join(pack, *rel.split("/")))
+		if write:
+			sb.write_png(os.path.join(out, "props", name + ".png"), pixels)
 		print("  props/%s.png  %dx%d%s" % (name, width, height,
 			"  %d 帧" % frames if frames > 1 else ""))
+
+
+def main():
+	write = "--check" not in sys.argv
+	only = [a for a in sys.argv[1:] if not a.startswith("--")]
+	for key in (only if only else ZONES):
+		if key not in ZONES:
+			sys.exit("没有这个区：%s（有的是 %s）" % (key, ", ".join(ZONES)))
+		build_zone(key, write)
 
 
 if __name__ == "__main__":
