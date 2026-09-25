@@ -39,8 +39,8 @@ func test_the_pack_brings_its_own_terrain_and_a_backdrop() -> void:
 	for key: StringName in mine.appearances:
 		keys.append(String(key))
 	keys.sort()
-	check("it declares the three terrains and this stage's enemies",
-		keys == ["2_a", "2_b", "2_c", "2_d", "2_e", "2_f",
+	check("it declares the three terrains, this stage's enemies and its boss",
+		keys == ["2_a", "2_b", "2_boss", "2_c", "2_d", "2_e", "2_f",
 			"terrain_ground", "terrain_ledge", "terrain_stone"], str(keys))
 	check("and a backdrop of its own", mine.backdrop != null
 		and mine.backdrop.resource_path.contains("industrial"), str(mine.backdrop))
@@ -564,3 +564,226 @@ func test_the_copter_drops_bombs_on_what_is_under_it() -> void:
 		str(bomb.global_position - copter.global_position))
 	check("and it is the enemies' grenade, so it cannot hurt its own side",
 		bomb.target_layer == 2, str(bomb.target_layer))
+
+
+# ---------------------------------------------------------------- 这一关的 Boss
+
+## Boss 摆在半空的高度（它不受重力，飘在这儿）。
+const BOSS_Y := 170.0
+
+
+func spawn_boss() -> BossOperator:
+	var boss := (load("res://scenes/boss_2.tscn") as PackedScene).instantiate() as BossOperator
+	main.get_node("Enemies").add_child(boss)
+	boss.global_position = Vector2(OPEN_SKY_X, BOSS_Y)
+	boss._home = boss.global_position
+	return boss
+
+
+## 摆好 Boss 和玩家，等它出场。
+func face_the_operator(player_at: Vector2) -> BossOperator:
+	await reset_scene(false, true, pack())
+	var boss := spawn_boss()
+	player.global_position = player_at
+	player.health = 9999
+	snap_camera()
+	await frames(4)
+	boss.appear()
+	await frames(2)
+	return boss
+
+
+func test_the_operator_is_a_boss_and_shows_up_on_the_hud() -> void:
+	await reset_scene(false, true, pack())
+	var boss := spawn_boss()
+	check("it is a boss", boss is Boss)
+	check("it hangs in the air, no gravity", boss.motion_mode == CharacterBody2D.MOTION_MODE_FLOATING)
+	check("it brings a portrait from this pack's art",
+		boss.hud_portrait() != null
+		and boss.hud_portrait().resource_path.begins_with("%s/enemies/2_boss" % ART),
+		str(boss.hud_portrait()))
+	check("the ultimate only takes a quarter off it",
+		boss.ultimate_damage() == roundi(boss.max_health * 0.25), str(boss.ultimate_damage()))
+
+
+func test_it_drifts_around_its_own_patch_of_air() -> void:
+	# 它不追人——追击是 D 的定位，它靠居高临下压制，所以不能跟着玩家跑出地盘
+	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 500.0, STAND_Y))
+	var home: Vector2 = boss._home
+	var moved := Vector2.ZERO
+	var strayed := Vector2.ZERO
+	for i in 300:
+		await tree.physics_frame
+		var off: Vector2 = boss.global_position - home
+		moved = Vector2(maxf(moved.x, absf(off.x)), maxf(moved.y, absf(off.y)))
+		strayed = Vector2(maxf(strayed.x, absf(off.x) - boss.roam_range.x),
+			maxf(strayed.y, absf(off.y) - boss.roam_range.y))
+	check("it really moves in both directions", moved.x > 20.0 and moved.y > 10.0, str(moved))
+	check("but never leaves its patch", strayed.x < 16.0 and strayed.y < 16.0, str(strayed))
+
+
+func test_the_arm_only_comes_down_on_someone_underneath() -> void:
+	# 缆绳只能往正下方放，站在它侧下方是安全的
+	var boss := await face_the_operator(Vector2(OPEN_SKY_X + 200.0, STAND_Y))
+	# **把飘动钉住**：横向地盘本来就有 200px，它自己飘过去就站到这个玩家头上了，
+	# 那样这条用例测的就不是「侧下方安全」而是「它这几秒有没有飘过来」。
+	boss.roam_range = Vector2.ZERO
+	await frames(120)
+	check("nobody underneath, so the arm stays in",
+		boss.arm_state() == BossOperator.Arm.IN and is_zero_approx(boss.arm_length()),
+		"%d / %.0f" % [boss.arm_state(), boss.arm_length()])
+	# 换到正下方；纵向也钉住，免得它飘到缆绳够不着的高度，那是另一回事
+	boss.roam_range = Vector2.ZERO
+	player.global_position = Vector2(boss.global_position.x, STAND_Y)
+	var out := false
+	for i in 300:
+		await tree.physics_frame
+		player.global_position = Vector2(boss.global_position.x, STAND_Y)
+		if boss.arm_length() > 0.0:
+			out = true
+			break
+	check("standing under it brings the arm down", out)
+
+
+func test_the_claw_only_bites_when_it_shuts() -> void:
+	# 放缆绳要时间，这段时间玩家看得见也跑得开——和锤子兵同一条道理
+	var boss := await face_the_operator(Vector2(OPEN_SKY_X, STAND_Y))
+	boss.contact_damage = 0
+	# 纵向钉住：飘高了缆绳够不着，它会改打枪，用例就等不到手臂
+	boss.roam_range.y = 0.0
+	for i in 300:
+		await tree.physics_frame
+		player.global_position = Vector2(boss.global_position.x, STAND_Y)
+		player.health = 9999
+		if boss.arm_state() == BossOperator.Arm.OUT:
+			break
+	check("setup: the arm is on its way down", boss.arm_state() == BossOperator.Arm.OUT)
+	var before: int = player.health
+	while boss.arm_state() == BossOperator.Arm.OUT:
+		await tree.physics_frame
+		player.global_position = Vector2(boss.global_position.x, STAND_Y)
+		check("no bite while the cable is still paying out", player.health == before)
+		break
+	# 一路跟到底：爪子合上那一刻才该掉血
+	var bitten := false
+	for i in 120:
+		await tree.physics_frame
+		player.global_position = Vector2(boss.global_position.x, STAND_Y)
+		if player.health < before:
+			bitten = boss.arm_state() == BossOperator.Arm.GRAB \
+				or boss.arm_state() == BossOperator.Arm.BACK
+			break
+	check("and it bites when the claw shuts at the bottom", bitten)
+
+
+func test_stepping_aside_dodges_the_claw() -> void:
+	var boss := await face_the_operator(Vector2(OPEN_SKY_X, STAND_Y))
+	boss.contact_damage = 0
+	# 纵向钉住：飘高了缆绳够不着，它会改打枪，用例就等不到手臂
+	boss.roam_range.y = 0.0
+	for i in 300:
+		await tree.physics_frame
+		player.global_position = Vector2(boss.global_position.x, STAND_Y)
+		if boss.arm_state() == BossOperator.Arm.OUT:
+			break
+	check("setup: the arm is coming down", boss.arm_state() == BossOperator.Arm.OUT)
+	var before: int = player.health
+	player.global_position = Vector2(boss.global_position.x - 200.0, STAND_Y)
+	for i in 120:
+		await tree.physics_frame
+		if boss.arm_state() == BossOperator.Arm.IN:
+			break
+	check("the claw closes on nothing", player.health == before,
+		"%d -> %d" % [before, player.health])
+
+
+func test_the_volley_all_goes_one_way() -> void:
+	# 和 Boss A 最大的区别：那个铺一个扇形，这个一串子弹全沿同一条线
+	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
+	var shots: Array[Node] = []
+	for i in 400:
+		await tree.physics_frame
+		for b in bullets(16):
+			if not shots.has(b):
+				shots.append(b)
+		if shots.size() >= boss.burst_min:
+			break
+	check("it puts a volley on the field", shots.size() >= boss.burst_min, str(shots.size()))
+	if shots.size() < 2:
+		return
+	var spread := 0.0
+	var first: Vector2 = (shots[0] as Bullet).direction
+	for b in shots:
+		spread = maxf(spread, rad_to_deg(absf(first.angle_to((b as Bullet).direction))))
+	check("every shot in it goes the same way", spread < 1.0, "最大差 %.1f 度" % spread)
+	check("and it is aimed at the player, not straight ahead",
+		absf(first.y) > 0.1, str(first))
+
+
+func test_the_two_attacks_take_turns() -> void:
+	# 「两种方式交替」是这个 Boss 的设计，只会一种的话打起来就是一个节奏
+	var boss := await face_the_operator(Vector2(OPEN_SKY_X, STAND_Y))
+	boss.contact_damage = 0
+	# **把它钉在够得着的高度上**：让它自己上下飘的话，飘高了缆绳够不着、它会改打枪，
+	# 于是「只会伸手臂」这种毛病也能混过去——看到的那发子弹是够不着逼出来的，不是轮换逼出来的。
+	boss.roam_range.y = 0.0
+	var seen_arm := false
+	var seen_volley := false
+	for i in 600:
+		await tree.physics_frame
+		player.global_position = Vector2(boss.global_position.x, STAND_Y)
+		player.health = 9999
+		if boss.arm_length() > 0.0:
+			seen_arm = true
+		if not bullets(16).is_empty():
+			seen_volley = true
+		if seen_arm and seen_volley:
+			break
+	check("it uses the arm", seen_arm)
+	check("and the gun", seen_volley)
+
+
+func test_the_boss_skin_changes_nothing_about_the_rules() -> void:
+	var out := []
+	for skin: SkinPack in [Skins.default_skin(), pack()]:
+		await reset_scene(false, true, skin)
+		var boss := spawn_boss()
+		boss.appear()
+		await frames(2)
+		var shape := boss.get_node("CollisionShape2D") as CollisionShape2D
+		out.append({
+			"box": (shape.shape as RectangleShape2D).size,
+			"muzzle": boss._muzzle_position() - boss.global_position,
+			"arm_reach": boss.arm_max_length,
+			"health": boss.max_health,
+		})
+	for key: String in out[0]:
+		check("%s is the same with either skin" % key, out[0][key] == out[1][key],
+			"方块 %s，工业区 %s" % [out[0][key], out[1][key]])
+
+
+func test_it_holds_still_while_the_arm_is_out() -> void:
+	# 缆绳是吊着的：一边放一边飘的话爪子会落到瞄好的位置以外，
+	# 玩家明明没动也可能被抓不中、或者站着没动反而被抓中。停住也让这一下看得清、躲得掉。
+	var boss := await face_the_operator(Vector2(OPEN_SKY_X, STAND_Y))
+	boss.contact_damage = 0
+	# 纵向钉住：飘高了缆绳够不着，它会改打枪，用例就等不到手臂
+	boss.roam_range.y = 0.0
+	for i in 300:
+		await tree.physics_frame
+		player.global_position = Vector2(boss.global_position.x, STAND_Y)
+		player.health = 9999
+		if boss.arm_state() == BossOperator.Arm.OUT:
+			break
+	check("setup: the arm is on its way down", boss.arm_state() == BossOperator.Arm.OUT)
+	var anchored: Vector2 = boss.global_position
+	var strayed := 0.0
+	for i in 200:
+		await tree.physics_frame
+		player.global_position = Vector2(anchored.x, STAND_Y)
+		player.health = 9999
+		if boss.arm_state() == BossOperator.Arm.IN:
+			break
+		strayed = maxf(strayed, boss.global_position.distance_to(anchored))
+	check("it stays put from the moment the cable pays out", strayed < 2.0, "%.1f" % strayed)
+	check("setup: the arm really finished in this test", boss.arm_state() == BossOperator.Arm.IN)

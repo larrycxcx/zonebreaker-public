@@ -491,11 +491,85 @@ def save_frames(folder, name, frames, width, height, write, out=None):
 	print("  %s/%s  %d 帧" % (folder, name, len(frames)))
 
 
+# ---------------------------------------------------------------- 工业区的 Boss（机械操作员）
+# 素材是**两样东西**：一个在空中飘的铁球（Idle / Left / Right / Attack1-2 / Hurt / Death），
+# 和一条吊在缆绳上的机械爪（Move / Up-Down / Attack3-4）。
+# 我们把球当本体、爪当它伸下来的手臂——正好对上「铁球八方向飞、从上方伸下手臂打下面的玩家、
+# 不伸手臂就打一串子弹」。
+#
+# 球每帧 96×96、本体约 90×90、**画在格子正中**，所以整组直接原样搬进去，锚点就是格子中心。
+# 判定框 72×72：比画面小一圈，和 Boss A「保留素材尺寸、判定框略小」是同一条。
+BOSS2_DIR = os.path.join(IND_PACK, "..", "industrial-zone-boss", "3 Machine operator")
+BOSS2_OUT = "2_boss"
+BOSS2_CELL = 96
+BOSS2_ANCHOR = (48, 48)
+BOSS2_CLIPS = {
+	"idle": ("Idle.png", [0, 1, 2, 3]),
+	"walk": ("Right.png", [0, 1, 2, 3, 4, 5, 6, 7]),
+	"attack_level": ("Attack2.png", [0, 1, 2, 3, 4, 5, 6, 7]),
+	"hurt": ("Hurt.png", [0, 1]),
+	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+}
+# HUD 头像：球正中那 32×32，红环和头冠都在里面。
+BOSS2_PORTRAIT = (32, 32, 32, 32)
+# 手臂**不按帧用**：素材里那 6 帧只有 6 档缆绳长度，而伸多长是玩法说了算的。
+# 所以拆成「缆绳的一行」和「爪子」两张图，缆绳竖着平铺到要的长度，爪子贴在末端。
+# 取爪子用缆绳最长的那一帧（Up-Down 帧 2），合拢的爪子用 Attack4 最后一帧。
+BOSS2_ARM = {"open": ("Up-Down.png", 2), "shut": ("Attack4.png", 5)}
+# 爪子横向占的那一段（六帧都一样），以及缆绳取第几行（中段，随便哪一行都能无缝平铺）。
+BOSS2_CLAW_X = (28, 68)
+BOSS2_CABLE_ROW = 32
+
+
+def build_boss_operator(write):
+	# **不能用 frames_of**：它按 `CELL`（48）切，而 Boss 每帧是 96
+	def frames_at(file_name, indices):
+		_, _, pixels = sb.read_png(os.path.join(BOSS2_DIR, file_name))
+		return [sb.cut(pixels, i * BOSS2_CELL, 0, BOSS2_CELL, BOSS2_CELL) for i in indices]
+
+	clips = {c: frames_at(f, idx) for c, (f, idx) in BOSS2_CLIPS.items()}
+	for name, frames in clips.items():
+		right = [sb.blank(BOSS2_CELL, BOSS2_CELL) for _ in frames]
+		for out_frame, f in zip(right, frames):
+			sb.blit(out_frame, f, 0, 0, "2_boss %s" % name)
+		left = [mirror_about(f, BOSS2_ANCHOR[0]) for f in right]
+		save_frames(BOSS2_OUT, "%s_r.png" % name, right, BOSS2_CELL, BOSS2_CELL, write, IND_OUT)
+		save_frames(BOSS2_OUT, "%s_l.png" % name, left, BOSS2_CELL, BOSS2_CELL, write, IND_OUT)
+	portrait = sb.cut(clips["idle"][0], *BOSS2_PORTRAIT)
+	if write:
+		sb.write_png(os.path.join(IND_OUT, BOSS2_OUT, "portrait.png"), portrait)
+	print("  %s/portrait.png  %dx%d" % (BOSS2_OUT, len(portrait[0]), len(portrait)))
+
+	# 手臂：缆绳一行 + 张开的爪 + 合拢的爪。三张都按缆绳中心那一列对齐，
+	# 这样游戏里「从球底往下画缆绳、末端贴爪子」不用再算偏移。
+	left_x, right_x = BOSS2_CLAW_X
+	for key, (file_name, index) in BOSS2_ARM.items():
+		frame = frames_at(file_name, [index])[0]
+		rows = [y for y in range(BOSS2_CELL)
+			if sum(1 for x in range(BOSS2_CELL) if frame[y][x][3] > 8) > 6 and y > 20]
+		claw = sb.blank(right_x - left_x, max(rows) - min(rows) + 1)
+		sb.blit(claw, sb.cut(frame, left_x, min(rows), right_x - left_x, len(claw)), 0, 0, "claw")
+		if write:
+			sb.write_png(os.path.join(IND_OUT, BOSS2_OUT, "arm_claw_%s.png" % key), claw)
+		print("  %s/arm_claw_%s.png  %dx%d" % (BOSS2_OUT, key, len(claw[0]), len(claw)))
+	cable_frame = frames_at(BOSS2_ARM["open"][0], [BOSS2_ARM["open"][1]])[0]
+	# 缆绳只取它自己那几列（4px 宽），不带爪子那一整条：
+	# 游戏里缆绳是**按中心**往下画的，图里留着两边的空白会让它看着往一边偏。
+	row = cable_frame[BOSS2_CABLE_ROW]
+	columns = [x for x in range(BOSS2_CELL) if row[x][3] > 8]
+	cable = sb.blank(max(columns) - min(columns) + 1, 1)
+	sb.blit(cable, sb.cut(cable_frame, min(columns), BOSS2_CABLE_ROW, len(cable[0]), 1), 0, 0, "cable")
+	if write:
+		sb.write_png(os.path.join(IND_OUT, BOSS2_OUT, "arm_cable.png"), cable)
+	print("  %s/arm_cable.png  %dx1（竖着平铺，按中心画）" % (BOSS2_OUT, len(cable[0])))
+
+
 def build_industrial(write):
 	if not os.path.isdir(IND_PACK):
 		sys.exit("找不到工业区敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(IND_PACK))
 	build_singles(write, IND_SINGLES, IND_PACK, IND_OUT)
 	build_flyer(write, "2_e", "5 Copter", IND_FLYER, IND_PACK, IND_OUT, IND_FLYER_BODY)
+	build_boss_operator(write)
 
 
 def main():
