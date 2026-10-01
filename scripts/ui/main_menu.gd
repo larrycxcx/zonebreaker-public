@@ -306,6 +306,9 @@ func _on_chosen(index: int) -> void:
 				get_tree().quit()
 				return
 			Session.set_player_count(index + 1)
+			# **按下这一下的那只手柄就是 1 号**，其余连着的往后排。
+			# Godot 的 device 号是按插入顺序给的，和玩家心里的「1 号手柄」没关系。
+			Session.claim_pads(Session.last_pad)
 			_seat = 0
 			_loaded.clear()
 			_show(Page.SOURCE)

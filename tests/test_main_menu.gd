@@ -13,6 +13,8 @@ func open_menu() -> void:
 	Progress.persist = false
 	Progress.new_game()
 	Session.set_player_count(1)
+	# 手柄绑定是改 InputMap 的，那是全局状态——上一条用例认领过的得还原
+	Session.reset_pads()
 	Skins.use(Skins.default_skin())
 	events.clear()
 	if not GameEvents.event_happened.is_connected(_record_event):
@@ -939,3 +941,124 @@ func test_playing_alone_is_never_locked_out_by_which_slot_the_pad_is_in() -> voi
 	await tap(&"p2_aim_down")
 	check("a pad in the second slot still drives the menu", menu._menu.index != at,
 		"%d -> %d" % [at, menu._menu.index])
+
+
+# ---------------------------------------------------------------- 哪只手柄是几号
+
+func test_the_pad_that_starts_the_game_becomes_player_one() -> void:
+	# **Godot 的 device 号是按插入顺序给的**，和玩家心里的「1 号手柄」没关系：
+	# 前一个槽被没拔干净的幽灵设备占着是常事，手里那只就成了 device 1。
+	# 写死「座位 0 ↔ device 0」的话，他在标题页（谁按都算）一切正常，
+	# 一到写着 PLAYER 1 的那页就按不动了，另一只手柄反而能动（2026-09 试玩报的）。
+	await open_menu()
+	check("setup: it starts on the project's own wiring",
+		Session.pad_of(0) == 0 and Session.pad_of(1) == 1,
+		"%d / %d" % [Session.pad_of(0), Session.pad_of(1)])
+	Session.claim_pads(1)
+	check("the pad that pressed becomes the first seat's", Session.pad_of(0) == 1,
+		str(Session.pad_of(0)))
+	check("and the first seat's buttons now listen to it",
+		_pad_devices(&"jump") == [1], str(_pad_devices(&"jump")))
+	# **键盘的键一个都不许碰**：它们的 `device` 是 -1（任意设备），
+	# 跟着改成某一只手柄的号就等于把键盘绑死在那只设备上
+	check("while the keyboard keys are untouched",
+		_key_devices(&"jump") == [-1], str(_key_devices(&"jump")))
+
+
+func test_claiming_a_pad_does_not_disturb_the_keyboard() -> void:
+	await open_menu()
+	var before := _has_key_event(&"move_left") and _has_key_event(&"p2_move_left")
+	Session.claim_pads(1)
+	check("setup: both seats had keyboard keys", before)
+	check("and they still do", _has_key_event(&"move_left") and _has_key_event(&"p2_move_left"))
+	check("still on any device", _key_devices(&"move_left") == [-1]
+		and _key_devices(&"p2_move_left") == [-1],
+		"%s / %s" % [_key_devices(&"move_left"), _key_devices(&"p2_move_left")])
+
+
+func test_a_keyboard_start_leaves_the_pads_alone() -> void:
+	# 用键盘开的局（`last_pad` 还是 -1）不该把手柄绑定搅乱
+	await open_menu()
+	Session.claim_pads(-1)
+	check("nothing moved", Session.pad_of(0) == 0 and Session.pad_of(1) == 1,
+		"%d / %d" % [Session.pad_of(0), Session.pad_of(1)])
+
+
+func test_the_title_hands_out_the_pads() -> void:
+	# 标题页选完几个人玩那一下就认领——那是第一个「谁按的」有意义的时刻
+	await open_menu()
+	Session.last_pad = 1
+	await choose(0)                       # 1 PLAYER
+	check("leaving the title claims the pad that was pressing", Session.pad_of(0) == 1,
+		str(Session.pad_of(0)))
+
+
+func test_resetting_puts_the_pads_back() -> void:
+	# InputMap 是全局状态，每条用例跑完要还原（`GameTest.reset_scene()` 里调）
+	await open_menu()
+	Session.claim_pads(1)
+	check("setup: it moved", Session.pad_of(0) == 1)
+	Session.reset_pads()
+	check("reset puts it back", Session.pad_of(0) == 0 and Session.pad_of(1) == 1,
+		"%d / %d" % [Session.pad_of(0), Session.pad_of(1)])
+	check("and the buttons follow", _pad_devices(&"jump") == [0], str(_pad_devices(&"jump")))
+
+
+## 这个动作上的手柄事件各绑在哪只手柄上（排好序，去掉重复）。
+func _pad_devices(action: StringName) -> Array[int]:
+	var out: Array[int] = []
+	for event in InputMap.action_get_events(action):
+		if event is InputEventJoypadButton or event is InputEventJoypadMotion:
+			if not out.has(event.device):
+				out.append(event.device)
+	out.sort()
+	return out
+
+
+## 这个动作上的键盘事件各绑在哪个设备上（正常都是 -1 = 任意设备）。
+func _key_devices(action: StringName) -> Array[int]:
+	var out: Array[int] = []
+	for event in InputMap.action_get_events(action):
+		if event is InputEventKey and not out.has(event.device):
+			out.append(event.device)
+	out.sort()
+	return out
+
+
+## 这个动作上还有没有键盘的键。
+func _has_key_event(action: StringName) -> bool:
+	for event in InputMap.action_get_events(action):
+		if event is InputEventKey:
+			return true
+	return false
+
+
+func test_two_seats_never_share_one_pad() -> void:
+	# 只插了一只手柄又选了双人：1 号认领了它，2 号要是还绑在同一只上，
+	# 一个人动两个角色都动。认领时和原来占着它的那个座位**对换**。
+	await open_menu()
+	check("setup: the seats start on different pads", Session.pad_of(0) != Session.pad_of(1),
+		"%d / %d" % [Session.pad_of(0), Session.pad_of(1)])
+	Session.claim_pads(1)                 # 1 号认领了本来属于 2 号的那只
+	check("they still have one each", Session.pad_of(0) != Session.pad_of(1),
+		"%d / %d" % [Session.pad_of(0), Session.pad_of(1)])
+	check("and they simply swapped", Session.pad_of(0) == 1 and Session.pad_of(1) == 0,
+		"%d / %d" % [Session.pad_of(0), Session.pad_of(1)])
+	check("the buttons followed", _pad_devices(&"jump") == [1]
+		and _pad_devices(&"p2_jump") == [0],
+		"%s / %s" % [_pad_devices(&"jump"), _pad_devices(&"p2_jump")])
+
+
+func test_both_pads_can_still_pause_after_claiming() -> void:
+	# `pause` **故意绑了两只手柄的 Start**（两个玩家都能暂停）。
+	# 按座位一刀切地重绑会把它压成一只手柄——认领之后只剩一个人能暂停。
+	await open_menu()
+	check("setup: both pads start out able to pause", _pad_devices(&"pause") == [0, 1],
+		str(_pad_devices(&"pause")))
+	Session.claim_pads(1)
+	check("after claiming, two pads can still pause", _pad_devices(&"pause").size() == 2,
+		"%s，座位 %d / %d" % [_pad_devices(&"pause"), Session.pad_of(0), Session.pad_of(1)])
+	for seat in 2:
+		check("seat %d's pad is among them" % seat,
+			_pad_devices(&"pause").has(Session.pad_of(seat)), str(_pad_devices(&"pause")))
+	check("and the keyboard still pauses", _has_key_event(&"pause"))

@@ -67,6 +67,9 @@ func release_all_input() -> void:
 func reset_scene(keep_enemies := false, keep_walls := false, skin: SkinPack = null, players := 1,
 		scene := "res://scenes/main.tscn", stage: LevelInfo = null) -> void:
 	release_all_input()
+	# **手柄绑定是改 InputMap 的**（`Session.claim_pads()`），那是全局状态：
+	# 哪条用例认领过手柄，不还原就会带进后面所有用例。
+	Session.reset_pads()
 	free_scene()
 	# 终极武器会暂停整棵树：用例中途出错、没等到恢复，也不能把暂停带进下一条用例。
 	tree.paused = false
