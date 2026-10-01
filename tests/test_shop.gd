@@ -493,3 +493,63 @@ func test_unlimited_ammo_is_left_off_the_list() -> void:
 	check("and it does say how many it holds",
 		me.weapon_numbers(ultimate).get(&"ammo", -1.0) == float(ultimate.max_ammo),
 		str(me.weapon_numbers(ultimate)))
+
+
+# ---------------------------------------------------------------- 防具的数字
+
+## 走到货架上第一件**不是武器**的东西（防具那几页）。
+func open_armour_tab() -> Equipment:
+	for tab in range(2, ShopColumn.TABS.size()):
+		column().show_tab(tab)
+		await frames(2)
+		if column().picked() != null:
+			return column().picked()
+	return null
+
+
+func test_armour_says_what_it_gives() -> void:
+	await open_shop()
+	var item := await open_armour_tab()
+	check("setup: there is armour on the shelves", item != null)
+	if item == null:
+		return
+	check("setup: it really has bonuses", not item.bonuses.is_empty(), str(item.bonuses))
+	var labels := _card_labels()
+	for stat: StringName in item.bonuses:
+		check("the card says what %s does to %s" % [item.display_name, stat],
+			labels.has(String(stat).substr(0, 3).to_upper()), str(labels))
+	close_shop()
+
+
+func test_a_maxed_out_character_still_sees_what_the_armour_gives() -> void:
+	# 属性有上限。满级玩家换一顶头盔四行全都「没变」，
+	# 「没变就不画」的话详情框整个空着，看着像这件装备什么用都没有（2026-09 试玩反馈）。
+	await open_shop()
+	var me := Progress.of(0)
+	for stat: StringName in Balance.STATS:
+		me.allocated[stat] = 999       # 顶到上限
+	var item := await open_armour_tab()
+	check("setup: there is armour on the shelves", item != null)
+	if item == null:
+		return
+	var capped := true
+	var after: Dictionary = me.stat_preview(item, true)
+	for stat: StringName in item.bonuses:
+		capped = capped and is_equal_approx(me.stat(stat), after.get(stat, 0.0))
+	check("setup: this character really is capped on everything it gives", capped,
+		"%s / %s" % [item.bonuses, after])
+	var labels := _card_labels()
+	for stat: StringName in item.bonuses:
+		check("the card still lists %s" % stat,
+			labels.has(String(stat).substr(0, 3).to_upper()), str(labels))
+	check("and marks it as maxed out", labels.has("MAX"), str(labels))
+	me.allocated.clear()
+	close_shop()
+
+
+## 详情框里现在写着哪些字（一行一个 Label）。
+func _card_labels() -> Array[String]:
+	var out: Array[String] = []
+	for node in column()._card.find_children("*", "Label", true, false):
+		out.append((node as Label).text)
+	return out

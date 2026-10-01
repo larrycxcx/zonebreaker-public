@@ -849,3 +849,35 @@ func test_finishing_the_last_seat_starts_the_level() -> void:
 	tree.unload_current_scene()
 	main = null
 	menu = null
+
+
+func test_the_shop_does_not_print_two_hints_on_top_of_each_other() -> void:
+	# 设置界面底下那行 `A CHOOSE  B BACK` 和商店那行 `A CHOOSE … B LEAVE` 在**同一个 y**，
+	# 两行居中的字叠在一起会糊成一团（2026-09 试玩截图看出来的，无头测试量不到位置重叠，
+	# 所以守的是「商店开着时只剩一行在显示」）。
+	await reach_setup(2)
+	var setup := menu.setup()
+	var hints := _visible_hints(setup)
+	check("setup: the setup screen has its own hint", hints.size() == 1, str(hints))
+	setup._open_shop()
+	await frames(2)
+	check("the shop is open", setup.shop() != null)
+	hints = _visible_hints(setup)
+	check("and only one hint is showing", hints.size() == 1, str(hints))
+	check("the one that belongs to the shop",
+		hints.size() == 1 and hints[0].contains("LEAVE"), str(hints))
+	setup._close_shop()
+	await frames(2)
+	hints = _visible_hints(setup)
+	check("closing it brings the other one back",
+		hints.size() == 1 and hints[0].contains("BACK"), str(hints))
+
+
+## 现在屏幕上**看得见的**那几行操作提示（设置界面一行、商店一行，都贴在画面底边）。
+func _visible_hints(setup: SetupScreen) -> Array[String]:
+	var out: Array[String] = []
+	for node in setup.find_children("*", "Label", true, false):
+		var label := node as Label
+		if label.is_visible_in_tree() and label.text.contains("A CHOOSE"):
+			out.append(label.text)
+	return out

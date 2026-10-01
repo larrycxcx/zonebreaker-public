@@ -18,6 +18,8 @@ var _columns: Array[SetupColumn] = []
 var _stand_ins: Array[Player] = []
 ## 开着的商店（**整个界面共用一个**：两栏并排，谁按 SHOP 都是开这一个）。
 var _shop: ShopScreen
+## 底下那行操作提示。商店开着时要藏起来——商店自己也在同一个位置写一行。
+var _prompt: Label
 
 
 func _ready() -> void:
@@ -46,8 +48,9 @@ func build(seats: int, locked: Array[int] = []) -> void:
 		column.shop_requested.connect(_open_shop)
 		_columns.append(column)
 	_share_looks()
-	add_child(UiKit.label("A CHOOSE    B BACK", Rect2(0, screen.y - 16.0, screen.x, 16.0),
-		Color(0.74, 0.80, 0.92), UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_CENTER))
+	_prompt = UiKit.label("A CHOOSE    B BACK", Rect2(0, screen.y - 16.0, screen.x, 16.0),
+		Color(0.74, 0.80, 0.92), UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
+	add_child(_prompt)
 
 
 func columns() -> Array[SetupColumn]:
@@ -67,6 +70,10 @@ func _open_shop() -> void:
 		return
 	for column in _columns:
 		column.hide()
+	# **自己那行提示也要藏**：商店在同一个 y 上也写一行，两行居中的字叠在一起会糊成一团
+	# （2026-09 试玩截图看出来的，无头测试量不到）。
+	if is_instance_valid(_prompt):
+		_prompt.hide()
 	_shop = ShopScreen.new()
 	add_child(_shop)
 	_shop.build(_stand_ins)
@@ -77,6 +84,8 @@ func _close_shop() -> void:
 	if is_instance_valid(_shop):
 		_shop.queue_free()
 	_shop = null
+	if is_instance_valid(_prompt):
+		_prompt.show()
 	for column in _columns:
 		column.show()
 		# 商店就是用这一下 B 退出来的，同一帧这一层不该再吃一次（那会把整页退回去）

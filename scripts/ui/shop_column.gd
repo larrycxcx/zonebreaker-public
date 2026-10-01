@@ -353,11 +353,18 @@ func _draw_compare(item: Equipment) -> void:
 	for name: StringName in Balance.STATS:
 		var now := progress.stat(name)
 		var later: float = after.get(name, now)
-		if is_equal_approx(now, later) or line >= 3:
+		var changes := not is_equal_approx(now, later)
+		# **这件东西加了这一项就写出来，哪怕数字没动**：属性有上限，满级玩家换一顶头盔
+		# 四行全都「没变」，详情框整个空着，看着像这件装备什么用都没有（2026-09 试玩反馈）。
+		# 没动的那一行写 `MAX`，玩家才知道是顶到头了、不是装备没数值。
+		if not changes and not item.bonuses.has(name):
+			continue
+		if line >= 3:
 			continue
 		line += 1
 		_compare_row(String(name).substr(0, 3).to_upper(), now, later,
-			CARD_Y + 46.0 + (line - 1) * 14.0)
+			CARD_Y + 46.0 + (line - 1) * 14.0, false,
+			"" if changes else "MAX")
 
 
 ## 武器那几行的叫法。`RATE` 是每秒几发，`AMMO` 是弹药上限。
@@ -366,13 +373,16 @@ const GUN_LABELS := {&"damage": "DMG", &"rate": "RATE", &"ammo": "AMMO"}
 
 ## 一行「名字  现在 > 之后  差多少」。两个数一样就只写一个，不画箭头——
 ## 身上那个位置还空着的时候，写 `10 > 10  +0` 看着像它没用。
-func _compare_row(label: String, now: float, later: float, y: float, fractional := false) -> void:
+func _compare_row(label: String, now: float, later: float, y: float, fractional := false,
+		note := "") -> void:
 	var tint := UiKit.GREEN if later > now else (RED if later < now else UiKit.WHITE)
 	_card.add_child(UiKit.label(label, Rect2(_left, y, 40.0, 14.0), UiKit.DIM))
 	if is_equal_approx(now, later):
 		_card.add_child(UiKit.label(_number(later, fractional),
 			Rect2(_left + 34.0, y, 40.0, 14.0), UiKit.WHITE, UiKit.TEXT_SIZE,
 			HORIZONTAL_ALIGNMENT_RIGHT))
+		if not note.is_empty():
+			_card.add_child(UiKit.label(note, Rect2(_left + 80.0, y, 60.0, 14.0), UiKit.DIM))
 		return
 	_card.add_child(UiKit.label(_number(now, fractional), Rect2(_left + 34.0, y, 40.0, 14.0),
 		UiKit.WHITE, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT))
