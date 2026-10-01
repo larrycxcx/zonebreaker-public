@@ -352,3 +352,152 @@ func test_crouching_does_not_dodge_the_shark() -> void:
 	release_all_input()
 	check("ducking under it does not work", player.health < before,
 		"%d -> %d" % [before, player.health])
+
+
+# ---------------------------------------------------------------- 三种新打法
+
+func test_the_knifeman_winds_up_before_it_lunges() -> void:
+	# **蓄力那一下就是留给玩家的**：冲起来比玩家走路（180）快得多，跑是跑不掉的，
+	# 只能在它定住的那零点几秒里跳开。没有这段预兆就成了没法躲。
+	await reset_scene(false, true, pack())
+	var knife := spawn("res://scenes/enemy_3_a.tscn", Vector2(500, STAND_Y)) as EnemyLunger
+	knife.facing = -1
+	player.global_position = Vector2(420, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	await frames(4)
+	check("it is faster than the player can walk", knife.lunge_speed > player.move_speed,
+		"%.0f / %.0f" % [knife.lunge_speed, player.move_speed])
+	var winding := false
+	var dashing := false
+	for i in 120:
+		await tree.physics_frame
+		if knife.is_winding_up():
+			winding = true
+			check("it holds still while winding up", absf(knife.velocity.x) < 1.0,
+				"%.1f" % knife.velocity.x)
+		if knife.is_dashing():
+			dashing = true
+			break
+	check("it winds up first", winding)
+	check("then it goes", dashing)
+
+
+func test_the_lunge_commits_to_one_direction() -> void:
+	# 起手之后它认准那个方向冲出去，不跟着人转——跟着转的话「跳开就躲掉了」就没意义了
+	await reset_scene(false, true, pack())
+	var knife := spawn("res://scenes/enemy_3_a.tscn", Vector2(500, STAND_Y)) as EnemyLunger
+	knife.facing = -1
+	player.global_position = Vector2(420, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	for i in 120:
+		await tree.physics_frame
+		if knife.is_winding_up():
+			break
+	check("setup: winding up, facing the player", knife.is_winding_up() and knife.facing == -1)
+	player.global_position = Vector2(700, STAND_Y)      # 绕到背后
+	await frames(10)
+	check("it still goes the way it committed to", knife.facing == -1, str(knife.facing))
+
+
+func test_the_swordsman_leaps_over_things() -> void:
+	# 它是这一关唯一会主动越过地形的——矮墙挡不住它，躲在掩体后面慢慢打对它不管用
+	await reset_scene(false, true, pack())
+	var sword := spawn("res://scenes/enemy_3_c.tscn", Vector2(500, STAND_Y)) as EnemyLeaper
+	player.global_position = Vector2(420, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	await frames(4)
+	for i in 200:
+		await tree.physics_frame
+		if sword.is_leaping():
+			break
+	check("it leaps", sword.is_leaping())
+	# **高度要在起跳之后量**：上面那个循环是在变成「空中」那一帧就跳出来的，那会儿还没升起来
+	var highest: float = sword.global_position.y
+	for i in 60:
+		await tree.physics_frame
+		highest = minf(highest, sword.global_position.y)
+	check("and really gets off the ground", STAND_Y - highest > 20.0,
+		"%.0f" % (STAND_Y - highest))
+
+
+func test_stepping_aside_dodges_the_landing_slash() -> void:
+	# 落点在起跳那一刻就定了，人往旁边走一步那一刀就落空
+	await reset_scene(false, true, pack())
+	var sword := spawn("res://scenes/enemy_3_c.tscn", Vector2(500, STAND_Y)) as EnemyLeaper
+	sword.contact_damage = 0
+	player.global_position = Vector2(420, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	for i in 200:
+		await tree.physics_frame
+		if sword.is_leaping():
+			break
+	check("setup: it is in the air", sword.is_leaping())
+	var before: int = player.health
+	# **跑到另一边，而且要留在它够得着的范围里**：跑太远的话它就算会掉头也不会掉，
+	# 这条用例就什么都没测到（第一版放到 820，超出 `leap_range` 了）。
+	var behind: float = sword.global_position.x + 90.0
+	for i in 120:
+		await tree.physics_frame
+		player.global_position = Vector2(behind, STAND_Y)
+		player.health = 9999 if player.health > before else player.health
+		if not sword.is_leaping():
+			break
+	check("it does not turn round in mid air", sword.facing == -1, str(sword.facing))
+	check("the slash lands on nothing", player.health == before,
+		"%d -> %d" % [before, player.health])
+
+
+func test_the_brute_shrugs_off_shots_from_the_front() -> void:
+	# 胸甲和护肩都在身前：**从正面打伤害减半，从背后是全额**。
+	# 逼你绕后、跳过去、或者把手雷扔过它头顶（抛物线会落在它身后）。
+	await reset_scene(false, true, pack())
+	var brute := spawn("res://scenes/enemy_3_d.tscn", Vector2(500, STAND_Y)) as EnemyBrute
+	await frames(2)
+	check("it really has armour", brute.front_armour < 1.0, str(brute.front_armour))
+	# **朝向要在挨打那一刻定**：它会转过去朝着玩家走，`await` 一帧朝向就变了，
+	# 「正面」那一下会变成背后——第一版就是这么量反的。
+	player.global_position = Vector2(-4000, STAND_Y)
+	brute.facing = 1
+	var full: int = brute.health
+	brute.take_damage(40, Vector2(600, STAND_Y), player)        # 它面朝右，这是正面
+	var from_front: int = full - brute.health
+	brute.health = full
+	brute.take_damage(40, Vector2(400, STAND_Y), player)        # 背后
+	var from_behind: int = full - brute.health
+	check("a shot from the front is blunted", from_front < from_behind,
+		"正面 %d，背后 %d" % [from_front, from_behind])
+	check("and from behind it lands in full", from_behind == 40, str(from_behind))
+	check("the front hit matches the armour",
+		from_front == maxi(1, roundi(40 * brute.front_armour)), str(from_front))
+
+
+func test_the_brute_does_not_charge() -> void:
+	# 说好的「不冲锋」：它就是一堵慢慢压过来的墙，走位全在玩家手上
+	await reset_scene(false, true, pack())
+	var brute := spawn("res://scenes/enemy_3_d.tscn", Vector2(500, STAND_Y)) as EnemyBrute
+	check("it never moves faster than it walks", brute.charge_speed <= brute.move_speed,
+		"%.0f / %.0f" % [brute.charge_speed, brute.move_speed])
+	check("but it is slower than the player", brute.move_speed < player.move_speed,
+		"%.0f / %.0f" % [brute.move_speed, player.move_speed])
+	brute.facing = 1
+	player.global_position = Vector2(300, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	await frames(6)
+	check("and it still turns to come at you", brute.facing == -1, str(brute.facing))
+
+
+func test_armour_does_not_apply_to_damage_with_no_direction() -> void:
+	# 来源不明的（持续伤害、掉出关卡）不减——护甲挡的是打过来的东西，不是所有伤害
+	await reset_scene(false, true, pack())
+	var brute := spawn("res://scenes/enemy_3_d.tscn", Vector2(500, STAND_Y)) as EnemyBrute
+	await frames(2)
+	player.global_position = Vector2(-4000, STAND_Y)
+	brute.facing = 1
+	var full: int = brute.health
+	brute.take_damage(40)
+	check("an undirected hit lands in full", full - brute.health == 40, str(full - brute.health))
