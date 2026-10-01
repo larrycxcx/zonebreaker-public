@@ -37,6 +37,7 @@ const SUITES := {
 	"cyberpunk_fx": "res://tests/test_cyberpunk_fx.gd",
 	"cyberpunk_audio": "res://tests/test_cyberpunk_audio.gd",
 	"industrial": "res://tests/test_industrial.gd",
+	"bar_street": "res://tests/test_bar_street.gd",
 	"menus": "res://tests/test_menus.gd",
 	"main_menu": "res://tests/test_main_menu.gd",
 	"progression": "res://tests/test_progression.gd",

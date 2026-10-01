@@ -66,6 +66,43 @@ ZONES = {
 			"fountain": ("4 Animated objects/Fountain.png", 4),
 		},
 	},
+	# 第三关：酒吧街。地砖是 100 个独立文件，**这套是「街景立面」不是地形包**——
+	# 砖墙、窗、卷帘、遮阳棚，没有现成的「草皮地面」。所以挑的是：
+	# 地面 = 带木梁顶的砖墙（02）压在素砖（05）上；浮台 = **遮阳棚**（07/08/09 左中右，
+	# 在街上踩着店家的雨棚跳，正合这一关的题）；墙和堵块 = 卷帘门（59），
+	# 灰蓝色和棕色砖地分得开，而且「拉下来的卷帘」本身就是「此路不通」的意思。
+	# 背景用 Day：Night 那套只是整体去色变灰，黑描边的角色糊在里面看不清（和绿区当初一个毛病）。
+	"bar_street": {
+		"pack": "bar-street-tileset",
+		"out": "bar_street",
+		"tiles": "1 Tiles/Tiles_%02d.png",
+		"terrain": {"ground": [[2], [5]], "ledge": {"tiles": [[7, 8, 9]], "crop": 16},
+			"stone": [[59]]},
+		"backdrop_dir": "2 Background/Day",
+		"backdrop": {"sky": "1", "far": "2", "mid": "3", "near": "4", "street": "5"},
+		# **这套背景本来就浅**（淡蓝剪影），按工业区那个量混会褪成一片白；
+		# 而地砖是深棕 + 深蓝，对比本来就够，只需要把最远那两层往后推一点。
+		"haze": {"sky": 0.0, "far": 0.3, "mid": 0.18, "near": 0.08, "street": 0.0},
+		"props": {
+			"counter": ("3 Objects/Bar counter/1.png", 1),
+			"counter2": ("3 Objects/Bar counter/4.png", 1),
+			"cabinet": ("3 Objects/Bar cabinet/1.png", 1),
+			"cabinet2": ("3 Objects/Bar cabinet/5.png", 1),
+			"stool": ("3 Objects/Bar stool/1.png", 1),
+			"stool2": ("3 Objects/Bar stool/4.png", 1),
+			"sign": ("3 Objects/Signboards/1.png", 1),
+			"sign2": ("3 Objects/Signboards/3.png", 1),
+			"crate": ("3 Objects/Props/Prop_01.png", 1),
+			"keg": ("3 Objects/Props/Prop_06.png", 1),
+			"bin": ("3 Objects/Props/Prop_11.png", 1),
+			"bottle": ("3 Objects/Props/Prop_22.png", 1),
+			"bottle2": ("3 Objects/Props/Prop_24.png", 1),
+			"glass": ("3 Objects/Props/Prop_26.png", 1),
+			"glass2": ("3 Objects/Props/Prop_28.png", 1),
+			"card": ("4 Animated objects/Card.png", 8),
+			"money": ("4 Animated objects/Money.png", 6),
+		},
+	},
 	# 第二关：工业区。地砖是 81 个独立文件，编号 = 行 × 9 + 列 + 1。
 	# **背景第 1 层是底色不是天空**：2 才是天空（只画到地平线 y=247），
 	# 地平线以下露出第 1 层那片雾色，所以两层都不雾化。
