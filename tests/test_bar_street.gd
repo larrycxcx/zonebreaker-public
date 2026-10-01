@@ -34,8 +34,9 @@ func test_the_pack_brings_terrain_a_backdrop_and_its_own_track() -> void:
 	for key: StringName in mine.appearances:
 		keys.append(String(key))
 	keys.sort()
-	check("it declares the three terrains", keys == ["terrain_ground", "terrain_ledge", "terrain_stone"],
-		str(keys))
+	check("it declares the three terrains and this stage's enemies",
+		keys == ["3_a", "3_b", "3_c", "3_d", "3_e", "3_f",
+			"terrain_ground", "terrain_ledge", "terrain_stone"], str(keys))
 	check("and a backdrop of its own", mine.backdrop != null
 		and mine.backdrop.resource_path.contains("bar_street"), str(mine.backdrop))
 	check("sounds are left to the fallback", mine.sounds.is_empty(), str(mine.sounds.size()))
@@ -182,3 +183,172 @@ func test_this_zone_changes_nothing_about_the_rules() -> void:
 	for key: String in blocks:
 		check("%s is the same in this zone" % key, blocks[key] == street[key],
 			"方块 %s，酒吧街 %s" % [blocks[key], street[key]])
+
+
+# ---------------------------------------------------------------- 这一关的敌人
+
+## 皮肤键 → [帧宽, 帧高, 锚点 x, 锚点 y]。**3-E 的锚点往下挪了**：
+## 它趴在地上只有 11px 高，判定框 28×12，锚点不挪的话贴图会陷进地里。
+const ENEMIES := {
+	&"3_a": [80, 56, 40, 40],   # 刀客：蓄一下急冲去刺
+	&"3_b": [80, 56, 40, 40],   # 枪手：巡逻 + 射击 + 真斜射
+	&"3_c": [80, 56, 40, 40],   # 剑客：跳向玩家、落地横扫
+	&"3_d": [80, 56, 40, 40],   # 壮汉：正面扛伤害，不冲锋
+	&"3_e": [80, 56, 40, 49],   # 鲨鱼机：固定在地面，贴着地面开枪
+	&"3_f": [80, 56, 40, 40],   # 炮车：慢速移动的炮台
+}
+const STAND_Y := 304.0
+
+
+func sheet(key: StringName, clip: String, side := "r") -> Image:
+	return (load("%s/enemies/%s/%s_%s.png" % [ART, key, clip, side]) as Texture2D).get_image()
+
+
+func has_clip(key: StringName, clip: String) -> bool:
+	return ResourceLoader.exists("%s/enemies/%s/%s_r.png" % [ART, key, clip])
+
+
+func spawn(scene_path: String, at: Vector2) -> Enemy:
+	var enemy := (load(scene_path) as PackedScene).instantiate() as Enemy
+	main.get_node("Enemies").add_child(enemy)
+	enemy.global_position = at
+	return enemy
+
+
+func test_every_enemy_the_pack_names_really_has_art() -> void:
+	var mine := pack()
+	for key: StringName in ENEMIES:
+		var scene := mine.appearances.get(key) as PackedScene
+		check("%s is registered" % key, scene != null)
+		check("%s has an idle, a hurt and a death" % key,
+			has_clip(key, "idle") and has_clip(key, "hurt") and has_clip(key, "death"))
+		var spec: Array = ENEMIES[key]
+		var img := sheet(key, "idle")
+		check("%s draws at %dx%d" % [key, spec[0], spec[1]],
+			img.get_height() == spec[1] and img.get_width() % spec[0] == 0,
+			"%dx%d" % [img.get_width(), img.get_height()])
+
+
+func test_the_art_is_mirrored_left_and_right() -> void:
+	for key: StringName in ENEMIES:
+		var spec: Array = ENEMIES[key]
+		var right := sheet(key, "idle")
+		var left := sheet(key, "idle", "l")
+		var wrong := 0
+		for y in right.get_height():
+			for x in right.get_width():
+				var frame := x / int(spec[0])
+				var within := x % int(spec[0])
+				var sx := frame * int(spec[0]) + 2 * int(spec[2]) - within
+				if sx < 0 or sx >= right.get_width() or sx / int(spec[0]) != frame:
+					continue
+				if right.get_pixel(x, y) != left.get_pixel(sx, y):
+					wrong += 1
+		check("%s mirrors about its anchor" % key, wrong == 0, "%d 个像素对不上" % wrong)
+
+
+func test_everyone_stands_on_the_same_line() -> void:
+	# 脚底落在锚点下方 16px（生成脚本的约定）。**3-E 的锚点另算**：
+	# 它的贴图照样是脚底在帧底边，只是外观场景把锚点往下挪了，好对上矮判定框。
+	for key: StringName in ENEMIES:
+		var spec: Array = ENEMIES[key]
+		var img := sheet(key, "idle")
+		var lowest := -1
+		for y in img.get_height():
+			for x in int(spec[0]):
+				if img.get_pixel(x, y).a > 0.0:
+					lowest = y
+					break
+		check("%s has its feet on the generator's ground line" % key, lowest == 40 + 16 - 1,
+			"最低一行 y=%d" % lowest)
+
+
+func test_the_gunman_brings_real_diagonal_art() -> void:
+	# **第二关 2-C 缺的就是这个**：那套素材只画了水平开火，斜着打时画面是水平端枪的。
+	# 这一关的枪手自带三个角度，所以规则和画面终于对得上。
+	check("it has a level firing pose", has_clip(&"3_b", "attack_level"))
+	check("and one for aiming up", has_clip(&"3_b", "attack_up"))
+	check("and one for aiming down", has_clip(&"3_b", "attack_down"))
+	# 三组得真的不一样（照搬同一张的话等于没画）
+	var level := sheet(&"3_b", "attack_level").get_data()
+	check("the three are really different poses",
+		sheet(&"3_b", "attack_up").get_data() != level
+		and sheet(&"3_b", "attack_down").get_data() != level)
+
+
+func test_the_ones_that_fight_have_the_frames_their_behaviour_needs() -> void:
+	check("3-A has a charging pose for its lunge", has_clip(&"3_a", "run"))
+	check("3-C has an airborne pose for its leap", has_clip(&"3_c", "air"))
+	check("3-E has a firing pose", has_clip(&"3_e", "attack_level"))
+	check("but no walk — it is bolted to the ground", not has_clip(&"3_e", "walk"))
+	check("3-F has a firing pose", has_clip(&"3_f", "attack_level"))
+
+
+# ---------------------------------------------------------------- 接上去的三种
+
+func test_the_gunman_patrols_and_shoots_off_the_level() -> void:
+	await reset_scene(false, true, pack())
+	var gun := spawn("res://scenes/enemy_3_b.tscn", Vector2(500, STAND_Y))
+	gun.facing = -1
+	player.global_position = Vector2(380, STAND_Y)
+	snap_camera()
+	await frames(4)
+	check("it can aim off the level", gun.can_aim_diagonally)
+	var stood := player.global_position
+	player.global_position = stood + Vector2(0, -104)
+	check("a player up on a ledge is a diagonal target",
+		gun.aim_for(player) == Enemy.Aim.DIAGONAL_UP, str(gun.aim_for(player)))
+	player.global_position = stood
+	var fired: Array[int] = []
+	gun.shot_fired.connect(func() -> void: fired.append(1))
+	await frames(180)
+	check("and it really fires", not fired.is_empty(), str(fired.size()))
+
+
+func test_the_cannon_is_a_turret_on_wheels() -> void:
+	await reset_scene(false, true, pack())
+	var cannon := spawn("res://scenes/enemy_3_f.tscn", Vector2(500, STAND_Y)) as EnemyWalker
+	check("it moves, but slowly", cannon.move_speed > 0.0 and cannon.move_speed < 60.0,
+		str(cannon.move_speed))
+	check("it fires a burst", cannon.burst_max >= 2, str(cannon.burst_max))
+	# **只打水平**：这套素材没画斜射，开了的话画面又会对不上（第二关 2-C 那个毛病）
+	check("and only straight ahead, because it has no diagonal art",
+		not cannon.can_aim_diagonally)
+	check("setup: it really has no diagonal art", not has_clip(&"3_f", "attack_up"))
+
+
+func test_the_shark_is_bolted_down_and_fires_along_the_floor() -> void:
+	# **这一关的新规矩**：现有的敌人站着开枪，子弹离地 21~25，趴下能躲过。
+	# 这个贴着地面打，**趴下躲不掉，只能跳过去**——正好反过来。
+	await reset_scene(false, true, pack())
+	var shark := spawn("res://scenes/enemy_3_e.tscn", Vector2(500, STAND_Y)) as Enemy
+	await frames(4)
+	var box := shark.get_node("CollisionShape2D") as CollisionShape2D
+	var size := (box.shape as RectangleShape2D).size
+	check("it is a low thing", size.y <= 16.0, str(size))
+	check("it never walks", not (shark is EnemyWalker))
+	var floor_y: float = shark.global_position.y + size.y / 2.0
+	var muzzle: float = shark.level_muzzle_position().y
+	check("and its gun hugs the floor", floor_y - muzzle < Player.CROUCH_HEIGHT,
+		"离地 %.0f，趴下高 %.0f" % [floor_y - muzzle, Player.CROUCH_HEIGHT])
+
+
+func test_crouching_does_not_dodge_the_shark() -> void:
+	await reset_scene(false, true, pack())
+	var shark := spawn("res://scenes/enemy_3_e.tscn", Vector2(560, STAND_Y))
+	shark.contact_damage = 0
+	player.global_position = Vector2(360, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	await frames(4)
+	Input.action_press("crouch")
+	await frames(10)
+	check("setup: the player really is prone", player.is_crouching)
+	var before: int = player.health
+	for i in 240:
+		await tree.physics_frame
+		if player.health < before:
+			break
+	release_all_input()
+	check("ducking under it does not work", player.health < before,
+		"%d -> %d" % [before, player.health])

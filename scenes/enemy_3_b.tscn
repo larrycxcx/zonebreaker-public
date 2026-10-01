@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/enemy_walker.tscn" id="1"]
+
+[node name="EnemyGunman" instance=ExtResource("1")]
+skin_key = &"3_b"
+max_health = 24
+contact_damage = 44
+detect_range = 400.0
+can_aim_diagonally = true
+diagonal_up_muzzle = Vector2(14, -19)
+diagonal_down_muzzle = Vector2(17, 2)
+xp_reward = 13
+money_reward = 6
+
+[node name="Muzzle" parent="." index="3"]
+position = Vector2(18, -12)
+
+[node name="Body" parent="Visual" index="0"]
+color = Color(0.55, 0.3, 0.35, 1)

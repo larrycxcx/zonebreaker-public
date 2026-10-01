@@ -288,12 +288,22 @@ def build_walkers(write):
 			save(variant, "%s_l.png" % name, [mirror(f) for f in right], write)
 
 
+## 整帧内容的横向中心。**不是人形的那些用它**（趴在地上的鲨鱼机、带轮子的炮车）：
+## `sb.torso_center()` 量的是「头 + 上半身」那条带，矮趴趴的东西在那几行里一个像素都没有。
+def box_center(frame):
+	xs = [x for row in frame for x, c in enumerate(row) if c[3] > 8]
+	return (min(xs) + max(xs)) / 2.0
+
+
 def build_singles(write, singles=None, pack=None, out=None):
-	"""一个素材出一种敌人：动作直接对上，整个角色按一帧的躯干定一次位。"""
-	for name, (number, anchor_clip, table) in (singles if singles else SINGLES).items():
+	"""一个素材出一种敌人：动作直接对上，整个角色按一帧定一次位。
+	表里第四个值是「按什么定位」：`torso`（默认，人形）或 `box`（按整帧外框，矮趴趴的那些）。"""
+	for name, entry in (singles if singles else SINGLES).items():
+		number, anchor_clip, table = entry[0], entry[1], entry[2]
+		how = entry[3] if len(entry) > 3 else "torso"
 		folder = os.path.join(pack if pack else PACK, number)
 		clips = {clip: frames_of(os.path.join(folder, f), idx) for clip, (f, idx) in table.items()}
-		anchor_x = sb.torso_center(clips[anchor_clip][0])
+		anchor_x = sb.torso_center(clips[anchor_clip][0]) if how == "torso" 			else box_center(clips[anchor_clip][0])
 		for clip, frames in clips.items():
 			right = [place(f, anchor_x, "%s %s" % (name, clip)) for f in frames]
 			save(name, "%s_r.png" % clip, right, write, out)
@@ -564,6 +574,72 @@ def build_boss_operator(write):
 	print("  %s/arm_cable.png  %dx1（竖着平铺，按中心画）" % (BOSS2_OUT, len(cable[0])))
 
 
+# ---------------------------------------------------------------- 酒吧街（第三关）
+# 素材 CraftPix Bar Street Enemies（不进仓库）。格式还是 48×48、脚底在帧底边，
+# 所以六个全部走 `build_singles`——这一关没有会飞的（5 号鲨鱼机**固定在地面**，贴着地面开枪）。
+#
+# **2 号枪手自带三个瞄准角度**（Attack1 水平 / Attack2 斜上 / Attack3 斜下），
+# 正好对上引擎已有的 `attack_level` / `attack_up` / `attack_down`——
+# 第二关那个 2-C 缺的就是这套，所以它斜着打时画面是水平端枪的（见「工业区素材包」）。
+BAR_PACK = os.path.join(HERE, "..", "art_in", "default", "bar-street-tileset", "enemies")
+BAR_OUT = os.path.join(HERE, "..", "skins", "bar_street", "enemies")
+BAR_SINGLES = {
+	# 3-A 刀客：蓄一下然后急冲一段去刺。冲的那一段用走路那组放快（`run` 12fps）。
+	"3_a": ("1", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"run": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3, 4, 5]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+	# 3-B 枪手：巡逻 + 射击 + **真斜射**（三个角度都是素材自带的）。
+	"3_b": ("2", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack1.png", [0, 1, 2, 3]),
+		"attack_up": ("Attack2.png", [0, 1, 2, 3]),
+		"attack_down": ("Attack3.png", [0, 1, 2, 3]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+	# 3-C 剑客：跳向玩家、落地横扫。**空中用挥剑那组第 1 帧**（举剑的姿势），
+	# 素材没有专门的跳跃帧，拿走路那组当空中会看着像在平地上溜。
+	"3_c": ("3", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"air": ("Attack.png", [0]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3, 4, 5]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3]),
+	}),
+	# 3-D 壮汉：正面扛伤害的那个，走得不快、也不冲锋。
+	"3_d": ("4", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3, 4, 5]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+	# 3-E 鲨鱼机：**固定在地面**，贴着地面开枪。不走路，所以 `walk` 不取。
+	# 它只有 11px 高，趴在地上——按「躯干」定位的话那条带里一个像素都没有，所以按外框居中。
+	"3_e": ("5", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}, "box"),
+	# 3-F 炮车：带轮子的炮台，走得很慢，停下来打一串。
+	"3_f": ("6", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3, 4, 5]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3]),
+	}),
+}
+
+
 def build_industrial(write):
 	if not os.path.isdir(IND_PACK):
 		sys.exit("找不到工业区敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(IND_PACK))
@@ -572,9 +648,20 @@ def build_industrial(write):
 	build_boss_operator(write)
 
 
+def build_bar_street(write):
+	if not os.path.isdir(BAR_PACK):
+		sys.exit("找不到酒吧街敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(BAR_PACK))
+	build_singles(write, BAR_SINGLES, BAR_PACK, BAR_OUT)
+
+
 def main():
 	write = "--check" not in sys.argv
 	only = [a for a in sys.argv[1:] if not a.startswith("--")]
+	if only == ["bar_street"]:
+		print("酒吧街（第三关）的六种敌人：")
+		build_bar_street(write)
+		_report(write)
+		return
 	if only == ["industrial"]:
 		print("工业区（第二关）的六种敌人：")
 		build_industrial(write)
@@ -594,6 +681,8 @@ def main():
 	build_flyer(write)
 	print("工业区（第二关）的六种敌人：")
 	build_industrial(write)
+	print("酒吧街（第三关）的六种敌人：")
+	build_bar_street(write)
 	_report(write)
 
 

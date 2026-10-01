@@ -1,0 +1,21 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/enemy_walker.tscn" id="1"]
+
+[node name="EnemyCannon" instance=ExtResource("1")]
+skin_key = &"3_f"
+max_health = 73
+contact_damage = 44
+move_speed = 40.0
+detect_range = 400.0
+fire_interval = 2.0
+burst_min = 2
+burst_max = 3
+xp_reward = 31
+money_reward = 15
+
+[node name="Muzzle" parent="." index="3"]
+position = Vector2(18, -9)
+
+[node name="Body" parent="Visual" index="0"]
+color = Color(0.75, 0.45, 0.25, 1)
