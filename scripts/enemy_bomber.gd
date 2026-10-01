@@ -10,13 +10,18 @@ extends EnemyChaser
 ## 大小取 `blast_radius`（和手雷、终极武器同一套）。
 
 @export_group("Self destruct")
+## 炸谁那一层（玩家是第 2 层）。和手雷的 `target_layer` 一个意思。
+@export_flags_2d_physics var target_layer := 2
 ## 玩家进到这个距离（直线）就点火。
 @export var fuse_range := 36.0
 ## 点火到爆炸隔多久。
 @export var fuse_time := 0.6
-## 爆炸半径和伤害。**中心到玩家之间被实心物体挡住就不受伤**，和手雷同一条规则。
-@export var blast_radius := 48.0
-@export var blast_damage := 60
+## **爆炸和手雷完全是同一套**（`Blast`）：中心 `blast_max_damage`、边缘 `blast_min_damage` 线性衰减，
+## 中间被实心物体挡住就炸不到。半径也和手雷一样——它本来就是「自己当一颗手雷」。
+## 所以躲的办法是**离远点**，不是硬扛：引信那零点几秒足够跑出半径（玩家走路 180，0.6 秒 108px）。
+@export var blast_radius := 56.0
+@export var blast_max_damage := 126
+@export var blast_min_damage := 42
 
 ## 点火了没有，以及还剩多久炸。
 var _lit := false
@@ -55,14 +60,13 @@ func _light_the_fuse() -> void:
 	_visual.fire()
 
 
-## 炸：范围内、且中间没被实心物体挡住的玩家挨打，然后自己没了。
+## 炸：和手雷走同一套（`Blast`），然后自己没了。
+## **`target_layer` 是玩家那一层**，所以炸不到自己人、也炸不到别的敌人。
 func _detonate() -> void:
 	var at := body_center()
-	var space := get_world_2d().direct_space_state
-	for player in players_by_distance():
-		var to := player.body_center()
-		if at.distance_to(to) > blast_radius or not Sight.is_clear(space, at, to):
-			continue
-		player.take_damage(roundi(blast_damage * Stage.damage_scale()), at, self)
+	for victim in Blast.victims(get_world_2d().direct_space_state, at, blast_radius, target_layer):
+		var hurt := Blast.damage_at(at.distance_to(victim.global_position),
+			blast_radius, blast_max_damage, blast_min_damage)
+		victim.take_damage(roundi(hurt * Stage.damage_scale()), at, self)
 	GameEvents.report(&"explosion", self)
 	die()

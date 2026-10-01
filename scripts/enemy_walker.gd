@@ -25,11 +25,11 @@ func _physics_process(delta: float) -> void:
 	var target := _target_in_front()
 	# 趴下、斜向瞄准、以及**正在和玩家交火**时都站在原地打。
 	var standing_still := is_prone or is_aiming_diagonally() or is_engaged(target)
-	velocity.x = 0.0 if standing_still else move_speed * facing
+	velocity.x = 0.0 if standing_still else walk_speed() * facing
 	move_and_slide()
 	_report_motion()
 
-	if not standing_still and _should_turn_around():
+	if not standing_still and patrolling() and _should_turn_around():
 		facing = -facing
 		_apply_facing()
 
@@ -37,6 +37,17 @@ func _physics_process(delta: float) -> void:
 	# 只在玩家和自己差不多高时才跟着趴下；斜着往下打的时候保持站立。
 	update_prone(delta, target if not is_aiming_diagonally() else null)
 	try_shoot(delta, ready)
+
+
+## 这一帧朝 `facing` 那边走多快。默认就是巡逻速度；**冲向玩家的子类覆盖它**（2-D 抡锤的那个）。
+func walk_speed() -> float:
+	return move_speed
+
+
+## 这一帧要不要按巡逻规则在悬崖、墙前掉头。默认要；
+## 冲向玩家的时候不掉头——朝向那会儿是冲着人的，掉头会让它在悬崖边上来回抽。
+func patrolling() -> bool:
+	return true
 
 
 ## 正在跟玩家交火吗：交上火就站定原地打，不再巡逻，直到玩家离开视野。

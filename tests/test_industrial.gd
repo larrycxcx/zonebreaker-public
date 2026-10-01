@@ -44,8 +44,9 @@ func test_the_pack_brings_its_own_terrain_and_a_backdrop() -> void:
 			"terrain_ground", "terrain_ledge", "terrain_stone"], str(keys))
 	check("and a backdrop of its own", mine.backdrop != null
 		and mine.backdrop.resource_path.contains("industrial"), str(mine.backdrop))
-	check("sounds and music are left to the fallback", mine.sounds.is_empty() and mine.music.is_empty(),
-		"%d sounds, %d tracks" % [mine.sounds.size(), mine.music.size()])
+	check("sounds are left to the fallback", mine.sounds.is_empty(), str(mine.sounds.size()))
+	# **关卡那首是这一关独有的**，Boss 那首和音效照旧顺着 fallback 拿
+	check("but it brings its own level music", mine.music.has(&"level"), str(mine.music.keys()))
 
 
 func test_everything_else_comes_from_the_pack_behind_it() -> void:
@@ -906,3 +907,149 @@ func test_the_fan_is_still_dodgeable() -> void:
 		boss.enrage_fan_spread >= 12.0, str(boss.enrage_fan_spread))
 	check("and there are only a few of them", boss.enrage_fan_count <= 3
 		and boss.enrage_fan_count >= 2, str(boss.enrage_fan_count))
+
+
+# ---------------------------------------------------------------- 这一关的音乐
+
+func test_the_zone_has_a_track_of_its_own() -> void:
+	Skins.use(pack())
+	var track := Skins.music(&"level")
+	check("there is level music", track != null)
+	if track == null:
+		return
+	check("it belongs to this zone", track.resource_path.begins_with(ART), track.resource_path)
+	# **循环的曲子必须是 OGG**：MP3 编码器会在开头结尾各补一小段静音，转一圈能听出来接缝
+	check("and it is an ogg, so the loop is seamless", track is AudioStreamOggVorbis,
+		track.get_class())
+	check("the boss track still comes from the pack behind it",
+		Skins.music(&"boss") != null and Skins.music(&"boss").resource_path.contains("cyberpunk"),
+		str(Skins.music(&"boss")))
+
+
+func test_each_zone_plays_its_own_music() -> void:
+	# 两个区的关卡曲子得真的不一样——登记错了的话第二关会放第一关那首
+	Skins.use(pack())
+	var mine := Skins.music(&"level")
+	Skins.use(load("res://skins/cyberpunk/cyberpunk_skin.tres") as SkinPack)
+	var theirs := Skins.music(&"level")
+	check("setup: both zones have one", mine != null and theirs != null)
+	check("and they are different tracks", mine != theirs,
+		"%s vs %s" % [mine.resource_path if mine else "", theirs.resource_path if theirs else ""])
+
+
+# ---------------------------------------------------------------- 自爆的伤害
+
+func test_the_alarmobot_blast_falls_off_like_a_grenade() -> void:
+	# 「和手雷一样」：中心满伤害，边缘只擦一下——躲的办法是**离远点**，不是硬扛。
+	await reset_scene(false, true, pack())
+	var bot := spawn("res://scenes/enemy_2_f.tscn", Vector2(500, STAND_Y)) as EnemyBomber
+	check("it uses the same blast rule as a grenade",
+		bot.blast_max_damage > bot.blast_min_damage, "%d / %d"
+			% [bot.blast_max_damage, bot.blast_min_damage])
+	var centre := Blast.damage_at(0.0, bot.blast_radius, bot.blast_max_damage, bot.blast_min_damage)
+	var edge := Blast.damage_at(bot.blast_radius, bot.blast_radius,
+		bot.blast_max_damage, bot.blast_min_damage)
+	check("dead centre hurts most", centre == bot.blast_max_damage, str(centre))
+	check("the edge only grazes", edge == bot.blast_min_damage, str(edge))
+	check("and it tails off in between",
+		Blast.damage_at(bot.blast_radius / 2.0, bot.blast_radius,
+			bot.blast_max_damage, bot.blast_min_damage) < centre)
+
+
+func test_standing_at_the_edge_of_the_blast_hurts_less_than_hugging_it() -> void:
+	# **两档都要在接触范围（26px）之外**：贴在它身上的话每帧挨一次接触判定，
+	# 无敌帧还没过爆炸就来了，量到的是 0。它点火的距离（36）本来就在接触范围之外，
+	# 所以正常打起来不会出现「贴着反而不疼」。
+	# **而且要先点火再摆玩家**：它冲得很快（220px/s，两帧就贴上来了），
+	# 先摆玩家的话它会自己冲到跟前，两档量出来是同一个距离。
+	var taken := []
+	for gap: float in [28.0, 54.0]:
+		await reset_scene(false, true, pack())
+		var bot := spawn("res://scenes/enemy_2_f.tscn", Vector2(500, STAND_Y)) as EnemyBomber
+		bot.contact_damage = 0
+		player.global_position = Vector2(-2000, STAND_Y)     # 先支开，免得它冲过来
+		snap_camera()
+		await frames(2)
+		bot._light_the_fuse()                                # 点了火它就站住不动了
+		var stood: float = bot.global_position.x
+		player.global_position = Vector2(stood - gap, STAND_Y)
+		player.health = 9999
+		snap_camera()
+		var before: int = player.health
+		for i in 120:
+			await tree.physics_frame
+			player.global_position = Vector2(stood - gap, STAND_Y)
+			if gone(bot):
+				break
+		taken.append(before - player.health)
+	check("setup: both got hit", taken[0] > 0 and taken[1] > 0, str(taken))
+	check("close in hurts much more than standing at the edge", taken[0] > taken[1] + 20,
+		"近处 %d，边缘 %d" % [taken[0], taken[1]])
+
+
+func test_the_blast_cannot_reach_through_a_wall() -> void:
+	# 和手雷同一条：中心到目标之间被实心物体挡住就炸不到
+	await reset_scene(false, true, pack())
+	var bot := spawn("res://scenes/enemy_2_f.tscn", Vector2(500, STAND_Y)) as EnemyBomber
+	bot.contact_damage = 0
+	add_wall(480.0, 56.0)
+	player.global_position = Vector2(462, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	await frames(2)
+	var before: int = player.health
+	bot._light_the_fuse()
+	for i in 120:
+		await tree.physics_frame
+		player.global_position = Vector2(462, STAND_Y)
+		if gone(bot):
+			break
+	check("setup: it went off", gone(bot))
+	check("but the wall took it", player.health == before, "%d -> %d" % [before, player.health])
+
+
+# ---------------------------------------------------------------- 锤子会冲过来
+
+func test_the_hammer_charges_at_you() -> void:
+	# 原来它只按巡逻速度溜达，玩家站着不动都挨不到——没什么威胁（2026-09 试玩反馈）
+	await reset_scene(false, true, pack())
+	var hammer := spawn("res://scenes/enemy_2_d.tscn", Vector2(500, STAND_Y)) as EnemyHammer
+	hammer.facing = 1                      # 背对玩家：它要**转过来**才算数
+	player.global_position = Vector2(300, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	await frames(4)
+	check("it turns to face you", hammer.facing == -1, str(hammer.facing))
+	check("and it is charging", hammer.is_charging())
+	var gap: float = absf(hammer.global_position.x - player.global_position.x)
+	await frames(40)
+	var closed: float = absf(hammer.global_position.x - player.global_position.x)
+	check("it closes the distance", closed < gap - 40.0, "%.0f -> %.0f" % [gap, closed])
+
+
+func test_the_charge_is_slower_than_walking_away() -> void:
+	# 和 D 一个道理：走开追不上，它只能逼你且战且退——不然就成了甩不掉的狗皮膏药
+	await reset_scene(false, true, pack())
+	var hammer := spawn("res://scenes/enemy_2_d.tscn", Vector2(500, STAND_Y)) as EnemyHammer
+	check("charging is faster than patrolling", hammer.charge_speed > hammer.move_speed,
+		"%.0f / %.0f" % [hammer.charge_speed, hammer.move_speed])
+	check("but slower than the player walks", hammer.charge_speed < player.move_speed,
+		"%.0f / %.0f" % [hammer.charge_speed, player.move_speed])
+
+
+func test_it_does_not_track_you_mid_swing() -> void:
+	# 抡到一半还跟着人转的话，「起手之后退开就躲掉了」这条就没意义了
+	await reset_scene(false, true, pack())
+	var hammer := spawn("res://scenes/enemy_2_d.tscn", Vector2(500, STAND_Y)) as EnemyHammer
+	hammer.contact_damage = 0
+	hammer.facing = -1
+	player.global_position = Vector2(500 - hammer.smash_range + 8.0, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	await frames(6)
+	await fresh_swing(hammer)
+	check("setup: mid swing", hammer.is_swinging())
+	player.global_position = Vector2(700, STAND_Y)     # 绕到背后
+	await frames(4)
+	check("it stops hunting while it swings", not hammer.is_charging())
+	check("it does not spin round to follow", hammer.facing == -1, str(hammer.facing))

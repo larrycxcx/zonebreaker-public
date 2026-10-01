@@ -96,24 +96,12 @@ func explode(direct_hit: Node2D = null) -> void:
 		return
 	exploded = true
 	GameEvents.report(&"explosion", self)
+	# 炸得到谁、怎么衰减都在 `Blast` 里，自爆的机器人用的是同一套
 	var space := get_world_2d().direct_space_state
-	var circle := CircleShape2D.new()
-	circle.radius = blast_radius
-	var query := PhysicsShapeQueryParameters2D.new()
-	query.shape = circle
-	query.transform = Transform2D(0.0, global_position)
-	query.collision_mask = target_layer
-	for hit in space.intersect_shape(query, 32):
-		var victim := hit["collider"] as Node2D
-		if victim == null or not victim.has_method("take_damage"):
-			continue
-		if victim is Enemy and (victim as Enemy).health <= 0:
-			continue
-		# 隔着墙炸不到：从爆炸中心到目标之间要没有实心物体。
-		if Sight.is_clear(space, global_position, victim.global_position):
-			victim.take_damage(damage_at(victim, direct_hit), global_position, shooter)
-			if status != null and victim.has_method(&"apply_status"):
-				victim.apply_status(status)
+	for victim in Blast.victims(space, global_position, blast_radius, target_layer):
+		victim.take_damage(damage_at(victim, direct_hit), global_position, shooter)
+		if status != null and victim.has_method(&"apply_status"):
+			victim.apply_status(status)
 	queue_free()
 
 
@@ -121,5 +109,5 @@ func explode(direct_hit: Node2D = null) -> void:
 func damage_at(victim: Node2D, direct_hit: Node2D = null) -> int:
 	if victim == direct_hit:
 		return max_damage
-	var falloff := clampf(global_position.distance_to(victim.global_position) / blast_radius, 0.0, 1.0)
-	return roundi(lerpf(max_damage, min_damage, falloff))
+	return Blast.damage_at(global_position.distance_to(victim.global_position),
+		blast_radius, max_damage, min_damage)

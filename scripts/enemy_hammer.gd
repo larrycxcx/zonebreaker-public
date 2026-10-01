@@ -9,6 +9,13 @@ extends EnemyWalker
 ## 画面上锤子还举在半空人就掉血的话，玩家没法从动作判断该什么时候躲。
 ## 抡的这段时间它站着不动，所以躲开的办法是退出锤子够得着的范围，或者跳过它。
 
+@export_group("Charge")
+## 看见玩家就**转过去冲**（巡逻兵本来只打正前方、不回头）。
+## 比玩家走路（180）慢，和 D 一个道理：走开追不上，它只能逼你且战且退。
+@export var charge_speed := 140.0
+## 隔多高就不追了（它只会平地抡锤，爬不上平台）。
+@export var charge_height := 48.0
+
 @export_group("Hammer")
 ## 玩家在正前方这个水平距离以内就抡。
 @export var smash_range := 44.0
@@ -30,14 +37,51 @@ const SWING_FPS := 12.0
 ## 从起手到砸中隔多久。
 const HIT_DELAY := HIT_FRAME / SWING_FPS
 
+## 正在冲向谁，没有就是 null。
+var _hunted: Node2D = null
+
 var _smash_timer := 0.0
 ## 抡到一半还剩多久砸中；<= 0 表示没在抡。
 var _swing_left := 0.0
 
 
 func _physics_process(delta: float) -> void:
+	# **抡的时候不换目标也不转身**：抡到一半还跟着人转的话，起手之后躲开就没意义了
+	_hunted = null if is_swinging() else hunt_target()
+	if _hunted != null:
+		var ahead := signi(_hunted.global_position.x - global_position.x)
+		if ahead != 0 and ahead != facing:
+			facing = ahead
+			_apply_facing()
 	super(delta)
 	_update_smash(delta)
+
+
+## 这一帧走多快：冲的时候快，巡逻的时候还是慢悠悠。
+func walk_speed() -> float:
+	return charge_speed if _hunted != null else move_speed
+
+
+## 冲的时候不按巡逻规则掉头——朝向那会儿是冲着人的。
+func patrolling() -> bool:
+	return _hunted == null
+
+
+## 正在冲向谁（测试用）。
+func is_charging() -> bool:
+	return _hunted != null
+
+
+## 够得着、看得见、高度也差不多的玩家。**不分前后**——它要转过去冲。
+## 「够得着」用 `within_reach`，所以在屏幕里的玩家它一定有反应（见 CLAUDE.md 的「视野对等」）。
+func hunt_target() -> Node2D:
+	for player in players_by_distance():
+		var offset := player.global_position - global_position
+		if not within_reach(absf(offset.x)) or absf(offset.y) > charge_height:
+			continue
+		if has_line_of_sight(player.body_center()):
+			return player
+	return null
 
 
 ## 够得着就站定抡，够不着就接着巡逻走近点（和 F 一个道理：它手上没枪，基类那套「交火」判断不适用）。
