@@ -34,8 +34,8 @@ func test_the_pack_brings_terrain_a_backdrop_and_its_own_track() -> void:
 	for key: StringName in mine.appearances:
 		keys.append(String(key))
 	keys.sort()
-	check("it declares the three terrains and this stage's enemies",
-		keys == ["3_a", "3_b", "3_c", "3_d", "3_e", "3_f",
+	check("it declares the three terrains, this stage's enemies and its boss",
+		keys == ["3_a", "3_b", "3_boss", "3_c", "3_d", "3_e", "3_f",
 			"terrain_ground", "terrain_ledge", "terrain_stone"], str(keys))
 	check("and a backdrop of its own", mine.backdrop != null
 		and mine.backdrop.resource_path.contains("bar_street"), str(mine.backdrop))
@@ -501,3 +501,180 @@ func test_armour_does_not_apply_to_damage_with_no_direction() -> void:
 	var full: int = brute.health
 	brute.take_damage(40)
 	check("an undirected hit lands in full", full - brute.health == 40, str(full - brute.health))
+
+
+# ---------------------------------------------------------------- 这一关的 Boss
+
+func spawn_boss() -> BossWheel:
+	var boss := (load("res://scenes/boss_3.tscn") as PackedScene).instantiate() as BossWheel
+	main.get_node("Enemies").add_child(boss)
+	boss.global_position = Vector2(900, STAND_Y - 12.0)
+	boss._home = boss.global_position
+	return boss
+
+
+## 摆好 Boss 和玩家。**墙要去掉**（第二个参数 false）：测试关 x=800 那道墙正好在它和玩家之间，
+## 而它是**站在地上**的——视线从身体中心发出，会被墙挡住，`find_target()` 一直是 null，
+## 它就什么也不做。前两个 Boss 要么飞要么高，射线从墙顶过去了，所以没撞上这个。
+func face_the_mech(player_at: Vector2) -> BossWheel:
+	await reset_scene(false, false, pack())
+	var boss := spawn_boss()
+	player.global_position = player_at
+	player.health = 99999
+	snap_camera()
+	await frames(4)
+	boss.appear()
+	await frames(2)
+	return boss
+
+
+func test_the_mech_is_a_boss_and_stands_on_the_ground() -> void:
+	await reset_scene(false, false, pack())
+	var boss := spawn_boss()
+	check("it is a boss", boss is Boss)
+	# **前两个 Boss 一个飞一个走，这个是地面重装**：踩着独轮滚，受重力
+	check("it is not a floating one", boss.motion_mode == CharacterBody2D.MOTION_MODE_GROUNDED)
+	check("it brings a portrait from this pack's art",
+		boss.hud_portrait() != null
+		and boss.hud_portrait().resource_path.begins_with("%s/enemies/3_boss" % ART),
+		str(boss.hud_portrait()))
+	check("the ultimate only takes a quarter off it",
+		boss.ultimate_damage() == roundi(boss.max_health * 0.25), str(boss.ultimate_damage()))
+
+
+func test_its_three_moves_come_round_in_turn() -> void:
+	# **三招轮着来，不是随机挑**：打两轮就能背下节奏，死了也知道自己错在哪。
+	var boss := await face_the_mech(Vector2(640, STAND_Y))
+	var seen: Array[int] = []
+	for i in 900:
+		await tree.physics_frame
+		player.global_position = Vector2(640, STAND_Y)
+		player.health = 99999
+		var now := boss.move_kind()
+		if (now == BossWheel.Move.SHOOT or now == BossWheel.Move.LOB
+				or now == BossWheel.Move.WINDUP) and (seen.is_empty() or seen[-1] != now):
+			seen.append(now)
+		if seen.size() >= 4:
+			break
+	check("it uses the cannon", seen.has(BossWheel.Move.SHOOT), str(seen))
+	check("and the lob", seen.has(BossWheel.Move.LOB), str(seen))
+	check("and the roll", seen.has(BossWheel.Move.WINDUP), str(seen))
+	check("and it never does the same one twice in a row",
+		seen.size() < 2 or seen[0] != seen[1], str(seen))
+
+
+func test_the_roll_is_telegraphed() -> void:
+	# 蓄力那一下就是留给玩家跳开的。没有预兆就成了没法躲。
+	var boss := await face_the_mech(Vector2(640, STAND_Y))
+	check("there really is a wind-up", boss.roll_windup > 0.2, str(boss.roll_windup))
+	var held := true
+	var rolled := false
+	for i in 900:
+		await tree.physics_frame
+		player.global_position = Vector2(640, STAND_Y)
+		player.health = 99999
+		if boss.move_kind() == BossWheel.Move.WINDUP:
+			held = held and absf(boss.velocity.x) < 1.0
+		if boss.move_kind() == BossWheel.Move.ROLL:
+			rolled = true
+			break
+	check("it holds still while winding up", held)
+	check("then it rolls", rolled)
+	check("and the roll is faster than it patrols", boss.roll_speed > boss.roam_speed,
+		"%.0f / %.0f" % [boss.roll_speed, boss.roam_speed])
+
+
+func test_the_lob_arcs_over_cover() -> void:
+	# **这一招专治「躲在平台后面慢慢磨」**：炸弹是抛物线，越得过掩体。
+	var boss := await face_the_mech(Vector2(640, STAND_Y))
+	var thrown: Array[Node] = []
+	for i in 900:
+		await tree.physics_frame
+		player.global_position = Vector2(640, STAND_Y)
+		player.health = 99999
+		for node in tree.get_nodes_in_group(Grenade.GROUP):
+			if not thrown.has(node):
+				thrown.append(node)
+		if not thrown.is_empty():
+			break
+	check("it lobs something", not thrown.is_empty())
+	if thrown.is_empty():
+		return
+	var bomb := thrown[0] as Grenade
+	# 抛物线：出手时是斜着往上的，不是直着飞
+	check("and it really arcs, not flies straight", bomb.velocity.y < 0.0, str(bomb.velocity))
+	check("towards the player", signf(bomb.velocity.x) == signf(640.0 - boss.global_position.x),
+		str(bomb.velocity))
+	check("and it is the enemies' bomb, so it cannot hurt its own side",
+		bomb.target_layer == 2, str(bomb.target_layer))
+
+
+func test_it_never_leaves_its_patch() -> void:
+	# 不追出地盘——走位是玩家的事（和前两个 Boss 一个道理）。
+	# **不能只断言「没超出它自己的 `roam_range`」**：把那个数调大它自然就不超了，等于什么都没测。
+	# 要测的是「它不会朝玩家一路压过来」。
+	var boss := await face_the_mech(Vector2(200, STAND_Y))
+	var home: Vector2 = boss._home
+	var strayed := 0.0
+	var closest := absf(boss.global_position.x - 200.0)
+	for i in 400:
+		await tree.physics_frame
+		player.global_position = Vector2(200, STAND_Y)
+		player.health = 99999
+		strayed = maxf(strayed, absf(boss.global_position.x - home.x) - boss.roam_range)
+		closest = minf(closest, absf(boss.global_position.x - 200.0))
+	check("it stays in its patch", strayed < 40.0, "%.0f" % strayed)
+	check("and never comes over to get you", closest > 300.0, "最近 %.0f" % closest)
+	# **地盘要装得进 Boss 区**：它左右各漫游 `roam_range`，整块不能超过一屏，
+	# 否则关卡里给它摆的那片平台就够不着它了（这条约束是关卡设计给的，不是它自己的）。
+	check("and its patch fits on one screen", boss.roam_range * 2.0 <= 640.0,
+		str(boss.roam_range))
+
+
+func test_it_turns_nasty_below_half_and_says_so() -> void:
+	var boss := await face_the_mech(Vector2(640, STAND_Y))
+	events.clear()
+	boss.take_damage(SHOT, Vector2.INF, player)
+	await frames(2)
+	check("a scratch does not flip it", not boss.is_enraged() and not events.has(&"boss_enrage"))
+	boss.take_damage(boss.max_health / 2, Vector2.INF, player)
+	await frames(2)
+	check("crossing half flips it", boss.is_enraged())
+	check("and it says so", events.has(&"boss_enrage"), str(events))
+	events.clear()
+	boss.take_damage(SHOT, Vector2.INF, player)
+	await frames(2)
+	check("but only once", not events.has(&"boss_enrage"), str(events))
+
+
+func test_hurt_it_rolls_faster_and_rests_less() -> void:
+	await reset_scene(false, false, pack())
+	var boss := spawn_boss()
+	var calm_roll: float = boss._speed(boss.roll_speed)
+	var calm_rest: float = boss._timing(boss.attack_rest)
+	boss.take_damage(boss.max_health / 2, Vector2.INF, player)
+	await frames(2)
+	check("setup: it is enraged", boss.is_enraged())
+	check("it rolls faster", boss._speed(boss.roll_speed) > calm_roll,
+		"%.0f -> %.0f" % [calm_roll, boss._speed(boss.roll_speed)])
+	check("and pauses less between moves", boss._timing(boss.attack_rest) < calm_rest,
+		"%.2f -> %.2f" % [calm_rest, boss._timing(boss.attack_rest)])
+
+
+func test_the_boss_skin_changes_nothing_about_the_rules() -> void:
+	var out := []
+	for skin: SkinPack in [Skins.default_skin(), pack()]:
+		await reset_scene(false, false, skin)
+		var boss := spawn_boss()
+		boss.appear()
+		await frames(2)
+		var shape := boss.get_node("CollisionShape2D") as CollisionShape2D
+		out.append({
+			"box": (shape.shape as RectangleShape2D).size,
+			"muzzle": boss._muzzle_position() - boss.global_position,
+			"health": boss.max_health,
+			"roam": boss.roam_range,
+		})
+	for key: String in out[0]:
+		check("%s is the same with either skin" % key, out[0][key] == out[1][key],
+			"方块 %s，酒吧街 %s" % [out[0][key], out[1][key]])

@@ -640,6 +640,65 @@ BAR_SINGLES = {
 }
 
 
+# ---------------------------------------------------------------- 酒吧街的 Boss（独轮机甲）
+# 素材 `bosses/3`。每帧 96×96、机体约 53×64、踩在一个独轮上，**脚底在帧底边**。
+# 判定框 48×56（比画面小一圈，和前两个 Boss 一样），输出帧 112×96 留出炮管伸出去的余量。
+#
+# 这包的命名和内容对不上，**是看图认出来的**：
+#   `Attack1` 炮击、`Attack3` 把炸弹往上抛（举臂 + 红色弹道）、
+#   `Special` 才是前倾滚动（冲撞那一下）、`Attack4` 其实是**炸弹自己的爆炸动画**（不是 Boss 的动作）。
+# 炸弹用现成的敌人手雷（`enemy_grenade.tscn`）：`Grenade.launch()` 本来就是抛物线、落地弹一下再炸，
+# 正是「抛到空中砸下来」。`Bomb.png` 那张 96×96 对 8px 的判定来说太大了，没用。
+BOSS3_DIR = os.path.join(BAR_PACK, "..", "bosses", "3")
+BOSS3_CELL = 96
+# **帧要比素材高**：举臂抛弹那组的红色弹道伸到素材画面上方去了，
+# 按 96 高输出会把它切掉——那是「要抛炸弹了」的预兆，不能丢。
+BOSS3_FRAME_W, BOSS3_FRAME_H = 112, 120
+BOSS3_ANCHOR_Y = 68
+BOSS3_OUT = "3_boss"
+## 脚底落在原点下方多少（= 判定框高的一半）。
+BOSS3_FOOT = 28
+BOSS3_CLIPS = {
+	"idle": ("Idle.png", [0, 1, 2, 3, 4, 5]),
+	"walk": ("Walk.png", [0, 1, 2, 3]),
+	"run": ("Special.png", [0, 1, 2, 3, 4, 5]),        # 前倾滚动 = 冲撞
+	"attack_level": ("Attack1.png", [0, 1, 2, 3, 4, 5]),
+	"attack_up": ("Attack3.png", [0, 1, 2, 3, 4, 5]),  # 举臂往上抛炸弹
+	"hurt": ("Hurt.png", [0, 1]),
+	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+}
+## HUD 头像：机体上半部那 32×32（座舱和那根天线）。
+BOSS3_PORTRAIT = (20, 34, 32, 32)
+
+
+def build_boss_wheel(write):
+	def frames_at(file_name, indices):
+		_, _, pixels = sb.read_png(os.path.join(BOSS3_DIR, file_name))
+		return [sb.cut(pixels, i * BOSS3_CELL, 0, BOSS3_CELL, BOSS3_CELL) for i in indices]
+
+	clips = {c: frames_at(f, idx) for c, (f, idx) in BOSS3_CLIPS.items()}
+	# 整组只按待机第一帧定一次位（和前两个 Boss 一样）：横向按机体外框居中，
+	# 纵向让脚底落在原点下方 BOSS3_FOOT。
+	first = clips["idle"][0]
+	xs = [x for row in first for x, c in enumerate(row) if c[3] > 8]
+	dx = BOSS3_FRAME_W // 2 - int(round((min(xs) + max(xs)) / 2.0))
+	dy = BOSS3_ANCHOR_Y + BOSS3_FOOT - BOSS3_CELL
+	for name, frames in clips.items():
+		right = []
+		for f in frames:
+			out = sb.blank(BOSS3_FRAME_W, BOSS3_FRAME_H)
+			sb.blit(out, f, dx, dy, "3_boss %s" % name)
+			right.append(out)
+		left = [mirror_about(f, BOSS3_FRAME_W // 2) for f in right]
+		save_frames(BOSS3_OUT, "%s_r.png" % name, right, BOSS3_FRAME_W, BOSS3_FRAME_H, write, BAR_OUT)
+		save_frames(BOSS3_OUT, "%s_l.png" % name, left, BOSS3_FRAME_W, BOSS3_FRAME_H, write, BAR_OUT)
+	x, y, w, h = BOSS3_PORTRAIT
+	portrait = sb.cut(clips["idle"][0], x, y, w, h)
+	if write:
+		sb.write_png(os.path.join(BAR_OUT, BOSS3_OUT, "portrait.png"), portrait)
+	print("  %s/portrait.png  %dx%d" % (BOSS3_OUT, w, h))
+
+
 def build_industrial(write):
 	if not os.path.isdir(IND_PACK):
 		sys.exit("找不到工业区敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(IND_PACK))
@@ -652,6 +711,7 @@ def build_bar_street(write):
 	if not os.path.isdir(BAR_PACK):
 		sys.exit("找不到酒吧街敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(BAR_PACK))
 	build_singles(write, BAR_SINGLES, BAR_PACK, BAR_OUT)
+	build_boss_wheel(write)
 
 
 def main():
