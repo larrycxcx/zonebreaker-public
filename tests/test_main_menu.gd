@@ -300,6 +300,12 @@ func at_row(column: SetupColumn, row: int) -> void:
 	await frames(1)
 
 
+## 光标放到最后那一行的某一半（SHOP / ACCEPT 并排在同一行上，左右选）。
+func at_foot(column: SetupColumn, which: int) -> void:
+	column.go_to_foot(which)
+	await frames(1)
+
+
 func test_the_setup_screen_comes_before_the_level() -> void:
 	await reach_setup(1)
 	check("setup is up", menu.setup() != null)
@@ -493,14 +499,74 @@ func test_only_the_row_you_are_on_is_lit_up() -> void:
 	check("setup: starting on the name", column.row() == SetupColumn.Row.NAME)
 	check("accept is not lit up yet", column._accept.get_theme_color("font_color") == UiKit.DIM,
 		str(column._accept.get_theme_color("font_color")))
-	for i in SetupColumn.Row.ACCEPT:
+	for i in SetupColumn.Row.FOOT:
 		await press(&"aim_down")
-	check("setup: walked down to accept", column.row() == SetupColumn.Row.ACCEPT, str(column.row()))
-	check("now it lights up", column._accept.get_theme_color("font_color") == UiKit.WHITE,
-		str(column._accept.get_theme_color("font_color")))
-	await press(&"aim_up")
-	check("and goes back down when you leave", column._shop.get_theme_color("font_color") != UiKit.DIM
-		or column._accept.get_theme_color("font_color") == UiKit.DIM)
+	check("setup: walked down to the bottom row", column.row() == SetupColumn.Row.FOOT, str(column.row()))
+	# **走下来先落在 SHOP 上**（左边那个），ACCEPT 要按「右」才轮到
+	check("the left half lights up first",
+		column._shop.get_theme_color("font_color") == UiKit.WHITE
+		and column._accept.get_theme_color("font_color") == UiKit.DIM,
+		"%s / %s" % [column._shop.get_theme_color("font_color"),
+			column._accept.get_theme_color("font_color")])
+	await press(&"move_right")
+	check("and the right half takes over when you nudge across",
+		column._accept.get_theme_color("font_color") == UiKit.WHITE
+		and column._shop.get_theme_color("font_color") == UiKit.DIM,
+		"%s / %s" % [column._shop.get_theme_color("font_color"),
+			column._accept.get_theme_color("font_color")])
+
+
+func test_shop_and_accept_sit_on_one_row_and_are_picked_left_and_right() -> void:
+	# 它们**画在同一条线上**，一左一右。分成两行的话，画面上明明并排的两块要用上下键切换，
+	# 和这一栏「上下换行、左右在行内选」那条规矩正好拧着（2026-09 试玩反馈）。
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	check("they really are drawn on the same line",
+		is_equal_approx(column._shop.position.y, column._accept.position.y),
+		"%.0f / %.0f" % [column._shop.position.y, column._accept.position.y])
+	for i in SetupColumn.Row.FOOT:
+		await press(&"aim_down")
+	check("setup: on the bottom row, left half", column.row() == SetupColumn.Row.FOOT
+		and column.foot() == SetupColumn.Foot.SHOP, "%d / %d" % [column.row(), column.foot()])
+	await press(&"move_right")
+	check("right moves across, not down", column.row() == SetupColumn.Row.FOOT
+		and column.foot() == SetupColumn.Foot.ACCEPT, "%d / %d" % [column.row(), column.foot()])
+	await press(&"move_left")
+	check("and left comes back", column.foot() == SetupColumn.Foot.SHOP, str(column.foot()))
+	# **它们之间没有「另一行」**：这一行就是最后一行，上下键在它俩之间插不进来
+	check("the bottom row is the last one",
+		SetupColumn.ROW_COUNT == SetupColumn.Row.FOOT + 1,
+		"%d 行，最后一行是第 %d" % [SetupColumn.ROW_COUNT, SetupColumn.Row.FOOT])
+
+
+func test_the_cursor_box_follows_which_half_you_are_on() -> void:
+	# 金框框住的是**那块内容本身**，所以左右挪的时候框要跟着挪到另一半去
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	for i in SetupColumn.Row.FOOT:
+		await press(&"aim_down")
+	var on_shop := column.menu_list().row_boxes[SetupColumn.Row.FOOT]
+	check("the box is over the left half",
+		on_shop.get_center().x < column._accept.position.x, str(on_shop))
+	await press(&"move_right")
+	var on_accept := column.menu_list().row_boxes[SetupColumn.Row.FOOT]
+	check("and moves over the right half when you do",
+		on_accept.get_center().x > on_shop.get_center().x, "%s -> %s" % [on_shop, on_accept])
+
+
+func test_shop_opens_from_the_left_half_and_accept_from_the_right() -> void:
+	await reach_setup(1)
+	var column: SetupColumn = menu.setup().columns()[0]
+	await at_foot(column, SetupColumn.Foot.SHOP)
+	await press(&"jump")
+	check("A on the left half opens the shop", menu.setup().shop() != null)
+	menu.setup()._close_shop()
+	await frames(2)
+	await at_foot(column, SetupColumn.Foot.ACCEPT)
+	await press(&"jump")
+	# **单人按下 ACCEPT 就整页翻到选关了**，那一栏当场被拆掉，所以查的是页面
+	check("A on the right half readies up instead",
+		menu.page() == MainMenu.Page.STAGE, str(menu.page()))
 
 
 func test_the_stat_arrows_follow_the_keys_too() -> void:
@@ -587,7 +653,9 @@ func test_a_loaded_character_starts_on_accept() -> void:
 	await choose(menu.listed().find(mine))
 	await frames(2)
 	var column: SetupColumn = menu.setup().columns()[0]
-	check("the cursor waits on accept", column.row() == SetupColumn.Row.ACCEPT, str(column.row()))
+	check("the cursor waits on accept", column.row() == SetupColumn.Row.FOOT
+		and column.foot() == SetupColumn.Foot.ACCEPT,
+		"第 %d 行 / %d" % [column.row(), column.foot()])
 	check("and it is the lit-up row", column._accept.get_theme_color("font_color") == UiKit.WHITE,
 		str(column._accept.get_theme_color("font_color")))
 	await press(&"jump")
@@ -687,7 +755,7 @@ func test_playing_alone_is_not_tied_to_one_controller() -> void:
 	var column: SetupColumn = menu.setup().columns()[0]
 	await at_row(column, SetupColumn.Row.GEAR)
 	await tap(&"p2_aim_down")
-	check("the other seat's keys still move the cursor", column.row() == SetupColumn.Row.SHOP,
+	check("the other seat's keys still move the cursor", column.row() == SetupColumn.Row.FOOT,
 		str(column.row()))
 	await tap(&"p2_jump")
 	check("and still choose", menu.setup().shop() != null)
@@ -704,7 +772,7 @@ func test_two_players_stay_on_their_own_controllers() -> void:
 	await at_row(one, SetupColumn.Row.GEAR)
 	await at_row(two, SetupColumn.Row.GEAR)
 	await tap(&"p2_aim_down")
-	check("player two moved", two.row() == SetupColumn.Row.SHOP, str(two.row()))
+	check("player two moved", two.row() == SetupColumn.Row.FOOT, str(two.row()))
 	check("player one did not", one.row() == SetupColumn.Row.GEAR, str(one.row()))
 
 
@@ -727,7 +795,7 @@ func test_the_gear_row_only_shows_what_you_are_wearing() -> void:
 func test_the_shop_row_opens_the_shop() -> void:
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
-	await at_row(column, SetupColumn.Row.SHOP)
+	await at_foot(column, SetupColumn.Foot.SHOP)
 	await press(&"jump")
 	var shop := menu.setup().shop()
 	check("the shop opens", shop != null and shop.columns().size() == 1)
@@ -744,7 +812,7 @@ func test_the_shop_row_opens_the_shop() -> void:
 func test_both_players_shop_side_by_side() -> void:
 	await reach_setup(2)
 	var one: SetupColumn = menu.setup().columns()[0]
-	await at_row(one, SetupColumn.Row.SHOP)
+	await at_foot(one, SetupColumn.Foot.SHOP)
 	await press(&"jump")
 	var shop := menu.setup().shop()
 	check("one player asking opens both columns", shop != null and shop.columns().size() == 2)
@@ -761,11 +829,11 @@ func test_everyone_has_to_accept_before_the_level_starts() -> void:
 	await reach_setup(2)
 	var one: SetupColumn = menu.setup().columns()[0]
 	var two: SetupColumn = menu.setup().columns()[1]
-	await at_row(one, SetupColumn.Row.ACCEPT)
+	await at_foot(one, SetupColumn.Foot.ACCEPT)
 	await press(&"jump")
 	check("the first player is ready", one.confirmed)
 	check("but the level waits", tree.current_scene == null, str(tree.current_scene))
-	await at_row(two, SetupColumn.Row.ACCEPT)
+	await at_foot(two, SetupColumn.Foot.ACCEPT)
 	await tap(&"p2_jump")
 	await frames(2)
 	check("once both are ready setting up is done",
@@ -789,7 +857,7 @@ func test_backing_out_of_ready_and_then_out_of_setup() -> void:
 	# 「先取消 ACCEPT、再退出设置」这两步只有在「另一个人还没好」的时候才走得到。
 	await reach_setup(2)
 	var one: SetupColumn = menu.setup().columns()[0]
-	await at_row(one, SetupColumn.Row.ACCEPT)
+	await at_foot(one, SetupColumn.Foot.ACCEPT)
 	await press(&"jump")
 	check("setup: ready, and still on the setup screen because the other one is not",
 		one.confirmed and menu.page() == MainMenu.Page.SETUP)
@@ -804,7 +872,7 @@ func test_backing_out_of_the_stage_list_returns_to_setup() -> void:
 	# 选关页是设置界面之后那一页，B 退回来还能改人
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
-	await at_row(column, SetupColumn.Row.ACCEPT)
+	await at_foot(column, SetupColumn.Foot.ACCEPT)
 	await press(&"jump")
 	check("setup: it moved on to the stage list", menu.page() == MainMenu.Page.STAGE,
 		str(menu.page()))
@@ -821,7 +889,7 @@ func test_every_stage_is_listed_while_the_unlock_switch_is_on() -> void:
 		ProjectSettings.get_setting("game/unlock_all_levels", false), "记得发布前关掉")
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
-	await at_row(column, SetupColumn.Row.ACCEPT)
+	await at_foot(column, SetupColumn.Foot.ACCEPT)
 	await press(&"jump")
 	check("setup: the stage list is up", menu.page() == MainMenu.Page.STAGE)
 	var listed := menu._unlocked()
@@ -836,7 +904,7 @@ func test_every_stage_is_listed_while_the_unlock_switch_is_on() -> void:
 func test_finishing_the_last_seat_starts_the_level() -> void:
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
-	await at_row(column, SetupColumn.Row.ACCEPT)
+	await at_foot(column, SetupColumn.Foot.ACCEPT)
 	await press(&"jump")
 	check("setting up is done", menu.page() == MainMenu.Page.STAGE, str(menu.page()))
 	await choose(0)

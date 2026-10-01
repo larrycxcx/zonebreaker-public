@@ -24,8 +24,13 @@ signal shop_requested
 const WIDTH := 300.0
 const HEIGHT := 338.0
 ## 行的意思。属性那四行是 STAT 到 GEAR 之间。
-enum Row { NAME, LOOK, STAT, GEAR = 6, SHOP, ACCEPT }
-const ROW_COUNT := 9
+## **SHOP 和 ACCEPT 是同一行**（它们画在同一条线上，一左一右）：左右在它俩之间选，不是上下。
+## 分成两行的话，画面上明明并排的两块要用上下键切换，和这一栏「上下换行、左右在行内选」
+## 那条规矩正好拧着（2026-09 试玩反馈）。
+enum Row { NAME, LOOK, STAT, GEAR = 6, FOOT }
+## 最后那一行里选的是哪一个。
+enum Foot { SHOP, ACCEPT }
+const ROW_COUNT := 8
 
 ## 头像格比素材包那张 `portrait.png`（22×36）各边大 2px，人整个装在框里。
 ## 图变了这里要跟着变，`test_cyberpunk_skin.gd` 有一条量着。
@@ -82,6 +87,9 @@ var _portraits: Array[ColorRect] = []
 var _stat_rows: Array[Dictionary] = []
 var _slot_icons: Array[TextureRect] = []
 ## 盖在这一栏上的小面板：改名字的字母格。
+## 最后那一行里现在选的是哪一半（SHOP 还是 ACCEPT）。
+var _foot := Foot.SHOP
+
 var _grid: LetterGrid
 ## 另一个玩家选了哪个外观（那个就不能选了，两个人长一样同屏分不清）。
 var _taken := &""
@@ -168,7 +176,8 @@ func build(player: Player, index: int, taken_look: StringName) -> void:
 	# **读档进来直接停在 ACCEPT 上**：名字改不了，点数和装备都是上次留下的，
 	# 多半是按一下就开打；要改什么再往上走。新建的角色照旧从第一行（名字）开始。
 	if not can_rename:
-		_menu.index = Row.ACCEPT
+		_foot = Foot.ACCEPT
+		_menu.index = Row.FOOT
 	_menu.chosen.connect(_on_chosen)
 	_menu.cancelled.connect(_on_cancelled)
 	_menu.nudged.connect(_on_nudged)
@@ -191,6 +200,17 @@ func look_index() -> int:
 
 func row() -> int:
 	return _menu.index
+
+
+## 最后那一行里现在选的是 SHOP 还是 ACCEPT。
+func foot() -> int:
+	return _foot
+
+
+## 直接把光标放到最后那一行的某一半（读档进来、测试用）。
+func go_to_foot(which: int) -> void:
+	_foot = clampi(which, Foot.SHOP, Foot.ACCEPT) as Foot
+	go_to_row(Row.FOOT)    # 它会 refresh()，框跟着就对了
 
 
 func menu_list() -> MenuList:
@@ -243,8 +263,9 @@ func refresh() -> void:
 	_detail_stats.text = _bonus_text(picked)
 	# **只有光标那一行是亮的**：SHOP / ACCEPT 一直画成纯白的话，它们比金框还抢眼，
 	# 读档进来名字又是淡的，看上去就像光标默认停在 ACCEPT 上。
-	var on_shop := _menu != null and _menu.index == Row.SHOP
-	var on_accept := _menu != null and _menu.index == Row.ACCEPT
+	var on_foot := _menu != null and _menu.index == Row.FOOT
+	var on_shop := on_foot and _foot == Foot.SHOP
+	var on_accept := on_foot and _foot == Foot.ACCEPT
 	# 没钱也进得去：商店里还能卖东西，钱是在那儿挣出来的
 	_shop.add_theme_color_override("font_color", UiKit.WHITE if on_shop else UiKit.DIM)
 	_accept.add_theme_color_override("font_color",
@@ -296,9 +317,14 @@ func _boxes() -> Array[Rect2]:
 	for i in Balance.STATS.size():
 		boxes.append(Rect2(_left - 3.0, STATS_Y + i * STAT_STEP - 1.0, _wide + 6.0, STAT_STEP))
 	boxes.append(slot_rect(slot).grow(2.0))
-	boxes.append(Rect2(_left - 3.0, FOOT_Y - 1.0, _wide / 2.0, 20.0))
-	boxes.append(Rect2(_left + _wide / 2.0 - 3.0, FOOT_Y - 1.0, _wide / 2.0 + 6.0, 20.0))
+	# 最后那一行只给**现在选中的那半边**一个框
+	boxes.append(foot_rect(_foot))
 	return boxes
+
+
+## 最后那一行里 SHOP / ACCEPT 各占哪一块（选中框框住的就是其中一块）。
+func foot_rect(which: int) -> Rect2:
+	return Rect2(_left - 3.0, FOOT_Y - 1.0, _wide / 2.0, 20.0) if which == Foot.SHOP 		else Rect2(_left + _wide / 2.0 - 3.0, FOOT_Y - 1.0, _wide / 2.0 + 6.0, 20.0)
 
 
 ## 第几个装备格在哪（选中框要框住的就是这一格）。
@@ -318,12 +344,13 @@ func _on_chosen(index: int) -> void:
 				refresh()
 		Row.GEAR:
 			pass          # 只读：换装备在商店的背包页
-		Row.SHOP:
-			shop_requested.emit()
-		Row.ACCEPT:
-			confirmed = not confirmed
-			refresh()
-			readiness_changed.emit(confirmed)
+		Row.FOOT:
+			if _foot == Foot.SHOP:
+				shop_requested.emit()
+			else:
+				confirmed = not confirmed
+				refresh()
+				readiness_changed.emit(confirmed)
 		_:
 			pass
 
@@ -339,6 +366,10 @@ func _on_cancelled() -> void:
 
 func _on_nudged(index: int, direction: int) -> void:
 	match _row_kind(index):
+		Row.FOOT:
+			# 框跟着挪到另一半由 `refresh()` 管（它本来就会重新给一遍 `row_boxes`）
+			_foot = clampi(_foot + direction, Foot.SHOP, Foot.ACCEPT) as Foot
+			refresh()
 		Row.LOOK:
 			_pick_look(direction)
 		Row.STAT:
