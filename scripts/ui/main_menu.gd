@@ -121,11 +121,25 @@ func _physics_process(_delta: float) -> void:
 
 # ---------------------------------------------------------------- 画每一页
 
+## 每一页听谁的键。**写着 PLAYER N 的那几页只听那个座位自己的手柄**——
+## 不分的话，拿 2 号手柄的人可以把角色选进 1 号座位，然后一进人物设置界面
+## （那一栏只听 1 号手柄）他就变成 2 号了（2026-09 试玩报的「手柄错位」）。
+## 「几个人玩」「选哪一关」是**大家一起定的**，所以留 -1（谁按都算），和死亡页同一个道理。
+## 删存档本来就是按座位取的（`_physics_process`），这里只是把导航那一半补齐。
+## 单人时 `Session.just_pressed()` 一律谁按都算，所以这几页在单人下行为不变。
+const LISTENS := {
+	Page.TITLE: -1,
+	Page.SETUP: -1,
+	Page.STAGE: -1,
+}
+
+
 func _show(page_: Page) -> void:
 	_page = page_
 	for child in _body.get_children():
 		if child != _menu:
 			child.queue_free()
+	_menu.listens_to = LISTENS.get(page_, _seat)
 	var screen := _screen()
 	match page_:
 		Page.TITLE:

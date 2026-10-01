@@ -28,19 +28,25 @@ func press(action: StringName) -> void:
 	await tap(action)
 
 
+## **按当前这一页听的那个座位的键**。写着 PLAYER 2 的那几页只认 `p2_*`——
+## 用 1 号的键去敲 2 号那一页，界面根本不动，用例会卡在那儿（这正是要守的规则）。
+func press_here(action: StringName) -> void:
+	await tap(Session.action_for(action, maxi(0, menu._menu.listens_to)))
+
+
 ## 把光标挪到第 row 项。**按次数封顶**：挪不过去就算了，别把用例卡死——
 ## 出问题时要的是一条断言失败，不是 60 秒看门狗超时（那样连哪条断言错了都看不出来）。
 func move_to(row: int) -> void:
 	for i in 12:
 		if menu._menu.index == row:
 			return
-		await press(&"aim_down")
+		await press_here(&"aim_down")
 
 
 ## 走到第 index 项再确认。
 func choose(index: int) -> void:
 	await move_to(index)
-	await press(&"jump")
+	await press_here(&"jump")
 
 
 # ---------------------------------------------------------------- 流程
@@ -69,9 +75,10 @@ func test_backing_out_walks_the_flow_backwards() -> void:
 	await choose(1)
 	await choose(0)                       # 1 号选完 NEW，轮到 2 号
 	check("setup: on the second seat", menu.seat() == 1)
-	await press(&"cancel")
+	# **按这一页听的那个座位的键**：2 号那一页不认 1 号的 B
+	await press_here(&"cancel")
 	check("backing out goes to the seat before", menu.seat() == 0 and menu.page() == MainMenu.Page.SOURCE)
-	await press(&"cancel")
+	await press_here(&"cancel")
 	check("and again to the title", menu.page() == MainMenu.Page.TITLE)
 
 
@@ -881,3 +888,54 @@ func _visible_hints(setup: SetupScreen) -> Array[String]:
 		if label.is_visible_in_tree() and label.text.contains("A CHOOSE"):
 			out.append(label.text)
 	return out
+
+
+func test_a_seat_can_only_be_filled_by_its_own_controller() -> void:
+	# **试玩报的「手柄错位」**：1 号 LOAD 完进人物设置界面，发现自己是 2 号。
+	# 原因是写着 PLAYER 1 的那几页**谁按都算**——拿 2 号手柄的人把角色选进了 1 号座位，
+	# 一进设置界面（那一栏只听 1 号手柄）他就只能操作 2 号那一栏了。
+	# 删存档本来就是按座位取的，漏的是导航这一半。
+	await open_menu()
+	await choose(1)                       # 2 PLAYERS
+	check("setup: it is the first seat's turn", menu.seat() == 0 and menu.page() == MainMenu.Page.SOURCE)
+	var at: int = menu._menu.index
+	await tap(&"p2_aim_down")
+	check("the second pad cannot move the first seat's cursor", menu._menu.index == at,
+		"%d -> %d" % [at, menu._menu.index])
+	await tap(&"p2_jump")
+	check("nor choose for it", menu.seat() == 0 and menu.page() == MainMenu.Page.SOURCE,
+		"座位 %d，第 %d 页" % [menu.seat(), menu.page()])
+	await press(&"jump")                  # 1 号自己按 NEW
+	check("the first pad does", menu.seat() == 1 and menu.page() == MainMenu.Page.SOURCE)
+	# 轮到 2 号了，这回反过来
+	at = menu._menu.index
+	await tap(&"aim_down")
+	check("and now the first pad cannot move the second seat's cursor", menu._menu.index == at,
+		"%d -> %d" % [at, menu._menu.index])
+	await tap(&"p2_jump")
+	check("while the second pad can", menu.page() == MainMenu.Page.SETUP, str(menu.page()))
+
+
+func test_the_shared_pages_still_take_anybody() -> void:
+	# 「几个人玩」和「选哪一关」是大家一起定的，不该按座位分
+	# （那时候还没人有座位 / 两个人打的是同一关），和死亡页同一个道理。
+	await open_menu()
+	check("setup: on the title", menu.page() == MainMenu.Page.TITLE)
+	var at: int = menu._menu.index
+	await tap(&"p2_aim_down")
+	check("the second pad moves the title cursor too", menu._menu.index != at,
+		"%d -> %d" % [at, menu._menu.index])
+	check("the title listens to everyone", menu._menu.listens_to == -1,
+		str(menu._menu.listens_to))
+
+
+func test_playing_alone_is_never_locked_out_by_which_slot_the_pad_is_in() -> void:
+	# 单人时谁按都算（规则在 `Session.just_pressed()`）：手柄插在第二个槽位上是常事，
+	# 按座位过滤的话一个人玩会整页按不动。
+	await open_menu()
+	await choose(0)                       # 1 PLAYER
+	check("setup: one player, first seat", Session.player_count == 1 and menu.seat() == 0)
+	var at: int = menu._menu.index
+	await tap(&"p2_aim_down")
+	check("a pad in the second slot still drives the menu", menu._menu.index != at,
+		"%d -> %d" % [at, menu._menu.index])
