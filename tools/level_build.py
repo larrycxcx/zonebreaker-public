@@ -349,6 +349,132 @@ SECTIONS_2 = [
 	}),
 ]
 
+# ---------------------------------------------------------------- 第三关（酒吧街）的段落
+#
+# 同样 10 段 = 20 屏，几何走同一套自检。这一关**没有会飞的**，空中的压力换成了：
+#   3-C 跳劈——唯一会主动越过地形的，摆在阶梯和屋顶段，躲在掩体后面对它没用；
+#   3-E 贴地开枪——趴下躲不掉、只能跳，摆在开阔地和坑边；
+#   3-D 正面减伤——摆在窄处和墙后，逼玩家绕背、跳过去或者把手雷扔过它头顶；
+#   3-A 突进刺——摆在**地面**上（冲的时候不在悬崖前掉头，摆在浮台上它会自己冲下去）；
+#   3-F 炮车——慢慢挪的炮台，摆在长直路上。
+# Boss 是**站在地上的**，所以 Boss 区那一段**整片实地、不放墙**：
+# 墙挡在它和玩家之间时，视线从身体中心发出会被挡住，它就什么都不做（见 CLAUDE.md）。
+
+PROP_FRAMES_3 = {"card": 8, "money": 6}
+SCATTER_3 = ["bottle", "glass", "crate", "stool", "bin", "bottle2", "glass2", "keg",
+	"stool2", "crate"]
+TREES_3 = ["cabinet", "sign", "counter", "cabinet2", "counter2"]
+SCATTER_SEED_3 = 20261001
+
+ENEMIES_3 = {
+	"3_a": "res://scenes/enemy_3_a.tscn",
+	"3_b": "res://scenes/enemy_3_b.tscn",
+	"3_c": "res://scenes/enemy_3_c.tscn",
+	"3_d": "res://scenes/enemy_3_d.tscn",
+	"3_e": "res://scenes/enemy_3_e.tscn",
+	"3_f": "res://scenes/enemy_3_f.tscn",
+	"3_boss": "res://scenes/boss_3.tscn",
+}
+
+## 脚底在原点下方几像素，**和别人不一样的**才写：3-E 趴在地上只有 12 高（判定框 28×12），
+## 独轮机甲的判定框 56 高。按 `STAND` / `BOSS_STAND` 摆的话一个陷进地里、一个悬在半空。
+STAND_3 = {"3_e": 6.0, "3_boss": 28.0}
+
+SECTIONS_3 = [
+	("Sidewalk", {                                # 街口：认识 3-B，第一次见贴地的 3-E
+		"props": [("counter", 300, GROUND_Y), ("sign2", 620, GROUND_Y),
+			("card", 940, GROUND_Y)],
+		"ledges": [(260, 256, 96), (420, 208, 96), (640, 256, 112), (860, 208, 96),
+			(1060, 248, 96)],
+		"enemies": [("3_b", 840, GROUND_Y), ("3_a", 960, GROUND_Y), ("3_b", 880, 208),
+			("3_e", 1020, GROUND_Y), ("3_b", 1100, 248), ("3_a", 1220, GROUND_Y)],
+	}),
+	("Awnings", {                                 # 踩着雨棚往上爬，跳劈的 3-C 从上面扑下来
+		"ledges": [(100, 264, 96), (260, 216, 96), (420, 168, 128), (620, 160, 240),
+			(900, 216, 96), (1080, 256, 112)],
+		"walls": [(180, 40)],
+		"gaps": [(1000, 88)],
+		"blocks": [(660, 64, 112)],
+		"enemies": [("3_b", 150, GROUND_Y), ("3_c", 300, 216), ("3_b", 480, 168),
+			("3_d", 560, GROUND_Y), ("3_c", 700, 160), ("3_e", 780, GROUND_Y),
+			("3_b", 820, 160), ("3_b", 950, 216), ("3_b", 1140, 256),
+			("3_a", 1150, GROUND_Y)],
+	}),
+	("Cellar", {                                  # 矮通道 + 堵死的下层：出口站着壮汉
+		"crawl": [(200, 200), (800, 180)],
+		"blocks": [(520, 64, 112)],
+		"ledges": [(340, 248, 80), (400, 208, 64), (440, 160, 240), (720, 248, 96),
+			(1000, 200, 96), (1160, 256, 96)],
+		"enemies": [("3_d", 460, GROUND_Y), ("3_b", 500, 160), ("3_e", 700, GROUND_Y),
+			("3_b", 760, 248), ("3_d", 1040, GROUND_Y), ("3_c", 1040, 200),
+			("3_a", 1200, GROUND_Y), ("3_b", 1200, 256)],
+	}),
+	("Gutters", {                                 # 坑区：3-E 守着坑边，要跳过它的子弹又要跳过坑
+		"props": [("money", 160, GROUND_Y)],
+		"gaps": [(300, 96), (620, 88), (940, 100)],
+		"ledges": [(180, 248, 96), (460, 264, 96), (760, 248, 112), (1080, 256, 96)],
+		"enemies": [("3_b", 200, 248), ("3_e", 500, GROUND_Y), ("3_c", 500, 264),
+			("3_d", 800, GROUND_Y), ("3_b", 800, 248), ("3_e", 880, GROUND_Y),
+			("3_f", 1060, GROUND_Y), ("3_b", 1120, 256), ("3_a", 1240, GROUND_Y)],
+	}),
+	("Bouncers", {                                # 壮汉的地盘：正面打不动，得绕
+		"props": [("counter2", 400, GROUND_Y), ("sign2", 1000, GROUND_Y)],
+		"ledges": [(220, 256, 96), (460, 256, 80), (560, 208, 112), (900, 256, 96),
+			(1020, 256, 80), (1120, 208, 96)],
+		"walls": [(740, 56)],
+		"enemies": [("3_d", 180, GROUND_Y), ("3_b", 260, 256), ("3_a", 620, GROUND_Y),
+			("3_b", 600, 208), ("3_d", 860, GROUND_Y), ("3_b", 940, 256),
+			("3_f", 1060, GROUND_Y), ("3_d", 1180, GROUND_Y), ("3_c", 1160, 208)],
+	}),
+	("Carts", {                                   # 长直路上的炮车，上面一条高路
+		"props": [("card", 300, GROUND_Y)],
+		"ledges": [(160, 256, 96), (340, 208, 96), (480, 160, 256), (820, 256, 96),
+			(980, 208, 96), (1140, 256, 96)],
+		"blocks": [(560, 64, 120)],
+		"walls": [(1080, 48)],
+		"enemies": [("3_f", 260, GROUND_Y), ("3_b", 380, 208), ("3_f", 420, GROUND_Y),
+			("3_b", 520, 160), ("3_b", 700, 160), ("3_f", 760, GROUND_Y),
+			("3_e", 900, GROUND_Y), ("3_c", 1020, 208), ("3_b", 1160, 256),
+			("3_f", 1200, GROUND_Y)],
+	}),
+	("Rooftops", {                                # 一路踩雨棚过坑，3-C 在棚子之间跳来跳去
+		"gaps": [(360, 92), (820, 96)],
+		"ledges": [(180, 264, 96), (320, 216, 112), (520, 264, 96), (700, 216, 112),
+			(900, 264, 96), (1080, 216, 112)],
+		"enemies": [("3_b", 200, 264), ("3_c", 360, 216), ("3_b", 560, 264),
+			("3_e", 640, GROUND_Y), ("3_c", 740, 216), ("3_b", 940, 264),
+			("3_a", 1000, GROUND_Y), ("3_c", 1120, 216), ("3_b", 1200, GROUND_Y)],
+	}),
+	("Crossfire", {                               # 三层交叉火力，底下还有一条贴地的
+		"ledges": [(120, 264, 128), (340, 208, 128), (560, 152, 160), (820, 208, 128),
+			(1040, 264, 128)],
+		"gaps": [(700, 92)],
+		"enemies": [("3_b", 160, 264), ("3_f", 260, GROUND_Y), ("3_b", 380, 208),
+			("3_b", 600, 152), ("3_e", 640, GROUND_Y), ("3_b", 660, 152),
+			("3_b", 860, 208), ("3_d", 980, GROUND_Y), ("3_b", 1080, 264),
+			("3_a", 1200, GROUND_Y)],
+	}),
+	("BackAlley", {                               # 后巷：坑、矮通道、壮汉和刀客挤在一起
+		"crawl": [(160, 180), (660, 160)],
+		"gaps": [(420, 96), (900, 100), (1090, 92)],
+		"ledges": [(320, 248, 96), (520, 184, 96), (840, 248, 64), (1020, 248, 64)],
+		"walls": [(1220, 40)],
+		"blocks": [(540, 56, 112)],
+		"enemies": [("3_d", 380, GROUND_Y), ("3_b", 360, 248), ("3_a", 620, GROUND_Y),
+			("3_b", 560, 184), ("3_b", 860, 248), ("3_e", 870, GROUND_Y),
+			("3_d", 1040, GROUND_Y), ("3_c", 1040, 248), ("3_b", 1250, GROUND_Y)],
+	}),
+	("BossArena", {                               # Boss 区：**整片实地、没有墙**，它在地上滚
+		"props": [("counter", 260, GROUND_Y), ("money", 640, GROUND_Y)],
+		"walls": [(40, 56)],
+		"ledges": [(180, 248, 96), (360, 200, 96), (560, 248, 112),
+			(820, 256, 96), (1120, 248, 96)],
+		"enemies": [("3_d", 140, GROUND_Y), ("3_b", 220, 248), ("3_f", 420, GROUND_Y),
+			("3_b", 400, 200), ("3_a", 620, GROUND_Y), ("3_b", 600, 248),
+			("3_boss", 1000, GROUND_Y)],
+	}),
+]
+
 # ---------------------------------------------------------------- 一关 = 一条配置
 #
 # 加一关就往这张表里加一条，跑 `python tools/level_build.py 2`。
@@ -367,13 +493,19 @@ STAGES = {
 		"prop_frames": PROP_FRAMES_2, "scatter": SCATTER_2, "trees": TREES_2,
 		"seed": SCATTER_SEED_2,
 	},
+	"3": {
+		"out": "level_3.tscn", "root": "Level3", "prop_dir": "bar_street",
+		"sections": SECTIONS_3, "enemies": ENEMIES_3, "flying": set(),
+		"prop_frames": PROP_FRAMES_3, "scatter": SCATTER_3, "trees": TREES_3,
+		"seed": SCATTER_SEED_3, "stand": STAND_3,
+	},
 }
 
 
 def use_stage(key):
 	"""把这一关的表装进全局，后面的代码照常读。"""
 	global OUT, ROOT, PROP_DIR, SECTIONS, ENEMIES, FLYING
-	global PROP_FRAMES, SCATTER, TREES, SCATTER_SEED
+	global PROP_FRAMES, SCATTER, TREES, SCATTER_SEED, STAND_BY
 	stage = STAGES[key]
 	OUT = os.path.join(SCENES, stage["out"])
 	ROOT = stage["root"]
@@ -385,6 +517,14 @@ def use_stage(key):
 	SCATTER = stage["scatter"]
 	TREES = stage["trees"]
 	SCATTER_SEED = stage["seed"]
+	STAND_BY = stage.get("stand", {})
+
+
+def stand_of(kind):
+	"""脚底在原点下方几像素：表里点了名的按表，否则 Boss 24、别人 16。"""
+	if kind in STAND_BY:
+		return STAND_BY[kind]
+	return BOSS_STAND if kind.endswith("_boss") else STAND
 
 
 # ---------------------------------------------------------------- 摊平成一整关
@@ -432,7 +572,7 @@ class Level:
 					y = surface[1]
 					floats = True
 				else:
-					y = surface - (BOSS_STAND if kind.endswith("_boss") else STAND)
+					y = surface - stand_of(kind)
 				# **名字必须各不相同**：一段里有好几个 1-A，重名的话 `.tscn` 里会出现同名节点，
 				# 引擎的子节点名字表就对不上了（free 一批敌人时刷一屏
 				# 「Children name does not match parent name in hashtable」）。
@@ -557,7 +697,7 @@ def check_level(level):
 			if y < 0.0 and level.surface_at(x) is None:
 				problems.append("%s 吊在 x %.0f 的坑上面，掉下来就摔死了" % (name, x))
 			continue
-		feet = y + (BOSS_STAND if kind.endswith("_boss") else STAND)
+		feet = y + stand_of(kind)
 		on_ledge = any(left - 8 <= x <= right + 8 and abs(top - feet) < 1.0
 			for left, right, top in level.surfaces())
 		if not on_ledge:
