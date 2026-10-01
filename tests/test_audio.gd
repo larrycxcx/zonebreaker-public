@@ -71,7 +71,7 @@ func test_every_sound_file_is_used() -> void:
 		else:
 			used[stream.resource_path] = true
 	var files := Array(DirAccess.get_files_at(DEFAULT_SKIN_DIR + "sfx")).filter(func(f): return f.ends_with(".wav")).map(func(f): return DEFAULT_SKIN_DIR + "sfx/" + f)
-	check("29 sound files in the default skin", files.size() == 29, str(files.size()))
+	check("31 sound files in the default skin", files.size() == 31, str(files.size()))
 	for f in files:
 		check("%s is used by the skin" % f.get_file(), used.has(f))
 	check("the skin references no missing files", used.keys().all(func(p): return FileAccess.file_exists(p)))
@@ -355,6 +355,45 @@ func test_sounds_outlive_the_level() -> void:
 
 
 # ---------------------------------------------------------------- 清单和游戏一致
+
+func test_the_hammer_and_the_second_boss_phase_have_sounds() -> void:
+	# 这两个只在第二关里出现（测试关没有），所以自己摆一个到测试关里来。
+	# 清单里有的事件就得在游戏里真的触发——下面那条收尾用例查的就是这个。
+	var pack := load("res://skins/industrial/industrial_skin.tres") as SkinPack
+	await reset_scene(false, true, pack)
+	var hammer := (load("res://scenes/enemy_2_d.tscn") as PackedScene).instantiate() as EnemyHammer
+	main.get_node("Enemies").add_child(hammer)
+	hammer.global_position = Vector2(500, 304)
+	hammer.contact_damage = 0
+	player.global_position = Vector2(500 - hammer.smash_range + 8.0, 304)
+	player.health = 9999
+	snap_camera()
+	events.clear()
+	for i in 180:
+		await tree.physics_frame
+		player.health = 9999
+		if events.has(&"hammer_smash"):
+			break
+	expect_events([&"hammer_smash"], "抡锤起手")
+
+	await reset_scene(false, true, pack)
+	var boss := (load("res://scenes/boss_2.tscn") as PackedScene).instantiate() as BossOperator
+	main.get_node("Enemies").add_child(boss)
+	boss.global_position = Vector2(500, 170)
+	boss._home = boss.global_position
+	await frames(2)
+	boss.appear()
+	events.clear()
+	# **擦破点皮不该换挡**：先打一下，确认没报
+	boss.take_damage(SHOT, Vector2.INF, player)
+	await frames(2)
+	check("a scratch does not flip it", not events.has(&"boss_enrage") and not boss.is_enraged())
+	# **别一下打死**：死了就不换挡了（`health > 0` 才报），那条用例会白等
+	boss.take_damage(boss.max_health / 2, Vector2.INF, player)
+	await frames(2)
+	check("setup: it is hurt but alive", boss.health > 0, str(boss.health))
+	expect_events([&"boss_enrage"], "Boss 掉到半血以下")
+
 
 func test_zz_every_listed_event_happens_in_game() -> void:
 	# 排在最后（用例按声明顺序跑）：上面的场景覆盖了清单里的每个事件。

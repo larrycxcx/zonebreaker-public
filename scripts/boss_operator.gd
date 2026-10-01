@@ -45,6 +45,10 @@ extends Boss
 ## 第二阶段一发变几发，每发隔多少度。
 @export var enrage_fan_count := 3
 @export var enrage_fan_spread := 18.0
+## 第二阶段「出手更快」的倍率：开火间隔、两次攻击之间的停顿都乘它，缆绳放收的速度除以它。
+## **机械臂也要跟着变**——玩家多半站在它正下方，那时它一直在用手臂，
+## 只改飞行速度和子弹扇形的话，二阶段在最常见的位置上根本看不出来（2026-09 试玩反馈）。
+@export var enrage_rush := 0.7
 
 ## 缆绳从球上哪儿出来、子弹从哪儿打出去（相对身体原点）。两个是同一个口。
 const POD_MUZZLE := Vector2(0, 30)
@@ -65,6 +69,8 @@ var _volleying := false
 var _rest := 0.0
 ## 第二阶段这一轮已经打出去几发（用来把扇形铺开）。
 var _fan_index := 0
+## 进没进第二阶段。**是个闩**，不是每帧按血量重算——换挡只发生一次，才报得出那一下。
+var _enraged := false
 
 var _home := Vector2.ZERO
 var _heading := Vector2.ZERO
@@ -192,9 +198,21 @@ func _pick_heading() -> void:
 	_heading = Vector2(snappedf(cos(angle), 0.001), snappedf(sin(angle), 0.001)).normalized()
 
 
-## 血过半了没有。过半之后飞得更快、子弹变扇形。
+## 进没进第二阶段。
 func is_enraged() -> bool:
-	return float(health) <= float(max_health) * enrage_below
+	return _enraged
+
+
+## 掉到半血以下就换挡。**报一个事件**（声音 + 屏幕抖一下）——
+## 不报的话玩家根本不知道它变了：飞快一点、子弹多两发，都不够显眼（2026-09 试玩反馈）。
+func take_damage(amount: int, source_position := Vector2.INF, from: Node = null) -> void:
+	super(amount, source_position, from)
+	if not _enraged and health > 0 and float(health) <= float(max_health) * enrage_below:
+		_enraged = true
+		fire_interval *= enrage_rush
+		attack_interval *= enrage_rush
+		arm_speed /= enrage_rush
+		GameEvents.report(&"boss_enrage", self)
 
 
 ## 一轮子弹全沿同一条线（「单向」）：基类在一轮开始时调这个锁一次方向，剩下的沿用。

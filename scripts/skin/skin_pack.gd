@@ -38,6 +38,8 @@ const SOUND_EVENTS := {
 	&"ultimate_start": "玩家发动终极武器（定格开始）",
 	&"ultimate_blast": "终极武器消灭屏幕内的敌人（定格结束）",
 	&"boss_appear": "Boss 出场（第一次进入屏幕）",
+	&"boss_enrage": "Boss 掉到半血以下、换一套打法（只报一次）",
+	&"hammer_smash": "抡锤的敌人起手（砸到地上还要等几帧）",
 }
 
 ## 背景音乐的用途，以及什么时候放。

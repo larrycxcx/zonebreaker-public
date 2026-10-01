@@ -28,6 +28,8 @@
 [ext_resource type="AudioStream" path="res://skins/default/sfx/ultimate_start.wav" id="ultimate_start"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/ultimate_blast.wav" id="ultimate_blast"]
 [ext_resource type="AudioStream" path="res://skins/default/sfx/boss_appear.wav" id="boss_appear"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/boss_enrage.wav" id="boss_enrage"]
+[ext_resource type="AudioStream" path="res://skins/default/sfx/hammer_smash.wav" id="hammer_smash"]
 
 [resource]
 script = ExtResource("script")
@@ -59,5 +61,7 @@ sounds = Dictionary[StringName, AudioStream]({
 &"weapon_switch": ExtResource("weapon_switch"),
 &"ultimate_start": ExtResource("ultimate_start"),
 &"ultimate_blast": ExtResource("ultimate_blast"),
-&"boss_appear": ExtResource("boss_appear")
+&"boss_appear": ExtResource("boss_appear"),
+&"boss_enrage": ExtResource("boss_enrage"),
+&"hammer_smash": ExtResource("hammer_smash")
 })

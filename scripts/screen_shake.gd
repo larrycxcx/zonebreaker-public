@@ -13,6 +13,7 @@ const SHAKES := {
 	&"enemy_death": 2.0,
 	&"explosion": 6.0,
 	&"boss_appear": 4.0,
+	&"boss_enrage": 4.0,
 	&"ultimate_start": 5.0,
 	&"ultimate_blast": 8.0,
 }

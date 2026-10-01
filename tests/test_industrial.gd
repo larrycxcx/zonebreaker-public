@@ -1053,3 +1053,102 @@ func test_it_does_not_track_you_mid_swing() -> void:
 	await frames(4)
 	check("it stops hunting while it swings", not hammer.is_charging())
 	check("it does not spin round to follow", hammer.facing == -1, str(hammer.facing))
+
+
+func test_the_second_phase_announces_itself() -> void:
+	# **不报一声玩家根本不知道它变了**：飞快一点、子弹多两发，都不够显眼
+	# （2026-09 试玩反馈「没出现第二阶段」，其实出现了，只是看不出来）。
+	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
+	events.clear()
+	boss.take_damage(SHOT, Vector2.INF, player)
+	await frames(2)
+	check("a scratch does not flip it", not boss.is_enraged() and not events.has(&"boss_enrage"))
+	boss.take_damage(boss.max_health / 2, Vector2.INF, player)
+	await frames(2)
+	check("crossing half flips it", boss.is_enraged())
+	check("and it says so", events.has(&"boss_enrage"), str(events))
+	# **只报一次**：每挨一下报一次的话，后半场警报会一直响
+	events.clear()
+	boss.take_damage(SHOT, Vector2.INF, player)
+	await frames(2)
+	check("but only once", not events.has(&"boss_enrage"), str(events))
+
+
+func test_the_second_phase_shows_up_in_the_arm_too() -> void:
+	# **玩家多半站在它正下方**，那时它一直在用机械臂——只改飞行速度和子弹扇形的话，
+	# 二阶段在最常见的位置上根本看不出来。
+	var slow := 0.0
+	var quick := 0.0
+	for hurt: bool in [false, true]:
+		var boss := await face_the_operator(Vector2(OPEN_SKY_X, STAND_Y))
+		boss.contact_damage = 0
+		boss.roam_range.y = 0.0
+		if hurt:
+			boss.take_damage(boss.max_health / 2, Vector2.INF, player)
+		# 量「缆绳从开始放到放到底要多少帧」
+		for i in 400:
+			await tree.physics_frame
+			player.global_position = Vector2(boss.global_position.x, STAND_Y)
+			player.health = 9999
+			if boss.arm_state() == BossOperator.Arm.OUT:
+				break
+		var frames_out := 0
+		for i in 200:
+			await tree.physics_frame
+			player.global_position = Vector2(boss.global_position.x, STAND_Y)
+			player.health = 9999
+			if boss.arm_state() != BossOperator.Arm.OUT:
+				break
+			frames_out += 1
+		if hurt:
+			quick = float(frames_out)
+		else:
+			slow = float(frames_out)
+	check("setup: the arm really came down both times", slow > 2.0 and quick > 0.0,
+		"%.0f / %.0f" % [slow, quick])
+	check("hurt, the claw comes down faster", quick < slow, "%.0f -> %.0f 帧" % [slow, quick])
+
+
+func test_the_hammer_swing_makes_a_noise() -> void:
+	await reset_scene(false, true, pack())
+	var hammer := spawn("res://scenes/enemy_2_d.tscn", Vector2(500, STAND_Y)) as EnemyHammer
+	hammer.contact_damage = 0
+	hammer.facing = -1
+	player.global_position = Vector2(500 - hammer.smash_range + 8.0, STAND_Y)
+	player.health = 9999
+	snap_camera()
+	events.clear()
+	for i in 180:
+		await tree.physics_frame
+		player.health = 9999
+		if events.has(&"hammer_smash"):
+			break
+	check("it reports a swing", events.has(&"hammer_smash"), str(events))
+
+
+func test_a_big_hit_that_jumps_past_half_still_flips_it() -> void:
+	# 判断是**小于等于**半血，不是等于：一发大伤害（手雷、终极武器）会从半血以上
+	# 直接打到半血以下，正好踩在那条线上的概率很小。
+	# 写成「等于」的话，绝大多数打法都跨过去了，二阶段永远不出现。
+	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
+	var half := boss.max_health / 2
+	boss.take_damage(boss.max_health - half - SHOT, Vector2.INF, player)   # 打到半血**以上**
+	await frames(2)
+	check("setup: still above half", boss.health > half and not boss.is_enraged(),
+		"%d / %d" % [boss.health, half])
+	# 一下打过线，而且不是正好落在半血上
+	boss.take_damage(boss.health - half + SHOT * 3, Vector2.INF, player)
+	await frames(2)
+	check("setup: it landed well below half, not exactly on it",
+		boss.health < half and boss.health > 0, "%d / %d" % [boss.health, half])
+	check("jumping straight past half still flips it", boss.is_enraged())
+
+
+func test_landing_exactly_on_half_counts_as_below() -> void:
+	# 边界本身也要算：正好打到半血那一下就该换挡，不用再挨一下
+	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
+	var half := boss.max_health / 2
+	boss.take_damage(boss.max_health - half, Vector2.INF, player)
+	await frames(2)
+	check("setup: exactly on half", boss.health == half, "%d / %d" % [boss.health, half])
+	check("that already counts", boss.is_enraged())

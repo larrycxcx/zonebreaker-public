@@ -235,6 +235,17 @@ SOUNDS = {
         voice("noise", freq=7000, duration=0.015, volume=0.5, seed=16),
     ], 0.4),
     # ---- Boss ----
+    "hammer_smash": ("锤子砸地：沉闷的一下金属撞击 + 砸起来的碎石", [
+        voice("square", freq=150, freq_end=48, duration=0.26, duty=0.5, volume=0.95),
+        voice("noise", freq=1400, freq_end=260, duration=0.22, volume=0.6, seed=31),
+        voice("triangle", freq=70, freq_end=38, duration=0.34, attack=0.01, volume=0.8),
+    ], 0.9),
+    "boss_enrage": ("Boss 进二阶段：一路爬上去的警报 + 低音发力", [
+        voice("square", duration=0.7, duty=0.3, decay=1.6, volume=0.6,
+              notes=[(0.0, 330), (0.14, 392), (0.28, 494), (0.42, 587), (0.56, 740)]),
+        voice("triangle", freq=48, freq_end=96, duration=0.8, attack=0.08, volume=0.95),
+        voice("noise", freq=900, freq_end=3200, duration=0.5, volume=0.35, seed=32),
+    ], 0.8),
     "boss_appear": ("Boss 出场：两遍高低交替的警报 + 低音轰鸣", [
         voice("square", duration=0.84, duty=0.5, decay=2.0, volume=0.55,
               notes=[(0.0, 660), (0.18, 440), (0.36, 660), (0.54, 440)]),

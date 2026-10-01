@@ -9,9 +9,12 @@ const SKIN := "res://skins/cyberpunk/cyberpunk_skin.tres"
 ## 包里对不上、回落到默认包 8-bit 音效的事件。
 ## 赛博朋克音效包里没有对得上的，回落到默认包的 8-bit 音效（风格会有点混，以后找到合适的再补）。
 ## 赛博朋克包里没有、回落到默认包 8-bit 音效的那几个（风格会有点混，以后找到合适的再补）。
+## 这几个赛博朋克包里没有、回落到默认包的 8-bit 占位音。
+## **后两个是第二关的**（抡锤、Boss 换挡）：那套音效包里没有对得上的，
+## 而且第二关用的是工业区包（它的 `fallback` 一路串到默认包），不是这个包。
 const FROM_DEFAULT := [&"jump", &"stamina_exhausted", &"enemy_prone", &"chaser_alert",
 	&"player_down", &"player_revive", &"menu_move", &"menu_select", &"menu_back",
-	&"level_clear"]
+	&"level_clear", &"hammer_smash", &"boss_enrage"]
 
 
 func skin() -> SkinPack:
