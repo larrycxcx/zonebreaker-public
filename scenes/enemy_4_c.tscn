@@ -1,0 +1,21 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/enemy_walker.tscn" id="1"]
+
+[node name="EnemySuit" instance=ExtResource("1")]
+skin_key = &"4_c"
+max_health = 27
+contact_damage = 46
+move_speed = 20.0
+detect_range = 400.0
+can_aim_diagonally = true
+diagonal_up_muzzle = Vector2(16, -17)
+diagonal_down_muzzle = Vector2(20, 1)
+xp_reward = 14
+money_reward = 7
+
+[node name="Muzzle" parent="." index="3"]
+position = Vector2(20, -11)
+
+[node name="Body" parent="Visual" index="0"]
+color = Color(0.3, 0.35, 0.5, 1)

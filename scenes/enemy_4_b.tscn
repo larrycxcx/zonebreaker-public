@@ -1,0 +1,59 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_hammer.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/appearance.gd" id="99"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+resource_local_to_scene = true
+size = Vector2(24, 32)
+
+[node name="EnemyGuard" type="CharacterBody2D"]
+collision_layer = 8
+collision_mask = 1
+script = ExtResource("1")
+skin_key = &"4_b"
+max_health = 80
+contact_damage = 46
+xp_reward = 35
+money_reward = 17
+detect_range = 260.0
+move_speed = 40.0
+charge_speed = 40.0
+smash_range = 64.0
+smash_height = 28.0
+smash_interval = 1.6
+smash_damage = 46
+smash_offset = Vector2(36, -4)
+smash_radius = 32.0
+hit_frame = 4
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_1")
+
+[node name="FloorCheck" type="RayCast2D" parent="."]
+position = Vector2(10, 10)
+target_position = Vector2(0, 14)
+collision_mask = 1
+
+[node name="WallCheck" type="RayCast2D" parent="."]
+target_position = Vector2(18, 0)
+collision_mask = 1
+
+[node name="Visual" type="Node2D" parent="."]
+script = ExtResource("99")
+
+[node name="Body" type="ColorRect" parent="Visual"]
+offset_left = -12.0
+offset_top = -16.0
+offset_right = 12.0
+offset_bottom = 16.0
+mouse_filter = 2
+color = Color(0.3, 0.45, 0.4, 1)
+
+[node name="Eye" type="ColorRect" parent="Visual"]
+offset_left = 2.0
+offset_top = -8.0
+offset_right = 10.0
+offset_bottom = -2.0
+mouse_filter = 2
+color = Color(1, 0.95, 0.4, 1)

@@ -669,6 +669,14 @@ func take_damage(amount: int, source_position := Vector2.INF, _from: Node = null
 	velocity = Vector2(hurt_knockback.x * away, hurt_knockback.y)
 
 
+## 被抡飞：直接给一个速度，之后照常受重力、空中控制慢慢吃掉它。
+## 挨打本身（扣血、无敌帧）走 `take_damage`，这里只管飞出去多远——地下室 4-F 用它。
+func shove(push: Vector2) -> void:
+	if _dead or _downed:
+		return
+	velocity = push
+
+
 ## 血空了：双人时先倒地等人救，单人直接死。
 func _go_down() -> void:
 	if Session.player_count < 2:

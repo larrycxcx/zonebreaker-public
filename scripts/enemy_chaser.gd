@@ -24,6 +24,9 @@ extends EnemyWalker
 ## 弹开约 60px，它再冲回来差不多正好是无敌帧结束的时候，节奏变成「撞一下、退开、再来」。
 @export var bounce_speed := 200.0
 @export var bounce_time := 0.3
+## 撞上人的那一下播一遍攻击动作（地下室 4-A 那个光膀子，撞上去就是一记重拳）。
+## 默认关：D 和 2-B 的素材没画这一组，开了会去找一张不存在的贴图。
+@export var punch_on_contact := false
 
 var is_chasing := false
 
@@ -77,6 +80,8 @@ func _physics_process(delta: float) -> void:
 
 ## 撞上玩家了：往玩家的反方向弹开一段。**朝向不动**——它还是冲着玩家的，只是被顶回去了。
 func bounced_off(from: Vector2) -> void:
+	if punch_on_contact:
+		_visual.fire()
 	_bounce_left = bounce_time
 	_bounce_facing = signi(global_position.x - from.x)
 	if _bounce_facing == 0:

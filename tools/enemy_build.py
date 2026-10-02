@@ -442,11 +442,16 @@ def most_common(frame, skip):
 	return max(count, key=count.get)
 
 
-def build_flyer(write, key="1_e", number="5", table=None, pack=None, out_root=None, body_rows=None):
-	"""会飞的那个：整组按待机第一帧的机身（螺旋桨以下）定一次位，机身中心对准锚点。"""
+def build_flyer(write, key="1_e", number="5", table=None, pack=None, out_root=None, body_rows=None,
+		faces_left=False):
+	"""会飞的那个：整组按待机第一帧的机身（螺旋桨以下）定一次位，机身中心对准锚点。
+	`faces_left`：素材是**朝左**画的（地下室那架无人机枪管在左边）。读进来先整帧翻过来，
+	后面一律按朝右处理——输出的 `_r` 永远是朝右的，外观层才不用分情况。"""
 	folder = os.path.join(pack if pack else PACK, number)
 	clips = {name: frames_of(os.path.join(folder, f), idx)
 		for name, (f, idx) in (table if table else FLYER_CLIPS).items()}
+	if faces_left:
+		clips = {name: [[list(reversed(row)) for row in f] for f in frames] for name, frames in clips.items()}
 	first = clips["idle"][0]
 	# 机身 = 螺旋桨下面那一截：从最宽的那几行（螺旋桨）往下数，跳过桅杆。
 	rows = [y for y, row in enumerate(first) if any(c[3] > 8 for c in row)]
@@ -699,6 +704,78 @@ def build_boss_wheel(write):
 	print("  %s/portrait.png  %dx%d" % (BOSS3_OUT, w, h))
 
 
+# ---------------------------------------------------------------- 地下室（第四关，纵向往上爬）
+# 素材 CraftPix Basement Enemies（`basement-tileset/enemies/`，不进仓库），格式还是 48×48、脚底在帧底边。
+# 打法 2026-10 和用户一起定的（这一关往上爬，威胁要从上下和侧面来）：
+BASE_PACK = os.path.join(HERE, "..", "art_in", "default", "basement-tileset", "enemies")
+BASE_OUT = os.path.join(HERE, "..", "skins", "basement", "enemies")
+BASE_SINGLES = {
+	# 4-A 光膀子打手：**从下面追上来的追兵**（D 那套，能一层层跳上平台）。
+	# Walk 那组画的就是冲刺（身子前倾、胳膊甩开），走和冲用同一组；空中取其中一帧。
+	"4_a": ("1", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"run": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"air": ("Walk.png", [2]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3, 4, 5]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+	# 4-B 猫耳女：**平台守卫**。Attack 6 帧 = 甩一下、举过头顶（第 3、4 帧，蓄力）、
+	# **第 5 帧刀光横扫到最远**——伤害卡这一帧。
+	"4_b": ("2", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3, 4, 5]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+	# 4-C 西装男：三向枪手。素材自带水平 / 斜上 / 斜下三组，和第三关 3-B 一样是真斜射。
+	"4_c": ("3", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack1.png", [0, 1, 2, 3]),
+		"attack_up": ("Attack2.png", [0, 1, 2, 3]),
+		"attack_down": ("Attack3.png", [0, 1, 2, 3]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+	# 4-E 蜘蛛炮台：守层炮台，慢慢挪、横着打一串。不是人形，按外框居中。
+	"4_e": ("5", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3, 4, 5]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}, "box"),
+	# 4-F 骷髅衫打手：**一拳打下平台**。Attack 6 帧里第 5 帧整条胳膊横甩到最远——击退卡这一帧。
+	"4_f": ("6", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3, 4, 5]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+}
+# 4-D 无人机：**贴着玩家的高度飞**、对齐了就横着开枪。素材是**朝左**画的（枪管在左），
+# 生成时先翻过来。机身是第 19~30 行（上面是天线、下面是喷口）。
+# 它的 Attack 只是底下喷口闪一下、没画枪口火光——开火那团光由特效层（`Fx`）另外画。
+BASE_FLYER_BODY = (19, 30)
+BASE_FLYER = {
+	"idle": ("Idle.png", [0, 1, 2, 3]),
+	"attack_level": ("Attack.png", [0, 1, 2, 3]),
+	"hurt": ("Hurt.png", [0, 1]),
+	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+}
+
+
+def build_basement(write):
+	if not os.path.isdir(BASE_PACK):
+		sys.exit("找不到地下室敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(BASE_PACK))
+	build_singles(write, BASE_SINGLES, BASE_PACK, BASE_OUT)
+	build_flyer(write, "4_d", "4", BASE_FLYER, BASE_PACK, BASE_OUT, BASE_FLYER_BODY, faces_left=True)
+
+
 def build_industrial(write):
 	if not os.path.isdir(IND_PACK):
 		sys.exit("找不到工业区敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(IND_PACK))
@@ -717,6 +794,11 @@ def build_bar_street(write):
 def main():
 	write = "--check" not in sys.argv
 	only = [a for a in sys.argv[1:] if not a.startswith("--")]
+	if only == ["basement"]:
+		print("地下室（第四关）的六种敌人：")
+		build_basement(write)
+		_report(write)
+		return
 	if only == ["bar_street"]:
 		print("酒吧街（第三关）的六种敌人：")
 		build_bar_street(write)
@@ -743,6 +825,8 @@ def main():
 	build_industrial(write)
 	print("酒吧街（第三关）的六种敌人：")
 	build_bar_street(write)
+	print("地下室（第四关）的六种敌人：")
+	build_basement(write)
 	_report(write)
 
 

@@ -29,13 +29,21 @@ extends EnemyWalker
 ## 锤头周围这个半径里的玩家挨打。
 @export var smash_radius := 22.0
 @export var smash_event := &"hammer_smash"
+## 打中时把人往外甩多猛（朝右时；朝左 x 取反）。0 = 不额外甩，挨打就是玩家自己那一下小击退。
+## 地下室 4-F 那个骷髅衫打手就靠这个：伤害不高，但一胳膊把人从平台上抡出去——
+## 纵向关里往下掉才是真的疼（掉出画面扣血、白爬）。
+@export var smash_knockback := Vector2.ZERO
 
 ## 抡到第几帧砸到地上，以及一次性动作是多少帧一秒。
 ## **必须和 `EnemySpriteAppearance.ONCE_FPS` 对得上**：画面上锤子落地那一刻才是扣血那一刻。
 const HIT_FRAME := 5
 const SWING_FPS := 12.0
-## 从起手到砸中隔多久。
+## 从起手到砸中隔多久（默认那一帧）。
 const HIT_DELAY := HIT_FRAME / SWING_FPS
+
+## 这一种在第几帧打中。默认是锤子兵那一下（`HIT_FRAME`）；素材不一样的自己配——
+## 地下室 4-F 的胳膊在第 5 帧（下标 4）甩到最远，第 6 帧已经在往回收了。
+@export var hit_frame := HIT_FRAME
 
 ## 正在冲向谁，没有就是 null。
 var _hunted: Node2D = null
@@ -89,6 +97,11 @@ func is_engaged(_target: Node2D) -> bool:
 	return _swing_left > 0.0 or smash_target() != null
 
 
+## 从起手到打中隔多久。
+func hit_delay() -> float:
+	return hit_frame / SWING_FPS
+
+
 func is_swinging() -> bool:
 	return _swing_left > 0.0
 
@@ -103,7 +116,7 @@ func _update_smash(delta: float) -> void:
 	if _smash_timer > 0.0 or smash_target() == null:
 		return
 	_smash_timer = smash_interval
-	_swing_left = HIT_DELAY
+	_swing_left = hit_delay()
 	_visual.fire()
 	GameEvents.report(smash_event, self)
 
@@ -126,7 +139,11 @@ func _land_the_blow() -> void:
 	var at := smash_point()
 	for player in players_by_distance():
 		if player.body_center().distance_to(at) <= smash_radius:
+			# 无敌中的不甩：没挨到打就不该被抡飞
+			var landed := not player.is_invincible()
 			player.take_damage(roundi(smash_damage * Stage.damage_scale()), at, self)
+			if landed and smash_knockback != Vector2.ZERO:
+				player.shove(Vector2(smash_knockback.x * facing, smash_knockback.y))
 
 
 func smash_point() -> Vector2:
