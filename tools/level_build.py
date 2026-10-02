@@ -64,6 +64,17 @@ CRAWL_THICK = 50.0
 AIR = "air"
 HANG_Y = -40.0
 
+## **机关**（第二关，2026-10 加的）：液压机和闸门都是一帧 32×64、底边落在地面上。
+## 液压机挂在「压机通道」的天花板下面（天花板从画面顶一直垂到离地 64），闸门上面是一截通到画面顶的实心墙——
+## 门和压机都只有 64 高、一跳有 87，不封顶的话直接跳过去，机关就白放了。
+TRAP_W = 32.0
+TRAP_H = 64.0
+TRAP_TOP = GROUND_Y - TRAP_H
+## 一排液压机依次错开多少秒：同时砸下来就是一堵墙，错开了空当才是一台接一台地开。
+PRESS_STAGGER = 0.45
+PRESS_SCENE = "res://scenes/trap_press.tscn"
+GATE_SCENE = "res://scenes/trap_gate.tscn"
+
 ## 出生点往后多远之内不许摆敌人。
 ## **人一进来就在挨打，连看清楚周围都来不及**（2026-09 试玩发现）。
 ## 摄像机一开始夹在关卡左边，画面就是 x 0..640，而敌人**只要有一部分在画面里就算够得着**
@@ -285,7 +296,9 @@ SECTIONS_2 = [
 			("2_c", 560, 200), ("2_a", 1000, (AIR, HANG_Y)), ("2_c", 880, 248),
 			("2_b", 1140, GROUND_Y), ("2_c", 1120, 200)],
 	}),
-	("Presses", {                                 # 矮通道 + 堵死的下层：出口都有锤子兵
+	("Presses", {                                 # 压机通道 → 矮通道 + 堵死的下层：出口都有锤子兵
+		# 开头一条压机通道（天花板 + 三台液压机，节奏依次错开）：从底下看准空当冲过去
+		"halls": [(16, 160, 3)],
 		"crawl": [(200, 200), (800, 180)],
 		"blocks": [(520, 64, 112)],
 		# 340 / 400 那两块是垫脚：从地面一跳最多上 72，直接上 160 的钢架跳不上去
@@ -307,6 +320,8 @@ SECTIONS_2 = [
 		"ledges": [(220, 256, 96), (460, 256, 80), (560, 208, 112), (900, 256, 96),
 			(1020, 256, 80), (1120, 208, 96)],
 		"walls": [(740, 56)],
+		# 闸门：自爆机冲过来的路上隔一道门，门一开它们就涌过来
+		"gates": [(392, 0.0)],
 		"enemies": [("2_f", 180, GROUND_Y), ("2_c", 260, 256), ("2_f", 620, GROUND_Y),
 			("2_c", 600, 208), ("2_f", 820, GROUND_Y), ("2_c", 940, 256),
 			("2_b", 1060, GROUND_Y), ("2_f", 1180, GROUND_Y), ("2_c", 1160, 208)],
@@ -323,6 +338,8 @@ SECTIONS_2 = [
 		"ledges": [(120, 264, 128), (340, 208, 128), (560, 152, 160), (820, 208, 128),
 			(1040, 264, 128)],
 		"gaps": [(700, 92)],
+		# 闸门：上面三层在打，底下这道门逼你在火力底下停一下
+		"gates": [(504, 1.0)],
 		"enemies": [("2_c", 160, 264), ("2_b", 260, GROUND_Y), ("2_c", 380, 208),
 			("2_c", 600, 152), ("2_c", 660, 152), ("2_e", 700, None),
 			("2_c", 860, 208), ("2_b", 980, GROUND_Y), ("2_c", 1080, 264),
@@ -687,6 +704,9 @@ class Level:
 		self.enemies = []     # (名字, 类型, x, y)
 		self.floating = set() # 直接摆在半空里的那几个的名字（吊着的 2-A、飘着的 Boss）
 		self.props = []       # (名字, 装饰名, x, 底边 y)
+		self.halls = []       # (名字, x, 宽)       压机通道的天花板
+		self.presses = []     # (名字, x, 错开几秒)
+		self.gates = []       # (名字, x, 错开几秒)
 		self.ground = []      # (x, 宽)
 		self._build()
 
@@ -709,6 +729,14 @@ class Level:
 				self.blocks.append((name("Block"), base + x, wide, high))
 			for x, wide in parts.get("crawl", []):
 				self.crawls.append((name("Crawl"), base + x, wide))
+			for x, wide, count in parts.get("halls", []):
+				self.halls.append((name("Hall"), base + x, wide))
+				space = (wide - count * TRAP_W) / (count + 1)
+				for k in range(count):
+					self.presses.append((name("Press"), base + x + space * (k + 1) + TRAP_W * k,
+						PRESS_STAGGER * k))
+			for x, phase in parts.get("gates", []):
+				self.gates.append((name("Gate"), base + x, phase))
 			for prop, x, surface in parts.get("props", []):
 				self.props.append((name("Prop"), prop, base + x, surface))
 			for kind, x, surface in parts.get("enemies", []):
@@ -844,6 +872,23 @@ def check_level(level):
 			if ltop <= top - BLOCK_CLEAR and lx <= x and lx + lwide >= x + wide]
 		if not over:
 			problems.append("%s 把路堵死了，上面却没有整块盖过去的浮台" % name)
+	# 机关：底下是实地；那一条（压机通道 / 闸门连同上面那截墙）不许和平台、矮通道、堵块、竖墙打架；
+	# 跟前不许站敌人（站在压机底下的巡逻兵一直挨不着，站在门里的会被门卡住）
+	columns = [(n, x, wide) for n, x, wide in level.halls] + [(n, x, TRAP_W) for n, x, _ in level.gates]
+	for name, x, wide in columns:
+		if level.surface_at(x) is None or level.surface_at(x + wide) is None:
+			problems.append("%s 架在坑上" % name)
+		for other, ox, _, owide in level.ledges:
+			if ox < x + wide and x < ox + owide:
+				problems.append("%s 那一条里有浮台 %s，会被天花板 / 门上的墙穿过去" % (name, other))
+		solids = [(n, cx, cw) for n, cx, cw in level.crawls] + [(n, bx, bw) for n, bx, bw, _ in level.blocks] \
+			+ [(n, wx, 16.0) for n, wx, _ in level.walls]
+		for other, ox, owide in solids:
+			if ox < x + wide + 16 and x - 16 < ox + owide:
+				problems.append("%s 挨着 %s，挤在一起" % (name, other))
+		for ename, kind, ex, ey in level.enemies:
+			if x - 24 <= ex <= x + wide + 24 and ey > 0:
+				problems.append("%s 站在 %s 那一条里" % (ename, name))
 	# 浮台要够得着：横着差 120 以内、底下有个面，落差不超过一次跳
 	for name, x, top, wide in level.ledges:
 		best = None
@@ -925,6 +970,10 @@ def build(level, write):
 		extra.append('[ext_resource type="Texture2D" path="res://skins/%s/props/%s.png" id="%s"]'
 			% (PROP_DIR, prop, prop_ids[prop]))
 	extra.append('[ext_resource type="Script" path="res://scripts/prop.gd" id="21"]')
+	if level.presses:
+		extra.append('[ext_resource type="PackedScene" path="%s" id="t0"]' % PRESS_SCENE)
+	if level.gates:
+		extra.append('[ext_resource type="PackedScene" path="%s" id="t1"]' % GATE_SCENE)
 	out = [HEAD + "\n".join(extra) + "\n"]
 	out.append('\n[node name="Level1" type="Node2D"]\nscript = ExtResource("3")\n')
 	# **装饰在最前面声明**：关卡加载时背景会被插成第 0 个子节点，于是画的顺序就是
@@ -951,10 +1000,23 @@ def build(level, write):
 		out.append("\n" + platform(name, "Level", x, top, wide, CRAWL_THICK))
 	for name, x, wide, high in level.blocks:
 		out.append("\n" + platform(name, "Level", x, GROUND_Y - high, wide, high))
+	for name, x, wide in level.halls:
+		out.append("\n" + platform(name, "Level", x, 0, wide, TRAP_TOP))
+	for name, x, _ in level.gates:
+		out.append("\n" + platform(name.replace("Gate", "Lintel"), "Level", x, 0, TRAP_W, TRAP_TOP))
 	out.append('\n[node name="Walls" type="Node2D" parent="Level"]\n')
 	for name, x, high in level.walls:
 		out.append("\n" + platform(name, "Level/Walls", x, GROUND_Y - high, 16, high))
 
+	if level.presses or level.gates:
+		# 机关画在地形后面、敌人前面
+		out.append('\n[node name="Traps" type="Node2D" parent="."]\n')
+		for name, x, phase in level.presses:
+			out.append('\n[node name="%s" parent="Traps" instance=ExtResource("t0")]\n'
+				'position = Vector2(%g, %g)\nphase = %g\nmount_y = %g\n' % (name, x, TRAP_TOP, phase, TRAP_TOP))
+		for name, x, phase in level.gates:
+			out.append('\n[node name="%s" parent="Traps" instance=ExtResource("t1")]\n'
+				'position = Vector2(%g, %g)\nphase = %g\n' % (name, x, TRAP_TOP, phase))
 	out.append('\n[node name="Enemies" type="Node2D" parent="."]\n')
 	for name, kind, x, y in level.enemies:
 		out.append('\n[node name="%s" parent="Enemies" instance=ExtResource("%s")]\n'
@@ -1038,6 +1100,8 @@ def build_stage(key, write):
 			max([w for _, w in level.gaps] or [0]), MAX_GAP))
 	print("  浮台 %d、竖墙 %d、矮通道 %d、堵块 %d"
 		% (len(level.ledges), len(level.walls), len(level.crawls), len(level.blocks)))
+	if level.presses or level.gates:
+		print("  机关：液压机 %d（%d 条压机通道）、闸门 %d" % (len(level.presses), len(level.halls), len(level.gates)))
 	print("  装饰 %d 件（纯显示，画在所有东西后面）" % len(level.props))
 	kinds = {}
 	for _, kind, _, _ in level.enemies:

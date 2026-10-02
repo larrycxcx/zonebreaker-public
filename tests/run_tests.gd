@@ -49,6 +49,7 @@ const SUITES := {
 	"vertical": "res://tests/test_vertical.gd",
 	"level_1": "res://tests/test_level_1.gd",
 	"level_2": "res://tests/test_level_2.gd",
+	"traps": "res://tests/test_traps.gd",
 	"level_3": "res://tests/test_level_3.gd",
 	"level_4": "res://tests/test_level_4.gd",
 	"catalog": "res://tests/test_catalog.gd",

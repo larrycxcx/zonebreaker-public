@@ -36,6 +36,8 @@
 [ext_resource type="Texture2D" path="res://skins/industrial/props/screen.png" id="p13"]
 [ext_resource type="Texture2D" path="res://skins/industrial/props/sign.png" id="p14"]
 [ext_resource type="Script" path="res://scripts/prop.gd" id="21"]
+[ext_resource type="PackedScene" path="res://scenes/trap_press.tscn" id="t0"]
+[ext_resource type="PackedScene" path="res://scenes/trap_gate.tscn" id="t1"]
 
 [node name="Level1" type="Node2D"]
 script = ExtResource("3")
@@ -1321,6 +1323,18 @@ size = Vector2(64, 112)
 position = Vector2(10780, 208)
 size = Vector2(56, 112)
 
+[node name="Hall1" parent="Level" instance=ExtResource("1")]
+position = Vector2(3856, 0)
+size = Vector2(160, 256)
+
+[node name="Lintel1" parent="Level" instance=ExtResource("1")]
+position = Vector2(6792, 0)
+size = Vector2(32, 256)
+
+[node name="Lintel2" parent="Level" instance=ExtResource("1")]
+position = Vector2(9464, 0)
+size = Vector2(32, 256)
+
 [node name="Walls" type="Node2D" parent="Level"]
 
 [node name="Wall1" parent="Level/Walls" instance=ExtResource("1")]
@@ -1338,6 +1352,31 @@ size = Vector2(16, 40)
 [node name="Wall4" parent="Level/Walls" instance=ExtResource("1")]
 position = Vector2(11560, 264)
 size = Vector2(16, 56)
+
+[node name="Traps" type="Node2D" parent="."]
+
+[node name="Press1" parent="Traps" instance=ExtResource("t0")]
+position = Vector2(3872, 256)
+phase = 0
+mount_y = 256
+
+[node name="Press2" parent="Traps" instance=ExtResource("t0")]
+position = Vector2(3920, 256)
+phase = 0.45
+mount_y = 256
+
+[node name="Press3" parent="Traps" instance=ExtResource("t0")]
+position = Vector2(3968, 256)
+phase = 0.9
+mount_y = 256
+
+[node name="Gate1" parent="Traps" instance=ExtResource("t1")]
+position = Vector2(6792, 256)
+phase = 0
+
+[node name="Gate2" parent="Traps" instance=ExtResource("t1")]
+position = Vector2(9464, 256)
+phase = 1
 
 [node name="Enemies" type="Node2D" parent="."]
 

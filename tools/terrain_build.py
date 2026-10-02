@@ -163,6 +163,10 @@ ZONES = {
 		"terrain": {"ground": [[5], [14]], "ledge": {"tiles": [[77, 78, 79]], "crop": 16}, "stone": [[36]]},
 		"backdrop_dir": "2 Background",
 		"backdrop": {"base": "1", "sky": "2", "far": "3", "mid": "4", "near": "5"},
+		# **机关**（2026-10 加的）：液压机（`Hammer.png`，从上面吊下来的活塞）和闸门（`Entry.png`）。
+		# 都是 8 帧 × 32×64，原样输出；液压机另外抽第 0 帧的第 2 行当活塞杆，竖着平铺接到天花板上。
+		"traps": {"press": "4 Animated objects/Hammer.png", "gate": "4 Animated objects/Entry.png"},
+		"trap_rods": {"press_rod": ("4 Animated objects/Hammer.png", 2)},
 		"haze": {"base": 0.0, "sky": 0.0, "far": 0.62, "mid": 0.5, "near": 0.38},
 		"props": {
 			"barrel": ("3 Objects/Barrel1.png", 1),
@@ -344,6 +348,19 @@ def build_zone(key, write):
 			sb.write_png(os.path.join(out, "lighting", "glow.png"), art)
 		print("光照：")
 		print("  lighting/glow.png  %dx%d（素材 %dx%d）" % (len(art[0]), len(art), width, height))
+	if "traps" in zone:
+		print("机关：")
+		for name, rel in zone["traps"].items():
+			width, height, pixels = sb.read_png(os.path.join(pack, *rel.split("/")))
+			if write:
+				sb.write_png(os.path.join(out, "traps", name + ".png"), pixels)
+			print("  traps/%s.png  %dx%d（%d 帧）" % (name, width, height, width // 32))
+		for name, (rel, row) in zone.get("trap_rods", {}).items():
+			_, _, pixels = sb.read_png(os.path.join(pack, *rel.split("/")))
+			art = [pixels[row][0:32]]
+			if write:
+				sb.write_png(os.path.join(out, "traps", name + ".png"), art)
+			print("  traps/%s.png  32x1" % name)
 	if "facades" in zone:
 		print("楼面：")
 		for name, recipe in globals()[zone["facades"]].items():
