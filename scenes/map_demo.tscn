@@ -1,0 +1,135 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="6"]
+[ext_resource type="Script" path="res://scripts/fx.gd" id="13"]
+[ext_resource type="PackedScene" path="res://scenes/muzzle_flash.tscn" id="14"]
+[ext_resource type="PackedScene" path="res://scenes/hit_spark.tscn" id="15"]
+[ext_resource type="PackedScene" path="res://scenes/impact_spark.tscn" id="16"]
+[ext_resource type="Script" path="res://scripts/camera_rig.gd" id="17"]
+[ext_resource type="PackedScene" path="res://scenes/explosion.tscn" id="18"]
+[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="19"]
+[ext_resource type="PackedScene" path="res://scenes/ui/death_screen.tscn" id="20"]
+[ext_resource type="PackedScene" path="res://scenes/ui/clear_screen.tscn" id="22"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_2_c.tscn" id="e0"]
+[ext_resource type="PackedScene" path="res://scenes/ladder.tscn" id="t2"]
+[ext_resource type="PackedScene" path="res://scenes/trap_press.tscn" id="t0"]
+
+[node name="MapDemo" type="Node2D"]
+script = ExtResource("3")
+
+[node name="Props" type="Node2D" parent="."]
+
+[node name="Level" type="Node2D" parent="."]
+
+[node name="Solid1" parent="Level" instance=ExtResource("1")]
+position = Vector2(256, 0)
+size = Vector2(160, 112)
+
+[node name="Solid2" parent="Level" instance=ExtResource("1")]
+position = Vector2(0, 112)
+size = Vector2(128, 16)
+
+[node name="Solid3" parent="Level" instance=ExtResource("1")]
+position = Vector2(176, 112)
+size = Vector2(400, 16)
+
+[node name="Solid4" parent="Level" instance=ExtResource("1")]
+position = Vector2(608, 112)
+size = Vector2(32, 16)
+
+[node name="Solid5" parent="Level" instance=ExtResource("1")]
+position = Vector2(0, 208)
+size = Vector2(208, 16)
+
+[node name="Solid6" parent="Level" instance=ExtResource("1")]
+position = Vector2(240, 208)
+size = Vector2(48, 16)
+
+[node name="Solid7" parent="Level" instance=ExtResource("1")]
+position = Vector2(544, 208)
+size = Vector2(96, 16)
+
+[node name="Solid8" parent="Level" instance=ExtResource("1")]
+position = Vector2(0, 224)
+size = Vector2(80, 96)
+
+[node name="Solid9" parent="Level" instance=ExtResource("1")]
+position = Vector2(560, 224)
+size = Vector2(80, 96)
+
+[node name="Solid10" parent="Level" instance=ExtResource("1")]
+skin_key = &"terrain_ground"
+position = Vector2(0, 320)
+size = Vector2(640, 48)
+
+[node name="WallLeft" parent="Level" instance=ExtResource("1")]
+position = Vector2(-16, 0)
+size = Vector2(16, 360)
+
+[node name="WallRight" parent="Level" instance=ExtResource("1")]
+position = Vector2(640, 0)
+size = Vector2(16, 360)
+
+[node name="Ledge1" parent="Level" instance=ExtResource("1")]
+position = Vector2(288, 208)
+size = Vector2(256, 16)
+one_way = true
+
+[node name="Ladder1" parent="Level" instance=ExtResource("t2")]
+position = Vector2(224, 208)
+height = 112
+
+[node name="Ladder2" parent="Level" instance=ExtResource("t2")]
+position = Vector2(592, 112)
+height = 96
+
+[node name="Walls" type="Node2D" parent="Level"]
+
+[node name="Traps" type="Node2D" parent="."]
+
+[node name="Press1" parent="Traps" instance=ExtResource("t0")]
+position = Vector2(352, 144)
+phase = 0
+mount_y = 128
+
+[node name="Press2" parent="Traps" instance=ExtResource("t0")]
+position = Vector2(432, 144)
+phase = 0.45
+mount_y = 128
+
+[node name="Enemies" type="Node2D" parent="."]
+
+[node name="2-C-1" parent="Enemies" instance=ExtResource("e0")]
+position = Vector2(504, 192)
+
+[node name="2-C-2" parent="Enemies" instance=ExtResource("e0")]
+position = Vector2(472, 304)
+
+[node name="Fx" type="Node2D" parent="."]
+script = ExtResource("13")
+muzzle_flash_scene = ExtResource("14")
+hit_spark_scene = ExtResource("15")
+impact_spark_scene = ExtResource("16")
+explosion_scene = ExtResource("18")
+
+[node name="Player" parent="." instance=ExtResource("2")]
+position = Vector2(56, 96)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(56, 96)
+script = ExtResource("17")
+limit_left = 0
+limit_top = 0
+limit_right = 640
+limit_bottom = 360
+
+[node name="HUD" parent="." instance=ExtResource("6")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("19")]
+
+[node name="DeathScreen" parent="." instance=ExtResource("20")]
+
+[node name="ClearScreen" parent="." instance=ExtResource("22")]

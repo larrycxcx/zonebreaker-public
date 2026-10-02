@@ -1046,8 +1046,31 @@ def build(level, write):
 	return "".join(out)
 
 
+def build_map_demo(write):
+	"""用户示意图那一屏（`level_maps.DEMO`），生成到 scenes/map_demo.tscn，不进选关列表。"""
+	import level_maps
+	import map_build as mb
+	level = mb.MapLevel(level_maps.DEMO, level_maps.DEMO_ENEMIES, ENEMIES_2, lambda kind: STAND)
+	problems = mb.check(level)
+	if problems:
+		print("格子地图自检没过：")
+		for p in problems:
+			print("  -", p)
+		sys.exit(1)
+	mb.build(level, os.path.join(SCENES, "map_demo.tscn"), "MapDemo", "industrial", write)
+	print("示意图那一段：%d 格宽（%d 像素）" % (level.width, level.width * mb.CELL))
+	print("  实心 %d 块、单向 %d、梯子 %d、液压机 %d、闸门 %d、敌人 %d"
+		% (len(level.solids), len(level.ledges), len(level.ladders), len(level.presses),
+			len(level.gates), len(level.enemies)))
+	if write:
+		print("  写入 scenes/map_demo.tscn")
+
+
 def main():
 	write = "--check" not in sys.argv
+	if "demo" in sys.argv:
+		build_map_demo(write)
+		return
 	wanted = [a for a in sys.argv[1:] if not a.startswith("--")] or list(STAGES)
 	for key in wanted:
 		if key not in STAGES:
