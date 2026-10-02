@@ -499,6 +499,24 @@ def build_bodies(write):
 			print("    （用的是自己补的无臂版 art_src/%s）" % os.path.basename(mine))
 
 
+# 爬梯子（2026-10 加的）：素材每个角色一组 `<名字>_climb.png`，6 帧、**背影**、两只手都在梯子上。
+# 自带手臂（人是背对着的），所以不脱手臂、外观层爬梯时把单独贴的瞄准手臂藏起来。
+# 背影没有「躯干那一列」好量，按每帧的外框居中；脚底照样落在帧底边。
+CLIMB_FRAMES = [0, 1, 2, 3, 4, 5]
+
+
+def build_climb(write):
+	name = CHARACTER.split(" ", 1)[1]
+	_, _, pixels = read_png(os.path.join(SRC, "1 Characters", CHARACTER, "%s_climb.png" % name))
+	right = []
+	for index in CLIMB_FRAMES:
+		frame = cut(pixels, index * CELL, 0, CELL, CELL)
+		xs = [x for row in frame for x, c in enumerate(row) if c[3] > 8]
+		right.append(place(frame, (min(xs) + max(xs)) / 2.0, "climb 第%d帧" % (index + 1)))
+	save_strip("body_climb_r.png", right, write)
+	save_strip("body_climb_l.png", [mirror(f) for f in right], write)
+
+
 def grip_in(gun, aim):
 	"""转好向的枪身上，前握把落在图里的哪个位置（图自己的坐标）。"""
 	length = math.hypot(aim[0], aim[1])
@@ -612,6 +630,7 @@ def build_character(key, write):
 	print("== %s（%s）==" % (key, CHARACTER))
 	print("身体（脱掉素材自带的手臂）：")
 	build_bodies(write)
+	build_climb(write)
 	print("死亡（角色自己那张 %s）：" % os.path.basename(DEATH))
 	build_death(write)
 	print("趴姿和爬行（自己画的 art_src/%s，原生分辨率，颜色贴回这个角色的调色板）：" % PRONE)

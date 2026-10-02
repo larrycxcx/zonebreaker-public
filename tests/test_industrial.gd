@@ -39,8 +39,8 @@ func test_the_pack_brings_its_own_terrain_and_a_backdrop() -> void:
 	for key: StringName in mine.appearances:
 		keys.append(String(key))
 	keys.sort()
-	check("it declares the three terrains, this stage's enemies, its boss and its two traps",
-		keys == ["2_a", "2_b", "2_boss", "2_c", "2_d", "2_e", "2_f",
+	check("it declares the three terrains, this stage's enemies, its boss, its two traps and a ladder",
+		keys == ["2_a", "2_b", "2_boss", "2_c", "2_d", "2_e", "2_f", "ladder",
 			"terrain_ground", "terrain_ledge", "terrain_stone", "trap_gate", "trap_press"], str(keys))
 	check("and a backdrop of its own", mine.backdrop != null
 		and mine.backdrop.resource_path.contains("industrial"), str(mine.backdrop))

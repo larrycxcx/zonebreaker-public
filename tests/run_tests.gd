@@ -15,6 +15,7 @@ const SUITES := {
 	"enemy_f": "res://tests/test_enemy_f.gd",
 	"flyer": "res://tests/test_flyer.gd",
 	"crouch": "res://tests/test_crouch.gd",
+	"ladders": "res://tests/test_ladders.gd",
 	"drop": "res://tests/test_drop.gd",
 	"sprint": "res://tests/test_sprint.gd",
 	"walls": "res://tests/test_walls.gd",

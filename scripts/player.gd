@@ -54,6 +54,12 @@ var max_health := 0
 ## 落地前提前按下跳跃键仍然有效的时间（跳跃缓冲）。
 @export var jump_buffer_time := 0.1
 
+@export_group("Ladder")
+## 爬梯子多快（上下一样）。比走路慢一截：梯子是危险地带，爬的时候不能开枪。
+@export var climb_speed := 100.0
+## 从梯子上往旁边跳出去时，起跳速度打几折（比原地起跳矮一点，免得在梯子上一跳就够到上一层）。
+@export var ladder_jump_scale := 0.6
+
 @export_group("Crouch")
 ## 趴下时的移动速度倍率。
 @export var crouch_speed_scale := 0.6
@@ -152,6 +158,8 @@ var _downed := false
 var _down_timer := 0.0
 ## 身上的异常状态（中毒、麻痹……）。持续伤害走 take_status_damage，不触发无敌、不击退。
 var statuses := StatusEffects.new()
+## 正抓着的梯子（null = 没在梯子上）。见 `_climb()`。
+var _ladder: Ladder = null
 ## 防御属性（挨打时减伤）。
 var _defense := 0.0
 ## 速度属性让冲刺耗体力变慢（1 = 原样）。
@@ -249,8 +257,19 @@ func _physics_process(delta: float) -> void:
 			_update_downed(delta)
 		return
 
-	_apply_gravity(delta)
 	statuses.tick(delta)
+	if _ladder == null:
+		_try_grab_ladder()
+	if _ladder != null:
+		# 在梯子上：只爬，不受重力、不左右走、**不开枪**、不切武器、不趴下。终极武器照样能放（任何状态都能）
+		_climb(delta)
+		_handle_ultimate()
+		_update_invincibility(delta)
+		_shield_timer -= delta
+		_check_contact_damage()
+		_visual.motion(Appearance.Motion.CLIMB if absf(velocity.y) > 1.0 else Appearance.Motion.HANG)
+		return
+	_apply_gravity(delta)
 	_update_drop_through(delta)
 	_update_crouch()
 	_handle_jump(delta)
@@ -265,6 +284,77 @@ func _physics_process(delta: float) -> void:
 	_check_contact_damage()
 	_remember_safe_ground()
 	_visual.motion(_motion_state())
+
+
+## 在梯子前按「上」，或者站在梯子顶上按「下」，就抓住它。
+## 横向要对得上：身体中线离梯子中线不超过半个梯子宽。
+func _try_grab_ladder() -> void:
+	var up := Input.is_action_pressed(act(&"aim_up"))
+	var down := Input.is_action_pressed(act(&"aim_down"))
+	if not up and not down:
+		return
+	if is_crouching or not statuses.can_act():
+		return
+	var feet := global_position.y + STAND_HEIGHT / 2.0
+	for node in get_tree().get_nodes_in_group(Ladder.GROUP):
+		var ladder := node as Ladder
+		if absf(global_position.x - ladder.global_position.x) > ladder.width / 2.0:
+			continue
+		# 往上：人得在梯子跟前（脚在梯子顶以下、头在梯子底以上）
+		if up and feet > ladder.top_y() + 2.0 and global_position.y - STAND_HEIGHT / 2.0 < ladder.bottom_y():
+			_grab(ladder)
+			return
+		# 往下：站在梯子顶上
+		if down and is_on_floor() and absf(feet - ladder.top_y()) <= 2.0:
+			_grab(ladder)
+			global_position.y += 4.0
+			return
+
+
+func _grab(ladder: Ladder) -> void:
+	_ladder = ladder
+	velocity = Vector2.ZERO
+	global_position.x = ladder.global_position.x
+	_jump_buffer_timer = 0.0
+	if ladder.cap_body() != null:
+		add_collision_exception_with(ladder.cap_body())
+
+
+## 松开梯子（爬到头、跳下来、挨打、倒地都走这儿）。
+func _release_ladder() -> void:
+	if _ladder != null and is_instance_valid(_ladder) and _ladder.cap_body() != null:
+		remove_collision_exception_with(_ladder.cap_body())
+	_ladder = null
+
+
+func is_climbing() -> bool:
+	return _ladder != null
+
+
+## 在梯子上的一帧：上下爬；按跳跃跳下来；爬到顶站上去，爬到底落地松手。
+func _climb(_delta: float) -> void:
+	var dir := signf(Input.get_axis(act(&"aim_up"), act(&"aim_down")))
+	if Input.is_action_just_pressed(act(&"jump")):
+		# 带着左右方向就往那边跳出去，不带就直接松手往下掉
+		var side := signf(Input.get_axis(act(&"move_left"), act(&"move_right")))
+		_release_ladder()
+		if side != 0.0:
+			facing = signi(side)
+			_visual.face(facing)
+			velocity = Vector2(side * move_speed, jump_velocity * ladder_jump_scale)
+		else:
+			velocity = Vector2.ZERO
+		return
+	velocity = Vector2(0.0, dir * climb_speed)
+	move_and_slide()
+	var feet := global_position.y + STAND_HEIGHT / 2.0
+	if feet <= _ladder.top_y():
+		# 爬到顶：站到梯子顶那一层上（盖子恢复碰撞，就站住了）
+		global_position.y = _ladder.top_y() - STAND_HEIGHT / 2.0
+		velocity = Vector2.ZERO
+		_release_ladder()
+	elif dir > 0.0 and (is_on_floor() or feet >= _ladder.bottom_y() + 2.0):
+		_release_ladder()
 
 
 ## 记下最后一次站稳的地方。**要真的站住**：踩在地上、横竖都不在飞，
@@ -669,6 +759,8 @@ func take_damage(amount: int, source_position := Vector2.INF, _from: Node = null
 		return
 	GameEvents.report(&"player_hurt", self)
 	_invincible_timer = invincible_time
+	# 挨一下就从梯子上被打下来
+	_release_ladder()
 	var away := 1.0 if source_position == Vector2.INF else signf(global_position.x - source_position.x)
 	if away == 0.0:
 		away = 1.0
@@ -680,11 +772,13 @@ func take_damage(amount: int, source_position := Vector2.INF, _from: Node = null
 func shove(push: Vector2) -> void:
 	if _dead or _downed:
 		return
+	_release_ladder()
 	velocity = push
 
 
 ## 血空了：双人时先倒地等人救，单人直接死。
 func _go_down() -> void:
+	_release_ladder()
 	if Session.player_count < 2:
 		_die()
 		return
@@ -760,6 +854,7 @@ func fall_out() -> void:
 
 ## 捞回最后一次站稳的地方，站定、给一小段无敌。
 func _respawn_at_safe_ground() -> void:
+	_release_ladder()
 	global_position = landing_spot()
 	velocity = Vector2.ZERO
 	grant_invincibility(fall_grace)
@@ -783,6 +878,7 @@ func landing_spot() -> Vector2:
 
 
 func _die() -> void:
+	_release_ladder()
 	_dead = true
 	_downed = false
 	health = 0

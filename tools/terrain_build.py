@@ -46,6 +46,8 @@ ZONES = {
 		"terrain": {"ground": [[(0, 1)], [(1, 1)]], "ledge": [[(4, 0), (4, 1), (4, 2)]], "stone": [[(2, 5)]]},
 		"backdrop_dir": "2 Background/Day",
 		"backdrop": {"sky": "1", "buildings": "2", "trees_far": "3", "ground_line": "4", "trees_near": "5"},
+		# 梯子（2026-10）：中段能竖着无缝平铺。`Ladder2` 少一根横档，不用。别的区没有梯子素材的顺着 fallback 用这张
+		"ladder": {"middle": "3 Objects/Other/Ladder1.png"},
 		"haze": {"sky": 0.0, "buildings": 0.3, "trees_far": 0.4, "ground_line": 0.25, "trees_near": 0.25},
 		"props": {
 			"tree_small": ("3 Objects/Other/Tree1.png", 1),
@@ -166,6 +168,8 @@ ZONES = {
 		# **机关**（2026-10 加的）：液压机（`Hammer.png`，从上面吊下来的活塞）和闸门（`Entry.png`）。
 		# 都是 8 帧 × 32×64，原样输出；液压机另外抽第 0 帧的第 2 行当活塞杆，竖着平铺接到天花板上。
 		"traps": {"press": "4 Animated objects/Hammer.png", "gate": "4 Animated objects/Entry.png"},
+		# 梯子：`Ladder1` 是中段，`Ladder3` 是露出地板的那截扶手（画在梯子顶上面）
+		"ladder": {"middle": "3 Objects/Ladder1.png", "top": "3 Objects/Ladder3.png"},
 		"trap_rods": {"press_rod": ("4 Animated objects/Hammer.png", 2)},
 		"haze": {"base": 0.0, "sky": 0.0, "far": 0.62, "mid": 0.5, "near": 0.38},
 		"props": {
@@ -348,6 +352,24 @@ def build_zone(key, write):
 			sb.write_png(os.path.join(out, "lighting", "glow.png"), art)
 		print("光照：")
 		print("  lighting/glow.png  %dx%d（素材 %dx%d）" % (len(art[0]), len(art), width, height))
+	if "ladder" in zone:
+		print("梯子：")
+		# 左右按中段实际有内容的那几列裁（工业区那张 32 宽、杆子只占左边 23，居中画会偏到一边），
+		# 顶上那截扶手按同样的列裁，两张才对得齐
+		_, _, mid = sb.read_png(os.path.join(pack, *zone["ladder"]["middle"].split("/")))
+		cols = [x for x in range(len(mid[0])) if any(row[x][3] > 8 for row in mid)]
+		left, right = cols[0], cols[-1] + 1
+		for part, rel in zone["ladder"].items():
+			width, height, pixels = sb.read_png(os.path.join(pack, *rel.split("/")))
+			pixels = [row[left:right] for row in pixels]
+			if part == "top":
+				# 扶手只画了下面那截：裁掉上面的空行，底边贴着地板
+				rows = [y for y, row in enumerate(pixels) if any(c[3] > 8 for c in row)]
+				pixels = pixels[rows[0]:]
+			name = "ladder" if part == "middle" else "ladder_top"
+			if write:
+				sb.write_png(os.path.join(out, "terrain", name + ".png"), pixels)
+			print("  terrain/%s.png  %dx%d" % (name, len(pixels[0]), len(pixels)))
 	if "traps" in zone:
 		print("机关：")
 		for name, rel in zone["traps"].items():

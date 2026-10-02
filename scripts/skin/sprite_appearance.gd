@@ -22,6 +22,7 @@ const BODY_FPS := {
 	&"walk": 10.0,
 	&"run": 14.0,
 	&"crawl": 8.0,
+	&"climb": 8.0,
 }
 ## 手里的枪没有专门的贴图时（`Weapon.look` 留空，或者这套皮肤没画这把枪）就用这一把。
 const DEFAULT_LOOK := &"rifle"
@@ -45,6 +46,8 @@ const BODY_BY_MOTION := {
 	Motion.RUN: &"run",
 	Motion.JUMP: &"air",
 	Motion.FALL: &"air",
+	Motion.CLIMB: &"climb",
+	Motion.HANG: &"climb",
 }
 
 ## 贴图放在哪个目录下，文件名形如 `body_walk_r.png` / `arms_level_l.png`。
@@ -58,6 +61,8 @@ var _crouched := false
 var _elapsed := 0.0
 var _dead := false
 var _dead_since := 0.0
+## 爬梯子：只在真的在爬时才往前播，停在梯子上就停在当前这一帧（`_climb_time` 只在爬的时候走）。
+var _climb_time := 0.0
 var _look := DEFAULT_LOOK
 
 
@@ -73,6 +78,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_elapsed += delta
+	if _motion == Motion.CLIMB:
+		_climb_time += delta
 	_advance()
 
 
@@ -149,9 +156,9 @@ func body_clip() -> StringName:
 	return BODY_BY_MOTION[_motion]
 
 
-## 当前这一帧手臂用的贴图名；趴下和死亡时没有手臂（那两套身体图自带手臂）。
+## 当前这一帧手臂用的贴图名；趴下、死亡、爬梯子时没有手臂（那几套身体图自带手臂——爬梯是背影，两只手都在梯子上）。
 func arms_clip() -> StringName:
-	if _crouched or _dead:
+	if _crouched or _dead or _motion == Motion.CLIMB or _motion == Motion.HANG:
 		return &""
 	return ARMS_BY_AIM.get(Vector2(absf(signf(_aim.x)), signf(_aim.y)), &"level")
 
@@ -191,6 +198,9 @@ func _advance() -> void:
 		return
 	if _motion == Motion.FALL and not _crouched:
 		_body.frame = mini(1, _body.hframes - 1)
+		return
+	if (_motion == Motion.CLIMB or _motion == Motion.HANG) and not _crouched:
+		_body.frame = int(_climb_time * BODY_FPS[&"climb"]) % _body.hframes
 		return
 	var fps: float = BODY_FPS.get(body_clip(), 0.0)
 	_body.frame = int(_elapsed * fps) % _body.hframes if fps > 0.0 else 0
