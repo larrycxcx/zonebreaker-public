@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/boss_skull.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_4_minion.tscn" id="2"]
 [ext_resource type="Texture2D" path="res://skins/default/portraits/4_boss.png" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/boss_bullet.tscn" id="4"]
 [ext_resource type="Script" path="res://scripts/appearance.gd" id="99"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
@@ -25,6 +26,11 @@ money_reward = 281
 gravity = 0.0
 detect_range = 680.0
 minion_scene = ExtResource("2")
+bullet_scene = ExtResource("4")
+burst_min = 5
+burst_max = 5
+burst_gap = 0.1
+shoot_event = &"turret_shoot"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_1")

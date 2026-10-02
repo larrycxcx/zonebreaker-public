@@ -141,6 +141,150 @@ func test_lying_down_under_it_also_works() -> void:
 	check("and the beam went over", player.health == full, "%d -> %d" % [full, player.health])
 
 
+# ---------------------------------------------------------------- 骨弹（站在它底下不安全）
+
+## 记下 Boss 每一发子弹的方向。
+func record_shots(boss: BossSkull) -> Array[Vector2]:
+	var shots: Array[Vector2] = []
+	boss.shot_fired.connect(func() -> void: shots.append(boss.last_shot_direction))
+	return shots
+
+
+func test_standing_under_it_is_not_safe() -> void:
+	# 2026-10 试玩反馈：激光从骨手往竖井中间射，站在它正下方就是安全区。现在它会往下打骨弹
+	await open_arena()
+	var boss := spawn_boss()
+	boss.summon_every = 1000
+	# 把它抬高一截：在最低的位置时它的骨手和站在地上的人一样高，那个人其实在它侧后方
+	boss.global_position.y = BOSS_AT.y - 120.0
+	player.global_position = Vector2(BOSS_AT.x, STAND_Y)
+	snap_camera()
+	var shots := record_shots(boss)
+	var full := player.health
+	await frames(240)
+	check("it shoots at a player right under it", not shots.is_empty(), str(shots.size()))
+	check("downwards", shots.size() > 0 and shots[0].y > 0.5, str(shots))
+	check("and it hurts", player.health < full, "%d -> %d" % [full, player.health])
+
+
+func test_it_shoots_up_at_a_player_above_its_reach() -> void:
+	await open_arena()
+	var boss := spawn_boss()
+	boss.summon_every = 1000
+	# 它往上最多飘 140，激光最高打到 288 - 140 + 16 = 164；站在更高的地方激光够不着
+	var ledge := add_ledge(400, 100, 200)
+	player.global_position = Vector2(480, ledge.position.y - 16.0)
+	snap_camera()
+	var shots := record_shots(boss)
+	await frames(240)
+	check("it shoots at a player above its reach", not shots.is_empty(), str(shots.size()))
+	check("upwards", shots.size() > 0 and shots[0].y < -0.5, str(shots))
+
+
+func test_the_volley_is_a_fan() -> void:
+	await open_arena()
+	var boss := spawn_boss()
+	boss.summon_every = 1000
+	player.global_position = Vector2(BOSS_AT.x, STAND_Y)
+	snap_camera()
+	var shots := record_shots(boss)
+	await wait_for(boss, func() -> bool: return shots.size() >= boss.burst_max, 240)
+	check("a full volley", shots.size() >= boss.burst_max, str(shots.size()))
+	if shots.size() < boss.burst_max:
+		return
+	var first := shots.slice(0, boss.burst_max)
+	var widest := 0.0
+	for d: Vector2 in first:
+		widest = maxf(widest, absf(rad_to_deg(d.angle_to(first[boss.burst_max / 2]))))
+	check("spread out, not one line", widest >= boss.volley_spread * 1.5, "%.0f°" % widest)
+
+
+func test_the_volley_in_the_pack_needs_no_missing_art() -> void:
+	# 截图抓到的：基类每打一发都让外观「播一遍开火动作」，骷髅头没有 attack_level 那组，
+	# 每发刷一条「Resource file not found」（第二关 2-C 当年同一个毛病）。默认皮肤下测不出来
+	await open_arena(load(PACK) as SkinPack)
+	var boss := spawn_boss()
+	boss.summon_every = 1000
+	boss.global_position.y = BOSS_AT.y - 120.0
+	player.global_position = Vector2(BOSS_AT.x, STAND_Y)
+	snap_camera()
+	var shots := record_shots(boss)
+	# **自己查贴图在不在**：「Resource file not found」是加载器报的引擎错误，
+	# runner 只把 SCRIPT ERROR 记成失败，这条它不管（第一版用例就这么绿了）
+	var visual := boss.get_node("Visual") as EnemySpriteAppearance
+	var missing := {}
+	for i in 240:
+		await tree.physics_frame
+		var file := "%s/%s_l.png" % [visual.art_dir, visual.clip()]
+		if not ResourceLoader.exists(file):
+			missing[file] = true
+	check("setup: it volleyed in the pack's skin", not shots.is_empty(), str(shots.size()))
+	check("and every pose it showed has art", missing.is_empty(), str(missing.keys()))
+
+
+# ---------------------------------------------------------------- 小骷髅：满屏飞、扑人
+
+func spawn_minion(at: Vector2) -> SkullMinion:
+	var minion := (load("res://scenes/enemy_4_minion.tscn") as PackedScene).instantiate() as SkullMinion
+	main.get_node("Enemies").add_child(minion)
+	minion.global_position = at
+	return minion
+
+
+func test_minions_fly_through_solid_ground() -> void:
+	# 原来被单向平台、实心块挡着，玩家躲在 Boss 底下就够不着。现在穿墙
+	await open_arena()
+	var slab: Platform = load("res://scenes/platform.tscn").instantiate()
+	slab.position = Vector2(200, 200)
+	slab.size = Vector2(240, 20)
+	main.get_node("Level").add_child(slab)
+	var minion := spawn_minion(Vector2(320, 150))
+	minion._left = 100.0
+	player.global_position = Vector2(320, STAND_Y)
+	snap_camera()
+	await frames(120)
+	check("it got through the slab to the player", minion.global_position.y > 220.0,
+		str(minion.global_position))
+
+
+func test_minions_wind_up_then_dive_fast_and_straight() -> void:
+	await open_arena()
+	var minion := spawn_minion(Vector2(420, 200))
+	player.global_position = Vector2(300, STAND_Y)
+	snap_camera()
+	await frames(2)
+	minion._left = 0.0
+	var wound := 0
+	for i in 60:
+		await tree.physics_frame
+		if minion.is_winding_up():
+			wound += 1
+		if minion.is_diving():
+			break
+	check("it warns before it dives", wound >= 20, "%d frames" % wound)
+	check("then dives", minion.is_diving())
+	var heading := minion._dive
+	player.global_position = Vector2(100, STAND_Y)
+	var before := minion.global_position
+	await frames(6)
+	var moved := (minion.global_position - before).length() / (6.0 / 60.0)
+	check("faster than the player walks", moved > player.move_speed, "%.0f px/s" % moved)
+	check("and it does not steer after you", minion._dive == heading)
+
+
+func test_minions_never_leave_the_screen() -> void:
+	await open_arena()
+	var minion := spawn_minion(Vector2(320, 200))
+	player.global_position = Vector2(320, STAND_Y)
+	snap_camera()
+	minion.state = SkullMinion.State.DIVE
+	minion._dive = Vector2.UP
+	minion._left = 5.0
+	await frames(90)
+	check("it is still on screen", camera_rig().view_rect().has_point(minion.global_position),
+		"%s in %s" % [minion.global_position, camera_rig().view_rect()])
+
+
 # ---------------------------------------------------------------- 召唤、换边
 
 func test_every_third_attack_is_a_summon() -> void:

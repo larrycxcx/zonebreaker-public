@@ -37,6 +37,20 @@ func show_beam(state: int, length: float, dy: float) -> void:
 	queue_redraw()
 
 
+## 打骨弹时基类每发都会调这个「播一遍开火动作」——**骷髅头没有那一组**（`attack_level`），
+## 照基类去找就是每发一条「Resource file not found」（截图看出来的，第二关 2-C 当年同一个毛病）。
+## 打骨弹的时候玩法已经让它在循环蓄力那两帧（骨手发光），所以这里什么都不用播。
+## 也不能拿出光那组顶上：那组画面里带着一截水平的激光，往下打骨弹时对不上。
+func fire() -> void:
+	pass
+
+
+## 同理：斜着打一发骨弹之后，基类会当它「斜着举枪」、去显示开火那一组（这包没有）。
+## 骷髅头没有瞄准的姿势，瞄哪儿都是同一张脸。
+func aim(_direction: Vector2) -> void:
+	pass
+
+
 ## 播一遍某个一次性动作（召唤、嘲讽）。
 func play(clip_name: StringName) -> void:
 	_play_once(clip_name)

@@ -10,6 +10,9 @@ extends Boss
 ## 2. **召唤**：手里掉出小骷髅（`SkullMinion`），慢慢飞向玩家，碰到扣血、两枪打掉。
 ##    场上最多 `minion_cap` 个，不然堆满屏幕。
 ## 3. **换边**：每打两次从竖井这一侧飞到另一侧，激光有时从左边来、有时从右边来。
+## 4. **骨弹**：玩家钻到它**正下方 / 正上方**（激光是从骨手往竖井中间射的，打不到它身边），
+##    或者站在激光够不着的高度，它就朝玩家打一把扇形子弹（基类那套连发，每发偏开一点）。
+##    **2026-10 试玩反馈**：原来只有激光，站在它底下就是安全区，Boss 很容易打。
 ##
 ## 轮换是固定的（激光、激光、召唤……），和独轮机甲一个道理：打两轮就背得下节奏，死了知道错在哪。
 ## **血过半进第二阶段**：先嘲讽一下（`sneer`）、报 `boss_enrage`（和前两个 Boss 同一个事件、同一条规矩：
@@ -41,6 +44,12 @@ extends Boss
 ## 两次攻击之间歇多久。
 @export var rest_time := 0.8
 
+@export_group("Volley")
+## 玩家离它横向这么近（在它正下方 / 正上方）就改打骨弹——激光打不到身边。
+@export var under_reach := 120.0
+## 扇形里每发偏开多少度。一轮几发、间隔多久用基类的 `burst_min/max`、`burst_gap`（场景里配）。
+@export var volley_spread := 15.0
+
 @export_group("Summon")
 @export var minion_scene: PackedScene
 ## 每几次攻击召唤一次（第几次轮到召唤）。
@@ -62,7 +71,7 @@ const BEAM_ORIGIN := Vector2(20, 16)
 const SUMMON_DROP := 4.0 / EnemySpriteAppearance.ONCE_FPS
 const SUMMON_TIME := 6.0 / EnemySpriteAppearance.ONCE_FPS
 
-enum Move {ALIGN, CHARGE, BEAM, REST, SUMMON, SWAP, SNEER}
+enum Move {ALIGN, CHARGE, BEAM, REST, SUMMON, SWAP, SNEER, VOLLEY}
 
 var _move := Move.REST
 var _left := 0.0
@@ -76,6 +85,9 @@ var _attacks := 0
 var _summoned := false
 var _enraged := false
 var _minions: Array[Enemy] = []
+## 骨弹这一轮开打了没有、这一轮打到第几发（铺扇形用）。
+var _volley_started := false
+var _fan_index := 0
 
 
 func _ready() -> void:
@@ -94,7 +106,11 @@ func _boss_process(delta: float) -> void:
 			_left -= delta
 			var goal := _goal_height(target)
 			velocity = Vector2(0.0, clampf((goal - global_position.y) / delta, -climb_speed, climb_speed))
-			if target != null and absf(goal - global_position.y) < 1.0:
+			if target != null and wants_volley(target) and _beams_this_round == 0:
+				# 对齐到一半人钻到它底下了：激光打不到，改打骨弹
+				velocity = Vector2.ZERO
+				_start_volley()
+			elif target != null and absf(goal - global_position.y) < 1.0:
 				# **对齐了就直接放到那个高度上**：差的那不到一像素是歇着时上下浮动带来的零头，
 				# 不抹掉的话锁定的激光高度每次都不一样
 				global_position.y = goal
@@ -138,6 +154,13 @@ func _boss_process(delta: float) -> void:
 			if step.length() < 1.0:
 				_move = Move.ALIGN
 				_left = align_time
+		Move.VOLLEY:
+			velocity = Vector2.ZERO
+			try_shoot(delta, target if not _volley_started else null)
+			if not _volley_started and is_firing_burst():
+				_volley_started = true
+			elif _volley_started and not is_firing_burst():
+				_finish_attack()
 		Move.SNEER:
 			velocity = Vector2.ZERO
 			_left -= delta
@@ -186,18 +209,65 @@ func _second_beam_height(target: Node2D) -> float:
 func _next_attack() -> void:
 	_attacks += 1
 	_beams_this_round = 0
+	var target := find_target()
 	if _attacks % summon_every == 0 and _minions.size() < minion_cap:
 		_move = Move.SUMMON
 		_left = SUMMON_TIME
 		_summoned = false
 		if _visual.has_method(&"play"):
 			_visual.call(&"play", &"summon")
+	elif target != null and wants_volley(target):
+		_start_volley()
 	elif _attacks % 2 == 0:
 		_lane = 1 - _lane
 		_move = Move.SWAP
 	else:
 		_move = Move.ALIGN
 		_left = align_time
+
+
+## 激光打不到这个人吗：在它身边（正下方 / 正上方，激光是往竖井中间射的），
+## 或者在它飘得到的高度以外（激光只能横着打）。
+func wants_volley(target: Node2D) -> bool:
+	var player := target as Player
+	var at := player.body_center() if player != null else target.global_position
+	if absf(at.x - global_position.x) < under_reach:
+		return true
+	var lowest := _home.y + BEAM_ORIGIN.y
+	var highest := _home.y - rise + BEAM_ORIGIN.y
+	return at.y > lowest + 24.0 or at.y < highest - 24.0
+
+
+func _start_volley() -> void:
+	_move = Move.VOLLEY
+	_volley_started = false
+	_fire_timer = 0.0
+
+
+func is_volleying() -> bool:
+	return _move == Move.VOLLEY
+
+
+## 骨弹这一轮朝哪儿：从骨手对着玩家的身体中心（往下往上都行）。基类在一轮开始时调一次，顺手把扇形计数归零。
+func shoot_direction() -> Vector2:
+	_fan_index = 0
+	var target := find_target()
+	if target == null:
+		return Vector2(facing, 0.0)
+	return ((target as Player).body_center() - _muzzle_position()).normalized()
+
+
+## 这一发：在锁定的方向上左右铺开（中间那发正对着人）。
+func burst_direction() -> Vector2:
+	var count := maxi(1, burst_max)
+	var step := (_fan_index % count) - (count - 1) / 2.0
+	_fan_index += 1
+	return super().rotated(deg_to_rad(step * volley_spread))
+
+
+## 骨弹从骨手出去（和激光同一个口）。
+func _muzzle_position() -> Vector2:
+	return global_position + Vector2(BEAM_ORIGIN.x * facing, BEAM_ORIGIN.y)
 
 
 func _finish_attack() -> void:
@@ -286,7 +356,8 @@ func _show_beam() -> void:
 	if not _visual.has_method(&"show_beam"):
 		return
 	var state := 0
-	if _move == Move.CHARGE:
+	if _move == Move.CHARGE or _move == Move.VOLLEY:
+		# 骨弹没有专门的姿势，用蓄力那两帧（骨手在发光）
 		state = 1
 	elif _move == Move.BEAM:
 		state = 2

@@ -9,7 +9,7 @@ size = Vector2(10, 12)
 
 [node name="SkullMinion" type="CharacterBody2D"]
 collision_layer = 8
-collision_mask = 1
+collision_mask = 0
 motion_mode = 1
 script = ExtResource("1")
 skin_key = &"4_minion"
