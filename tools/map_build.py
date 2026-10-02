@@ -11,6 +11,7 @@
     ~   实心：顶上是传送带面
     !   竖着的红白管子（2 格宽，纯装饰、不挡人，画在背景层）：宣传图左上那种烟囱
     =   单向平台：人从上面踩得住、按下 + 跳能穿下去，子弹穿得过去
+    :   单向平台：带支架的钢梁走道（画面不同，规则和 = 一样）
     H   梯子（2 格宽）。最上面那一格所在的那一行就是梯子顶：那层地板在这儿留洞、盖上一块看不见的单向盖子
     P   液压机（左上角，占 2×4 格，吊在正上方的天花板下面）
     G   闸门（左上角，占 2×4 格，上面得是实心的一直到顶——不然跳过去了）
@@ -38,6 +39,8 @@ import level_build as lb
 CELL = 16
 ## 碰撞上都是实心，只是长得不一样（`TileArt` 按材质挑砖）。
 SOLIDS = "#X%~"
+## 单向平台的两种画法（规则一样）。
+ONE_WAYS = "=:"
 ROWS = 23
 GROUND_ROW = 20
 ## 一跳最多稳稳地上几格、横着最多跨几格（按 `player.gd` 的数字：跳 87 高、坑最宽 104）。
@@ -121,9 +124,9 @@ class MapLevel:
 		for r in range(ROWS):
 			c = 0
 			while c < self.width:
-				if self.grid[r][c] == "=":
+				if self.grid[r][c] in ONE_WAYS:
 					start = c
-					while c < self.width and self.grid[r][c] == "=":
+					while c < self.width and self.grid[r][c] in ONE_WAYS:
 						c += 1
 					self.ledges.append((name("Ledge"), start * CELL, r * CELL, (c - start) * CELL))
 				else:
@@ -179,7 +182,7 @@ class MapLevel:
 		return all(not self.solid(r - k, c) for k in range(1, BODY_ROWS + 1))
 
 	def supports(self, r, c):
-		return self.solid(r, c) or self.at(r, c) == "=" or self._ladder_top(r, c)
+		return self.solid(r, c) or self.at(r, c) in ONE_WAYS or self._ladder_top(r, c)
 
 	def _ladder_top(self, r, c):
 		return self.at(r, c) == "H" and self.at(r - 1, c) != "H"
@@ -209,7 +212,7 @@ class MapLevel:
 				if land is not None:
 					out.append((land, c + dc))
 		# 穿下单向平台：站在 = 上按下 + 跳
-		if self.at(r, c) == "=":
+		if self.at(r, c) in ONE_WAYS:
 			land = self._land(r + 1, c)
 			if land is not None:
 				out.append((land, c))
@@ -286,18 +289,18 @@ def check(level):
 	for name, x, top, height in level.ladders:
 		c = int((x - CELL) // CELL)
 		bottom_row = int((top + height) // CELL)
-		if not level.solid(bottom_row, c) and level.at(bottom_row, c) != "=":
+		if not level.solid(bottom_row, c) and level.at(bottom_row, c) not in ONE_WAYS:
 			problems.append("%s 底下没接到地板（第 %d 行）" % (name, bottom_row))
 		top_row = int(top // CELL)
 		beside = [level.at(top_row, c - 1), level.at(top_row, c + LADDER_COLS)]
-		if not any(b in SOLIDS + "=" for b in beside):
+		if not any(b in SOLIDS + ONE_WAYS for b in beside):
 			problems.append("%s 顶上两边都没有地板，它通到哪儿去？" % name)
 	# 液压机：上面要有天花板；底边落在实心或者单向平台上
 	for name, x, y, ceiling, _ in level.presses:
 		c, r = int(x // CELL), int(y // CELL)
 		if ceiling <= 0 and not level.solid(-1, c):
 			problems.append("%s 上面没有天花板（吊在哪儿？）" % name)
-		if level.at(r + TRAP_ROWS, c) not in SOLIDS + "=":
+		if level.at(r + TRAP_ROWS, c) not in SOLIDS + ONE_WAYS:
 			problems.append("%s 底下没有地板" % name)
 	# 闸门：上面一直到顶都要是实心的（门 64 高、一跳 87）；底下是地板
 	for name, x, y, _ in level.gates:
@@ -327,6 +330,7 @@ NINE = {
 	"%": ((58, 59, 60), (67, 68, 69), (67, 68, 69)),
 	"~": ((74, 75, 76), (13, 14, 15), (22, 23, 24)),
 	"=": ((77, 78, 79), (77, 78, 79), (77, 78, 79)),
+	":": ((18, 18, 27), (18, 18, 27), (18, 18, 27)),
 }
 ## 钢架箱：一整块就是一个箱子，按 32 像素的格子对齐、四个角各取一角。
 CRATES = (36, 62)
@@ -350,7 +354,7 @@ def tile_cells(level, seed=20261003):
 	for r in range(ROWS):
 		for c in range(level.width):
 			ch = level.at(r, c)
-			if ch in SOLIDS or ch == "=":
+			if ch in SOLIDS or ch in ONE_WAYS:
 				tile, quarter = _front_tile(level, r, c, ch, seed)
 				front += [c, r, tile, quarter]
 			elif ch == "!":
@@ -390,9 +394,66 @@ def _front_tile(level, r, c, ch, seed):
 def _indoor(level, r, c):
 	"""这一格头顶上（同一列往上）有楼板 / 天花板吗——有就是室内，铺背景墙。"""
 	for rr in range(r - 1, -1, -1):
-		if level.solid(rr, c) or level.at(rr, c) == "=":
+		if level.solid(rr, c) or level.at(rr, c) in ONE_WAYS:
 			return True
 	return False
+
+
+# ---------------------------------------------------------------- 贴花：管道、编号牌（墙上的）；栏杆（楼板上的）
+#
+# 素材里那组紫色几何砖是**一套管道网**（按四条边上紫色在哪几段认出来的）：
+# 20 横管、1 竖管、38 / 30 横管的左头 / 右头、10 / 28 竖管的上头 / 下头、39 带大圆盘的接头（四面都接粗管）。
+# 宣传图墙上那条大紫管就是「管头 → 横管 → 圆盘 → ……」连起来的；圆盘上叠一个数字（`3 Objects/0~9.png`）就是编号牌。
+# 管道按 **32 像素一块** 的坐标给拐点（一块 = 2×2 格），只能横平竖直；画在室内墙那一层上面（管砖自带深色底）。
+PIPE_BY_DIRS = {
+	frozenset("EW"): 20, frozenset("NS"): 1,
+	frozenset("E"): 38, frozenset("W"): 30, frozenset("S"): 10, frozenset("N"): 28,
+}
+PIPE_JOINT = 39
+
+
+def pipe_blocks(pipes, signs):
+	"""把每条管道（拐点列表，块坐标）摊成「这一块往哪几个方向接」，返回 {块: 砖编号}。
+	拐角、分叉、编号牌那一块都画圆盘接头。"""
+	dirs = {}
+	for path in pipes:
+		for (x0, y0), (x1, y1) in zip(path, path[1:]):
+			if x0 != x1 and y0 != y1:
+				raise SystemExit("管道只能横平竖直：%s -> %s" % ((x0, y0), (x1, y1)))
+			dx = (x1 > x0) - (x1 < x0)
+			dy = (y1 > y0) - (y1 < y0)
+			x, y = x0, y0
+			while (x, y) != (x1, y1):
+				nx, ny = x + dx, y + dy
+				dirs.setdefault((x, y), set()).add("E" if dx > 0 else "W" if dx < 0 else "S" if dy > 0 else "N")
+				dirs.setdefault((nx, ny), set()).add("W" if dx > 0 else "E" if dx < 0 else "N" if dy > 0 else "S")
+				x, y = nx, ny
+	out = {}
+	for block, d in dirs.items():
+		out[block] = PIPE_BY_DIRS.get(frozenset(d), PIPE_JOINT)
+	for _, bx, by in signs:
+		out[(bx, by)] = PIPE_JOINT
+	return out
+
+
+def decor_cells(pipes, signs):
+	"""管道、编号牌的砖（四分之一一格，和 `TileArt` 的格式一样）。"""
+	cells = []
+	for (bx, by), tile in sorted(pipe_blocks(pipes, signs).items()):
+		for q in range(4):
+			cells += [bx * 2 + q % 2, by * 2 + q // 2, tile, q]
+	return cells
+
+
+def rail_props(rails):
+	"""栏杆：(从第几列, 到第几列, 站在第几行)。左端、中段、右端各 32 宽，按 2 格一节拼。"""
+	out = []
+	for c0, c1, row in rails:
+		cols = list(range(c0, c1 + 1, 2))
+		for i, c in enumerate(cols):
+			prop = "fence" if i == 0 else ("fence_end" if i == len(cols) - 1 else "fence_mid")
+			out.append((prop, c, row))
+	return out
 
 
 def dress(level, named, seed=20261003):
@@ -433,7 +494,9 @@ def dress(level, named, seed=20261003):
 
 # ---------------------------------------------------------------- 写场景
 
-def build(level, out, root, prop_dir, write, prop_frames=None, named_props=()):
+def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), decor=None):
+	decor = decor or {}
+	named_props = list(named_props) + rail_props(decor.get("rails", []))
 	ids = {}
 	extra = []
 	for index, kind in enumerate(sorted({e[1] for e in level.enemies})):
@@ -441,12 +504,14 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=()):
 		extra.append('[ext_resource type="PackedScene" path="%s" id="%s"]' % (level.enemy_scenes[kind], ids[kind]))
 	extra.append('[ext_resource type="PackedScene" path="res://scenes/ladder.tscn" id="t2"]')
 	front, back = tile_cells(level)
+	back += decor_cells(decor.get("pipes", []), decor.get("signs", []))
 	dress(level, named_props)
+	signs = decor.get("signs", [])
 	extra.append('[ext_resource type="Script" path="res://scripts/tile_art.gd" id="ta"]')
 	extra.append('[ext_resource type="Texture2D" path="res://skins/%s/tiles/atlas.png" id="tb"]' % prop_dir)
 	extra.append('[ext_resource type="Script" path="res://scripts/prop.gd" id="21"]')
 	prop_ids = {}
-	for index, prop in enumerate(sorted({p[1] for p in level.props})):
+	for index, prop in enumerate(sorted({p[1] for p in level.props} | {"digit_%d" % d for d, _, _ in signs})):
 		prop_ids[prop] = "p%d" % index
 		extra.append('[ext_resource type="Texture2D" path="res://skins/%s/props/%s.png" id="%s"]'
 			% (prop_dir, prop, prop_ids[prop]))
@@ -461,6 +526,11 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=()):
 	lines.append('\n[node name="BackTiles" type="Node2D" parent="."]\nscript = ExtResource("ta")\n'
 		'atlas = ExtResource("tb")\ntint = Color(0.72, 0.72, 0.8, 1)\ncells = PackedInt32Array(%s)\n'
 		% ", ".join(str(v) for v in back))
+	# 编号牌上的数字：贴在圆盘正中，画在墙那一层上面
+	lines.append('\n[node name="Decals" type="Node2D" parent="."]\n')
+	for i, (digit, bx, by) in enumerate(signs):
+		lines.append('\n[node name="Sign%d" type="Sprite2D" parent="Decals"]\ntexture = ExtResource("%s")\n'
+			'position = Vector2(%g, %g)\n' % (i + 1, prop_ids["digit_%d" % digit], bx * 32 + 16, by * 32 + 16))
 	lines.append('\n[node name="Props" type="Node2D" parent="."]\n')
 	for name, prop, x, bottom in level.props:
 		lines.append('\n[node name="%s" type="Sprite2D" parent="Props"]\n'

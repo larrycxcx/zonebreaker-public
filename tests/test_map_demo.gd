@@ -183,3 +183,33 @@ func test_indoor_rooms_have_a_wall_behind_them() -> void:
 	for cell: Vector2i in [Vector2i(3, 10), Vector2i(20, 16), Vector2i(30, 11)]:
 		check("indoor cell %s has wall behind it" % cell, back.has(cell))
 	check("the sky above the top floor is left open", not back.has(Vector2i(30, 3)))
+
+
+func test_the_walls_carry_numbered_pipes_like_the_promo() -> void:
+	# 宣传图墙上的紫色大管子和「4」「3」：管道按块拼（直管 / 管头 / 圆盘接头），编号牌 = 圆盘 + 数字
+	await open_demo()
+	var signs := main.get_node("Decals").get_children()
+	check("two number plates", signs.size() == 2, str(signs.size()))
+	var digits: Array[String] = []
+	for sign in signs:
+		digits.append((sign as Sprite2D).texture.resource_path.get_file())
+	digits.sort()
+	check("reading 3 and 4", digits == ["digit_3.png", "digit_4.png"], str(digits))
+	var back := tile_set("BackTiles")
+	for sign in signs:
+		var at := Vector2i(int((sign as Node2D).position.x / 16.0), int((sign as Node2D).position.y / 16.0))
+		check("each sign sits on a pipe joint", back.get(at) == 39, str(back.get(at)))
+	# 中层那条：左头是管头（38），往右是横管（20）
+	check("the middle pipe starts with a cap", back.get(Vector2i(12, 8)) == 38, str(back.get(Vector2i(12, 8))))
+	check("and runs on as a straight pipe", back.get(Vector2i(16, 8)) == 20, str(back.get(Vector2i(16, 8))))
+
+
+func test_a_railing_runs_along_the_top_floor() -> void:
+	await open_demo()
+	var rail: Array[String] = []
+	for prop in main.get_node("Props").get_children():
+		var file := (prop as Sprite2D).texture.resource_path.get_file()
+		if file.begins_with("fence"):
+			rail.append(file)
+	check("a railing with two ends and a middle", rail.size() >= 3 and rail.count("fence.png") == 1
+		and rail.count("fence_end.png") == 1, str(rail))

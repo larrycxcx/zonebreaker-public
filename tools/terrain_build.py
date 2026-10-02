@@ -184,6 +184,15 @@ ZONES = {
 			"board": ("3 Objects/Board1.png", 1),
 			"fence": ("3 Objects/Fence1.png", 1),
 			"fence_end": ("3 Objects/Fence3.png", 1),
+			# 栏杆的中段（Fence1 左端、Fence2 中段、Fence3 右端，各 32 宽）：分层关卡沿着楼板边拼一排
+			"fence_mid": ("3 Objects/Fence2.png", 1),
+			# 墙上编号牌的数字（32×36），叠在紫色圆盘接头上——宣传图墙上那个「4」「3」
+			"digit_0": ("3 Objects/0.png", 1), "digit_1": ("3 Objects/1.png", 1),
+			"digit_2": ("3 Objects/2.png", 1), "digit_3": ("3 Objects/3.png", 1),
+			"digit_4": ("3 Objects/4.png", 1), "digit_5": ("3 Objects/5.png", 1),
+			"digit_6": ("3 Objects/6.png", 1), "digit_7": ("3 Objects/7.png", 1),
+			"digit_8": ("3 Objects/8.png", 1), "digit_9": ("3 Objects/9.png", 1),
+			"warning": ("3 Objects/Pointer1.png", 1),
 			"ladder": ("3 Objects/Ladder1.png", 1),
 			"locker": ("3 Objects/Locker1.png", 1),
 			"extinguisher": ("3 Objects/Fire-extinguisher1.png", 1),
