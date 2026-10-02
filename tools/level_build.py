@@ -1057,7 +1057,8 @@ def build_map_demo(write):
 		for p in problems:
 			print("  -", p)
 		sys.exit(1)
-	mb.build(level, os.path.join(SCENES, "map_demo.tscn"), "MapDemo", "industrial", write)
+	mb.build(level, os.path.join(SCENES, "map_demo.tscn"), "MapDemo", "industrial", write,
+		PROP_FRAMES_2, level_maps.DEMO_PROPS)
 	print("示意图那一段：%d 格宽（%d 像素）" % (level.width, level.width * mb.CELL))
 	print("  实心 %d 块、单向 %d、梯子 %d、液压机 %d、闸门 %d、敌人 %d"
 		% (len(level.solids), len(level.ledges), len(level.ladders), len(level.presses),

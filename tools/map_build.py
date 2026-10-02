@@ -5,7 +5,11 @@
 所以换成**一整关一张连续的格子地图**：一格 16 像素、高 23 行（一屏），宽度就是整关的长度，
 一段一段（宽度不固定）拼起来。
 
-    #   实心（地面、墙、楼板）
+    #   实心：钢板（地面、墙、楼板）
+    X   实心：钢架箱（画面不同，规则和 # 一样）
+    %   实心：红色警示条纹（地面上那种）
+    ~   实心：顶上是传送带面
+    !   竖着的红白管子（2 格宽，纯装饰、不挡人，画在背景层）：宣传图左上那种烟囱
     =   单向平台：人从上面踩得住、按下 + 跳能穿下去，子弹穿得过去
     H   梯子（2 格宽）。最上面那一格所在的那一行就是梯子顶：那层地板在这儿留洞、盖上一块看不见的单向盖子
     P   液压机（左上角，占 2×4 格，吊在正上方的天花板下面）
@@ -32,6 +36,8 @@ import os
 import level_build as lb
 
 CELL = 16
+## 碰撞上都是实心，只是长得不一样（`TileArt` 按材质挑砖）。
+SOLIDS = "#X%~"
 ROWS = 23
 GROUND_ROW = 20
 ## 一跳最多稳稳地上几格、横着最多跨几格（按 `player.gd` 的数字：跳 87 高、坑最宽 104）。
@@ -80,7 +86,7 @@ class MapLevel:
 		return self.grid[r][c]
 
 	def solid(self, r, c):
-		return self.at(r, c) == "#"
+		return self.at(r, c) in SOLIDS
 
 	def _read(self):
 		counts = {}
@@ -94,9 +100,9 @@ class MapLevel:
 		for r in range(ROWS):
 			c = 0
 			while c < self.width:
-				if self.grid[r][c] == "#":
+				if self.grid[r][c] in SOLIDS:
 					start = c
-					while c < self.width and self.grid[r][c] == "#":
+					while c < self.width and self.grid[r][c] in SOLIDS:
 						c += 1
 					runs.setdefault((start, c), []).append(r)
 				else:
@@ -173,7 +179,7 @@ class MapLevel:
 		return all(not self.solid(r - k, c) for k in range(1, BODY_ROWS + 1))
 
 	def supports(self, r, c):
-		return self.at(r, c) in "#=" or self._ladder_top(r, c)
+		return self.solid(r, c) or self.at(r, c) == "=" or self._ladder_top(r, c)
 
 	def _ladder_top(self, r, c):
 		return self.at(r, c) == "H" and self.at(r - 1, c) != "H"
@@ -284,14 +290,14 @@ def check(level):
 			problems.append("%s 底下没接到地板（第 %d 行）" % (name, bottom_row))
 		top_row = int(top // CELL)
 		beside = [level.at(top_row, c - 1), level.at(top_row, c + LADDER_COLS)]
-		if not any(b in "#=" for b in beside):
+		if not any(b in SOLIDS + "=" for b in beside):
 			problems.append("%s 顶上两边都没有地板，它通到哪儿去？" % name)
 	# 液压机：上面要有天花板；底边落在实心或者单向平台上
 	for name, x, y, ceiling, _ in level.presses:
 		c, r = int(x // CELL), int(y // CELL)
 		if ceiling <= 0 and not level.solid(-1, c):
 			problems.append("%s 上面没有天花板（吊在哪儿？）" % name)
-		if level.at(r + TRAP_ROWS, c) not in "#=":
+		if level.at(r + TRAP_ROWS, c) not in SOLIDS + "=":
 			problems.append("%s 底下没有地板" % name)
 	# 闸门：上面一直到顶都要是实心的（门 64 高、一跳 87）；底下是地板
 	for name, x, y, _ in level.gates:
@@ -309,15 +315,141 @@ def check(level):
 	return problems
 
 
+# ---------------------------------------------------------------- 画面：砖（2026-10，用户要求「尽量接近宣传图、多些结构和细节」）
+#
+# 碰撞还是那些平台节点（在地图生成的关卡里藏起来、不画），画面交给 `TileArt`：
+# 一格画一块 32×32 砖的四分之一，哪一块、哪个角按这一格在那块实心区域里的位置挑（顶边、侧边、拐角、内部）。
+# 砖的编号是工业区素材 `1 Tiles/IndustrialTile_NN.png` 的编号（`terrain_build.py` 把 81 块排成一张总图）。
+
+## 每种材质的九宫格：(顶, 中, 底) × (左, 中, 右)。钢板那套是按接缝认出来的（4/5/6、13/14/15、22/23/24，14 四面都能接自己）。
+NINE = {
+	"#": ((4, 5, 6), (13, 14, 15), (22, 23, 24)),
+	"%": ((58, 59, 60), (67, 68, 69), (67, 68, 69)),
+	"~": ((74, 75, 76), (13, 14, 15), (22, 23, 24)),
+	"=": ((77, 78, 79), (77, 78, 79), (77, 78, 79)),
+}
+## 钢架箱：一整块就是一个箱子，按 32 像素的格子对齐、四个角各取一角。
+CRATES = (36, 62)
+## 室内的背景墙：大多是平的深色墙板，夹几块带面板 / 横条的（按 32 像素一块随机挑，固定种子）。
+BACK_TILES = [(21, 12), (3, 2), (47, 1)]
+## 竖着的红白管子（`!`）：最上面那一节是带顶的（45），往下交替（54 / 63）。
+PIPE_TOP = 45
+PIPE_BODY = (54, 63)
+## 室内地板上自动撒的装饰（工业区的 props），以及大约每隔几格摆一件。
+INDOOR_PROPS = ["locker", "box", "barrel", "extinguisher", "bucket", "box_open", "barrel_rust", "crate"]
+PROP_STEP = (5, 11)
+
+
+def _hash(a, b, seed):
+	return ((a * 73856093) ^ (b * 19349663) ^ seed) & 0x7FFFFFFF
+
+
+def tile_cells(level, seed=20261003):
+	"""算出前景（实心、单向）和背景（室内的墙）每一格画哪块砖的哪个角。返回 (前景, 背景) 两个扁平的整数表。"""
+	front, back = [], []
+	for r in range(ROWS):
+		for c in range(level.width):
+			ch = level.at(r, c)
+			if ch in SOLIDS or ch == "=":
+				tile, quarter = _front_tile(level, r, c, ch, seed)
+				front += [c, r, tile, quarter]
+			elif ch == "!":
+				left = c if level.at(r, c - 1) != "!" else c - 1
+				top = r
+				while level.at(top - 1, c) == "!":
+					top -= 1
+				block = (r - top) // 2
+				tile = PIPE_TOP if block == 0 else PIPE_BODY[block % 2]
+				back += [c, r, tile, (c - left) % 2 + 2 * ((r - top) % 2)]
+			elif _indoor(level, r, c):
+				total = sum(w for _, w in BACK_TILES)
+				pick = _hash(c // 2, r // 2, seed) % total
+				for tile, w in BACK_TILES:
+					if pick < w:
+						break
+					pick -= w
+				back += [c, r, tile, (c % 2) + 2 * (r % 2)]
+	return front, back
+
+
+def _front_tile(level, r, c, ch, seed):
+	if ch == "X":
+		crate = CRATES[_hash(c // 2, r // 2, seed) % len(CRATES)]
+		return crate, (c % 2) + 2 * (r % 2)
+	same = lambda rr, cc: level.at(rr, cc) == ch
+	left, right = not same(r, c - 1), not same(r, c + 1)
+	top, bottom = not same(r - 1, c), not same(r + 1, c)
+	row = 0 if top else (2 if bottom else 1)
+	col = 0 if left and not right else (2 if right and not left else (0 if left else 1))
+	tile = NINE[ch][row][col]
+	qx = 0 if left else (1 if right else c % 2)
+	qy = 0 if top else (1 if bottom else r % 2)
+	return tile, qx + 2 * qy
+
+
+def _indoor(level, r, c):
+	"""这一格头顶上（同一列往上）有楼板 / 天花板吗——有就是室内，铺背景墙。"""
+	for rr in range(r - 1, -1, -1):
+		if level.solid(rr, c) or level.at(rr, c) == "=":
+			return True
+	return False
+
+
+def dress(level, named, seed=20261003):
+	"""装饰：先摆地图里点名的（`named`：(装饰名, 列, 站在第几行)），再在室内的地板上自动撒。
+	撒的时候躲开梯子、机关和敌人那几格，装饰之间至少隔几格。"""
+	for prop, c, r in named:
+		level.props.append(("Prop%d" % (len(level.props) + 1), prop, c * CELL, r * CELL))
+	busy = set()
+	for name, x, top, height in level.ladders:
+		lc = int((x - CELL) // CELL)
+		for cc in range(lc - 1, lc + 3):
+			busy.add(cc)
+	for _, x, _, _, _ in level.presses:
+		busy.update(range(int(x // CELL) - 1, int(x // CELL) + 3))
+	for _, x, _, _ in level.gates:
+		busy.update(range(int(x // CELL) - 1, int(x // CELL) + 3))
+	taken = {(int(p[2] // CELL), int(p[3] // CELL)) for p in level.props}
+	enemy_cells = {(int(x // CELL), int((y + 16) // CELL)) for _, _, x, y in level.enemies}
+	state = [seed]
+
+	def roll(n):
+		state[0] = (state[0] * 1103515245 + 12345) & 0x7FFFFFFF
+		return state[0] % max(1, n)
+
+	for r in range(ROWS):
+		c = 0
+		next_at = roll(PROP_STEP[1])
+		while c < level.width:
+			floor = level.solid(r, c) and not level.solid(r - 1, c) and level.body_free(r, c) \
+				and _indoor(level, r - 1, c)
+			if floor and c >= next_at and c not in busy and (c, r) not in taken \
+					and not any((cc, r) in enemy_cells for cc in range(c - 2, c + 3)):
+				prop = INDOOR_PROPS[roll(len(INDOOR_PROPS))]
+				level.props.append(("Prop%d" % (len(level.props) + 1), prop, c * CELL, r * CELL))
+				next_at = c + PROP_STEP[0] + roll(PROP_STEP[1] - PROP_STEP[0])
+			c += 1
+
+
 # ---------------------------------------------------------------- 写场景
 
-def build(level, out, root, prop_dir, write):
+def build(level, out, root, prop_dir, write, prop_frames=None, named_props=()):
 	ids = {}
 	extra = []
 	for index, kind in enumerate(sorted({e[1] for e in level.enemies})):
 		ids[kind] = "e%d" % index
 		extra.append('[ext_resource type="PackedScene" path="%s" id="%s"]' % (level.enemy_scenes[kind], ids[kind]))
 	extra.append('[ext_resource type="PackedScene" path="res://scenes/ladder.tscn" id="t2"]')
+	front, back = tile_cells(level)
+	dress(level, named_props)
+	extra.append('[ext_resource type="Script" path="res://scripts/tile_art.gd" id="ta"]')
+	extra.append('[ext_resource type="Texture2D" path="res://skins/%s/tiles/atlas.png" id="tb"]' % prop_dir)
+	extra.append('[ext_resource type="Script" path="res://scripts/prop.gd" id="21"]')
+	prop_ids = {}
+	for index, prop in enumerate(sorted({p[1] for p in level.props})):
+		prop_ids[prop] = "p%d" % index
+		extra.append('[ext_resource type="Texture2D" path="res://skins/%s/props/%s.png" id="%s"]'
+			% (prop_dir, prop, prop_ids[prop]))
 	if level.presses:
 		extra.append('[ext_resource type="PackedScene" path="%s" id="t0"]' % lb.PRESS_SCENE)
 	if level.gates:
@@ -325,16 +457,27 @@ def build(level, out, root, prop_dir, write):
 	width = level.width * CELL
 	lines = [lb.HEAD + "\n".join(extra) + "\n"]
 	lines.append('\n[node name="%s" type="Node2D"]\nscript = ExtResource("3")\n' % root)
+	# 画的顺序：背景（视差那几层，关卡加载时插到最前面）→ 室内的墙 → 装饰 → 实心的砖 → 平台（藏着）→ 机关 → 敌人
+	lines.append('\n[node name="BackTiles" type="Node2D" parent="."]\nscript = ExtResource("ta")\n'
+		'atlas = ExtResource("tb")\ntint = Color(0.72, 0.72, 0.8, 1)\ncells = PackedInt32Array(%s)\n'
+		% ", ".join(str(v) for v in back))
 	lines.append('\n[node name="Props" type="Node2D" parent="."]\n')
+	for name, prop, x, bottom in level.props:
+		lines.append('\n[node name="%s" type="Sprite2D" parent="Props"]\n'
+			'texture = ExtResource("%s")\nscript = ExtResource("21")\nposition = Vector2(%g, %g)\n'
+			% (name, prop_ids[prop], x, bottom))
+		if prop_frames and prop_frames.get(prop, 1) > 1:
+			lines.append("frames = %d\n" % prop_frames[prop])
+	lines.append('\n[node name="FrontTiles" type="Node2D" parent="."]\nscript = ExtResource("ta")\n'
+		'atlas = ExtResource("tb")\ncells = PackedInt32Array(%s)\n' % ", ".join(str(v) for v in front))
 	lines.append('\n[node name="Level" type="Node2D" parent="."]\n')
 	for name, x, y, w, h in level.solids:
-		# 碰到地图底边的那几块是地面（草皮 / 钢板那一套），别的是墙和楼板
-		skin = "terrain_ground" if y + h >= ROWS * CELL and y >= GROUND_ROW * CELL else None
-		lines.append("\n" + lb.platform(name, "Level", x, y, w, h, skin=skin))
+		# 画面交给砖（`TileArt`），平台只管碰撞，所以藏起来
+		lines.append("\n" + lb.platform(name, "Level", x, y, w, h) + "visible = false\n")
 	lines.append("\n" + lb.platform("WallLeft", "Level", -16, 0, 16, lb.SCREEN_H))
 	lines.append("\n" + lb.platform("WallRight", "Level", width, 0, 16, lb.SCREEN_H))
 	for name, x, y, w in level.ledges:
-		lines.append("\n" + lb.platform(name, "Level", x, y, w, 16, one_way=True))
+		lines.append("\n" + lb.platform(name, "Level", x, y, w, 16, one_way=True) + "visible = false\n")
 	for name, x, top, height in level.ladders:
 		lines.append('\n[node name="%s" parent="Level" instance=ExtResource("t2")]\n'
 			'position = Vector2(%g, %g)\nheight = %g\n' % (name, x, top, height))

@@ -168,6 +168,9 @@ ZONES = {
 		# **机关**（2026-10 加的）：液压机（`Hammer.png`，从上面吊下来的活塞）和闸门（`Entry.png`）。
 		# 都是 8 帧 × 32×64，原样输出；液压机另外抽第 0 帧的第 2 行当活塞杆，竖着平铺接到天花板上。
 		"traps": {"press": "4 Animated objects/Hammer.png", "gate": "4 Animated objects/Entry.png"},
+		# 分层关卡的砖（2026-10）：81 块按编号原样排成一张 9×9 的总图，`TileArt` 按编号取。
+		# 哪一格用哪块是 `map_build.py` 按形状挑的，这里不挑
+		"tile_atlas": {"count": 81, "columns": 9},
 		# 梯子：`Ladder1` 是中段，`Ladder3` 是露出地板的那截扶手（画在梯子顶上面）
 		"ladder": {"middle": "3 Objects/Ladder1.png", "top": "3 Objects/Ladder3.png"},
 		"trap_rods": {"press_rod": ("4 Animated objects/Hammer.png", 2)},
@@ -352,6 +355,18 @@ def build_zone(key, write):
 			sb.write_png(os.path.join(out, "lighting", "glow.png"), art)
 		print("光照：")
 		print("  lighting/glow.png  %dx%d（素材 %dx%d）" % (len(art[0]), len(art), width, height))
+	if "tile_atlas" in zone:
+		spec = zone["tile_atlas"]
+		count, columns = spec["count"], spec["columns"]
+		rows = (count + columns - 1) // columns
+		atlas = sb.blank(columns * TILE, rows * TILE)
+		for n in range(1, count + 1):
+			tile = load_tile(zone, pack, None, n)
+			sb.blit(atlas, tile, ((n - 1) % columns) * TILE, ((n - 1) // columns) * TILE, "tile %d" % n)
+		if write:
+			sb.write_png(os.path.join(out, "tiles", "atlas.png"), atlas)
+		print("砖的总图：")
+		print("  tiles/atlas.png  %dx%d（%d 块）" % (columns * TILE, rows * TILE, count))
 	if "ladder" in zone:
 		print("梯子：")
 		# 左右按中段实际有内容的那几列裁（工业区那张 32 宽、杆子只占左边 23，居中画会偏到一边），

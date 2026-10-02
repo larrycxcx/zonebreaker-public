@@ -133,3 +133,53 @@ func test_ladder_five_takes_you_up_to_the_exit() -> void:
 	await frames(5)
 	check("up on the top floor, past the block", absf(feet() - TOP_FLOOR) < 1.0
 		and player.global_position.x > 26 * 16.0, "feet at %.1f, x %.0f" % [feet(), player.global_position.x])
+
+
+# ---------------------------------------------------------------- 画面：砖（只管好看，不碰规则）
+
+func tile_set(node_name: String) -> Dictionary:
+	var art := main.get_node(node_name) as TileArt
+	var cells := {}
+	for i in range(0, art.cells.size(), 4):
+		cells[Vector2i(art.cells[i], art.cells[i + 1])] = art.cells[i + 2]
+	return cells
+
+
+func test_the_tiles_are_pure_decoration() -> void:
+	await open_demo()
+	for node_name: String in ["BackTiles", "FrontTiles"]:
+		var art := main.get_node(node_name)
+		check("%s is tile art" % node_name, art is TileArt)
+		check("%s has nothing to collide with" % node_name,
+			art.find_children("*", "CollisionObject2D", true, false).is_empty())
+
+
+func test_the_platforms_only_collide_and_the_tiles_draw() -> void:
+	# 碰撞还是平台节点管；它们藏起来不画，不然砖和九宫格会叠成两层
+	await open_demo()
+	var front := tile_set("FrontTiles")
+	var checked := 0
+	for node in main.get_node("Level").get_children():
+		var slab := node as Platform
+		if slab == null or slab.name.begins_with("Wall"):
+			continue
+		check("%s is hidden" % slab.name, not slab.visible)
+		var x0 := int(slab.position.x / 16.0)
+		var y0 := int(slab.position.y / 16.0)
+		var missing := 0
+		for cy in range(y0, y0 + int(slab.size.y / 16.0)):
+			for cx in range(x0, x0 + int(slab.size.x / 16.0)):
+				if not front.has(Vector2i(cx, cy)):
+					missing += 1
+		checked += 1
+		check("every cell of %s is tiled" % slab.name, missing == 0, "%d 格没有砖" % missing)
+	check("setup: there are platforms", checked >= 5, str(checked))
+
+
+func test_indoor_rooms_have_a_wall_behind_them() -> void:
+	# 中层、底层后面要是室内的墙，不是天空（用户要的「像宣传图」）
+	await open_demo()
+	var back := tile_set("BackTiles")
+	for cell: Vector2i in [Vector2i(3, 10), Vector2i(20, 16), Vector2i(30, 11)]:
+		check("indoor cell %s has wall behind it" % cell, back.has(cell))
+	check("the sky above the top floor is left open", not back.has(Vector2i(30, 3)))
