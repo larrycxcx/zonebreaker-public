@@ -21,3 +21,20 @@ static func is_clear(space: PhysicsDirectSpaceState2D, from: Vector2, to: Vector
 			return false
 		ignored.append(hit["rid"])
 	return false
+
+
+## 从 from 往 to 走，**第一个实心物体**在哪儿（规则同上：单向平台不挡）；一路没挡就是 to。
+## 地下室 Boss 的激光用它：射到墙为止，穿过单向平台。
+static func first_solid(space: PhysicsDirectSpaceState2D, from: Vector2, to: Vector2) -> Vector2:
+	var query := PhysicsRayQueryParameters2D.create(from, to, WORLD_LAYER)
+	var ignored: Array[RID] = []
+	for i in 8:
+		query.exclude = ignored
+		var hit := space.intersect_ray(query)
+		if hit.is_empty():
+			return to
+		var platform := hit["collider"] as Platform
+		if platform == null or not platform.one_way:
+			return hit["position"]
+		ignored.append(hit["rid"])
+	return to

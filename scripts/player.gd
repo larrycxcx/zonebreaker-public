@@ -450,6 +450,12 @@ func body_center() -> Vector2:
 	return _shape.global_position
 
 
+## 判定框在世界里的矩形（趴下时跟着变矮）。横贯一条线的攻击（地下室 Boss 的激光）拿它判断碰没碰到。
+func hit_box() -> Rect2:
+	var size := (_shape.shape as RectangleShape2D).size
+	return Rect2(_shape.global_position - size / 2.0, size)
+
+
 ## 头顶上方是否有东西挡着，挡着就站不起来。
 func _head_blocked() -> bool:
 	_head_check.force_shapecast_update()

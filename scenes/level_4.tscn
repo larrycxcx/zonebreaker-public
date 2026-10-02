@@ -15,10 +15,11 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/clear_screen.tscn" id="22"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_4_a.tscn" id="e0"]
 [ext_resource type="PackedScene" path="res://scenes/enemy_4_b.tscn" id="e1"]
-[ext_resource type="PackedScene" path="res://scenes/enemy_4_c.tscn" id="e2"]
-[ext_resource type="PackedScene" path="res://scenes/enemy_4_d.tscn" id="e3"]
-[ext_resource type="PackedScene" path="res://scenes/enemy_4_e.tscn" id="e4"]
-[ext_resource type="PackedScene" path="res://scenes/enemy_4_f.tscn" id="e5"]
+[ext_resource type="PackedScene" path="res://scenes/boss_4.tscn" id="e2"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_4_c.tscn" id="e3"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_4_d.tscn" id="e4"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_4_e.tscn" id="e5"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_4_f.tscn" id="e6"]
 [ext_resource type="Texture2D" path="res://skins/basement/props/box.png" id="p0"]
 [ext_resource type="Texture2D" path="res://skins/basement/props/box_moss.png" id="p1"]
 [ext_resource type="Texture2D" path="res://skins/basement/props/box_small.png" id="p2"]
@@ -1511,10 +1512,10 @@ size = Vector2(208, 20)
 
 [node name="Enemies" type="Node2D" parent="."]
 
-[node name="4-E-1" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-1" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(300, 6669)
 
-[node name="4-C-1" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-1" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(320, 6544)
 
 [node name="4-B-1" parent="Enemies" instance=ExtResource("e1")]
@@ -1523,236 +1524,239 @@ position = Vector2(480, 6484)
 [node name="4-A-1" parent="Enemies" instance=ExtResource("e0")]
 position = Vector2(470, 6304)
 
-[node name="4-C-2" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-2" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(200, 6244)
 
-[node name="4-C-3" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-3" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(400, 6184)
 
 [node name="4-A-2" parent="Enemies" instance=ExtResource("e0")]
 position = Vector2(330, 6064)
 
-[node name="4-E-2" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-2" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(520, 6129)
 
 [node name="4-B-2" parent="Enemies" instance=ExtResource("e1")]
 position = Vector2(330, 5944)
 
-[node name="4-E-3" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-3" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(500, 5889)
 
 [node name="4-B-3" parent="Enemies" instance=ExtResource("e1")]
 position = Vector2(290, 5824)
 
-[node name="4-C-4" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-4" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(400, 5704)
 
-[node name="4-F-1" parent="Enemies" instance=ExtResource("e5")]
+[node name="4-F-1" parent="Enemies" instance=ExtResource("e6")]
 position = Vector2(120, 5764)
 
-[node name="4-E-4" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-4" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(300, 5589)
 
-[node name="4-D-1" parent="Enemies" instance=ExtResource("e3")]
+[node name="4-D-1" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(64, 5524)
 
-[node name="4-C-5" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-5" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(380, 5464)
 
-[node name="4-D-2" parent="Enemies" instance=ExtResource("e3")]
+[node name="4-D-2" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(576, 5404)
 
-[node name="4-C-6" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-6" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(400, 5344)
 
-[node name="4-E-5" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-5" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(480, 5229)
 
-[node name="4-C-7" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-7" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(320, 4984)
 
 [node name="4-B-4" parent="Enemies" instance=ExtResource("e1")]
 position = Vector2(368, 5104)
 
-[node name="4-F-2" parent="Enemies" instance=ExtResource("e5")]
+[node name="4-F-2" parent="Enemies" instance=ExtResource("e6")]
 position = Vector2(352, 4864)
 
-[node name="4-D-3" parent="Enemies" instance=ExtResource("e3")]
+[node name="4-D-3" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(64, 4804)
 
-[node name="4-F-3" parent="Enemies" instance=ExtResource("e5")]
+[node name="4-F-3" parent="Enemies" instance=ExtResource("e6")]
 position = Vector2(352, 4744)
 
-[node name="4-F-4" parent="Enemies" instance=ExtResource("e5")]
+[node name="4-F-4" parent="Enemies" instance=ExtResource("e6")]
 position = Vector2(380, 4624)
 
-[node name="4-C-8" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-8" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(512, 4804)
 
 [node name="4-B-5" parent="Enemies" instance=ExtResource("e1")]
 position = Vector2(400, 4504)
 
-[node name="4-E-6" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-6" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(120, 4449)
 
-[node name="4-C-9" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-9" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(500, 4324)
 
 [node name="4-A-3" parent="Enemies" instance=ExtResource("e0")]
 position = Vector2(300, 4264)
 
-[node name="4-C-10" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-10" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(330, 4384)
 
-[node name="4-C-11" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-11" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(120, 4144)
 
-[node name="4-C-12" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-12" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(520, 4084)
 
-[node name="4-C-13" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-13" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(140, 4024)
 
-[node name="4-C-14" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-14" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(500, 3964)
 
-[node name="4-D-4" parent="Enemies" instance=ExtResource("e3")]
+[node name="4-D-4" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(576, 3904)
 
 [node name="4-A-4" parent="Enemies" instance=ExtResource("e0")]
 position = Vector2(300, 3784)
 
-[node name="4-E-7" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-7" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(120, 3729)
 
 [node name="4-A-5" parent="Enemies" instance=ExtResource("e0")]
 position = Vector2(330, 3664)
 
-[node name="4-F-5" parent="Enemies" instance=ExtResource("e5")]
+[node name="4-F-5" parent="Enemies" instance=ExtResource("e6")]
 position = Vector2(330, 3544)
 
-[node name="4-C-15" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-15" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(520, 3604)
 
-[node name="4-E-8" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-8" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(160, 3429)
 
-[node name="4-D-5" parent="Enemies" instance=ExtResource("e3")]
+[node name="4-D-5" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(576, 3304)
 
-[node name="4-C-16" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-16" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(350, 3184)
 
 [node name="4-B-6" parent="Enemies" instance=ExtResource("e1")]
 position = Vector2(330, 3064)
 
-[node name="4-C-17" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-17" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(120, 3004)
 
-[node name="4-F-6" parent="Enemies" instance=ExtResource("e5")]
+[node name="4-F-6" parent="Enemies" instance=ExtResource("e6")]
 position = Vector2(370, 2944)
 
 [node name="4-B-7" parent="Enemies" instance=ExtResource("e1")]
 position = Vector2(320, 2824)
 
-[node name="4-E-9" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-9" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(520, 2889)
 
-[node name="4-D-6" parent="Enemies" instance=ExtResource("e3")]
+[node name="4-D-6" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(576, 2704)
 
-[node name="4-D-7" parent="Enemies" instance=ExtResource("e3")]
+[node name="4-D-7" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(64, 2584)
 
-[node name="4-D-8" parent="Enemies" instance=ExtResource("e3")]
+[node name="4-D-8" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(576, 2464)
 
-[node name="4-C-18" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-18" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(330, 2464)
 
-[node name="4-E-10" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-10" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(150, 2769)
 
-[node name="4-E-11" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-11" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(150, 2349)
 
-[node name="4-C-19" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-19" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(500, 2224)
 
 [node name="4-A-6" parent="Enemies" instance=ExtResource("e0")]
 position = Vector2(300, 2164)
 
-[node name="4-F-7" parent="Enemies" instance=ExtResource("e5")]
+[node name="4-F-7" parent="Enemies" instance=ExtResource("e6")]
 position = Vector2(480, 2104)
 
-[node name="4-C-20" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-20" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(320, 2284)
 
-[node name="4-E-12" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-12" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(300, 2049)
 
-[node name="4-C-21" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-21" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(520, 1984)
 
-[node name="4-E-13" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-13" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(300, 1929)
 
-[node name="4-D-9" parent="Enemies" instance=ExtResource("e3")]
+[node name="4-D-9" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(576, 1864)
 
-[node name="4-E-14" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-14" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(360, 1809)
 
-[node name="4-C-22" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-22" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(480, 1624)
 
 [node name="4-B-8" parent="Enemies" instance=ExtResource("e1")]
 position = Vector2(160, 1624)
 
-[node name="4-E-15" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-15" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(380, 1509)
 
-[node name="4-F-8" parent="Enemies" instance=ExtResource("e5")]
+[node name="4-F-8" parent="Enemies" instance=ExtResource("e6")]
 position = Vector2(400, 1264)
 
 [node name="4-B-9" parent="Enemies" instance=ExtResource("e1")]
 position = Vector2(220, 1204)
 
-[node name="4-F-9" parent="Enemies" instance=ExtResource("e5")]
+[node name="4-F-9" parent="Enemies" instance=ExtResource("e6")]
 position = Vector2(450, 1144)
 
-[node name="4-C-23" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-23" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(260, 1084)
 
-[node name="4-D-10" parent="Enemies" instance=ExtResource("e3")]
+[node name="4-D-10" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(64, 1024)
 
 [node name="4-A-7" parent="Enemies" instance=ExtResource("e0")]
 position = Vector2(290, 964)
 
-[node name="4-D-11" parent="Enemies" instance=ExtResource("e3")]
+[node name="4-D-11" parent="Enemies" instance=ExtResource("e4")]
 position = Vector2(64, 904)
 
-[node name="4-C-24" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-24" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(340, 844)
 
-[node name="4-C-25" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-25" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(140, 784)
 
-[node name="4-E-16" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-16" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(350, 729)
 
 [node name="4-B-10" parent="Enemies" instance=ExtResource("e1")]
 position = Vector2(160, 544)
 
-[node name="4-F-10" parent="Enemies" instance=ExtResource("e5")]
+[node name="4-F-10" parent="Enemies" instance=ExtResource("e6")]
 position = Vector2(380, 484)
 
-[node name="4-C-26" parent="Enemies" instance=ExtResource("e2")]
+[node name="4-C-26" parent="Enemies" instance=ExtResource("e3")]
 position = Vector2(200, 424)
 
-[node name="4-E-17" parent="Enemies" instance=ExtResource("e4")]
+[node name="4-E-17" parent="Enemies" instance=ExtResource("e5")]
 position = Vector2(430, 369)
+
+[node name="4-Boss-1" parent="Enemies" instance=ExtResource("e2")]
+position = Vector2(544, 288)
 
 [node name="Fx" type="Node2D" parent="."]
 script = ExtResource("13")

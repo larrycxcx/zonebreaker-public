@@ -15,6 +15,7 @@
                                       要绕着走——这一关的「堵路」。顶上能站
   "enemies": [(类型, 层, x)]        站在那一层上；层写 "b<序号>" 是站在第几块实心块上
              [(类型, ("air", 层), x)]  会飞的，悬在那一层站着的人的身体高度
+             [(类型, ("at", y), x)]    会飞的，直接写高度（Boss）
 """
 import os
 import struct
@@ -87,7 +88,11 @@ class VLevel:
 				section_blocks.append(block)
 			for kind, where, x in parts.get("enemies", []):
 				label_ = name(lb.enemy_label(kind) + "-")
-				if isinstance(where, tuple):
+				if isinstance(where, tuple) and where[0] == "at":
+					# 直接写高度（世界坐标）的：Boss 那种得按它自己的招式算好位置的
+					y = float(where[1])
+					self.floating.add(label_)
+				elif isinstance(where, tuple):
 					y = row_y(i, where[1]) - AIR_LIFT
 					self.floating.add(label_)
 				elif isinstance(where, str) and where.startswith("b"):

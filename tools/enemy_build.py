@@ -769,11 +769,84 @@ BASE_FLYER = {
 }
 
 
+# ---------------------------------------------------------------- 地下室的 Boss（骷髅头）
+# 素材 `bosses/2`。每帧 96×96，一个漂着的大骷髅头 + 一只骨手，身子在帧里的 x 10..53、y 23..77，
+# **中心约在 (32, 50)**。动作是看图认的：
+#   Attack1 / Attack2 两组几乎一样：前两帧蓄力、第 3、4 帧从骨手里射出一道**水平激光**（红黑条纹）；
+#   Attack3：身边冒出红球，第 5 帧手里掉出一个**小骷髅**——召唤；
+#   Idle2 / Walk2 / Hurt2 / Death2 是 48×48 的**小骷髅**本身（召唤出来的小兵）；
+#   Sneer：收起骨手只剩骷髅头——嘲讽，用在血过半换挡那一下。
+#
+# **输出帧 128×96、锚点 (64, 48)**：素材里激光那一截伸到画面右边缘（x 95），往右挪 32 对准锚点之后
+# 到了 127；左右镜像要绕锚点翻，所以左边也得留出同样的宽度。
+# 激光本身由外观按玩法给的长度另外画（`BossSkullAppearance`），素材里那一截只是开头。
+BOSS4_DIR = os.path.join(BASE_PACK, "..", "bosses", "2")
+BOSS4_OUT = "4_boss"
+BOSS4_CELL = 96
+BOSS4_FRAME_W = 128
+BOSS4_FRAME_H = 96
+BOSS4_ANCHOR = (64, 48)
+## 素材里身子的中心（对准锚点的那一点）。
+BOSS4_BODY = (32, 50)
+BOSS4_CLIPS = {
+	"idle": ("Idle.png", [0, 1, 2, 3]),
+	"walk": ("Walk.png", [0, 1, 2, 3]),
+	"charge": ("Attack1.png", [0, 1]),
+	"beam": ("Attack1.png", [2, 3]),
+	"summon": ("Attack3.png", [0, 1, 2, 3, 4, 5]),
+	"sneer": ("Sneer.png", [0, 1, 2, 3, 4, 5]),
+	"hurt": ("Hurt.png", [0, 1]),
+	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+}
+## 激光那一条：从 Attack1 的出光帧里取一列（x 90）。粗的那档是第 3 帧（6 行），快收的时候第 4 帧（4 行）。
+BOSS4_BEAM = {"beam_thick": (2, 63, 69), "beam_thin": (3, 64, 68)}
+BOSS4_BEAM_COLUMN = 90
+## HUD 头像：骷髅那一块。
+BOSS4_PORTRAIT = (16, 22, 32, 32)
+## 小骷髅（48×48，中心约在 (23, 23)），走会飞的那条路：身子是第 17~30 行。
+MINION4_OUT = "4_minion"
+MINION4_BODY = (17, 30)
+MINION4 = {
+	"idle": ("Idle2.png", [0, 1, 2, 3]),
+	"walk": ("Walk2.png", [0, 1, 2, 3]),
+	"hurt": ("Hurt2.png", [0, 1]),
+	"death": ("Death2.png", [0, 1, 2, 3]),
+}
+
+
+def build_boss_skull(write):
+	dx = BOSS4_ANCHOR[0] - BOSS4_BODY[0]
+	dy = BOSS4_ANCHOR[1] - BOSS4_BODY[1]
+	for name, (f, idx) in BOSS4_CLIPS.items():
+		_, _, pixels = sb.read_png(os.path.join(BOSS4_DIR, f))
+		right = []
+		for i in idx:
+			frame = sb.cut(pixels, i * BOSS4_CELL, 0, BOSS4_CELL, BOSS4_CELL)
+			placed = sb.blank(BOSS4_FRAME_W, BOSS4_FRAME_H)
+			sb.blit(placed, frame, dx, dy, "boss4 %s" % name)
+			right.append(placed)
+		left = [mirror_about(fr, BOSS4_ANCHOR[0]) for fr in right]
+		save_frames(BOSS4_OUT, "%s_r.png" % name, right, BOSS4_FRAME_W, BOSS4_FRAME_H, write, BASE_OUT)
+		save_frames(BOSS4_OUT, "%s_l.png" % name, left, BOSS4_FRAME_W, BOSS4_FRAME_H, write, BASE_OUT)
+	_, _, attack = sb.read_png(os.path.join(BOSS4_DIR, "Attack1.png"))
+	for name, (frame, top, bottom) in BOSS4_BEAM.items():
+		column = [[attack[y][frame * BOSS4_CELL + BOSS4_BEAM_COLUMN]] for y in range(top, bottom)]
+		if write:
+			sb.write_png(os.path.join(BASE_OUT, BOSS4_OUT, name + ".png"), column)
+		print("  %s/%s.png  1x%d" % (BOSS4_OUT, name, bottom - top))
+	_, _, idle = sb.read_png(os.path.join(BOSS4_DIR, "Idle.png"))
+	x, y, w, h = BOSS4_PORTRAIT
+	if write:
+		sb.write_png(os.path.join(BASE_OUT, BOSS4_OUT, "portrait.png"), sb.cut(idle, x, y, w, h))
+	build_flyer(write, MINION4_OUT, ".", MINION4, BOSS4_DIR, BASE_OUT, MINION4_BODY)
+
+
 def build_basement(write):
 	if not os.path.isdir(BASE_PACK):
 		sys.exit("找不到地下室敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(BASE_PACK))
 	build_singles(write, BASE_SINGLES, BASE_PACK, BASE_OUT)
 	build_flyer(write, "4_d", "4", BASE_FLYER, BASE_PACK, BASE_OUT, BASE_FLYER_BODY, faces_left=True)
+	build_boss_skull(write)
 
 
 def build_industrial(write):

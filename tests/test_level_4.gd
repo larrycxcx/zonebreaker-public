@@ -187,13 +187,25 @@ func test_the_player_gets_a_moment_before_the_first_enemy() -> void:
 
 
 func test_the_boss_waits_at_the_far_end() -> void:
-	# Boss 第 5 步才放。先守着 Boss 区本身：最上面一屏有一整层地板，没有敌人在那儿
+	# 纵向：Boss 在**最上面一屏**，那儿有一整层地板，除了它没有别的敌人
 	await open_level()
+	var boss: Boss = null
+	for node in enemies():
+		if node is Boss:
+			boss = node
+	check("there is a boss", boss is BossSkull, str(boss))
+	if boss == null:
+		return
+	check("up in the last screen", boss.position.y < SCREEN_H, str(boss.position))
 	var floor_ := arena_floor()
 	check("there is an arena floor at the top", not floor_.is_empty())
 	if floor_.is_empty():
 		return
 	check("it spans the shaft", floor_[1] - floor_[0] >= 500.0, "%.0f" % (floor_[1] - floor_[0]))
+	# 它最低的时候，激光正好对准站在地板上的人
+	var low := boss.position.y + BossSkull.BEAM_ORIGIN.y
+	check("at its lowest its beam meets a player on the floor", absf(low - (floor_[2] - 16.0)) <= 1.0,
+		"%.0f vs %.0f" % [low, floor_[2] - 16.0])
 	for enemy in enemies():
 		if enemy is Boss:
 			continue
@@ -287,3 +299,35 @@ func test_enemies_you_climb_past_are_cleared_without_pay() -> void:
 	check("the ones far below are gone", enemies().size() < before, "%d -> %d" % [before, enemies().size()])
 	check("and nobody was paid for them", player.progress.xp == xp and player.progress.money == money,
 		"xp %d -> %d" % [xp, player.progress.xp])
+
+
+func test_the_boss_stays_on_screen_while_you_stand_on_the_arena_floor() -> void:
+	# 截图看出来的：摄像机以人为中心的话，人站在 Boss 区地板上时 Boss 飘高了就出了画面
+	await open_level()
+	var boss: BossSkull = null
+	for node in enemies():
+		if node is BossSkull:
+			boss = node
+		else:
+			node.free()
+	check("setup: there is the skull", boss != null)
+	if boss == null:
+		return
+	var floor_ := arena_floor()
+	player.global_position = Vector2(200, floor_[2] - 16.0)
+	player.velocity = Vector2.ZERO
+	await frames(10)
+	var view := camera_rig().view_rect()
+	var box := (boss.get_node("CollisionShape2D").shape as RectangleShape2D).size
+	var highest := boss._home.y - boss.rise - box.y / 2.0
+	check("its highest point is on screen", highest >= view.position.y,
+		"Boss 最高 %.0f，画面顶 %.0f" % [highest, view.position.y])
+	check("and so is its lowest", boss._home.y + box.y / 2.0 <= view.end.y)
+	# 每一层都对得准：最高那块平台上的人，它飘得到
+	var top_center := INF
+	for face: Array in faces():
+		if face[2] < SCREEN_H:
+			top_center = minf(top_center, face[2] - 16.0)
+	check("it can rise to line up with the highest ledge",
+		boss._home.y - boss.rise + BossSkull.BEAM_ORIGIN.y <= top_center,
+		"最高能打到 %.0f，最高那层的人在 %.0f" % [boss._home.y - boss.rise + BossSkull.BEAM_ORIGIN.y, top_center])

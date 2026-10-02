@@ -23,6 +23,10 @@ const GROUP := &"camera_rig"
 
 ## 画面只往上卷（纵向关）。横向关留 false，和以前一模一样。
 @export var only_up := false
+## 纵向关里往上多看多少：领头的人摆在画面中线**往下**这么多。往上爬要看得见头顶的东西；
+## 爬到顶上 Boss 区时，这一偏正好让画面被关卡顶边夹住，**整个 Boss 区一屏全露出来**——
+## 不偏的话人站在 Boss 区地板上，画面以他为中心，Boss 飘高了就出了画面（截图看出来的）。
+@export var look_ahead := 64.0
 
 
 func _ready() -> void:
@@ -43,7 +47,7 @@ func _physics_process(_delta: float) -> void:
 		return
 	global_position = _center_of(players)
 	if only_up:
-		global_position.y = _highest(players)
+		global_position.y = _highest(players) - look_ahead
 		# 画面走到哪儿，下边界就收到哪儿：之后再也回不去了
 		limit_bottom = mini(limit_bottom, ceili(view_rect().end.y))
 	_keep_players_on_screen(players)
