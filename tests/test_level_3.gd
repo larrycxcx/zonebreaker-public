@@ -195,3 +195,26 @@ func test_the_test_level_stays_unlit() -> void:
 	# 光照是素材包的事：默认包没有，测试关上就不该冒出这一层
 	await reset_scene()
 	check("no lighting on the default pack", main.get_node_or_null("Lighting") == null)
+
+
+# ---------------------------------------------------------------- 装饰里不许有像拾取物的东西
+
+## 2026-10 试玩反馈：酒瓶、酒杯、飞钞、飘牌摆在地上看着就像能捡的东西。
+const PICKUP_LOOKALIKES := ["bottle", "glass", "money", "card"]
+
+
+func test_nothing_lying_around_looks_like_a_pickup() -> void:
+	await open_level()
+	check("setup: the street is dressed", props().size() >= 100, str(props().size()))
+	for node in props():
+		var path := (node as Sprite2D).texture.resource_path.get_file()
+		for word: String in PICKUP_LOOKALIKES:
+			check("%s is not a %s" % [node.name, word], not path.begins_with(word), path)
+
+
+## 基类那条查「会动的装饰真的在动」。这一关会动的两件（飞钞、飘牌）正是像拾取物的那两样，
+## 已经拿掉了，所以改成反过来守：**没有**会动的装饰混进来。
+func test_the_fountain_actually_runs() -> void:
+	await open_level()
+	for node in props():
+		check("%s stays still" % node.name, (node as Prop).frames <= 1, str((node as Prop).frames))

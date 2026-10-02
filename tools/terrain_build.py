@@ -100,12 +100,7 @@ ZONES = {
 			"crate": ("3 Objects/Props/Prop_01.png", 1),
 			"keg": ("3 Objects/Props/Prop_06.png", 1),
 			"bin": ("3 Objects/Props/Prop_11.png", 1),
-			"bottle": ("3 Objects/Props/Prop_22.png", 1),
-			"bottle2": ("3 Objects/Props/Prop_24.png", 1),
-			"glass": ("3 Objects/Props/Prop_26.png", 1),
-			"glass2": ("3 Objects/Props/Prop_28.png", 1),
-			"card": ("4 Animated objects/Card.png", 8),
-			"money": ("4 Animated objects/Money.png", 6),
+			# 酒瓶、酒杯、飞钞、飘牌不要：摆在地上像能捡的东西（见 level_build.py 的 SCATTER_3）
 		},
 	},
 	# 第二关：工业区。地砖是 81 个独立文件，编号 = 行 × 9 + 列 + 1。

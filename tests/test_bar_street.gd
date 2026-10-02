@@ -305,16 +305,45 @@ func test_the_gunman_patrols_and_shoots_off_the_level() -> void:
 	check("and it really fires", not fired.is_empty(), str(fired.size()))
 
 
-func test_the_cannon_is_a_turret_on_wheels() -> void:
+func test_the_cannon_lobs_grenades_instead_of_shooting() -> void:
+	# 2026-10 试玩后改的：原来是开枪连发的炮台，现在**从炮管里打手雷**——
+	# 整套就是第一关 F 那个「只扔手雷」的行为（`EnemyGrenadier`），只是慢慢挪、出手点在炮管口。
 	await reset_scene(false, true, pack())
-	var cannon := spawn("res://scenes/enemy_3_f.tscn", Vector2(500, STAND_Y)) as EnemyWalker
+	var cannon := spawn("res://scenes/enemy_3_f.tscn", Vector2(500, STAND_Y)) as EnemyGrenadier
+	check("it is a grenadier", cannon != null)
+	if cannon == null:
+		return
 	check("it moves, but slowly", cannon.move_speed > 0.0 and cannon.move_speed < 60.0,
 		str(cannon.move_speed))
-	check("it fires a burst", cannon.burst_max >= 2, str(cannon.burst_max))
-	# **只打水平**：这套素材没画斜射，开了的话画面又会对不上（第二关 2-C 那个毛病）
-	check("and only straight ahead, because it has no diagonal art",
-		not cannon.can_aim_diagonally)
-	check("setup: it really has no diagonal art", not has_clip(&"3_f", "attack_up"))
+	check("it carries no gun", cannon.bullet_scene == null)
+	check("it loads enemy grenades (they only hurt players)", cannon.grenade_scene != null
+		and cannon.grenade_scene.resource_path == "res://scenes/enemy_grenade.tscn",
+		str(cannon.grenade_scene))
+	# 炮管口是按贴图量的（原来开枪时的出膛点就是这个），F 的那个是挥棒弧光的位置
+	check("they leave from the barrel, not from F's bat swing",
+		cannon.throw_offset == Vector2(18, -9), str(cannon.throw_offset))
+	cannon.facing = 1
+	player.global_position = Vector2(700, STAND_Y)
+	snap_camera()
+	var thrown: Array[Node2D] = []
+	var shots: Array[int] = []
+	cannon.shot_fired.connect(func() -> void: shots.append(1))
+	# `launch_projectile()` 是加进树**之后**才摆位置的，所以只记下节点，过一帧再看它在哪
+	var watch := func(node: Node) -> void:
+		if node is Grenade:
+			thrown.append(node as Node2D)
+	tree.node_added.connect(watch)
+	var first_seen := Vector2.INF
+	for i in 150:
+		await tree.physics_frame
+		if first_seen == Vector2.INF and not thrown.is_empty() and is_instance_valid(thrown[0]):
+			first_seen = thrown[0].global_position
+	tree.node_added.disconnect(watch)
+	check("it really lobs them at a player in front", thrown.size() >= 1, str(thrown.size()))
+	check("and never fires a bullet", shots.is_empty(), str(shots.size()))
+	check("the grenade comes out ahead of the barrel, towards the player",
+		first_seen != Vector2.INF and first_seen.x > cannon.global_position.x + 10.0,
+		"%s vs cannon at %s" % [first_seen, cannon.global_position])
 
 
 func test_the_shark_is_bolted_down_and_fires_along_the_floor() -> void:

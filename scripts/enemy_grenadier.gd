@@ -23,8 +23,11 @@ extends EnemyWalker
 ## 扔出去时报告的事件名，默认和玩家扔手雷共用一个声音。
 @export var throw_event := &"grenade_throw"
 
-## 出手点（相对身体中心，朝右时；朝左 x 取反）。
+## 出手点的默认值：第一关 F 挥棒的那道弧光（相对身体中心，朝右时；朝左 x 取反）。
 const THROW_OFFSET := Vector2(16, -4)
+
+## 这一种从哪儿出手。第三关的炮车是从炮管口打出去的，和挥棒的位置不一样，所以每种自己配。
+@export var throw_offset := THROW_OFFSET
 
 var _throw_timer := 0.0
 
@@ -70,6 +73,6 @@ func _can_throw_at(player: Player) -> bool:
 
 
 func _throw() -> void:
-	launch_projectile(grenade_scene, THROW_OFFSET, Vector2(facing, 0))
+	launch_projectile(grenade_scene, throw_offset, Vector2(facing, 0))
 	_visual.fire()
 	GameEvents.report(throw_event, self)
