@@ -45,7 +45,8 @@ func _on_event(event: StringName, source: Node) -> void:
 			spark.call(&"point", -(flew as Vector2))
 	elif event == &"explosion":
 		# 手雷炸的时候报告，大小照它的爆炸半径来。
-		var blast := _spawn(&"explosion", explosion_scene, (source as Node2D).global_position)
+		# 有 body_center 的（油桶：原点在桶底）炸在身子正中，手雷这种原点就是中心的照旧
+		var blast := _spawn(&"explosion", explosion_scene, _body_center(source))
 		if blast != null:
 			blast.set(&"radius", source.get(&"blast_radius"))
 	elif event == &"ultimate_blast":

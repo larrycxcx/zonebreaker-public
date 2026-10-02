@@ -16,6 +16,10 @@ extends StaticBody2D
 	set(value):
 		one_way = value
 		_apply()
+## 传送带（2026-10）：站在上面的人和敌人被这个速度带着走（正数往右、负数往左，0 = 普通平台）。
+## 用的是 StaticBody2D 自带的 `constant_linear_velocity`：自己不动，但碰着它的身体像它在动一样被带着走，
+## `move_and_slide()` 本来就会把脚下平台的速度加上——不用改玩家和敌人一行代码。
+@export var conveyor := 0.0
 ## 素材包里用哪种地形画它（`SkinPack.APPEARANCE_KEYS` 里的 terrain_*）。只管长什么样，和规则无关。
 ## 留空就按平台自己的性质挑：单向平台是浮空的 `terrain_ledge`，其余是石砖 `terrain_stone`。
 @export var skin_key := &""
@@ -47,6 +51,7 @@ func _apply() -> void:
 	(_shape.shape as RectangleShape2D).size = size
 	_shape.position = size / 2.0
 	_shape.one_way_collision = one_way
+	constant_linear_velocity = Vector2(conveyor, 0.0)
 	_rect.size = size
 	_rect.color = color
 	if _visual != null and _visual.has_method(&"fit"):

@@ -167,7 +167,9 @@ ZONES = {
 		"backdrop": {"base": "1", "sky": "2", "far": "3", "mid": "4", "near": "5"},
 		# **机关**（2026-10 加的）：液压机（`Hammer.png`，从上面吊下来的活塞）和闸门（`Entry.png`）。
 		# 都是 8 帧 × 32×64，原样输出；液压机另外抽第 0 帧的第 2 行当活塞杆，竖着平铺接到天花板上。
-		"traps": {"press": "4 Animated objects/Hammer.png", "gate": "4 Animated objects/Entry.png"},
+		"traps": {"press": "4 Animated objects/Hammer.png", "gate": "4 Animated objects/Entry.png",
+			# 可打爆的箱子（2026-10）：8 帧，完好 → 越打越破 → 散架
+			"chest": "4 Animated objects/Chest.png"},
 		# 分层关卡的砖（2026-10）：81 块按编号原样排成一张 9×9 的总图，`TileArt` 按编号取。
 		# 哪一格用哪块是 `map_build.py` 按形状挑的，这里不挑
 		"tile_atlas": {"count": 81, "columns": 9},

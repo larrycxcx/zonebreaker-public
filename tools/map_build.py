@@ -8,7 +8,11 @@
     #   实心：钢板（地面、墙、楼板）
     X   实心：钢架箱（画面不同，规则和 # 一样）
     %   实心：红色警示条纹（地面上那种）
-    ~   实心：顶上是传送带面
+    ~   实心：传送带，往右带（`BELT_SPEED`）。站在上面的人和敌人被带着走
+    -   实心：传送带，往左带
+    K   可打爆的箱子（2 格宽）：竖着几行 K 就摞几只（一只 24 高，按 `CRATE_H` 换算），开 4 枪一只。
+        找路时**当它不存在**（打烂了就过得去）；挡子弹、挡视线，敌人可以躲在后面
+    O   油桶：打一枪就炸（手雷那种爆炸），炸附近的敌人，也炸玩家。不挡路
     !   竖着的红白管子（2 格宽，纯装饰、不挡人，画在背景层）：宣传图左上那种烟囱
     =   单向平台：人从上面踩得住、按下 + 跳能穿下去，子弹穿得过去
     :   单向平台：带支架的钢梁走道（画面不同，规则和 = 一样）
@@ -38,7 +42,12 @@ import level_build as lb
 
 CELL = 16
 ## 碰撞上都是实心，只是长得不一样（`TileArt` 按材质挑砖）。
-SOLIDS = "#X%~"
+SOLIDS = "#X%~-"
+## 传送带：字符 → 速度（px/s，正数往右）。玩家走路 180，带 70 是「顶着走慢一截、顺着走快一截」
+BELT_SPEED = 70.0
+BELTS = {"~": BELT_SPEED, "-": -BELT_SPEED}
+CRATE_H = 24
+BARREL_H = 22
 ## 单向平台的两种画法（规则一样）。
 ONE_WAYS = "=:"
 ROWS = 23
@@ -51,12 +60,14 @@ BODY_ROWS = 2
 TRAP_COLS = 2
 TRAP_ROWS = 4
 LADDER_COLS = 2
+## 出生那一屏（44 格 = 704 像素，和横向关的 `SAFE_START` 700 一样）不许摆敌人。
+SAFE_COLS = 44
 
 
 class MapLevel:
 	"""把格子地图读成几何：实心矩形、单向平台、梯子、机关、敌人、出生点。"""
 
-	def __init__(self, rows, letters, scenes, stand_of):
+	def __init__(self, rows, letters, scenes, stand_of, floating=(), hanging=()):
 		"""`letters`：地图里的小写字母 → 敌人类型（`"c": "2_c"`，Boss 用键 `"boss"`）；
 		`scenes`：敌人类型 → 场景路径（就是 `level_build.py` 里每关那张 `ENEMIES_x`）。"""
 		width = max(len(r) for r in rows)
@@ -66,12 +77,19 @@ class MapLevel:
 		self.width = width
 		self.letters = letters
 		self.enemy_scenes = scenes
+		## 会飞的（直升机、飘着的 Boss）：摆在那一格的正中，脚下不用有地。
+		self.floating = set(floating)
+		## 吊在画面顶上等着砸下来的（第二关 2-A）：不管写在第几行，都摆到画面以上（`lb.HANG_Y`）。
+		self.hanging = set(hanging)
 		self.stand_of = stand_of
 		self.solids = []      # (名字, x, y, 宽, 高)   单位：像素
 		self.ledges = []      # (名字, x, y, 宽)
 		self.ladders = []     # (名字, 中线 x, 顶 y, 高)
 		self.presses = []     # (名字, x, y, 天花板 y, 错开几秒)
 		self.gates = []       # (名字, x, y, 错开几秒)
+		self.belts = []       # (名字, x, y, 宽, 高, 速度)
+		self.crates = []      # (名字, 左上 x, 左上 y)
+		self.barrels = []     # (名字, 中心 x, 中心 y)
 		self.enemies = []     # (名字, 类型, x, y)
 		self.props = []
 		self.spawn = None
@@ -99,15 +117,23 @@ class MapLevel:
 			return "%s%d" % (prefix, counts[prefix])
 
 		# 实心：每一行先找横着的一段段，再把上下相同的段合成一块（少几百个节点）
+		# 传送带各自成块（每块带自己的速度），不和别的实心合并
+		plain = SOLIDS.translate({ord(b): None for b in BELTS})
 		runs = {}
 		for r in range(ROWS):
 			c = 0
 			while c < self.width:
-				if self.grid[r][c] in SOLIDS:
+				ch = self.grid[r][c]
+				if ch in plain:
 					start = c
-					while c < self.width and self.grid[r][c] in SOLIDS:
+					while c < self.width and self.grid[r][c] in plain:
 						c += 1
 					runs.setdefault((start, c), []).append(r)
+				elif ch in BELTS:
+					start = c
+					while c < self.width and self.grid[r][c] == ch:
+						c += 1
+					self.belts.append((name("Belt"), start * CELL, r * CELL, (c - start) * CELL, CELL, BELTS[ch]))
 				else:
 					c += 1
 		for (start, end), rows in sorted(runs.items(), key=lambda kv: (kv[1][0], kv[0][0])):
@@ -147,6 +173,23 @@ class MapLevel:
 					seen.add((rr, c + 1))
 				self.ladders.append((name("Ladder"), c * CELL + LADDER_COLS * CELL / 2.0, r * CELL,
 					(bottom + 1 - r) * CELL))
+		# 箱子：竖着连在一起的 K（2 格宽，按左边那一列认），从底往上摞
+		seen = set()
+		for c in range(self.width):
+			for r in range(ROWS):
+				if self.grid[r][c] != "K" or (r, c) in seen:
+					continue
+				if (r, c - 1) in seen:
+					continue
+				bottom = r
+				while self.at(bottom + 1, c) == "K":
+					bottom += 1
+				for rr in range(r, bottom + 1):
+					seen.add((rr, c))
+					seen.add((rr, c + 1))
+				floor_y = (bottom + 1) * CELL
+				for k in range(max(1, (bottom + 1 - r) * CELL // CRATE_H)):
+					self.crates.append((name("Crate"), c * CELL, floor_y - CRATE_H * (k + 1)))
 		# 机关、敌人、出生点、Boss
 		press_index = 0
 		for r in range(ROWS):
@@ -162,6 +205,8 @@ class MapLevel:
 					press_index += 1
 				elif ch == "G":
 					self.gates.append((name("Gate"), c * CELL, r * CELL, 0.0))
+				elif ch == "O":
+					self.barrels.append((name("Barrel"), x, feet - BARREL_H / 2.0))
 				elif ch == "@":
 					self.spawn = (x, feet - lb.STAND)
 				elif ch == ">":
@@ -171,7 +216,13 @@ class MapLevel:
 					if kind is None:
 						raise SystemExit("格子地图里的敌人字母 %r 在对照表里没有" % ch)
 					label = name(lb.enemy_label(kind) + "-")
-					self.enemies.append((label, kind, x, feet - self.stand_of(kind)))
+					if kind in self.hanging:
+						y = lb.HANG_Y
+					elif kind in self.floating:
+						y = r * CELL + CELL / 2.0
+					else:
+						y = feet - self.stand_of(kind)
+					self.enemies.append((label, kind, x, y))
 					if ch == "B":
 						self.boss_cell = (r, c)
 
@@ -199,6 +250,13 @@ class MapLevel:
 				return r
 			r += 1
 		return None
+
+	def is_pit(self, r, c):
+		"""从第 r 行走到第 c 列这一格（这一格站不住）：是掉出关卡的坑吗？
+		身子被实心挡着的是墙、不是坑；往下能落到任何一个面上（哪怕是更低的一层）也不是坑。"""
+		if not self.body_free(r, c):
+			return False
+		return not any(self.supports(rr, c) for rr in range(r, ROWS))
 
 	def moves(self, r, c):
 		out = []
@@ -239,15 +297,21 @@ class MapLevel:
 
 	def _arc_clear(self, r, c, tr, tc):
 		"""从 (r, c) 跳到 (tr, tc)：跳起来那一截（起点正上方，到最高点）和落下来那一截都不能撞上实心的。
-		单向平台不挡往上跳。最高点按「目标那一行再高 1 格」算（跳过去得越过它）。"""
-		peak = min(r, tr) - 1
-		top = peak - BODY_ROWS
+		单向平台不挡往上跳。
+
+		路线按三截算：起点那一列从脚下升到最高点、在最高点横着过去、终点那一列从最高点落到落脚的那一格。
+		最高点至少比两头都高 1 格，最多比起点高 `JUMP_ROWS` 格——试遍这几档，有一档走得通就行，
+		所以**跳得过比最高点矮的障碍**（屋顶上的箱子、坑边的矮沿），也落得到一个箱子**上面**
+		（第一版把整个矩形都当成要空着的，落脚的那块箱子本身就把自己挡住了）。"""
 		lo, hi = min(c, tc), max(c, tc)
-		for rr in range(top, r):
-			for cc in range(lo, hi + 1):
-				if self.solid(rr, cc):
-					return False
-		return True
+		low = min(r, tr) - 1
+		for peak in range(low, min(low, r - JUMP_ROWS - 1) - 1, -1):
+			top = peak - BODY_ROWS
+			path = [(rr, c) for rr in range(top, r)] + [(rr, tc) for rr in range(top, tr)]
+			path += [(rr, cc) for rr in range(top, peak + 1) for cc in range(lo, hi + 1)]
+			if not any(self.solid(rr, cc) for rr, cc in path):
+				return True
+		return False
 
 	def reachable(self):
 		if self.spawn is None:
@@ -265,7 +329,10 @@ class MapLevel:
 		return seen
 
 
-def check(level):
+def check(level, safe_cols=SAFE_COLS, chasers=(), min_enemies=0):
+	"""`chasers`：会冲过来的那几种（冲撞、自爆、落地就冲的）——它们脚下那条路的两头**不许是坑**：
+	用户试玩看到的「冲刺的敌人还没到跟前就自己掉坑里了」。
+	`min_enemies`：出生那一屏以外，每一屏（40 格）至少几个敌人——不许出现大片空着、只是一直往前跑的地方。"""
 	problems = []
 	if level.spawn is None:
 		problems.append("没有出生点（@）")
@@ -274,10 +341,10 @@ def check(level):
 	if not level.standable(sr, int(level.spawn[0] // CELL)):
 		problems.append("出生点脚下没有能站的面")
 	seen = level.reachable()
-	# 终点：Boss 脚下附近，或者标了 > 的出口
+	# 终点：Boss 跟前（飘着的 Boss 就是它底下那一片能站的地方），或者标了 > 的出口
 	if level.boss_cell is not None:
 		br, bc = level.boss_cell
-		goal = {(br + 1, cc) for cc in range(bc - 4, bc + 5)}
+		goal = {(r, cc) for r in range(br + 1, ROWS) for cc in range(bc - 12, bc + 13) if level.standable(r, cc)}
 	elif level.exit_cell is not None:
 		goal = {level.exit_cell}
 	else:
@@ -302,18 +369,73 @@ def check(level):
 			problems.append("%s 上面没有天花板（吊在哪儿？）" % name)
 		if level.at(r + TRAP_ROWS, c) not in SOLIDS + ONE_WAYS:
 			problems.append("%s 底下没有地板" % name)
-	# 闸门：上面一直到顶都要是实心的（门 64 高、一跳 87）；底下是地板
+	# 闸门：门正上方得一直是实心的，直到接上一整层天花板（门两边也都是实心的那一行）或者画面顶——
+	# 门 64 高、一跳 87，中间留个缝就跳过去了。在厂房里接的是天花板，在露天就得一直封到顶
 	for name, x, y, _ in level.gates:
 		c, r = int(x // CELL), int(y // CELL)
-		if any(not level.solid(rr, cc) for rr in range(0, r) for cc in (c, c + 1)):
+		sealed = True
+		for rr in range(r - 1, -1, -1):
+			if not (level.solid(rr, c) and level.solid(rr, c + 1)):
+				sealed = False
+				break
+			if level.solid(rr, c - 1) and level.solid(rr, c + 2):
+				break
+		if not sealed:
 			problems.append("%s 上面没有封顶，跳得过去" % name)
 		if not level.solid(r + TRAP_ROWS, c):
 			problems.append("%s 底下没有地板" % name)
-	# 敌人：脚下能站、身子不嵌在墙里
+	for name, x, y in level.crates:
+		c, r = int(x // CELL), int((y + CRATE_H) // CELL)
+		if not (level.supports(r, c) or level.at(r, c) == "K"):
+			problems.append("%s 底下悬空" % name)
+	for name, x, y in level.barrels:
+		c, r = int(x // CELL), int((y + BARREL_H / 2.0) // CELL)
+		if not level.supports(r, c):
+			problems.append("%s 底下悬空" % name)
+	for label, kind, x, y in level.enemies:
+		if kind not in chasers:
+			continue
+		c = int(x // CELL)
+		if kind in level.hanging:
+			# 吊着的落地之后才冲：查它砸下去落到的那一层
+			r = next((rr for rr in range(ROWS) if level.standable(rr, c)), None)
+			if r is None:
+				continue
+		else:
+			r = int((y + level.stand_of(kind)) // CELL)
+		for step in (-1, 1):
+			cc = c
+			while level.standable(r, cc + step):
+				cc += step
+			beyond = cc + step
+			if 0 <= beyond < level.width and level.is_pit(r, beyond):
+				problems.append("%s（会冲的）脚下这条路%s头是坑（第 %d 列），没冲到玩家跟前自己先掉下去"
+					% (label, "左" if step < 0 else "右", beyond))
+	if min_enemies:
+		screens = level.width // 40
+		# Boss 区那两屏（Boss 那一屏和它前面一屏）不算：那儿是单挑
+		if level.boss_cell is not None:
+			screens = min(screens, level.boss_cell[1] // 40 - 1)
+		for screen in range(1, screens):
+			count = sum(1 for e in level.enemies if screen * 40 * CELL <= e[2] < (screen + 1) * 40 * CELL)
+			if count < min_enemies:
+				problems.append("第 %d 屏只有 %d 个敌人（至少 %d 个）" % (screen + 1, count, min_enemies))
+	# 敌人：出生那一屏不许有（人一进来就挨打）；站着的脚下能站、身子不嵌在墙里；
+	# 吊着的那一列底下得有地（掉下来要落得住）；会飞的不嵌在墙里
 	for label, kind, x, y in level.enemies:
 		c = int(x // CELL)
+		if x < safe_cols * CELL:
+			problems.append("%s 摆在出生那一屏里（第 %d 列）" % (label, c))
+		if kind in level.hanging:
+			if not any(level.standable(r, c) for r in range(ROWS)):
+				problems.append("%s 吊着的那一列底下没有地，掉下来就摔死了" % label)
+			continue
+		if kind in level.floating:
+			if level.solid(int(y // CELL), c):
+				problems.append("%s 飘在墙里" % label)
+			continue
 		r = int((y + level.stand_of(kind)) // CELL)
-		if not level.standable(r, c) and not kind.endswith("_boss"):
+		if not level.standable(r, c):
 			problems.append("%s 站在 (%d, %d) 格，脚下没有面或者身子嵌在墙里" % (label, r, c))
 	return problems
 
@@ -329,6 +451,7 @@ NINE = {
 	"#": ((4, 5, 6), (13, 14, 15), (22, 23, 24)),
 	"%": ((58, 59, 60), (67, 68, 69), (67, 68, 69)),
 	"~": ((74, 75, 76), (13, 14, 15), (22, 23, 24)),
+	"-": ((74, 75, 76), (13, 14, 15), (22, 23, 24)),
 	"=": ((77, 78, 79), (77, 78, 79), (77, 78, 79)),
 	":": ((18, 18, 27), (18, 18, 27), (18, 18, 27)),
 }
@@ -340,8 +463,12 @@ BACK_TILES = [(21, 12), (3, 2), (47, 1)]
 PIPE_TOP = 45
 PIPE_BODY = (54, 63)
 ## 室内地板上自动撒的装饰（工业区的 props），以及大约每隔几格摆一件。
-INDOOR_PROPS = ["locker", "box", "barrel", "extinguisher", "bucket", "box_open", "barrel_rust", "crate"]
+## 不撒红色的 `barrel`：它和**会炸的油桶**是同一张图，摆一堆不会炸的会让玩家分不清（2026-10 截图看出来的）。
+## 也不撒 `locker` / `board`：那两张是挂在墙上的东西，贴图底边离画布底 7~9 像素，摆在地上是飘着的——要用就在地图里点名挂到墙上。
+INDOOR_PROPS = ["box", "extinguisher", "bucket", "box_open", "barrel_rust", "crate"]
 PROP_STEP = (5, 11)
+## 露天的地面上也撒（2026-10 用户：「尽量不出现大面积空旷的场景」），换一套露天该有的东西
+OUTDOOR_PROPS = ["barrel_rust", "box", "warning", "bucket", "crate", "box_open", "bench"]
 
 
 def _hash(a, b, seed):
@@ -392,9 +519,10 @@ def _front_tile(level, r, c, ch, seed):
 
 
 def _indoor(level, r, c):
-	"""这一格头顶上（同一列往上）有楼板 / 天花板吗——有就是室内，铺背景墙。"""
+	"""这一格头顶上（同一列往上）有**实心的**楼板 / 天花板吗——有就是室内，铺背景墙。
+	单向平台不算：露天的钢梁走道底下还是露天（第一版算上了，走道底下一块块深色墙，截图一眼就看出来）。"""
 	for rr in range(r - 1, -1, -1):
-		if level.solid(rr, c) or level.at(rr, c) in ONE_WAYS:
+		if level.solid(rr, c):
 			return True
 	return False
 
@@ -457,7 +585,7 @@ def rail_props(rails):
 
 
 def dress(level, named, seed=20261003):
-	"""装饰：先摆地图里点名的（`named`：(装饰名, 列, 站在第几行)），再在室内的地板上自动撒。
+	"""装饰：先摆地图里点名的（`named`：(装饰名, 列, 站在第几行)），再在地板上自动撒（室内、露天各一套）。
 	撒的时候躲开梯子、机关和敌人那几格，装饰之间至少隔几格。"""
 	for prop, c, r in named:
 		level.props.append(("Prop%d" % (len(level.props) + 1), prop, c * CELL, r * CELL))
@@ -470,6 +598,10 @@ def dress(level, named, seed=20261003):
 		busy.update(range(int(x // CELL) - 1, int(x // CELL) + 3))
 	for _, x, _, _ in level.gates:
 		busy.update(range(int(x // CELL) - 1, int(x // CELL) + 3))
+	for _, x, _ in level.crates:
+		busy.update(range(int(x // CELL) - 1, int(x // CELL) + 3))
+	for _, x, _ in level.barrels:
+		busy.update(range(int(x // CELL) - 1, int(x // CELL) + 2))
 	taken = {(int(p[2] // CELL), int(p[3] // CELL)) for p in level.props}
 	enemy_cells = {(int(x // CELL), int((y + 16) // CELL)) for _, _, x, y in level.enemies}
 	state = [seed]
@@ -482,11 +614,11 @@ def dress(level, named, seed=20261003):
 		c = 0
 		next_at = roll(PROP_STEP[1])
 		while c < level.width:
-			floor = level.solid(r, c) and not level.solid(r - 1, c) and level.body_free(r, c) \
-				and _indoor(level, r - 1, c)
+			floor = level.solid(r, c) and not level.solid(r - 1, c) and level.body_free(r, c)
 			if floor and c >= next_at and c not in busy and (c, r) not in taken \
 					and not any((cc, r) in enemy_cells for cc in range(c - 2, c + 3)):
-				prop = INDOOR_PROPS[roll(len(INDOOR_PROPS))]
+				pool = INDOOR_PROPS if _indoor(level, r - 1, c) else OUTDOOR_PROPS
+				prop = pool[roll(len(pool))]
 				level.props.append(("Prop%d" % (len(level.props) + 1), prop, c * CELL, r * CELL))
 				next_at = c + PROP_STEP[0] + roll(PROP_STEP[1] - PROP_STEP[0])
 			c += 1
@@ -519,6 +651,12 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 		extra.append('[ext_resource type="PackedScene" path="%s" id="t0"]' % lb.PRESS_SCENE)
 	if level.gates:
 		extra.append('[ext_resource type="PackedScene" path="%s" id="t1"]' % lb.GATE_SCENE)
+	if level.belts:
+		extra.append('[ext_resource type="Script" path="res://scripts/belt_art.gd" id="bl"]')
+	if level.crates:
+		extra.append('[ext_resource type="PackedScene" path="res://scenes/trap_crate.tscn" id="t3"]')
+	if level.barrels:
+		extra.append('[ext_resource type="PackedScene" path="res://scenes/trap_barrel.tscn" id="t4"]')
 	width = level.width * CELL
 	lines = [lb.HEAD + "\n".join(extra) + "\n"]
 	lines.append('\n[node name="%s" type="Node2D"]\nscript = ExtResource("3")\n' % root)
@@ -540,10 +678,17 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 			lines.append("frames = %d\n" % prop_frames[prop])
 	lines.append('\n[node name="FrontTiles" type="Node2D" parent="."]\nscript = ExtResource("ta")\n'
 		'atlas = ExtResource("tb")\ncells = PackedInt32Array(%s)\n' % ", ".join(str(v) for v in front))
+	# 传送带中间那一截的齿朝它带的方向滚（`BeltArt`），盖在砖上面
+	if level.belts:
+		lines.append('\n[node name="Belts" type="Node2D" parent="."]\nscript = ExtResource("bl")\n'
+			'atlas = ExtResource("tb")\nbelts = PackedFloat32Array(%s)\n'
+			% ", ".join("%g, %g, %g, %g" % (x, y, w, speed) for _, x, y, w, _, speed in level.belts))
 	lines.append('\n[node name="Level" type="Node2D" parent="."]\n')
 	for name, x, y, w, h in level.solids:
 		# 画面交给砖（`TileArt`），平台只管碰撞，所以藏起来
 		lines.append("\n" + lb.platform(name, "Level", x, y, w, h) + "visible = false\n")
+	for name, x, y, w, h, speed in level.belts:
+		lines.append("\n" + lb.platform(name, "Level", x, y, w, h) + "visible = false\nconveyor = %g\n" % speed)
 	lines.append("\n" + lb.platform("WallLeft", "Level", -16, 0, 16, lb.SCREEN_H))
 	lines.append("\n" + lb.platform("WallRight", "Level", width, 0, 16, lb.SCREEN_H))
 	for name, x, y, w in level.ledges:
@@ -552,8 +697,14 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 		lines.append('\n[node name="%s" parent="Level" instance=ExtResource("t2")]\n'
 			'position = Vector2(%g, %g)\nheight = %g\n' % (name, x, top, height))
 	lines.append('\n[node name="Walls" type="Node2D" parent="Level"]\n')
-	if level.presses or level.gates:
+	if level.presses or level.gates or level.crates or level.barrels:
 		lines.append('\n[node name="Traps" type="Node2D" parent="."]\n')
+		for name, x, y in level.crates:
+			lines.append('\n[node name="%s" parent="Traps" instance=ExtResource("t3")]\n'
+				'position = Vector2(%g, %g)\n' % (name, x, y))
+		for name, x, y in level.barrels:
+			lines.append('\n[node name="%s" parent="Traps" instance=ExtResource("t4")]\n'
+				'position = Vector2(%g, %g)\n' % (name, x, y))
 		for name, x, y, ceiling, phase in level.presses:
 			lines.append('\n[node name="%s" parent="Traps" instance=ExtResource("t0")]\n'
 				'position = Vector2(%g, %g)\nphase = %g\nmount_y = %g\n' % (name, x, y, phase, ceiling))

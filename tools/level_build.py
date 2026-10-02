@@ -237,22 +237,12 @@ SECTIONS_1 = [
 SPAWN = (64.0, GROUND_Y - STAND)
 
 
-# ---------------------------------------------------------------- 第二关（工业区）的段落
+# ---------------------------------------------------------------- 第二关（工业区）
 #
-# 和第一关同样是 10 段 = 20 屏，难度对齐（坑的宽度、墙的高度、堵块的高路都走同一套自检）。
-# 这一关的新东西：
-#   2-A 吊在画面顶边以上（`("air", HANG_Y)`），玩家走到脚下才砸下来——**这一关的伏击**；
-#   2-D 抡锤，摆在窄道和矮通道出口，逼玩家在它起手之后退开；
-#   2-F 自爆，摆在开阔地和窄道里，逼玩家提前打掉；
-#   2-E 飞在头顶投弹，摆在坑区和空旷段；
-#   Boss 区**多摆平台**（它飘在空中、不追出地盘，玩家得跳上去才够得着）。
+# 2026-10 起是**分层的格子地图**（`level2_map.py` → `map_build.py`），不再走下面横向那套段落表。
+# 这里只留它的敌人表和会动的装饰。
 
 PROP_FRAMES_2 = {"screen": 4, "conveyor": 4}
-SCATTER_2 = ["barrel", "box", "crate", "bucket", "board", "barrel_rust", "box_open",
-	"box", "barrel", "crate"]
-TREES_2 = ["locker", "ladder", "flag", "sign", "extinguisher"]
-SCATTER_SEED_2 = 20260925
-FLYING_2 = {"2_e"}
 
 ENEMIES_2 = {
 	"2_a": "res://scenes/enemy_2_a.tscn",
@@ -264,108 +254,6 @@ ENEMIES_2 = {
 	"2_boss": "res://scenes/boss_2.tscn",
 }
 
-## Boss 飘在这个高度：再高缆绳就够不着地面上的玩家（见 boss_operator.gd 的 arm_max_length）。
-BOSS2_AIR_Y = 170.0
-
-SECTIONS_2 = [
-	("Yard", {                                    # 厂区门口：走两步、认识 2-C 和 2-B
-		"props": [("conveyor", 300, GROUND_Y), ("screen", 620, GROUND_Y),
-			("bench", 1180, GROUND_Y)],
-		"ledges": [(280, 256, 96), (440, 208, 96), (660, 256, 112), (880, 208, 96),
-			(1080, 248, 96)],
-		"enemies": [("2_c", 740, 256), ("2_c", 800, GROUND_Y),
-			("2_b", 940, GROUND_Y), ("2_c", 1120, 248), ("2_c", 1240, GROUND_Y)],
-	}),
-	("Catwalks", {                                # 爬钢架，头顶开始有直升机
-		"ledges": [(100, 264, 96), (260, 216, 96), (420, 168, 128), (620, 160, 240),
-			(900, 216, 96), (1080, 256, 112)],
-		"walls": [(180, 40)],
-		"gaps": [(1000, 88)],
-		"blocks": [(660, 64, 112)],
-		"enemies": [("2_c", 150, GROUND_Y), ("2_c", 300, 216), ("2_e", 500, None),
-			("2_c", 480, 168), ("2_b", 660, GROUND_Y), ("2_c", 700, 160),
-			("2_c", 820, 160), ("2_c", 950, 216), ("2_b", 1100, GROUND_Y),
-			("2_c", 1140, 256)],
-	}),
-	("Ambush", {                                  # 第一次被从天而降的 Worker 砸
-		"props": [("conveyor", 700, GROUND_Y)],
-		"ledges": [(240, 248, 112), (420, 256, 80), (520, 200, 96), (820, 248, 96),
-			(960, 256, 80), (1060, 200, 112)],
-		"enemies": [("2_a", 320, (AIR, HANG_Y)), ("2_c", 280, 248),
-			("2_a", 660, (AIR, HANG_Y)), ("2_b", 620, GROUND_Y),
-			("2_c", 560, 200), ("2_a", 1000, (AIR, HANG_Y)), ("2_c", 880, 248),
-			("2_b", 1140, GROUND_Y), ("2_c", 1120, 200)],
-	}),
-	("Presses", {                                 # 压机通道 → 矮通道 + 堵死的下层：出口都有锤子兵
-		# 开头一条压机通道（天花板 + 三台液压机，节奏依次错开）：从底下看准空当冲过去
-		"halls": [(16, 160, 3)],
-		"crawl": [(200, 200), (800, 180)],
-		"blocks": [(520, 64, 112)],
-		# 340 / 400 那两块是垫脚：从地面一跳最多上 72，直接上 160 的钢架跳不上去
-		"ledges": [(340, 248, 80), (400, 208, 64), (440, 160, 240), (720, 248, 96),
-			(1000, 200, 96), (1160, 256, 96)],
-		"enemies": [("2_d", 460, GROUND_Y), ("2_c", 500, 160),
-			("2_d", 760, GROUND_Y), ("2_c", 760, 248), ("2_e", 900, None),
-			("2_c", 1040, 200), ("2_d", 1120, GROUND_Y), ("2_c", 1200, 256)],
-	}),
-	("Sumps", {                                   # 坑区：直升机在头上投弹，逼你不能慢慢跳
-		"gaps": [(300, 96), (620, 88), (940, 100)],
-		"ledges": [(180, 248, 96), (460, 264, 96), (760, 248, 112), (1080, 256, 96)],
-		"enemies": [("2_c", 200, 248), ("2_e", 340, None), ("2_c", 500, 264),
-			("2_b", 760, GROUND_Y), ("2_c", 800, 248), ("2_e", 880, None),
-			("2_f", 1060, GROUND_Y), ("2_c", 1120, 256), ("2_c", 1240, GROUND_Y)],
-	}),
-	("Sirens", {                                  # 自爆机的地盘：开阔，但它们冲得快
-		"props": [("screen", 400, GROUND_Y)],
-		"ledges": [(220, 256, 96), (460, 256, 80), (560, 208, 112), (900, 256, 96),
-			(1020, 256, 80), (1120, 208, 96)],
-		"walls": [(740, 56)],
-		# 闸门：自爆机冲过来的路上隔一道门，门一开它们就涌过来
-		"gates": [(392, 0.0)],
-		"enemies": [("2_f", 180, GROUND_Y), ("2_c", 260, 256), ("2_f", 620, GROUND_Y),
-			("2_c", 600, 208), ("2_f", 820, GROUND_Y), ("2_c", 940, 256),
-			("2_b", 1060, GROUND_Y), ("2_f", 1180, GROUND_Y), ("2_c", 1160, 208)],
-	}),
-	("Skyline", {                                 # 空战段：一路都在浮台上，头顶三架
-		"gaps": [(360, 92), (820, 96)],
-		"ledges": [(180, 264, 96), (320, 216, 112), (520, 264, 96), (700, 216, 112),
-			(900, 264, 96), (1080, 216, 112)],
-		"enemies": [("2_e", 260, None), ("2_c", 360, 216), ("2_e", 600, None),
-			("2_c", 560, 264), ("2_c", 740, 216), ("2_e", 940, None),
-			("2_c", 940, 264), ("2_a", 1140, (AIR, HANG_Y)), ("2_c", 1120, 216)],
-	}),
-	("Crossfire", {                               # 三层交叉火力
-		"ledges": [(120, 264, 128), (340, 208, 128), (560, 152, 160), (820, 208, 128),
-			(1040, 264, 128)],
-		"gaps": [(700, 92)],
-		# 闸门：上面三层在打，底下这道门逼你在火力底下停一下
-		"gates": [(504, 1.0)],
-		"enemies": [("2_c", 160, 264), ("2_b", 260, GROUND_Y), ("2_c", 380, 208),
-			("2_c", 600, 152), ("2_c", 660, 152), ("2_e", 700, None),
-			("2_c", 860, 208), ("2_b", 980, GROUND_Y), ("2_c", 1080, 264),
-			("2_d", 1200, GROUND_Y)],
-	}),
-	("Narrows", {                                 # 窄道：坑、矮通道、锤子兵和自爆机挤在一起
-		"crawl": [(160, 180), (660, 160)],
-		"gaps": [(420, 96), (900, 100), (1090, 92)],
-		"ledges": [(320, 248, 96), (520, 184, 96), (840, 248, 64), (1020, 248, 64)],
-		"walls": [(1220, 40)],
-		"blocks": [(540, 56, 112)],
-		"enemies": [("2_d", 380, GROUND_Y), ("2_c", 360, 248), ("2_f", 620, GROUND_Y),
-			("2_c", 560, 184), ("2_e", 620, None), ("2_d", 870, GROUND_Y),
-			("2_c", 860, 248), ("2_f", 1000, GROUND_Y), ("2_b", 1200, GROUND_Y)],
-	}),
-	("BossArena", {                               # Boss 区：**多摆平台**，它飘在空中要跳上去打
-		"props": [("conveyor", 260, GROUND_Y), ("screen", 620, GROUND_Y)],
-		"walls": [(40, 56)],
-		"ledges": [(180, 248, 96), (360, 200, 96), (560, 248, 112),
-			(760, 216, 128), (960, 256, 112), (1120, 208, 112),
-			(880, 160, 96), (1060, 152, 96)],
-		"enemies": [("2_d", 140, GROUND_Y), ("2_c", 220, 248), ("2_f", 420, GROUND_Y),
-			("2_c", 400, 200), ("2_b", 620, GROUND_Y), ("2_c", 600, 248),
-			("2_boss", 1000, (AIR, BOSS2_AIR_Y))],
-	}),
-]
 
 # ---------------------------------------------------------------- 第三关（酒吧街）的段落
 #
@@ -636,11 +524,10 @@ STAGES = {
 		"prop_frames": PROP_FRAMES_1, "scatter": SCATTER_1, "trees": TREES_1,
 		"seed": SCATTER_SEED_1,
 	},
+	# 第二关是**分层的格子地图**：`level2_map.py` 画、`map_build.py` 查路和写场景
 	"2": {
-		"out": "level_2.tscn", "root": "Level2", "prop_dir": "industrial",
-		"sections": SECTIONS_2, "enemies": ENEMIES_2, "flying": FLYING_2,
-		"prop_frames": PROP_FRAMES_2, "scatter": SCATTER_2, "trees": TREES_2,
-		"seed": SCATTER_SEED_2,
+		"out": "level_2.tscn", "root": "Level2", "prop_dir": "industrial", "map": True,
+		"enemies": ENEMIES_2, "prop_frames": PROP_FRAMES_2,
 	},
 	"3": {
 		"out": "level_3.tscn", "root": "Level3", "prop_dir": "bar_street",
@@ -666,13 +553,13 @@ def use_stage(key):
 	OUT = os.path.join(SCENES, stage["out"])
 	ROOT = stage["root"]
 	PROP_DIR = stage["prop_dir"]
-	SECTIONS = stage["sections"]
+	SECTIONS = stage.get("sections", [])
 	ENEMIES = stage["enemies"]
-	FLYING = stage["flying"]
+	FLYING = stage.get("flying", set())
 	PROP_FRAMES = stage["prop_frames"]
 	SCATTER = stage.get("scatter", [])
 	TREES = stage.get("trees", [])
-	SCATTER_SEED = stage["seed"]
+	SCATTER_SEED = stage.get("seed", 0)
 	STAND_BY = stage.get("stand", {})
 	FACADES = stage.get("facades", [])
 
@@ -1051,7 +938,7 @@ def build_map_demo(write):
 	import level_maps
 	import map_build as mb
 	level = mb.MapLevel(level_maps.DEMO, level_maps.DEMO_ENEMIES, ENEMIES_2, lambda kind: STAND)
-	problems = mb.check(level)
+	problems = mb.check(level, safe_cols=0)   # 示意图那一屏本来就只有一屏，敌人都在里面
 	if problems:
 		print("格子地图自检没过：")
 		for p in problems:
@@ -1065,6 +952,30 @@ def build_map_demo(write):
 			len(level.gates), len(level.enemies)))
 	if write:
 		print("  写入 scenes/map_demo.tscn")
+
+
+def build_map_level_2(write):
+	"""第二关：分层的格子地图（`level2_map.py`）→ scenes/level_2.tscn。"""
+	import level2_map as l2
+	import map_build as mb
+	import map_canvas
+	rows, props, decor = l2.assemble()
+	level = mb.MapLevel(rows, l2.LETTERS, ENEMIES_2, stand_of, l2.FLOATING, l2.HANGING)
+	problems = mb.check(level, chasers=l2.CHASERS, min_enemies=l2.MIN_ENEMIES)
+	if problems:
+		map_canvas.dump(rows)
+		print("格子地图自检没过：")
+		for p in problems:
+			print("  -", p)
+		sys.exit(1)
+	mb.build(level, os.path.join(SCENES, "level_2.tscn"), "Level2", "industrial", write,
+		PROP_FRAMES_2, props, decor)
+	print("第二关（分层版）：%d 格宽（%d 屏）" % (level.width, level.width // 40))
+	print("  实心 %d 块、单向 %d、梯子 %d、液压机 %d、闸门 %d、敌人 %d、装饰 %d"
+		% (len(level.solids), len(level.ledges), len(level.ladders), len(level.presses),
+			len(level.gates), len(level.enemies), len(level.props)))
+	if write:
+		print("  写入 scenes/level_2.tscn")
 
 
 def main():
@@ -1107,6 +1018,9 @@ def build_vertical(key, write):
 
 
 def build_stage(key, write):
+	if STAGES[key].get("map"):
+		build_map_level_2(write)
+		return
 	if STAGES[key].get("vertical"):
 		build_vertical(key, write)
 		return

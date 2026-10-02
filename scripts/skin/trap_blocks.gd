@@ -17,6 +17,11 @@ func show_frame(frame: int) -> void:
 	queue_redraw()
 
 
+## 可打爆的箱子用的：打烂了就不画了（形状由它自己的 `art_rects()` 说了算）。
+func show_damage(_stage: float, _broken: bool) -> void:
+	queue_redraw()
+
+
 func _draw() -> void:
 	var owner_ := get_parent()
 	if owner_ == null or not owner_.has_method(&"art_rects"):
