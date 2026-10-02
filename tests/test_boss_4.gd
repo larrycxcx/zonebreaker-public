@@ -182,6 +182,28 @@ func test_minions_float_at_you_and_die_in_two_shots() -> void:
 	check("two are", not is_instance_valid(minion) or minion.health <= 0)
 
 
+func test_killing_a_minion_while_the_boss_lives_is_fine() -> void:
+	# 2026-10 试玩崩过：打死一只小骷髅以后，Boss 每帧清理名单时把已经释放的对象传给了
+	# 带类型的 lambda 参数，每帧报 SCRIPT ERROR（编辑器里就停在调试器上）。
+	# 原来的用例只测过「Boss 死了小骷髅跟着碎」，从没在 Boss 还活着的时候打死过一只。
+	await open_arena()
+	var boss := spawn_boss()
+	player.global_position = Vector2(300, STAND_Y)
+	snap_camera()
+	await frames(2)
+	boss._summon()
+	var minions := boss.minions().duplicate()
+	check("setup: there are minions", minions.size() >= 2, str(minions.size()))
+	# **直接 free()，不走 take_damage**：真打的时候是玩家的子弹把它打死的，子弹在 Boss 之后处理，
+	# 小骷髅在那一帧末尾就被释放了——Boss 下一帧清理名单时拿到的是一个已经释放的对象。
+	# 在两帧之间 take_damage 的话它只是「待删」，Boss 先看到待删就去掉了，重现不出来（第一版就这么绿了）。
+	(minions[0] as Enemy).free()
+	await frames(30)
+	check("the boss lets go of the dead one", boss.minions().size() == minions.size() - 1,
+		str(boss.minions().size()))
+	check("and keeps fighting", is_instance_valid(boss) and boss.health > 0)
+
+
 func test_it_switches_sides_every_other_attack() -> void:
 	await open_arena()
 	var boss := spawn_boss()

@@ -86,7 +86,7 @@ func _ready() -> void:
 
 
 func _boss_process(delta: float) -> void:
-	_minions = _minions.filter(func(m: Enemy) -> bool: return is_instance_valid(m) and not m.is_queued_for_deletion())
+	_forget_dead_minions()
 	var target := find_target()
 	_face_the_shaft()
 	match _move:
@@ -203,6 +203,19 @@ func _next_attack() -> void:
 func _finish_attack() -> void:
 	_move = Move.REST
 	_left = rest_time
+
+
+## 把已经死了的小骷髅从名单里去掉。
+## **不能用 `filter(func(m: Enemy) ...)`**：玩家的子弹在 Boss 之后处理，小骷髅被打死的那一帧末尾就释放了，
+## 下一帧这里拿到的是一个已经释放的对象——传给带类型的参数会报错，`filter` 再返回一个不带类型的数组，
+## 赋回 `Array[Enemy]` 又报一次，每帧都报（2026-10 试玩时编辑器就停在这儿，看着像崩了）。
+## 循环变量也不标类型，先问 `is_instance_valid` 再用。
+func _forget_dead_minions() -> void:
+	var alive: Array[Enemy] = []
+	for minion in _minions:
+		if is_instance_valid(minion) and not minion.is_queued_for_deletion():
+			alive.append(minion)
+	_minions = alive
 
 
 ## 小骷髅从骨手下面掉出来，场上不超过上限。
