@@ -143,6 +143,8 @@ var _dead := false
 ## 最后一次**站稳**的地方：掉进坑里就捞回这儿。只在脚踏实地、没在被击退的时候记，
 ## 所以不会记到半空中，也不会记到正往坑里掉的那一瞬。
 var _safe_spot := Vector2.ZERO
+## 纵向关里，捞回的落脚点离画面边至少这么远才算「在画面里」（整个人看得见、脚下的面也看得见）。
+const EDGE_ROOM := 24.0
 ## 倒地闪烁走到哪儿了（整数部分 = 闪了几次）。
 var _down_blink := 0.0
 ## 濒死（双人专用）：血空了先倒地，队友走过来就能拉起来，没人来救、倒计时走完才真的死。
@@ -744,9 +746,26 @@ func fall_out() -> void:
 
 ## 捞回最后一次站稳的地方，站定、给一小段无敌。
 func _respawn_at_safe_ground() -> void:
-	global_position = _safe_spot
+	global_position = landing_spot()
 	velocity = Vector2.ZERO
 	grant_invincibility(fall_grace)
+
+
+## 掉出去之后捞回哪儿：**最后一次站稳的地方**。
+## 纵向关里画面只往上卷，那个地方可能已经卷出画面了（队友爬得快、把你甩在底下）——
+## 捞回去等于马上又掉一次。那就捞到**画面里队友最后站稳的地方**；谁的都不在画面里，只好照旧。
+func landing_spot() -> Vector2:
+	var rig := CameraRig.find(get_tree())
+	if rig == null or not rig.only_up:
+		return _safe_spot
+	var view := rig.view_rect().grow(-EDGE_ROOM)
+	if view.has_point(_safe_spot):
+		return _safe_spot
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var other := node as Player
+		if other != null and other != self and other.is_alive() and view.has_point(other._safe_spot):
+			return other._safe_spot
+	return _safe_spot
 
 
 func _die() -> void:

@@ -10,15 +10,31 @@ extends ScreenShake
 ## 谁也不能把队友甩出屏幕，想分头走就只能走到画面两边为止。
 ##
 ## 这个节点的 `process_physics_priority` 调得很高，好让它在所有玩家都走完之后才跑。
+##
+## **纵向关（`only_up`）**：画面只往上卷、不往回退（魂斗罗瀑布关那种）。做法是让 `limit_bottom`
+## **只降不升**——画面往上走一点，下边界就跟着收紧，引擎自己会把画面夹住，不用另写一套跟随。
+## 这时镜头跟的是**爬得最高的那个人**而不是两人中点：领头的往上爬，落后的被甩出底边，
+## 掉出底边就按掉坑算（`main.gd` 的判定线跟着画面底边走），捞回到画面里（`Player.fall_out()`）。
 
 ## 玩家身体离画面边缘至少留这么远（半个身宽多一点，整个人都看得见）。
 const EDGE_MARGIN := 14.0
+## 关卡里那台摄像机在这个分组里：玩家捞回、关卡判定掉坑都要问它画面在哪儿。
+const GROUP := &"camera_rig"
+
+## 画面只往上卷（纵向关）。横向关留 false，和以前一模一样。
+@export var only_up := false
 
 
 func _ready() -> void:
 	super()
+	add_to_group(GROUP)
 	# 玩家的 _physics_process 跑完之后再跟镜头，否则跟的是上一帧的位置。
 	process_physics_priority = 100
+
+
+## 关卡里那台摄像机（没有就是 null，比如菜单里）。
+static func find(tree: SceneTree) -> CameraRig:
+	return tree.get_first_node_in_group(GROUP) as CameraRig if tree != null else null
 
 
 func _physics_process(_delta: float) -> void:
@@ -26,6 +42,10 @@ func _physics_process(_delta: float) -> void:
 	if players.is_empty():
 		return
 	global_position = _center_of(players)
+	if only_up:
+		global_position.y = _highest(players)
+		# 画面走到哪儿，下边界就收到哪儿：之后再也回不去了
+		limit_bottom = mini(limit_bottom, ceili(view_rect().end.y))
 	_keep_players_on_screen(players)
 
 
@@ -48,6 +68,14 @@ func _center_of(players: Array[Player]) -> Vector2:
 	for player in players:
 		sum += player.global_position
 	return sum / players.size()
+
+
+## 爬得最高的那个人的高度（纵向关镜头跟他）。
+func _highest(players: Array[Player]) -> float:
+	var top := INF
+	for player in players:
+		top = minf(top, player.global_position.y)
+	return top
 
 
 ## 画面在世界里盖住的那块矩形。Camera2D 自己会把画面夹在 limit_* 里面，这里按同样的规则算一遍，

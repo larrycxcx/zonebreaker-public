@@ -14,6 +14,10 @@ extends Node2D
 ## 掉到这个高度以下就算掉出关卡（坑底）。地面在 y=320，画面底边 360，
 ## 再往下 40px 才算数——这样贴着地面跑不会误判，掉进坑里又立刻就死。
 @export var fall_y := 400.0
+## 纵向关里掉出画面底边多远才算掉出去：和横向关一样留 40（地面 320、画面底 360、判定线 400）。
+const FALL_MARGIN := 40.0
+## 敌人被甩在画面底边以下多远就收走（比玩家的判定线再低一截：刚出画面的还可能被打到）。
+const LEFT_BEHIND := 120.0
 ## Boss 倒下之后隔多久摆成绩单：让爆炸和屏幕抖动走完。
 @export var clear_delay := 1.5
 
@@ -107,16 +111,32 @@ func _process(delta: float) -> void:
 ## 掉进坑里的收干净。玩家扣血捞回最后站稳的地方（`Player.fall_out()`）；敌人照常 `die()`——
 ## 把追着你的 D 引到坑边推下去，经验照给（没人打过的算 1 号的，见 `Progress`）。
 func _physics_process(_delta: float) -> void:
+	var line := player_fall_line()
 	for node in get_tree().get_nodes_in_group(&"player"):
 		var player := node as Player
 		# 倒地的也要捞：他已经没血可扣，但扔在坑底下队友永远够不着
-		if player != null and (player.is_alive() or player.is_downed()) 				and player.global_position.y > fall_y:
+		if player != null and (player.is_alive() or player.is_downed()) 				and player.global_position.y > line:
 			player.fall_out()
 	for node in get_tree().get_nodes_in_group(Enemy.GROUP):
 		var enemy := node as Enemy
+		if enemy == null or enemy.is_queued_for_deletion():
+			continue
 		# 已经排队等删的别再 die 一次，不然 enemy_death 会报两遍、奖励也发两份
-		if enemy != null and not enemy.is_queued_for_deletion() and enemy.global_position.y > fall_y:
+		if enemy.global_position.y > fall_y:
 			enemy.die()
+		elif enemy.global_position.y > line + LEFT_BEHIND:
+			# 纵向关里画面卷走、被甩在底下的：**悄悄删掉**，不给经验也不报死——
+			# 玩家没打它，而且留着的话它会在画面外往上打冷枪
+			enemy.queue_free()
+
+
+## 玩家掉到哪条线以下算掉出去。横向关就是固定的 `fall_y`；
+## 纵向关（摄像机 `only_up`）跟着画面底边走：画面卷上去以后，掉出底边就回不来了。
+func player_fall_line() -> float:
+	var rig := CameraRig.find(get_tree())
+	if rig == null or not rig.only_up:
+		return fall_y
+	return minf(fall_y, rig.view_rect().end.y + FALL_MARGIN)
 
 
 ## 进关卡那一刻先把每个座位的经验、金钱、等级记下来，结算页拿它们算差值。

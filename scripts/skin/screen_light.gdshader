@@ -6,7 +6,7 @@ uniform sampler2D screen_texture : hint_screen_texture, filter_nearest;
 uniform sampler2D glow : filter_linear;
 // 光斑贴图在世界里铺多大（像素）。比画面大，所以一屏只看得到其中一块。
 uniform vec2 glow_size = vec2(960.0, 640.0);
-// 画面左上角在世界里的位置，和「光斑跟着走多快」（0 = 钉在屏幕上，1 = 钉在世界上）。
+// 画面左上角在世界里的位置，和「光斑跟着走多快」（0 = 钉在屏幕上，1 = 钉在世界上），横竖都算。
 uniform vec2 view_origin = vec2(0.0);
 uniform float drift = 0.4;
 uniform float strength = 1.0;
@@ -25,7 +25,8 @@ vec2 mirrored(vec2 uv) {
 void fragment() {
 	vec3 base = texture(screen_texture, SCREEN_UV).rgb;
 	vec2 on_screen = world - view_origin;
-	vec2 at = on_screen + vec2(view_origin.x * drift, 0.0);
+	// 横竖都跟着走：纵向关往上爬时光斑也在变。横向关画面不上下动（view_origin.y 一直是 0），效果和以前一样
+	vec2 at = on_screen + view_origin * drift;
 	vec3 light = texture(glow, mirrored(at / glow_size)).rgb;
 	vec3 low = 2.0 * base * light;
 	vec3 high = 1.0 - 2.0 * (1.0 - base) * (1.0 - light);
