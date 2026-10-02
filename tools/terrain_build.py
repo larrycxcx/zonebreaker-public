@@ -103,6 +103,55 @@ ZONES = {
 			# 酒瓶、酒杯、飞钞、飘牌不要：摆在地上像能捡的东西（见 level_build.py 的 SCATTER_3）
 		},
 	},
+	# 第四关：地下室，**纵向往上爬**。这一套是真正的「实心岩体」地形：深紫填充 + 浅蓝描边的砖框，
+	# 九宫格齐全（1/2/4、11/12/14、21/22/24），不像酒吧街那套是街景立面。
+	# 浮台 = 41~44 那排**只有上半格**的薄条（裁到 16 行）；地面（竖井底）= 框顶 2 压在填充 12 上。
+	# **背景不用素材自带的那套**：那是 576×324 的横向画，竖着重复看得出来。
+	# 竖井后面拼一面地下室内墙（`wall`，见 `build_wall()`），竖着无缝平铺。
+	# 光照层和酒吧街是同一张图（逐字节相同），照样用。
+	"basement": {
+		"pack": "basement-tileset",
+		"out": "basement",
+		"tiles": "1 Tiles/Tile_%02d.png",
+		"terrain": {"ground": [[2], [12]], "ledge": {"tiles": [[41, 42, 44]], "crop": 16},
+			"stone": [[1, 2, 4], [11, 12, 14], [21, 22, 24]]},
+		"wall": {
+			"cols": 20, "rows": 20, "seed": 20261002,
+			# 砖墙按权重随机挑：大部分是整砖，少量带裂缝、更少几块碎了
+			"bricks": [(67, 70), (68, 18), (70, 8), (69, 4)],
+			# 往后压：前面的平台、墙、人才是要看清的东西
+			"shade": 0.55,
+			# 竖着的管道 / 栅栏，单独一层、滚得比砖墙快一点，看着在砖墙前面
+			"pipes": {"columns": [2, 7, 13, 17], "tiles": [65, 66, 65, 65], "shade": 0.75},
+			# **素材里那 16 个小灯不用**：试过烘进墙里，缩在画面上是一个个悬空的青绿小亮点，
+			# 看着就是能捡的宝石（第三关酒瓶酒杯那个毛病）。
+		},
+		"lighting": ("2 Background/Overlay_illumination.png", 2),
+		"props": {
+			"pipe": ("3 Objects/1 Pipe/1.png", 1),
+			"pipe_moss": ("3 Objects/1 Pipe/1_2.png", 1),
+			"pipe_tall": ("3 Objects/1 Pipe/4.png", 1),
+			"pipe_bend": ("3 Objects/1 Pipe/6.png", 1),
+			"pipe_bend_moss": ("3 Objects/1 Pipe/6_2.png", 1),
+			"box": ("3 Objects/2 Box/1.png", 1),
+			"box_moss": ("3 Objects/2 Box/1_2.png", 1),
+			"box_small": ("3 Objects/2 Box/2.png", 1),
+			"crane": ("3 Objects/3 Decoration/1.png", 1),
+			"unit": ("3 Objects/3 Decoration/2.png", 1),
+			"fan": ("3 Objects/3 Decoration/3.png", 1),
+			"container": ("3 Objects/3 Decoration/4.png", 1),
+			"container_moss": ("3 Objects/3 Decoration/4_2.png", 1),
+			"sign_carre": ("3 Objects/3 Decoration/5.png", 1),
+			"sign_hotel": ("3 Objects/3 Decoration/6.png", 1),
+			"sign_poker": ("3 Objects/3 Decoration/7.png", 1),
+			"grate": ("3 Objects/3 Decoration/8.png", 1),
+			"grate_moss": ("3 Objects/3 Decoration/8_2.png", 1),
+			"grass": ("3 Objects/3 Decoration/Grass1.png", 1),
+			"grass2": ("3 Objects/3 Decoration/Grass2.png", 1),
+			# 会动的只要蒸汽。Card / Money 不要：摆在地上像能捡的东西（第三关的教训）
+			"smoke": ("4 Animated objects/Smoke.png", 6),
+		},
+	},
 	# 第二关：工业区。地砖是 81 个独立文件，编号 = 行 × 9 + 列 + 1。
 	# **背景第 1 层是底色不是天空**：2 才是天空（只画到地平线 y=247），
 	# 地平线以下露出第 1 层那片雾色，所以两层都不雾化。
@@ -271,8 +320,15 @@ def build_zone(key, write):
 		if write:
 			sb.write_png(os.path.join(out, "terrain", name + ".png"), art)
 		print("  terrain/%s.png  %dx%d" % (name, len(art[0]), len(art)))
-	print("背景：")
-	for name, number in zone["backdrop"].items():
+	if "wall" in zone:
+		print("背景（拼出来的内墙）：")
+		for name, art in build_wall(zone, pack).items():
+			if write:
+				sb.write_png(os.path.join(out, "backdrop", name + ".png"), art)
+			print("  backdrop/%s.png  %dx%d" % (name, len(art[0]), len(art)))
+	if "backdrop" in zone:
+		print("背景：")
+	for name, number in zone.get("backdrop", {}).items():
 		source = os.path.join(pack, *zone["backdrop_dir"].split("/"), number + ".png")
 		width, height, pixels = sb.read_png(source)
 		art = extend_down(haze(pixels, zone["haze"][name]), BACKDROP_HEIGHT)
@@ -302,6 +358,55 @@ def build_zone(key, write):
 			sb.write_png(os.path.join(out, "props", name + ".png"), pixels)
 		print("  props/%s.png  %dx%d%s" % (name, width, height,
 			"  %d 帧" % frames if frames > 1 else ""))
+
+
+def build_wall(zone, pack):
+	"""拼竖井后面那面墙，返回 {层名: 像素}。
+
+	`wall` 一层：砖墙按权重随机挑砖，压暗；
+	`pipes` 一层：几根竖着的管道，其余透明。
+
+	**两层都要能竖着无缝平铺**（Parallax2D 竖着重复）：一格一块砖、各自独立，
+	所以图的上边和下边接起来和中间任意两行接起来是一样的。
+	自己写的线性同余、固定种子：产物进仓库，换台机器也得生成一模一样的文件。"""
+	spec = zone["wall"]
+	cols, rows = spec["cols"], spec["rows"]
+	state = [spec["seed"]]
+
+	def roll(n):
+		state[0] = (state[0] * 1103515245 + 12345) & 0x7FFFFFFF
+		return state[0] % n
+
+	def shaded(px, amount):
+		return [[tuple(int(round(p[i] * amount)) for i in range(3)) + (p[3],) for p in row] for row in px]
+
+	bricks = spec["bricks"]
+	total = sum(w for _, w in bricks)
+	tiles = {}
+
+	def tile(n):
+		if n not in tiles:
+			tiles[n] = load_tile(zone, pack, None, n)
+		return tiles[n]
+
+	wall = sb.blank(cols * TILE, rows * TILE)
+	for r in range(rows):
+		for c in range(cols):
+			pick = roll(total)
+			for number, weight in bricks:
+				if pick < weight:
+					sb.blit(wall, tile(number), c * TILE, r * TILE, "wall")
+					break
+				pick -= weight
+	wall = shaded(wall, spec["shade"])
+
+	pipes_spec = spec["pipes"]
+	pipes = sb.blank(cols * TILE, rows * TILE)
+	for c, number in zip(pipes_spec["columns"], pipes_spec["tiles"]):
+		for r in range(rows):
+			sb.blit(pipes, tile(number), c * TILE, r * TILE, "pipes")
+	pipes = shaded(pipes, pipes_spec["shade"])
+	return {"wall": wall, "pipes": pipes}
 
 
 def facade(zone, pack, recipe):
