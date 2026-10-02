@@ -49,6 +49,7 @@ const SUITES := {
 	"level_1": "res://tests/test_level_1.gd",
 	"level_2": "res://tests/test_level_2.gd",
 	"level_3": "res://tests/test_level_3.gd",
+	"level_4": "res://tests/test_level_4.gd",
 	"catalog": "res://tests/test_catalog.gd",
 	"clear": "res://tests/test_clear.gd",
 	"shop": "res://tests/test_shop.gd",
