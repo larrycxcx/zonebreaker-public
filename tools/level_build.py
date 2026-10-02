@@ -15,6 +15,7 @@
 浮台够得着、敌人没摆在坑上或矮通道底下。数字不对直接报错，不会悄悄产出一个过不去的关卡。
 """
 import os
+import struct
 import sys
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -365,6 +366,10 @@ SCATTER_3 = ["bottle", "glass", "crate", "stool", "bin", "bottle2", "glass2", "k
 	"stool2", "crate"]
 TREES_3 = ["cabinet", "sign", "counter", "cabinet2", "counter2"]
 SCATTER_SEED_3 = 20261001
+## 街边那一排楼（`terrain_build.py` 按配方拼出来的整张图）。沿着地面一栋挨一栋摆，
+## 楼与楼之间留一截空当露出后面的夜景；**只摆在实地上**，坑上面立着一栋楼就不像话了。
+FACADES_3 = ["facade_1", "facade_2", "facade_3", "facade_4", "facade_5", "facade_6"]
+FACADE_GAP = (16, 120)
 
 ENEMIES_3 = {
 	"3_a": "res://scenes/enemy_3_a.tscn",
@@ -497,7 +502,7 @@ STAGES = {
 		"out": "level_3.tscn", "root": "Level3", "prop_dir": "bar_street",
 		"sections": SECTIONS_3, "enemies": ENEMIES_3, "flying": set(),
 		"prop_frames": PROP_FRAMES_3, "scatter": SCATTER_3, "trees": TREES_3,
-		"seed": SCATTER_SEED_3, "stand": STAND_3,
+		"seed": SCATTER_SEED_3, "stand": STAND_3, "facades": FACADES_3,
 	},
 }
 
@@ -505,7 +510,7 @@ STAGES = {
 def use_stage(key):
 	"""把这一关的表装进全局，后面的代码照常读。"""
 	global OUT, ROOT, PROP_DIR, SECTIONS, ENEMIES, FLYING
-	global PROP_FRAMES, SCATTER, TREES, SCATTER_SEED, STAND_BY
+	global PROP_FRAMES, SCATTER, TREES, SCATTER_SEED, STAND_BY, FACADES
 	stage = STAGES[key]
 	OUT = os.path.join(SCENES, stage["out"])
 	ROOT = stage["root"]
@@ -518,6 +523,7 @@ def use_stage(key):
 	TREES = stage["trees"]
 	SCATTER_SEED = stage["seed"]
 	STAND_BY = stage.get("stand", {})
+	FACADES = stage.get("facades", [])
 
 
 def stand_of(kind):
@@ -525,6 +531,13 @@ def stand_of(kind):
 	if kind in STAND_BY:
 		return STAND_BY[kind]
 	return BOSS_STAND if kind.endswith("_boss") else STAND
+
+
+def prop_width(prop):
+	"""装饰贴图有多宽（读 PNG 头，楼面是 `terrain_build.py` 先生成好的）。"""
+	path = os.path.join(HERE, "..", "skins", PROP_DIR, "props", prop + ".png")
+	with open(path, "rb") as f:
+		return struct.unpack(">I", f.read(24)[16:20])[0]
 
 
 # ---------------------------------------------------------------- 摊平成一整关
@@ -582,6 +595,31 @@ class Level:
 				self.enemies.append((label, kind, base + x, y))
 		self.ground = self._ground_runs()
 		self._scatter()
+		# 楼面**排在所有装饰最前面**：先声明的先画，楼要在吧台、酒桶后面
+		self.props = self._facades() + self.props
+
+	def _facades(self):
+		"""沿着每一段地面一栋挨一栋摆楼，放不下整栋就不放（不许悬在坑上）。
+		种子和小装饰的分开，加楼不会打乱原来那些小东西的位置。"""
+		if not FACADES:
+			return []
+		state = [SCATTER_SEED + 1]
+
+		def roll(low, high):
+			state[0] = (state[0] * 1103515245 + 12345) & 0x7FFFFFFF
+			return low + state[0] % max(1, high - low)
+
+		out = []
+		for left, wide in self.ground:
+			at = left + roll(0, 48)
+			while True:
+				facade = FACADES[roll(0, len(FACADES))]
+				width = prop_width(facade)
+				if at + width > left + wide - 8:
+					break
+				out.append(("Facade%d" % (len(out) + 1), facade, float(at), GROUND_Y))
+				at += width + roll(FACADE_GAP[0], FACADE_GAP[1])
+		return out
 
 	def _scatter(self):
 		"""沿着地面撒小东西和树。**自己写的线性同余**，不用 random：

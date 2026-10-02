@@ -97,3 +97,101 @@ func test_the_boss_has_clear_flat_ground_to_roll_on() -> void:
 		check("nothing solid stands in the arena (%s)" % slab.name,
 			slab.position.x + slab.size.x < left or slab.position.x > boss.position.x + reach,
 			"%s at %.0f, boss at %.0f" % [slab.name, slab.position.x, boss.position.x])
+
+
+# ---------------------------------------------------------------- 夜景：楼面和光照层
+
+func facades() -> Array[Prop]:
+	var out: Array[Prop] = []
+	for node in props():
+		if String(node.name).begins_with("Facade"):
+			out.append(node)
+	return out
+
+
+func test_the_street_is_lined_with_buildings() -> void:
+	# 宣传图里街边那排楼：素材包只给了砖，楼是 terrain_build.py 拼出来的
+	await open_level()
+	var found := facades()
+	check("there are buildings along the street", found.size() >= 30, str(found.size()))
+	for facade in found:
+		check("%s comes from this zone" % facade.name,
+			facade.texture.resource_path.begins_with("res://skins/bar_street/props/facade_"),
+			facade.texture.resource_path)
+
+
+func test_the_buildings_stand_behind_the_rest_of_the_scenery() -> void:
+	# 先声明的先画：楼要排在吧台、酒桶、招牌前面，不然一栋楼把它们全盖住
+	await open_level()
+	var last_facade := -1
+	var first_other := 1 << 30
+	for node in props():
+		if String(node.name).begins_with("Facade"):
+			last_facade = maxi(last_facade, node.get_index())
+		else:
+			first_other = mini(first_other, node.get_index())
+	check("every building is drawn before the small props", last_facade < first_other,
+		"%d vs %d" % [last_facade, first_other])
+
+
+func test_no_building_stands_over_a_pit() -> void:
+	await open_level()
+	var runs := ground_runs()
+	for facade in facades():
+		var left := facade.position.x
+		var right := left + facade.texture.get_width()
+		var on_ground := false
+		for run in runs:
+			if run.x <= left and right <= run.y:
+				on_ground = true
+		check("%s stands on solid ground" % facade.name, on_ground,
+			"%.0f..%.0f" % [left, right])
+		check("%s has its feet on the street" % facade.name,
+			absf(facade.position.y - GROUND_Y) < 0.5, str(facade.position.y))
+
+
+func test_the_neon_light_falls_on_the_set_not_on_the_cast() -> void:
+	# 光照层要夹在地形和人中间：背景、楼、装饰、地形被染色，人和子弹保持原色，
+	# 染了色的人糊在霓虹里就看不清了
+	await open_level()
+	var light := main.get_node_or_null("Lighting")
+	check("the level is lit", light is ScreenLight, str(light))
+	if light == null:
+		return
+	var at := light.get_index()
+	check("over the scenery", main.get_node("Props").get_index() < at)
+	check("over the terrain", main.get_node("Level").get_index() < at)
+	check("under the enemies", at < main.get_node("Enemies").get_index())
+	check("under the player", at < main.get_node("Player").get_index())
+	check("under the effects", at < main.get_node("Fx").get_index())
+
+
+func test_the_light_is_pure_decoration_and_covers_the_screen() -> void:
+	await open_level()
+	var light := main.get_node_or_null("Lighting") as ScreenLight
+	check("setup: the level is lit", light != null)
+	if light == null:
+		return
+	check("it never takes the mouse", light.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	var stack: Array[Node] = [light]
+	var shapes := 0
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		if node is CollisionObject2D or node is CollisionShape2D:
+			shapes += 1
+		stack.append_array(node.get_children())
+	check("and has nothing to collide with", shapes == 0, str(shapes))
+	# 跑到关卡中间去，光照层要跟着摄像机走、整块盖住画面
+	player.global_position = Vector2(6400, 200)
+	await frames(30)
+	var viewport := light.get_viewport()
+	var view := viewport.get_canvas_transform().affine_inverse() * viewport.get_visible_rect()
+	var covered := Rect2(light.global_position, light.size)
+	check("it follows the camera and covers the whole view", covered.encloses(view),
+		"%s vs %s" % [covered, view])
+
+
+func test_the_test_level_stays_unlit() -> void:
+	# 光照是素材包的事：默认包没有，测试关上就不该冒出这一层
+	await reset_scene()
+	check("no lighting on the default pack", main.get_node_or_null("Lighting") == null)

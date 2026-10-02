@@ -91,6 +91,13 @@ func _add_backdrop() -> void:
 	backdrop.name = "Backdrop"
 	add_child(backdrop)
 	move_child(backdrop, 0)
+	# 光照层也跟着来（酒吧街的夜景没有它就是一片灰）
+	var lighting := Skins.lighting()
+	if lighting != null:
+		var light := lighting.instantiate()
+		light.name = "Lighting"
+		add_child(light)
+		move_child(light, 1)
 
 
 func page() -> Page:

@@ -33,6 +33,7 @@ func _ready() -> void:
 	_add_players()
 	_add_huds()
 	_add_backdrop()
+	_add_lighting()
 	# 关卡里的音乐；死了重开时已经在放同一首就接着放，不会从头来（见 Music）
 	Music.play(&"level")
 	for node in get_tree().get_nodes_in_group(&"player"):
@@ -78,6 +79,19 @@ func _add_backdrop() -> void:
 	backdrop.name = "Backdrop"
 	add_child(backdrop)
 	move_child(backdrop, 0)
+
+
+## 当前素材包有光照层就插在**地形后面、敌人前面**：背景、装饰、地形被它染色，
+## 人和子弹画在它上面、保持原色（见 `ScreenLight`）。没有 `Level` 的话就放在背景后面。
+func _add_lighting() -> void:
+	var scene := Skins.lighting()
+	if scene == null:
+		return
+	var light := scene.instantiate()
+	light.name = "Lighting"
+	var level := get_node_or_null("Level")
+	add_child(light)
+	move_child(light, level.get_index() + 1 if level != null else 1)
 
 
 ## 谁都不剩了才算输（HUD 也要问同一件事，所以判断在 `Player` 上）。

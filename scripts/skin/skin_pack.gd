@@ -99,6 +99,9 @@ const EFFECT_KEYS := {
 @export var effects: Dictionary[StringName, PackedScene] = {}
 ## 关卡背景（视差滚动的几层画，纯显示）。留空就没有背景，用项目的清屏色。
 @export var backdrop: PackedScene
+## 光照层：盖在背景、装饰、地形上面、敌人和玩家下面的一层（根节点一般是 `ScreenLight`），纯显示。
+## 留空就没有。
+@export var lighting: PackedScene
 ## HUD 外观（根节点挂 SpriteHud 这类有 show_health / show_stamina / … 的脚本）。留空就用 HUD 自带的占位方块。
 @export var hud: PackedScene
 ## 背景音乐：用途（`MUSIC_KEYS`）→ 曲子。没有的用途就静音（默认包一首都没有）。
@@ -128,6 +131,13 @@ func find_backdrop() -> PackedScene:
 	if backdrop != null:
 		return backdrop
 	return fallback.find_backdrop() if fallback != null else null
+
+
+## 找光照层：先看自己，没有再问备用包（和背景一个规矩——背景是从哪个包来的，光照也跟着来）。
+func find_lighting() -> PackedScene:
+	if lighting != null:
+		return lighting
+	return fallback.find_lighting() if fallback != null else null
 
 
 ## 找某个用途的背景音乐：先看自己，没有再问备用包。
