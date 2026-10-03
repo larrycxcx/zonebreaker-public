@@ -9,10 +9,9 @@
 调一下节奏就要重排一整屏。和 `skin_build.py` 那套是一个路子：规则和数字写在脚本里，产物进仓库。
 
 **两种关卡**（2026-10 起）：
-- 第一、二、三关是**分层的格子地图**：`level1_map.py` / `level2_map.py` / `level3_map.py` 画，
-  `map_build.py` 找路自检、挑砖、写场景（见 CLAUDE.md「梯子与分层关卡」）。
-- 第四关是**纵向**往上爬的：段落表在下面的 `SECTIONS_4`，尺子和写场景在 `vlevel_build.py`。
-原来那套「横向段落表」的生成器（一条长地面 + 浮台、坑、矮通道、堵块）随着前三关都换成格子地图删掉了。
+**全部四关都是格子地图**：`level1_map.py` … `level4_map.py` 画，`map_build.py` 找路自检、挑砖、写场景
+（见 CLAUDE.md「梯子与分层关卡」）。第四关是**竖着的**一整根竖井（40 × 450 格）。
+原来那两套生成器（横向的「段落表」、纵向的 `vlevel_build.py`）都随着关卡换成格子地图删掉了。
 
 这里只剩：几把公用的尺子、每关的敌人表、`STAGES` 那张总表、写场景用的文件头和平台节点。
 """
@@ -35,15 +34,8 @@ STAND = 16.0
 ## Boss A 的判定框 48 高，原点在正中 → 顶边往上 24。
 BOSS_STAND = 24.0
 
-## 玩家的本事（`player.gd` 里的数字算出来的，改那边要跟着改这里）：
-## 跳跃 v=560、重力 g=1800 → 跳得起 560²/(2×1800) ≈ 87px。
-JUMP_HEIGHT = 87.0
-## 浮台一次最多往上跳多高：跳跃高度留 15px 余量（纵向关用）。
-MAX_STEP = JUMP_HEIGHT - 15.0              # 72
 ## 从天而降的 2-A 吊在画面顶边以上的这个高度，玩家走到脚下才砸下来。
 HANG_Y = -40.0
-## 纵向关的段落表里敌人写 `(AIR, 第几层)` 就是「悬在那一层的半空」（会飞的那几种）。
-AIR = "air"
 
 ## 机关的场景（第二关的液压机和闸门）。
 PRESS_SCENE = "res://scenes/trap_press.tscn"
@@ -205,14 +197,10 @@ SECTIONS_3 = [
 	}),
 ]
 
-# ---------------------------------------------------------------- 第四关（地下室，纵向往上爬）的段落
+# ---------------------------------------------------------------- 第四关（地下室，纵向往上爬）
 #
-# 尺子和写场景都在 `vlevel_build.py`（纵向关的规矩和横向完全不同）。这里只有数据。
-# 一段 = 一屏 = 6 层，层从下往上数；每层写这一层的单向平台 (x, 宽)，竖井里面是 x 32..608。
-# 敌人 (类型, 层, x)；层写 "b0" 是站在这一段第 0 块实心块上，写 ("air", 层) 是会飞的悬在那一层。
-#
-# 节奏：每隔 5 段有一层「歇脚层」（一整层宽平台、敌人少）；会飞的贴着两侧墙（x 64 / 576）；
-# 实心块（`blocks`）是这一关的「堵路」——从下面穿不上去，得绕。
+# 竖着的格子地图（`level4_map.py`），这里只留它的敌人表、矮的那种站多高、会动的装饰。
+
 ENEMIES_4 = {
 	"4_a": "res://scenes/enemy_4_a.tscn",
 	"4_b": "res://scenes/enemy_4_b.tscn",
@@ -222,114 +210,9 @@ ENEMIES_4 = {
 	"4_f": "res://scenes/enemy_4_f.tscn",
 	"4_boss": "res://scenes/boss_4.tscn",
 }
-FLYING_4 = {"4_d"}
 ## 蜘蛛炮台矮（判定框 22 高），脚底在原点下方 11。
 STAND_4 = {"4_e": 11.0}
-PROPS_4_SMALL = ["box", "box_moss", "box_small", "pipe", "pipe_moss", "grass", "grass2", "grate", "fan"]
-PROPS_4_BIG = ["container", "container_moss", "pipe_bend", "pipe_bend_moss", "crane", "sign_hotel",
-	"sign_poker", "sign_carre", "smoke", "unit", "pipe_tall"]
 PROP_FRAMES_4 = {"smoke": 6}
-SCATTER_SEED_4 = 20261002
-
-SECTIONS_4 = [
-	("Floor", {                                   # 出生那一屏：没有敌人，先学会往上跳
-		"rows": [[(48, 192)], [(224, 192)], [(400, 176)], [(224, 160)], [(48, 192)], [(240, 176)]],
-	}),
-	("FirstShots", {                              # 第一次被从上面打：三向枪手往下斜射
-		"rows": [[(400, 192)], [(176, 256)], [(48, 160), (432, 144)], [(192, 256)], [(400, 176)],
-			[(160, 192)]],
-		"enemies": [("4_e", 1, 300), ("4_c", 3, 320), ("4_b", 4, 480)],
-	}),
-	("Climber", {                                 # 追兵从下面追上来
-		"rows": [[(176, 192)], [(368, 208)], [(96, 224)], [(288, 224)], [(448, 144)], [(240, 192)]],
-		"enemies": [("4_a", 1, 470), ("4_c", 2, 200), ("4_c", 3, 400), ("4_a", 5, 330),
-			("4_e", 4, 520)],
-	}),
-	("Guards", {                                  # 平台守卫：她那一层别上去，先从下面斜着打掉
-		"rows": [[(48, 176)], [(224, 224)], [(432, 144)], [(160, 256)], [(48, 160)], [(224, 224)]],
-		"enemies": [("4_b", 1, 330), ("4_e", 2, 500), ("4_b", 3, 290), ("4_c", 5, 400),
-			("4_f", 4, 120)],
-	}),
-	("Drones", {                                  # 无人机第一次出现：贴着两侧墙跟你的高度
-		"rows": [[(416, 176)], [(176, 256)], [(432, 160)], [(256, 224)], [(48, 224)], [(304, 192)]],
-		"enemies": [("4_e", 1, 300), ("4_d", (AIR, 2), 64), ("4_c", 3, 380), ("4_d", (AIR, 4), 576),
-			("4_c", 5, 400)],
-	}),
-	("Rest", {                                    # 歇脚层
-		"rows": [[(304, 224)], [(64, 512)], [(96, 160)], [(288, 160)], [(448, 144)], [(224, 192)]],
-		"enemies": [("4_e", 1, 480), ("4_c", 5, 320), ("4_b", 3, 368)],
-	}),
-	("Shovers", {                                 # 窄台子 + 打飞人的：被抡下去就白爬
-		"rows": [[(128, 128)], [(288, 128)], [(448, 128)], [(288, 128)], [(128, 128)], [(256, 192)]],
-		"enemies": [("4_f", 1, 352), ("4_d", (AIR, 2), 64), ("4_f", 3, 352), ("4_f", 5, 380),
-			("4_c", 2, 512)],
-	}),
-	("Overhangs", {                               # 实心块：从下面穿不上去，得绕到旁边跳
-		"rows": [[(64, 224)], [(240, 240)], [(400, 176)], [(240, 192)], [(48, 192)], [(208, 224)]],
-		"blocks": [(32, 2, 240), (384, 4, 224)],
-		"enemies": [("4_b", 1, 400), ("4_e", "b0", 120), ("4_c", "b1", 500), ("4_a", 5, 300),
-			("4_c", 3, 330)],
-	}),
-	("Crossfire", {                               # 左右交替的枪手
-		"rows": [[(304, 224)], [(64, 256)], [(352, 224)], [(96, 224)], [(352, 224)], [(128, 256)]],
-		"enemies": [("4_c", 1, 120), ("4_c", 2, 520), ("4_c", 3, 140), ("4_c", 4, 500),
-			("4_d", (AIR, 5), 576)],
-	}),
-	("Climbers", {                                # 两个追兵 + 打飞人的
-		"rows": [[(416, 176)], [(192, 256)], [(48, 192)], [(240, 176)], [(448, 144)], [(224, 224)]],
-		"enemies": [("4_a", 1, 300), ("4_e", 2, 120), ("4_a", 3, 330), ("4_f", 5, 330),
-			("4_c", 4, 520)],
-	}),
-	("Rest2", {                                   # 歇脚层
-		"rows": [[(240, 192)], [(64, 512)], [(400, 176)], [(192, 192)], [(48, 176)], [(256, 192)]],
-		"enemies": [("4_e", 1, 160), ("4_d", (AIR, 3), 576), ("4_c", 5, 350)],
-	}),
-	("GuardsShovers", {                           # 守卫和打飞人的交替
-		"rows": [[(432, 160)], [(224, 224)], [(48, 192)], [(272, 192)], [(448, 144)], [(224, 192)]],
-		"enemies": [("4_b", 1, 330), ("4_c", 2, 120), ("4_f", 3, 370), ("4_b", 5, 320),
-			("4_e", 4, 520)],
-	}),
-	("DroneAlley", {                              # 窄台子、三架无人机
-		"rows": [[(48, 192)], [(256, 128)], [(400, 128)], [(256, 128)], [(96, 128)], [(240, 160)]],
-		"enemies": [("4_d", (AIR, 1), 576), ("4_d", (AIR, 3), 64), ("4_d", (AIR, 5), 576),
-			("4_c", 5, 330), ("4_e", 0, 150)],
-	}),
-	("Overhangs2", {                              # 第二段实心块
-		"rows": [[(256, 192)], [(416, 176)], [(224, 192)], [(48, 160)], [(192, 224)], [(416, 160)]],
-		"blocks": [(32, 1, 240), (400, 3, 208)],
-		"enemies": [("4_e", "b0", 150), ("4_c", "b1", 500), ("4_a", 4, 300), ("4_f", 5, 480),
-			("4_c", 2, 320)],
-	}),
-	("Spiders", {                                 # 炮台一层一层地封
-		"rows": [[(192, 224)], [(432, 160)], [(176, 272)], [(48, 176)], [(256, 224)], [(64, 224)]],
-		"enemies": [("4_e", 0, 300), ("4_c", 1, 520), ("4_e", 2, 300), ("4_d", (AIR, 3), 576),
-			("4_e", 4, 360)],
-	}),
-	("Rest3", {                                   # 歇脚层
-		"rows": [[(288, 224)], [(64, 512)], [(96, 176)], [(304, 160)], [(464, 128)], [(272, 176)]],
-		"enemies": [("4_c", 1, 480), ("4_b", 1, 160), ("4_e", 3, 380)],
-	}),
-	("Gauntlet", {                                # 什么都来一点
-		"rows": [[(96, 192)], [(304, 192)], [(128, 192)], [(352, 192)], [(160, 208)], [(384, 176)]],
-		"enemies": [("4_f", 1, 400), ("4_b", 2, 220), ("4_f", 3, 450), ("4_c", 4, 260),
-			("4_d", (AIR, 5), 64)],
-	}),
-	("LastClimb", {                               # 最后一段：追兵 + 枪手 + 炮台
-		"rows": [[(176, 224)], [(432, 144)], [(224, 224)], [(48, 192)], [(256, 192)], [(448, 128)]],
-		"enemies": [("4_a", 0, 290), ("4_d", (AIR, 1), 64), ("4_c", 2, 340), ("4_c", 3, 140),
-			("4_e", 4, 350)],
-	}),
-	("Approach", {                                # Boss 区底下那一段，最上面一层就是 Boss 区的地板
-		"rows": [[(240, 208)], [(64, 192)], [(288, 192)], [(96, 192)], [(320, 224)], [(32, 576)]],
-		"enemies": [("4_b", 1, 160), ("4_f", 2, 380), ("4_c", 3, 200), ("4_e", 4, 430)],
-	}),
-	("BossArena", {                               # Boss 区（地板在 y=320）
-		"rows": [[(64, 160), (416, 160)], [(224, 192)]],
-		# 骷髅头飘在右侧。**它最低的位置 = 激光对准站在地板上的人**：地板 320、人的身体中心 304、
-		# 激光出口在它身体中心下面 16，所以是 288。另一侧在 x 96（`lane_offset` -448），往上最多飘 240
-		"enemies": [("4_boss", ("at", 288), 544)],
-	}),
-]
 
 # ---------------------------------------------------------------- 一关 = 一条配置
 #
@@ -337,7 +220,7 @@ SECTIONS_4 = [
 # 关卡之间**什么都不共用**：敌人、装饰、地图各写各的——23 关里每一关的敌人和素材都不一样，
 # 共用一份只会让「调第二关的节奏」把第一关也改掉。
 STAGES = {
-	# 第一、二、三关是**分层的格子地图**：`levelN_map.py` 画、`map_build.py` 查路和写场景，
+	# 全部是**格子地图**：`levelN_map.py` 画、`map_build.py` 查路和写场景，
 	# `theme` 是那个区的一套砖（`map_build.THEMES`）
 	"1": {
 		"out": "level_1.tscn", "root": "Level1", "prop_dir": "cyberpunk", "map": "level1_map",
@@ -352,12 +235,10 @@ STAGES = {
 		"out": "level_3.tscn", "root": "Level3", "prop_dir": "bar_street", "map": "level3_map",
 		"theme": "bar", "enemies": ENEMIES_3, "prop_frames": PROP_FRAMES_3, "stand": STAND_3,
 	},
-	# 第四关是**纵向**的：段落、尺子、写场景都走 `vlevel_build.py`
+	# 第四关是**竖着的**格子地图（2026-10 从原来那套纵向段落表换过来）：一整根竖井，450 行高
 	"4": {
-		"out": "level_4.tscn", "root": "Level4", "prop_dir": "basement", "vertical": True,
-		"sections": SECTIONS_4, "enemies": ENEMIES_4, "flying": FLYING_4,
-		"prop_frames": PROP_FRAMES_4, "small": PROPS_4_SMALL, "big": PROPS_4_BIG,
-		"seed": SCATTER_SEED_4, "stand": STAND_4,
+		"out": "level_4.tscn", "root": "Level4", "prop_dir": "basement", "map": "level4_map",
+		"theme": "basement", "enemies": ENEMIES_4, "prop_frames": PROP_FRAMES_4, "stand": STAND_4,
 	},
 }
 
@@ -439,7 +320,8 @@ def build_map_level(key, write):
 	plan = importlib.import_module(stage["map"])
 	mb.use_theme(stage["theme"])
 	rows, props, decor = plan.assemble()
-	level = mb.MapLevel(rows, plan.LETTERS, stage["enemies"], stand_of, plan.FLOATING, plan.HANGING)
+	level = mb.MapLevel(rows, plan.LETTERS, stage["enemies"], stand_of, plan.FLOATING, plan.HANGING,
+		getattr(plan, "FLOAT_AT", None))
 	problems = mb.check(level, chasers=plan.CHASERS, min_enemies=plan.MIN_ENEMIES)
 	if problems:
 		map_canvas.dump(rows)
@@ -449,7 +331,10 @@ def build_map_level(key, write):
 		sys.exit(1)
 	mb.build(level, os.path.join(SCENES, stage["out"]), stage["root"], stage["prop_dir"], write,
 		stage["prop_frames"], props, decor)
-	print("第 %s 关（分层）：%d 格宽（%d 屏）" % (key, level.width, level.width // 40))
+	if level.vertical:
+		print("第 %s 关（纵向）：%d × %d 格（%d 屏高）" % (key, level.width, level.height, level.height * 16 // 360))
+	else:
+		print("第 %s 关（分层）：%d 格宽（%d 屏）" % (key, level.width, level.width // 40))
 	print("  实心 %d 块、单向 %d、梯子 %d、液压机 %d、闸门 %d、箱子 %d、油桶 %d、敌人 %d、装饰 %d"
 		% (len(level.solids), len(level.ledges), len(level.ladders), len(level.presses),
 			len(level.gates), len(level.crates), len(level.barrels), len(level.enemies), len(level.props)))
@@ -470,39 +355,10 @@ def main():
 		build_stage(key, write)
 
 
-def build_vertical(key, write):
-	import vlevel_build as vb
-	stage = STAGES[key]
-	level = vb.VLevel(stage["sections"], stage["enemies"], stage["flying"], stand_of)
-	problems = vb.check(level)
-	if problems:
-		print("关卡自检没过：")
-		for p in problems:
-			print("  -", p)
-		sys.exit(1)
-	vb.dress(level, stage["prop_dir"], stage["small"], stage["big"], stage["seed"])
-	vb.build(level, os.path.join(SCENES, stage["out"]), stage["root"], stage["prop_dir"],
-		stage["prop_frames"], write)
-	print("第 %s 关（纵向）：%d × %d（%d 段 / %d 屏）" % (key, vb.WIDTH, vb.HEIGHT, len(stage["sections"]),
-		vb.HEIGHT // vb.SCREEN_H))
-	print("  浮台 %d、实心块 %d" % (len(level.ledges), len(level.blocks)))
-	print("  装饰 %d 件" % len(level.props))
-	kinds = {}
-	for _, kind, _, _ in level.enemies:
-		kinds[kind] = kinds.get(kind, 0) + 1
-	print("  敌人 %d 个：%s" % (len(level.enemies),
-		"、".join("%s×%d" % (k, n) for k, n in sorted(kinds.items()))))
-	if write:
-		print("  写入 scenes/%s" % stage["out"])
-
-
 def build_stage(key, write):
-	if STAGES[key].get("map"):
-		build_map_level(key, write)
-	elif STAGES[key].get("vertical"):
-		build_vertical(key, write)
-	else:
-		sys.exit("第 %s 关既不是格子地图也不是纵向关" % key)
+	if not STAGES[key].get("map"):
+		sys.exit("第 %s 关没有配格子地图" % key)
+	build_map_level(key, write)
 
 
 if __name__ == "__main__":

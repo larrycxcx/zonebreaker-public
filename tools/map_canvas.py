@@ -18,11 +18,13 @@ import map_build as mb
 
 
 class Canvas:
-	def __init__(self, width):
+	def __init__(self, width, height=None):
 		if width % 2:
 			raise SystemExit("一段要偶数格宽（管道按 2 格一块对齐）：%d" % width)
 		self.width = width
-		self.grid = [["."] * width for _ in range(mb.ROWS)]
+		## 横向关一段就是一屏高（23 行）；纵向关的一段可以更高（第四关一段 45 行 = 两屏）
+		self.height = height or mb.ROWS
+		self.grid = [["."] * width for _ in range(self.height)]
 		self.props = []
 		self.pipes = []
 		self.signs = []
@@ -31,11 +33,11 @@ class Canvas:
 	def fill(self, c0, c1, r0, r1, ch="#"):
 		for r in range(r0, r1 + 1):
 			for c in range(c0, c1 + 1):
-				if 0 <= r < mb.ROWS and 0 <= c < self.width:
+				if 0 <= r < self.height and 0 <= c < self.width:
 					self.grid[r][c] = ch
 
 	def ground(self, c0, c1, ch="#"):
-		self.fill(c0, c1, mb.GROUND_ROW, mb.ROWS - 1, ch)
+		self.fill(c0, c1, self.height - 3, self.height - 1, ch)
 
 	def floor(self, c0, c1, row, ch="#"):
 		self.fill(c0, c1, row, row, ch)
@@ -105,3 +107,32 @@ def dump(rows, start=0, end=None):
 	print("     " + ruler)
 	for r, line in enumerate(rows):
 		print("%3d  %s" % (r, line[start:end]))
+
+
+def from_png(path):
+	"""用户按颜色画的一张像素图 → 一段 `Canvas`（颜色表见 `map_paint.py`）。路径相对仓库根目录也行。
+	图里只有格子；点名摆的装饰、管道、编号牌、栏杆在拿到的 `Canvas` 上另外加。"""
+	import os
+	import map_paint
+	if not os.path.isabs(path):
+		path = os.path.join(map_paint.ROOT, path)
+	rows = map_paint.png_to_rows(path)
+	cv = Canvas(len(rows[0]), len(rows))
+	cv.grid = [list(r) for r in rows]
+	return cv
+
+
+def vstitch(segments):
+	"""纵向关：一段段**从下往上**摞起来（`segments[0]` 是最底下那一段）。
+	格子竖着接，装饰、栏杆的行号往下挪；墙上的管道和编号牌按 32 像素一块对齐，纵向关不用。"""
+	order = list(reversed(segments))
+	rows, props, rails = [], [], []
+	offset = 0
+	for cv in order:
+		if cv.pipes or cv.signs:
+			raise SystemExit("纵向关的段里不画管道和编号牌（一段高度不一定是偶数，32 像素一块对不齐）")
+		rows += cv.rows()
+		props += [(n, c, row + offset) for n, c, row in cv.props]
+		rails += [(c0, c1, row + offset) for c0, c1, row in cv.rails]
+		offset += cv.height
+	return rows, props, {"pipes": [], "signs": [], "rails": rails}

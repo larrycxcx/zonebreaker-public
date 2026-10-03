@@ -121,6 +121,8 @@ ZONES = {
 		"pack": "basement-tileset",
 		"out": "basement",
 		"tiles": "1 Tiles/Tile_%02d.png",
+		# 格子地图（2026-10 第四关改成竖着的格子地图）逐格挑砖用的总图：70 块排成 10 列
+		"tile_atlas": {"count": 70, "columns": 10},
 		"terrain": {"ground": [[2], [12]], "ledge": {"tiles": [[41, 42, 44]], "crop": 16},
 			"stone": [[1, 2, 4], [11, 12, 14], [21, 22, 24]]},
 		"wall": {

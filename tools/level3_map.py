@@ -14,7 +14,7 @@ e 3-E（鲨鱼机，贴地开枪——趴下躲不掉、只能跳）、f 3-F（�
 行号：上层地板第 7 行、中层第 13 行、地面第 20 行；敌人写在**脚下那一行的上一行**。
 """
 
-from map_canvas import Canvas, stitch
+from map_canvas import Canvas, from_png, stitch
 
 LETTERS = {"a": "3_a", "b": "3_b", "c": "3_c", "d": "3_d", "e": "3_e", "f": "3_f", "boss": "3_boss"}
 FLOATING = set()

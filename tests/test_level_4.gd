@@ -1,10 +1,11 @@
-extends "res://tests/level_checks.gd"
-## 正式第四关（`scenes/level_4.tscn`，地下室）——**纵向往上爬**。
+extends "res://tests/layered_checks.gd"
+## 正式第四关（`scenes/level_4.tscn`，地下室）——**纵向往上爬**，2026-10 起是**竖着的格子地图**
+## （`tools/level4_map.py`，40 × 450 格，`map_build.py` 查路、挑砖、写场景，砖用 `THEMES["basement"]`）。
 ##
-## 继承正式关卡的基类（`level_checks.gd`），是为了把**和方向无关的**那几条捡过来：装饰纯显示、画在最后面、删了照常跑、
-## 会动的真的在动、没有重名、开场不挨打、没人自己走下平台、关卡自己跑得起来。
-## 横向专用的几条（关卡宽 20 屏、有坑、矮通道、堵块有高路、开场那一屏按 x 量……）在这里**逐条覆盖**
-## 成纵向的版本：每块平台都跳得上去、从地面爬得到顶、出生那一屏没有敌人。
+## 继承分层关那组（`layered_checks.gd`）：和方向无关的几条（装饰、重名、开场不挨打、没人自己走下平台、
+## 梯子两头接在面上、浮台上得去、楼板底下没有半高的缝、摞满的箱子堵得死、敌人没嵌进墙、砖来自这一区、
+## 油桶旁边有敌人）直接捡过来。横向专用的几条在这里**逐条覆盖**成纵向的：一屏宽 20 屏高、两侧墙通到底、
+## 从地面爬得到 Boss 区（这回**算上梯子**）、出生那一屏没有敌人。下半截拿真规则跑几处必须绕的路。
 ##
 ## 尺子和横向关一样是**实测的**（`jump_height()`），玩家的跳跃改了这里立刻说话。
 
@@ -12,8 +13,14 @@ const LEVEL_INFO := "res://levels/level_4.tres"
 const WIDTH := 640.0
 const HEIGHT := 7200.0
 const SCREEN_H := 360.0
-## 跳上去的时候横向能差多少（和生成脚本 `vlevel_build.REACH_X` 一样，留了一半余量）。
+## 跳上去的时候横向能差多少（留了一半余量）。
 const REACH_X := 48.0
+## 一段多高（格）：十段，每段两屏。
+const SEG_ROWS := 45
+## 两侧岩墙多厚（2 格）。
+const WALL_W := 32.0
+## 人多宽：起跳、落脚那一截被挡掉一部分以后，剩下的空当至少要这么宽
+const BODY_W := 24.0
 
 
 func level_path() -> String:
@@ -24,12 +31,24 @@ func level_stage() -> LevelInfo:
 	return load(LEVEL_INFO) as LevelInfo
 
 
-## 能站人的面：[左, 右, 顶边, 是不是实心的, 名字]。两侧的墙不算（站不上去，它们是边界）。
+func zone() -> String:
+	return "basement"
+
+
+## 第 seg 段（从下往上数，1 是出生那一段）段内第 row 行的顶边 y。
+func seg_y(seg: int, row: int) -> float:
+	return ((10 - seg) * SEG_ROWS + row) * CELL
+
+
+## 能站人的面：[左, 右, 顶边, 是不是实心的, 名字, 底边]。两侧的墙不算（站不上去，它们是边界）。
 func faces() -> Array:
 	var out := []
 	for node in terrain():
 		var slab := node as Platform
-		if slab.name.begins_with("Wall"):
+		if slab.name.begins_with("Wall") or slab.position.y <= 0.0:
+			continue
+		# 两侧岩墙在格子地图里会被横贯的楼板切成一截一截（同一行整行实心就合成一块），那几截不是能站的面
+		if slab.position.x + slab.size.x <= WALL_W or slab.position.x >= WIDTH - WALL_W:
 			continue
 		out.append([slab.position.x, slab.position.x + slab.size.x, slab.position.y,
 			not slab.one_way, String(slab.name), slab.position.y + slab.size.y])
@@ -45,14 +64,26 @@ func reachable_up(low: Array, high: Array, all: Array, jump: float) -> bool:
 	var step: float = low[2] - high[2]
 	if step <= 0.0 or step > jump - 12.0 or gap_x(low, high) > REACH_X:
 		return false
+	# 起跳、落脚在两块横向重叠的那一截（不重叠就是挨着的那一点）。那一截上方被实心挡住的部分扣掉，
+	# **剩下的空当还放得下一个人**（`BODY_W`）就跳得上去。整块面上方都要求净空的话，竖井正中那道墙、
+	# 货梯井那垛集装箱会把横贯两边的台子整个算成「跳不上去」
+	var left := maxf(low[0], high[0])
+	var right := maxf(minf(low[1], high[1]), left + BODY_W)
+	var blocked: Array = []
 	for other: Array in all:
 		if not other[3] or other[4] == high[4] or other[4] == low[4]:
 			continue
-		if other[1] <= high[0] - 8.0 or other[0] >= high[1] + 8.0:
+		if other[1] <= left or other[0] >= right:
 			continue
 		if other[5] > high[2] - 40.0 and other[2] < low[2]:
-			return false
-	return true
+			blocked.append([maxf(other[0], left), minf(other[1], right)])
+	blocked.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	var cursor := left
+	for span: Array in blocked:
+		if span[0] - cursor >= BODY_W:
+			return true
+		cursor = maxf(cursor, span[1])
+	return right - cursor >= BODY_W
 
 
 # ---------------------------------------------------------------- 关卡的形状（覆盖横向那几条）
@@ -81,40 +112,39 @@ func test_it_really_has_pits() -> void:
 
 
 func test_every_pit_can_be_jumped() -> void:
-	# 纵向的「跳得过去」= **每一块都能从底下某个面跳上来**
+	# 纵向的「过得去」= **从地面一路爬得到 Boss 区的地板**：往上跳（高出不超过一跳、横向差得不多、
+	# 中间没被实心挡住）、往下走、**爬梯子**（梯子底下那块和梯子顶那块连通）。每一块单向台子都得爬得到。
 	var jump := await jump_height()
 	check("setup: the jump has some height", jump > 60.0, "%.0f" % jump)
 	await open_level()
 	var all := faces()
-	check("setup: there are ledges", all.size() > 100, str(all.size()))
-	for face: Array in all:
-		if face[4] == "Ground":
-			continue
-		var ok := false
-		for low: Array in all:
-			if low != face and reachable_up(low, face, all, jump):
-				ok = true
-				break
-		check("%s can be reached from below" % face[4], ok, "y %.0f, x %.0f..%.0f" % [face[2], face[0], face[1]])
-
-
-func test_nothing_is_higher_than_a_jump() -> void:
-	# 从地面出发，往上跳、往下走，要能到**每一块**，最后到 Boss 区的地板
-	var jump := await jump_height()
-	await open_level()
-	var all := faces()
-	var seen := {"Ground": true}
-	var frontier: Array = all.filter(func(f: Array) -> bool: return f[4] == "Ground")
+	var ladders := tree.get_nodes_in_group(Ladder.GROUP)
+	check("setup: there are ledges and ladders", all.size() > 100 and ladders.size() >= 10,
+		"%d / %d" % [all.size(), ladders.size()])
+	var start: Array = all.filter(func(f: Array) -> bool: return f[2] >= HEIGHT - 60.0)
+	var seen := {}
+	var frontier: Array = []
+	for f: Array in start:
+		seen[f[4]] = true
+		frontier.append(f)
 	while not frontier.is_empty():
 		var here: Array = frontier.pop_back()
 		for face: Array in all:
 			if seen.has(face[4]):
 				continue
 			var down: bool = face[2] > here[2] and gap_x(here, face) <= REACH_X
-			if down or reachable_up(here, face, all, jump):
+			var climb := false
+			for node in ladders:
+				var ladder := node as Ladder
+				var x := ladder.global_position.x
+				var foot := ladder.global_position.y + ladder.height
+				if here[0] <= x and x <= here[1] and absf(here[2] - foot) < 1.0 \
+						and face[0] - 32.0 <= x and x <= face[1] + 32.0 and absf(face[2] - ladder.global_position.y) < 1.0:
+					climb = true
+			if down or climb or reachable_up(here, face, all, jump):
 				seen[face[4]] = true
 				frontier.append(face)
-	var lost: Array = all.filter(func(f: Array) -> bool: return not seen.has(f[4]))
+	var lost: Array = all.filter(func(f: Array) -> bool: return not f[3] and not seen.has(f[4]))
 	check("every ledge can be climbed to from the floor", lost.is_empty(),
 		str(lost.map(func(f: Array) -> String: return f[4]).slice(0, 8)))
 	check("including the arena floor at the top", seen.has(arena_floor()[4]), arena_floor()[4])
@@ -127,52 +157,6 @@ func arena_floor() -> Array:
 		if face[2] < SCREEN_H and (best.is_empty() or face[1] - face[0] > best[1] - best[0]):
 			best = face
 	return best
-
-
-func test_the_crawl_passages_still_need_crouching() -> void:
-	# 纵向关没有矮通道（往上爬时趴着没用）。换成：实心块底下都留得出一个人
-	await open_level()
-	var all := faces()
-	for block: Array in all:
-		if not block[3] or block[4] == "Ground":
-			continue
-		for face: Array in all:
-			if face == block or face[1] <= block[0] or face[0] >= block[1]:
-				continue
-			var room: float = face[2] - block[5]
-			if room >= 0.0:
-				check("%s leaves room to stand under %s" % [face[4], block[4]], room >= 40.0,
-					"%.0f" % room)
-
-
-func test_the_blocked_routes_really_block_and_really_have_a_way_over() -> void:
-	# 纵向的「堵路」= 实心块：从下面穿不上去，得绕。要真的有，而且真是实心的
-	await open_level()
-	var blocks: Array = faces().filter(func(f: Array) -> bool: return f[3] and f[4] != "Ground")
-	check("setup: the shaft has solid blocks to go round", blocks.size() >= 3, str(blocks.size()))
-	for node in terrain():
-		var slab := node as Platform
-		if slab.name.begins_with("Block"):
-			check("%s cannot be jumped through" % slab.name, not slab.one_way)
-
-
-func test_every_enemy_stands_on_something() -> void:
-	await open_level()
-	var all := faces()
-	var checked := 0
-	for enemy in enemies():
-		if hangs_in_the_air(enemy):
-			continue
-		var feet := enemy_feet(enemy)
-		var standing := false
-		for face: Array in all:
-			if face[0] + 8.0 <= enemy.position.x and enemy.position.x <= face[1] - 8.0 \
-					and absf(face[2] - feet) < 2.0:
-				standing = true
-		checked += 1
-		check("%s has something under it" % enemy.name, standing,
-			"feet at %.0f, x %.0f" % [feet, enemy.position.x])
-	check("setup: there are enemies to check", checked >= 50, str(checked))
 
 
 func test_the_player_gets_a_moment_before_the_first_enemy() -> void:
@@ -212,6 +196,26 @@ func test_the_boss_waits_at_the_far_end() -> void:
 		check("%s is not in the arena" % enemy.name, enemy.position.y > SCREEN_H, str(enemy.position))
 
 
+func test_the_crawl_passages_still_need_crouching() -> void:
+	# 分层那一层的版本只看地面线以上（横向关），竖井里每一块都在「地面线」以下，所以这里照同样的规矩重量一遍：
+	# 实心块底下要么贴着、要么站得下人（不许有 1~39 的缝）
+	await open_level()
+	var all := faces()
+	var checked := 0
+	for block: Array in all:
+		if not block[3] or block[2] >= HEIGHT - 60.0:
+			continue
+		var below := INF
+		for face: Array in all:
+			if face != block and face[2] >= block[5] and face[0] < block[1] and face[1] > block[0]:
+				below = minf(below, face[2] - block[5])
+		if below == INF:
+			continue
+		checked += 1
+		check("%s leaves no half-height slot under it" % block[4], below < 0.5 or below >= 40.0, "%.0f" % below)
+	check("setup: there are floors over other floors", checked >= 20, str(checked))
+
+
 # ---------------------------------------------------------------- 这一关独有的
 
 func test_it_is_the_fourth_stage_in_the_catalog() -> void:
@@ -223,19 +227,6 @@ func test_it_is_the_fourth_stage_in_the_catalog() -> void:
 	check("the catalog picks it up as the fourth one",
 		levels.size() >= 4 and levels[3].scene_path == level_path(),
 		"" if levels.size() < 4 else levels[3].scene_path)
-
-
-func test_the_terrain_wears_the_basement_art() -> void:
-	await open_level()
-	var checked := 0
-	for node in terrain():
-		var visual := (node as Platform).get_node("Visual")
-		if visual is TerrainAppearance:
-			checked += 1
-			var texture: Texture2D = (visual as TerrainAppearance).texture
-			check("%s takes its art from this zone" % node.name,
-				texture != null and texture.resource_path.begins_with("res://skins/basement"), str(texture))
-	check("setup: the terrain is skinned at all", checked > 100, str(checked))
 
 
 func test_this_stage_brings_its_own_cast() -> void:
@@ -269,10 +260,8 @@ func test_climbing_then_dropping_out_costs_a_fall_and_lands_you_on_screen() -> v
 	await open_level()
 	for enemy in enemies():
 		enemy.free()
-	var all := faces()
-	var mid: Array = all.filter(func(f: Array) -> bool:
-		return not f[3] and absf(f[2] - HEIGHT / 2.0) < 120.0)[0]
-	player.global_position = Vector2((mid[0] + mid[1]) / 2.0, mid[2] - 16.0)
+	# 半腰：第 5 段（货梯井）左边那一串台子，周围没有箱子、机关
+	player.global_position = Vector2(8.5 * CELL, seg_y(5, 35) - 16.0)
 	player.velocity = Vector2.ZERO
 	await frames(15)
 	var stood := player.global_position
@@ -331,3 +320,100 @@ func test_the_boss_stays_on_screen_while_you_stand_on_the_arena_floor() -> void:
 	check("it can rise to line up with the highest ledge",
 		boss._home.y - boss.rise + BossSkull.BEAM_ORIGIN.y <= top_center,
 		"最高能打到 %.0f，最高那层的人在 %.0f" % [boss._home.y - boss.rise + BossSkull.BEAM_ORIGIN.y, top_center])
+
+
+# ---------------------------------------------------------------- 必须绕的路，拿真规则跑一遍
+
+## 按住上 / 下爬梯子：**先等它真的抓住梯子**（最多半秒），再等它爬到头松手。
+## 只等固定几帧就开始看「是不是还在爬」的话，整套连着跑时偶尔慢一拍，还没抓住就当成「爬完了」（全量跑时撞到过）。
+func climb(direction: StringName) -> void:
+	await frames(10)
+	Input.action_press(direction)
+	for i in 30:
+		await tree.physics_frame
+		if player.is_climbing():
+			break
+	for i in 240:
+		await tree.physics_frame
+		if not player.is_climbing():
+			break
+	release_all_input()
+	await frames(5)
+
+
+func put_player(x: float, feet_y: float) -> void:
+	player.global_position = Vector2(x, feet_y - 16.0)
+	player.velocity = Vector2.ZERO
+	snap_camera()
+	await frames(3)
+
+
+func test_the_sump_ceiling_is_climbed_not_jumped() -> void:
+	# 第 1 段：头顶一整块**实心**楼板，只有右头那架梯子上得去。
+	# 从楼板正下方往上跳（满速起跳）：要是这块是单向的，人就从底下穿上去了
+	# 横向摆在第 26 行那块台子正上方：弹回来落在它上面（只掉 40）。摆在别处的话会掉到画面底边以下
+	# ——摄像机只往上卷，这一下起跳把画面带上去了，掉下去就是「掉坑」，连掉几次人就没了
+	await open_empty()
+	await put_player(29.5 * CELL, seg_y(1, 26))
+	player.global_position = Vector2(29.5 * CELL, seg_y(1, 22) + 24.0)
+	player.velocity = Vector2(0, -560)
+	await frames(40)
+	check("a jump from right under the slab bounces off it", player.global_position.y > seg_y(1, 22),
+		"y %.0f, slab bottom %.0f" % [player.global_position.y, seg_y(1, 22)])
+	check("and lands back on the ledge, alive", player.is_alive() and absf(feet() - seg_y(1, 26)) < 1.0,
+		"feet %.1f hp %d" % [feet(), player.health])
+
+
+func test_the_sump_ladder_goes_up_through_the_slab() -> void:
+	# 和上一条分开，各开一个干净的场景
+	await open_empty()
+	await put_player(33 * CELL, seg_y(1, 26))
+	await climb(&"aim_up")
+	check("the ladder takes you onto the slab", absf(feet() - seg_y(1, 20)) < 1.0, "feet %.1f" % feet())
+
+
+func press_jump_held(n: int) -> void:
+	Input.action_press(&"jump")
+	await frames(n)
+	release_all_input()
+	await frames(20)
+
+
+func test_the_boiler_room_ladder_is_walled_off_with_crates() -> void:
+	# 第 3 段：屋里右头那架梯子前面一整摞箱子，打烂了才走得到
+	await open_empty()
+	var stack: Array = []
+	for node in main.get_node("Traps").get_children():
+		var crate := node as BreakableCrate
+		if crate != null and absf(crate.position.x - 30 * CELL) < 1.0 and crate.position.y > seg_y(3, 28) \
+				and crate.position.y < seg_y(3, 36):
+			stack.append(crate)
+	check("setup: the stack is there", stack.size() == 4, str(stack.size()))
+	await put_player(24 * CELL, seg_y(3, 36))
+	Input.action_press(&"move_right")
+	Input.action_press(&"jump")
+	await frames(120)
+	release_all_input()
+	check("you cannot get past the stack", player.global_position.x < 30 * CELL,
+		"x %.0f" % player.global_position.x)
+	for crate: BreakableCrate in stack:
+		for i in crate.toughness:
+			crate.take_damage(SHOT, Vector2.INF, player)
+	await frames(5)
+	Input.action_press(&"move_right")
+	await frames(60)
+	release_all_input()
+	check("shot apart, the ladder is in reach", player.global_position.x > 33 * CELL,
+		"x %.0f" % player.global_position.x)
+
+
+func test_the_lift_shaft_only_goes_up_on_the_left() -> void:
+	# 第 5 段：正中一大垛集装箱、右边那条缝底下封死，入口那条台子往右走就撞上集装箱
+	await open_empty()
+	await put_player(6 * CELL, seg_y(5, 42))
+	Input.action_press(&"move_right")
+	await frames(90)
+	release_all_input()
+	check("the container stack stops you", player.global_position.x < 12 * CELL,
+		"x %.0f" % player.global_position.x)
+

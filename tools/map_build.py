@@ -64,18 +64,25 @@ TRAP_ROWS = 4
 LADDER_COLS = 2
 ## 出生那一屏（44 格 = 704 像素，和横向关的 `SAFE_START` 700 一样）不许摆敌人。
 SAFE_COLS = 44
+## 一屏多高（格）：360 / 16。纵向关按它一屏一屏地数敌人、定出生那一屏。
+SCREEN_ROWS = 22.5
+## 纵向关出生点这么远以内不放敌人（像素）。
+SAFE_RADIUS = 420.0
 
 
 class MapLevel:
 	"""把格子地图读成几何：实心矩形、单向平台、梯子、机关、敌人、出生点。"""
 
-	def __init__(self, rows, letters, scenes, stand_of, floating=(), hanging=()):
+	def __init__(self, rows, letters, scenes, stand_of, floating=(), hanging=(), float_at=None):
 		"""`letters`：地图里的小写字母 → 敌人类型（`"c": "2_c"`，Boss 用键 `"boss"`）；
 		`scenes`：敌人类型 → 场景路径（就是 `level_build.py` 里每关那张 `ENEMIES_x`）。"""
 		width = max(len(r) for r in rows)
 		self.grid = [r.ljust(width, ".").replace(" ", ".") for r in rows]
-		if len(self.grid) != ROWS:
-			raise SystemExit("格子地图要正好 %d 行（现在 %d 行）" % (ROWS, len(self.grid)))
+		## 多高：横向关正好一屏（23 行）；**纵向关**（第四关）是一整根竖井，几百行（2026-10）。
+		self.height = len(self.grid)
+		if self.height < ROWS:
+			raise SystemExit("格子地图至少 %d 行（现在 %d 行）" % (ROWS, self.height))
+		self.vertical = self.height > ROWS
 		self.width = width
 		self.letters = letters
 		self.enemy_scenes = scenes
@@ -83,6 +90,8 @@ class MapLevel:
 		self.floating = set(floating)
 		## 吊在画面顶上等着砸下来的（第二关 2-A）：不管写在第几行，都摆到画面以上（`lb.HANG_Y`）。
 		self.hanging = set(hanging)
+		## 会飞的摆在那一格里多高（默认正中 8）。第四关的骷髅头要正好在 288：激光出口对准站在地板上的人
+		self.float_at = float_at or {}
 		self.stand_of = stand_of
 		self.solids = []      # (名字, x, y, 宽, 高)   单位：像素
 		self.ledges = []      # (名字, x, y, 宽)
@@ -104,7 +113,7 @@ class MapLevel:
 			return "#"          # 关卡左右两头是墙
 		if r < 0:
 			return "."
-		if r >= ROWS:
+		if r >= self.height:
 			return "#"
 		return self.grid[r][c]
 
@@ -122,7 +131,7 @@ class MapLevel:
 		# 传送带各自成块（每块带自己的速度），不和别的实心合并
 		plain = SOLIDS.translate({ord(b): None for b in BELTS})
 		runs = {}
-		for r in range(ROWS):
+		for r in range(self.height):
 			c = 0
 			while c < self.width:
 				ch = self.grid[r][c]
@@ -149,7 +158,7 @@ class MapLevel:
 				if r is not None:
 					block = [r]
 		# 单向平台：每一行横着的一段
-		for r in range(ROWS):
+		for r in range(self.height):
 			c = 0
 			while c < self.width:
 				if self.grid[r][c] in ONE_WAYS:
@@ -162,7 +171,7 @@ class MapLevel:
 		# 梯子：竖着连在一起的 H（2 格宽，按左边那一列认）
 		seen = set()
 		for c in range(self.width):
-			for r in range(ROWS):
+			for r in range(self.height):
 				if self.grid[r][c] != "H" or (r, c) in seen:
 					continue
 				if self.at(r, c - 1) == "H" and (r, c - 1) in seen:
@@ -178,7 +187,7 @@ class MapLevel:
 		# 箱子：竖着连在一起的 K（2 格宽，按左边那一列认），从底往上摞
 		seen = set()
 		for c in range(self.width):
-			for r in range(ROWS):
+			for r in range(self.height):
 				if self.grid[r][c] != "K" or (r, c) in seen:
 					continue
 				if (r, c - 1) in seen:
@@ -194,7 +203,7 @@ class MapLevel:
 					self.crates.append((name("Crate"), c * CELL, floor_y - CRATE_H * (k + 1)))
 		# 机关、敌人、出生点、Boss
 		press_index = 0
-		for r in range(ROWS):
+		for r in range(self.height):
 			for c in range(self.width):
 				ch = self.grid[r][c]
 				feet = (r + 1) * CELL
@@ -221,7 +230,7 @@ class MapLevel:
 					if kind in self.hanging:
 						y = lb.HANG_Y
 					elif kind in self.floating:
-						y = r * CELL + CELL / 2.0
+						y = r * CELL + self.float_at.get(kind, CELL / 2.0)
 					else:
 						y = feet - self.stand_of(kind)
 					self.enemies.append((label, kind, x, y))
@@ -243,11 +252,11 @@ class MapLevel:
 	def standable(self, r, c):
 		# 地图底下那一行以下算实心（掉不出去），但**站不上去**——不然坑底就成了一条能走的路
 		# （往下跳那条加上以后，找路从坑底一路走过了第一关的大坑，拆掉梯子自检照样绿）
-		return 0 <= c < self.width and r < ROWS and self.supports(r, c) and self.body_free(r, c)
+		return 0 <= c < self.width and r < self.height and self.supports(r, c) and self.body_free(r, c)
 
 	def _land(self, r, c):
 		"""从第 r 行往下掉（身子在 r 往上），落在哪一行（第一个能站的面）。掉出地图就是 None。"""
-		while r < ROWS:
+		while r < self.height:
 			if self.solid(r - 1, c):
 				return None   # 身子卡进实心里了，不算
 			if self.supports(r, c):
@@ -260,7 +269,7 @@ class MapLevel:
 		身子被实心挡着的是墙、不是坑；往下能落到任何一个面上（哪怕是更低的一层）也不是坑。"""
 		if not self.body_free(r, c):
 			return False
-		return not any(self.supports(rr, c) for rr in range(r, ROWS))
+		return not any(self.supports(rr, c) for rr in range(r, self.height))
 
 	def moves(self, r, c):
 		out = []
@@ -350,7 +359,9 @@ def check(level, safe_cols=SAFE_COLS, chasers=(), min_enemies=0):
 	# 终点：Boss 跟前（飘着的 Boss 就是它底下那一片能站的地方），或者标了 > 的出口
 	if level.boss_cell is not None:
 		br, bc = level.boss_cell
-		goal = {(r, cc) for r in range(br + 1, ROWS) for cc in range(bc - 12, bc + 13) if level.standable(r, cc)}
+		# 只算它底下**一屏以内**的面（竖井里「底下」一直通到出生点，第一版这么算，随便走到右半边就「到了」）
+		goal = {(r, cc) for r in range(br + 1, min(level.height, br + 1 + int(SCREEN_ROWS)))
+			for cc in range(bc - 12, bc + 13) if level.standable(r, cc)}
 	elif level.exit_cell is not None:
 		goal = {level.exit_cell}
 	else:
@@ -404,7 +415,7 @@ def check(level, safe_cols=SAFE_COLS, chasers=(), min_enemies=0):
 		c = int(x // CELL)
 		if kind in level.hanging:
 			# 吊着的落地之后才冲：查它砸下去落到的那一层
-			r = next((rr for rr in range(ROWS) if level.standable(rr, c)), None)
+			r = next((rr for rr in range(level.height) if level.standable(rr, c)), None)
 			if r is None:
 				continue
 		else:
@@ -417,7 +428,20 @@ def check(level, safe_cols=SAFE_COLS, chasers=(), min_enemies=0):
 			if 0 <= beyond < level.width and level.is_pit(r, beyond):
 				problems.append("%s（会冲的）脚下这条路%s头是坑（第 %d 列），没冲到玩家跟前自己先掉下去"
 					% (label, "左" if step < 0 else "右", beyond))
-	if min_enemies:
+	if min_enemies and level.vertical:
+		# 纵向关按「一屏高」（360 = 22.5 格）一段一段数，从下往上；出生那一屏和 Boss 那两屏不算
+		band = SCREEN_ROWS
+		bottom = level.height * CELL
+		screens = int(level.height // band)
+		for screen in range(1, screens):
+			hi = bottom - (screen + 1) * band * CELL
+			lo = bottom - screen * band * CELL
+			if level.boss_cell is not None and hi < (level.boss_cell[0] + 1) * CELL + 2 * band * CELL:
+				continue
+			count = sum(1 for e in level.enemies if hi <= e[3] < lo)
+			if count < min_enemies:
+				problems.append("从下往上第 %d 屏只有 %d 个敌人（至少 %d 个）" % (screen + 1, count, min_enemies))
+	elif min_enemies:
 		screens = level.width // 40
 		# Boss 区那两屏（Boss 那一屏和它前面一屏）不算：那儿是单挑
 		if level.boss_cell is not None:
@@ -430,10 +454,16 @@ def check(level, safe_cols=SAFE_COLS, chasers=(), min_enemies=0):
 	# 吊着的那一列底下得有地（掉下来要落得住）；会飞的不嵌在墙里
 	for label, kind, x, y in level.enemies:
 		c = int(x // CELL)
-		if x < safe_cols * CELL:
+		if level.vertical:
+			# 纵向关的「出生那一屏」是最底下那一屏；**离出生点 `SAFE_RADIUS` 以内也不放**——
+			# 会斜着往下打的枪手摆在画面外刚好够得着的地方，人一进来就挨冷枪（横向那版第四关定的）
+			if y > level.height * CELL - SCREEN_ROWS * CELL or \
+					((x - level.spawn[0]) ** 2 + (y - level.spawn[1]) ** 2) ** 0.5 < SAFE_RADIUS:
+				problems.append("%s 摆在出生那一屏里 / 离出生点太近" % label)
+		elif x < safe_cols * CELL:
 			problems.append("%s 摆在出生那一屏里（第 %d 列）" % (label, c))
 		if kind in level.hanging:
-			if not any(level.standable(r, c) for r in range(ROWS)):
+			if not any(level.standable(r, c) for r in range(level.height)):
 				problems.append("%s 吊着的那一列底下没有地，掉下来就摔死了" % label)
 			continue
 		if kind in level.floating:
@@ -478,6 +508,11 @@ OUTDOOR_PROPS = ["barrel_rust", "box", "warning", "bucket", "crate", "box_open",
 ## 总图一行几块（工业区 9、绿区 12），背景墙压暗多少。
 COLUMNS = 9
 BACK_TINT = (0.72, 0.72, 0.8)
+## 头顶多少格以内有实心的才算「室内」（None = 一直往上找）。竖井里每一格头顶迟早都有东西，
+## 一直往上找的话整根竖井全铺上墙，后面那层视差背景一块都露不出来。
+INDOOR_REACH = None
+## 装饰也撒在单向台子上（只有竖井那一区开）
+PROPS_ON_LEDGES = False
 
 ## **每个区一套砖**（2026-10 做第一关时拆出来的）：上面那些常量就是工业区那套，`use_theme()` 换成别的区。
 ## 绿区（第一关，`green-zone-tileset/Tileset.png`，12 列，编号 = 行 × 12 + 列 + 1）是**按四条边上的黑描边认出来的**：
@@ -534,17 +569,43 @@ THEMES = {
 		"OUTDOOR_PROPS": ["keg"],
 		"COLUMNS": 10, "BACK_TINT": (0.75, 0.75, 0.8),
 	},
+	## 地下室（第四关，纵向，`basement-tileset/1 Tiles/Tile_01..70`，10 列）：
+	##   岩体九宫格 1/2/4、11/12/14、21/22/24（深紫填充 + 浅蓝描边）；浮台 41/42/44（只画了上半格）；
+	##   一砖厚的条 31/32/34 当第二种单向台子；整块石头 35 / 带灯的框 37 当掩体；
+	##   **室内**是砖墙 67（多数）/ 68 / 70 / 69（裂缝、碎砖），压暗得多——它在竖井后面；`!` 是竖着的管道 65。
+	##   竖井里头顶迟早都有东西，所以只有**头顶 10 格以内**有实心的才铺墙（`INDOOR_REACH`），
+	##   别处露出后面那层视差的地下室内墙。
+	"basement": {
+		"NINE": {
+			"#": ((1, 2, 4), (11, 12, 14), (21, 22, 24)),
+			"%": ((1, 2, 4), (11, 12, 14), (21, 22, 24)),
+			"~": ((1, 2, 4), (11, 12, 14), (21, 22, 24)),
+			"-": ((1, 2, 4), (11, 12, 14), (21, 22, 24)),
+			"=": ((41, 42, 44), (41, 42, 44), (41, 42, 44)),
+			":": ((31, 32, 34), (31, 32, 34), (31, 32, 34)),
+		},
+		"CRATES": (35, 37),
+		"BACK_TILES": [(67, 70), (68, 18), (70, 8), (69, 4)],
+		"PIPE_TOP": 65, "PIPE_BODY": (65, 65),
+		"INDOOR_PROPS": ["box", "box_moss", "box_small", "pipe", "pipe_moss", "grass", "fan", "unit", "pipe_bend"],
+		"OUTDOOR_PROPS": ["box", "box_small", "pipe", "grass", "grass2", "fan", "unit", "container", "pipe_moss"],
+		"COLUMNS": 10, "BACK_TINT": (0.55, 0.55, 0.62),
+		"INDOOR_REACH": 10, "PROPS_ON_LEDGES": True,
+	},
 }
 
 
 def use_theme(name):
 	"""换成某个区的那套砖和装饰（模块里的常量直接换掉，后面的代码照常读）。"""
 	global NINE, CRATES, BACK_TILES, PIPE_TOP, PIPE_BODY, INDOOR_PROPS, OUTDOOR_PROPS, COLUMNS, BACK_TINT
+	global INDOOR_REACH, PROPS_ON_LEDGES
 	t = THEMES[name]
 	NINE, CRATES, BACK_TILES = t["NINE"], t["CRATES"], t["BACK_TILES"]
 	PIPE_TOP, PIPE_BODY = t["PIPE_TOP"], t["PIPE_BODY"]
 	INDOOR_PROPS, OUTDOOR_PROPS = t["INDOOR_PROPS"], t["OUTDOOR_PROPS"]
 	COLUMNS, BACK_TINT = t["COLUMNS"], t["BACK_TINT"]
+	INDOOR_REACH = t.get("INDOOR_REACH")
+	PROPS_ON_LEDGES = t.get("PROPS_ON_LEDGES", False)
 
 
 def _hash(a, b, seed):
@@ -554,7 +615,7 @@ def _hash(a, b, seed):
 def tile_cells(level, seed=20261003):
 	"""算出前景（实心、单向）和背景（室内的墙）每一格画哪块砖的哪个角。返回 (前景, 背景) 两个扁平的整数表。"""
 	front, back = [], []
-	for r in range(ROWS):
+	for r in range(level.height):
 		for c in range(level.width):
 			ch = level.at(r, c)
 			if ch in SOLIDS or ch in ONE_WAYS:
@@ -597,7 +658,8 @@ def _front_tile(level, r, c, ch, seed):
 def _indoor(level, r, c):
 	"""这一格头顶上（同一列往上）有**实心的**楼板 / 天花板吗——有就是室内，铺背景墙。
 	单向平台不算：露天的钢梁走道底下还是露天（第一版算上了，走道底下一块块深色墙，截图一眼就看出来）。"""
-	for rr in range(r - 1, -1, -1):
+	top = -1 if INDOOR_REACH is None else max(-1, r - 1 - INDOOR_REACH)
+	for rr in range(r - 1, top, -1):
 		if level.solid(rr, c):
 			return True
 	return False
@@ -688,12 +750,14 @@ def dress(level, named, seed=20261003):
 		state[0] = (state[0] * 1103515245 + 12345) & 0x7FFFFFFF
 		return state[0] % max(1, n)
 
-	for r in range(ROWS):
+	for r in range(level.height):
 		c = 0
 		next_at = roll(PROP_STEP[1])
 		while c < level.width:
 			# 不撒在钢架箱 / 石块（X）上：那是一块块掩体，顶上摆张长椅看着像叠罗汉
-			floor = level.solid(r, c) and not level.solid(r - 1, c) and level.body_free(r, c) \
+			# 竖井（第四关）大半是单向台子，只撒在实心楼板上的话一整根竖井才几十件——那一区让台子上也撒
+			ground = level.solid(r, c) or (PROPS_ON_LEDGES and level.at(r, c) in ONE_WAYS)
+			floor = ground and not level.solid(r - 1, c) and level.body_free(r, c) \
 				and level.at(r, c) != "X"
 			if floor and c >= next_at and c not in busy and (c, r) not in taken \
 					and not any((cc, r) in enemy_cells for cc in range(c - 2, c + 3)):
@@ -742,6 +806,9 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 	columns_line = "" if COLUMNS == 9 else "columns = %d\n" % COLUMNS
 	lines = [lb.HEAD + "\n".join(extra) + "\n"]
 	lines.append('\n[node name="%s" type="Node2D"]\nscript = ExtResource("3")\n' % root)
+	if level.vertical:
+		# 纵向关：掉出关卡的线在最底下再往下 40（画面卷上去以后 main.gd 按画面底边算）
+		lines.append("fall_y = %g\n" % (level.height * CELL + 40.0))
 	# 画的顺序：背景（视差那几层，关卡加载时插到最前面）→ 室内的墙 → 装饰 → 实心的砖 → 平台（藏着）→ 机关 → 敌人
 	lines.append('\n[node name="BackTiles" type="Node2D" parent="."]\nscript = ExtResource("ta")\n'
 		'atlas = ExtResource("tb")\n%stint = Color(%g, %g, %g, 1)\ncells = PackedInt32Array(%s)\n'
@@ -771,8 +838,9 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 		lines.append("\n" + lb.platform(name, "Level", x, y, w, h) + "visible = false\n")
 	for name, x, y, w, h, speed in level.belts:
 		lines.append("\n" + lb.platform(name, "Level", x, y, w, h) + "visible = false\nconveyor = %g\n" % speed)
-	lines.append("\n" + lb.platform("WallLeft", "Level", -16, 0, 16, lb.SCREEN_H))
-	lines.append("\n" + lb.platform("WallRight", "Level", width, 0, 16, lb.SCREEN_H))
+	height = level.height * CELL if level.vertical else lb.SCREEN_H
+	lines.append("\n" + lb.platform("WallLeft", "Level", -16, 0, 16, height))
+	lines.append("\n" + lb.platform("WallRight", "Level", width, 0, 16, height))
 	for name, x, y, w in level.ledges:
 		lines.append("\n" + lb.platform(name, "Level", x, y, w, 16, one_way=True) + "visible = false\n")
 	for name, x, top, height in level.ladders:
@@ -807,9 +875,10 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 		'position = Vector2(%g, %g)\n' % level.spawn)
 	lines.append('\n[node name="Camera2D" type="Camera2D" parent="."]\n'
 		'position = Vector2(%g, %g)\n'
-		'script = ExtResource("17")\n'
+		'script = ExtResource("17")\n%s'
 		'limit_left = 0\nlimit_top = 0\nlimit_right = %d\nlimit_bottom = %d\n'
-		% (level.spawn[0], level.spawn[1], width, lb.SCREEN_H))
+		% (level.spawn[0], level.spawn[1], "only_up = true\n" if level.vertical else "", width,
+			level.height * CELL if level.vertical else lb.SCREEN_H))
 	lines.append('\n[node name="HUD" parent="." instance=ExtResource("6")]\n')
 	lines.append('\n[node name="PauseMenu" parent="." instance=ExtResource("19")]\n')
 	lines.append('\n[node name="DeathScreen" parent="." instance=ExtResource("20")]\n')

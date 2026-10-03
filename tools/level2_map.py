@@ -15,7 +15,7 @@ e 2-E（直升机，飞的）、f 2-F（自爆机）、B Boss。行号：上层�
 敌人写在**脚下那一行的上一行**。
 """
 
-from map_canvas import Canvas, stitch
+from map_canvas import Canvas, from_png, stitch
 
 LETTERS = {"a": "2_a", "b": "2_b", "c": "2_c", "d": "2_d", "e": "2_e", "f": "2_f", "boss": "2_boss"}
 FLOATING = {"2_e", "2_boss"}

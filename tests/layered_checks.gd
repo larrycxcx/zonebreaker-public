@@ -177,15 +177,24 @@ func test_the_crawl_passages_still_need_crouching() -> void:
 	check("setup: there are floors over other floors", checked >= 20, str(checked))
 
 
+## 一摞一摞的箱子：同一列、上下挨着（差一只箱子高）的算一摞。键是那一列的 x。
+## **不能只按列分**：竖井里两段的箱子可能在同一列（第四关），按列分会把隔着几层楼的两摞当成一摞。
 func crate_stacks() -> Dictionary:
+	var crates: Array = main.get_node("Traps").get_children().filter(
+		func(n: Node) -> bool: return n is BreakableCrate)
+	crates.sort_custom(func(a: Node2D, b: Node2D) -> bool:
+		return a.position.x < b.position.x or (a.position.x == b.position.x and a.position.y < b.position.y))
 	var stacks := {}
-	for node in main.get_node("Traps").get_children():
-		var crate := node as BreakableCrate
-		if crate != null:
-			var key := int(crate.position.x)
-			if not stacks.has(key):
-				stacks[key] = []
-			(stacks[key] as Array).append(crate)
+	var current: Array = []
+	for crate: BreakableCrate in crates:
+		var last: BreakableCrate = null if current.is_empty() else current[-1]
+		if last != null and (last.position.x != crate.position.x
+				or absf(crate.position.y - last.position.y - BreakableCrate.SIZE.y) > 0.5):
+			stacks["%d@%d" % [int(last.position.x), int(last.position.y)]] = current
+			current = []
+		current.append(crate)
+	if not current.is_empty():
+		stacks["%d@%d" % [int(current[-1].position.x), int(current[-1].position.y)]] = current
 	return stacks
 
 
@@ -194,8 +203,10 @@ func test_the_blocked_routes_really_block_and_really_have_a_way_over() -> void:
 	# 要钻不过一个人（32），不然打都不用打。
 	await open_level()
 	var sealed := 0
-	for key: int in crate_stacks():
-		var stack: Array = crate_stacks()[key]
+	var stacks := crate_stacks()
+	for key: String in stacks:
+		var stack: Array = stacks[key]
+		var x: float = (stack[0] as BreakableCrate).position.x
 		var top := INF
 		var bottom := -INF
 		for crate: BreakableCrate in stack:
@@ -203,11 +214,11 @@ func test_the_blocked_routes_really_block_and_really_have_a_way_over() -> void:
 			bottom = maxf(bottom, crate.position.y + BreakableCrate.SIZE.y)
 		var ceiling := -INF
 		for rect in solid_rects():
-			if rect.position.x < key + 32.0 and rect.end.x > key and rect.end.y <= top + 0.5:
+			if rect.position.x < x + 32.0 and rect.end.x > x and rect.end.y <= top + 0.5:
 				ceiling = maxf(ceiling, rect.end.y)
 		if stack.size() >= 3:
 			sealed += 1
-			check("the stack at %d reaches the ceiling" % key, top - ceiling < 32.0,
+			check("the stack at %s reaches the ceiling" % key, top - ceiling < 32.0,
 				"%.0f left over it" % (top - ceiling))
 	check("setup: some corridors are sealed with crates", sealed >= 2, str(sealed))
 

@@ -15,7 +15,7 @@ d 1-D（滑板手，冲撞）、e 1-E（无人机，往下放电）、f 1-F（�
 行号：上层地板第 7 行、中层第 13 行、地面第 20 行；敌人写在**脚下那一行的上一行**。
 """
 
-from map_canvas import Canvas, stitch
+from map_canvas import Canvas, from_png, stitch
 
 LETTERS = {"a": "1_a", "b": "1_b", "c": "1_c", "d": "1_d", "e": "1_e", "f": "1_f", "g": "1_g",
 	"boss": "1_boss"}
