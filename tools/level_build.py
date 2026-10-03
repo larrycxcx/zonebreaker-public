@@ -85,16 +85,10 @@ SAFE_START = 700.0
 ## 由 `tools/terrain_build.py` 从地形素材包里挑出来。**纯显示，没有碰撞**，
 ## 画在所有东西后面，再密也不挡敌人和子弹（`scripts/prop.gd`）。
 PROP_FRAMES_1 = {"fountain": 4}
-## 沿着地面随手撒的小东西。
-SCATTER_1 = ["grass_tuft", "grass_blade", "grass_tuft", "rock_small", "bush_flat",
-	"bush_wide", "rock", "bin", "box", "bush_big", "grass_blade"]
-## 隔一段撒一棵树。
-TREES_1 = ["tree_small", "tree_big", "tree_small"]
 ## 撒的间隔（像素）：小东西密一点，树疏一点。
 SCATTER_STEP = (40, 130)
 TREE_STEP = (240, 460)
-## 撒的随机种子。**固定**：产物是要进仓库的，重新生成必须一模一样。
-SCATTER_SEED_1 = 20260924
+## 撒的随机种子写在每关的表里。**固定**：产物是要进仓库的，重新生成必须一模一样。
 
 ## 敌人在关卡里叫什么：键 `1_a` → `1-A`、`1_boss` → `1-Boss`。
 ## **编号带着关卡号**：23 关每关都有自己的一套敌人，字母只是这一关的序号（不代表打法），
@@ -104,7 +98,7 @@ def enemy_label(kind):
 	return "%s-%s" % (level, "Boss" if rest == "boss" else rest.upper())
 
 
-## 敌人类型 → 场景路径。键就是 `SECTIONS` 里写的名字。
+## 敌人类型 → 场景路径。键就是地图 / 段落表里写的名字。
 ENEMIES_1 = {
 	"1_a": "res://scenes/enemy_1_a.tscn",
 	"1_b": "res://scenes/enemy_1_b.tscn",
@@ -116,9 +110,9 @@ ENEMIES_1 = {
 	"1_boss": "res://scenes/boss_1.tscn",
 }
 
-FLYING_1 = {"1_e"}
-
-# ---------------------------------------------------------------- 第一关的段落
+# ---------------------------------------------------------------- 横向关的段落格式（第三关在用）
+#
+# 第一、二关 2026-10 起是分层的格子地图（`level1_map.py` / `level2_map.py`），不走这一套。
 #
 # 每段：(名字, {
 #   "gaps":   [(段内 x, 宽)]            地面在这儿断开 —— 掉下去就死
@@ -134,104 +128,6 @@ FLYING_1 = {"1_e"}
 #
 # 「站在哪个顶边上」写的是**脚下那个面的 y**（地面就是 GROUND_Y，浮台就是它的顶边），
 # 生成时自动换算成敌人的原点高度；飞行的 E 写 None。
-
-SECTIONS_1 = [
-	("Warmup", {                                  # 唯一一段让你站稳脚跟的地方
-		# **头一屏空着**（见 `SAFE_START`）：让人走两步、试试手感，再碰上第一个敌人
-		"props": [("fountain", 300, GROUND_Y), ("bench", 560, GROUND_Y),
-			("bench2", 1180, GROUND_Y)],
-		"ledges": [(260, 256, 96), (420, 208, 96), (640, 256, 112), (860, 200, 96),
-			(1060, 248, 96)],
-		"enemies": [("1_a", 720, 256), ("1_a", 780, GROUND_Y),
-			("1_g", 900, 200), ("1_a", 1000, GROUND_Y),
-			("1_b", 1100, 248), ("1_a", 1240, GROUND_Y)],
-	}),
-	("Stairs", {                                  # 爬上去，顺便认识第一块「下面走不通」
-		"ledges": [(100, 264, 96), (260, 216, 96), (420, 168, 128), (620, 160, 240),
-			(900, 248, 96)],
-		"blocks": [(700, 64, 112)],
-		"walls": [(180, 40)],
-		"enemies": [("1_a", 150, GROUND_Y), ("1_b", 300, 216),
-			("1_g", 480, 168), ("1_a", 660, GROUND_Y), ("1_c", 700, 160),
-			("1_g", 820, 160), ("1_a", 950, 248), ("1_a", 1100, GROUND_Y),
-			("1_d", 1220, GROUND_Y)],
-	}),
-	("Crawl", {                                   # 两道矮通道，出口都有炮台等着
-		"crawl": [(180, 220), (760, 180)],
-		"ledges": [(460, 248, 112), (620, 200, 96), (980, 248, 112), (1140, 200, 96)],
-		"enemies": [("1_g", 430, GROUND_Y), ("1_e", 300, None),
-			("1_a", 520, 248), ("1_b", 660, 200), ("1_a", 700, GROUND_Y),
-			("1_g", 1000, GROUND_Y), ("1_c", 1020, 248), ("1_e", 900, None),
-			("1_a", 1240, GROUND_Y)],
-	}),
-	("Pits", {                                    # 四个坑，最后一个宽到要踩中间那块小台
-		"gaps": [(120, 96), (330, 100), (520, 96), (760, 160)],
-		"ledges": [(230, 248, 96), (440, 208, 80), (800, 272, 72), (960, 248, 128),
-			(1140, 200, 96)],
-		"enemies": [("1_d", 60, GROUND_Y), ("1_a", 280, 248),
-			("1_g", 470, 208), ("1_e", 600, None), ("1_a", 660, GROUND_Y),
-			("1_d", 1000, GROUND_Y), ("1_b", 1000, 248),
-			("1_a", 1180, 200), ("1_a", 1250, GROUND_Y)],
-	}),
-	("Fortress", {                                # 一整片高台，底下被堵死
-		"props": [("fountain", 860, GROUND_Y), ("fence", 200, GROUND_Y),
-			("bench", 1000, GROUND_Y)],
-		"ledges": [(140, 264, 96), (280, 248, 96), (420, 176, 280), (760, 248, 96),
-			(920, 184, 96), (1100, 248, 112)],
-		"blocks": [(520, 64, 120)],
-		"enemies": [("1_a", 100, GROUND_Y), ("1_b", 320, 248),
-			("1_g", 500, 176), ("1_c", 620, 176), ("1_a", 740, GROUND_Y),
-			("1_f", 800, 248), ("1_g", 950, 184), ("1_a", 1150, 248),
-			("1_d", 1240, GROUND_Y)],
-	}),
-	("Grenadier", {                               # 两个 F 从高处扔，地面只有掩体墙
-		"ledges": [(120, 256, 96), (300, 200, 128), (520, 248, 96), (700, 192, 128),
-			(940, 248, 96), (1120, 192, 96)],
-		"blocks": [(760, 64, 112)],
-		"walls": [(200, 56), (560, 64), (900, 56)],
-		"enemies": [("1_a", 250, GROUND_Y), ("1_f", 360, 200),
-			("1_e", 500, None), ("1_g", 600, GROUND_Y), ("1_a", 640, GROUND_Y),
-			("1_f", 740, 192), ("1_b", 980, 248), ("1_a", 1050, GROUND_Y),
-			("1_g", 1150, 192), ("1_a", 1250, GROUND_Y)],
-	}),
-	("Skies", {                                   # 四个坑 + 三个 E：一边跳一边朝上打
-		"gaps": [(180, 128), (420, 96), (640, 160), (900, 100)],
-		"ledges": [(220, 272, 48), (340, 248, 80), (520, 216, 96), (690, 272, 64),
-			(820, 248, 80), (1010, 248, 96), (1160, 200, 96)],
-		"enemies": [("1_e", 250, None), ("1_c", 380, 248), ("1_g", 560, 216),
-			("1_e", 700, None), ("1_a", 850, 248), ("1_b", 1060, 248),
-			("1_e", 1100, None), ("1_a", 1200, 200), ("1_a", 1250, GROUND_Y)],
-	}),
-	("Crossfire", {                               # 三层高台交叉火力，底下又是一块堵死
-		"ledges": [(120, 248, 160), (340, 200, 160), (560, 168, 240), (860, 248, 128),
-			(1040, 200, 96), (1180, 152, 96)],
-		"blocks": [(640, 64, 128)],
-		"enemies": [("1_b", 180, 248), ("1_a", 260, GROUND_Y),
-			("1_g", 400, 200), ("1_a", 560, GROUND_Y), ("1_c", 600, 168),
-			("1_f", 740, 168), ("1_g", 900, 248), ("1_a", 1080, 200),
-			("1_b", 1220, 152), ("1_d", 1240, GROUND_Y)],
-	}),
-	("Gauntlet", {                                # 矮通道 + 三个坑 + 两个 D，一路被撵着走
-		"crawl": [(140, 180), (620, 160)],
-		"gaps": [(400, 96), (900, 100), (1080, 96)],
-		"ledges": [(300, 248, 96), (490, 200, 96), (820, 248, 64), (1010, 248, 64)],
-		"walls": [(1220, 40)],
-		"enemies": [("1_a", 60, GROUND_Y), ("1_d", 360, GROUND_Y),
-			("1_g", 340, 248), ("1_a", 540, 200), ("1_e", 600, None),
-			("1_d", 850, GROUND_Y), ("1_c", 1040, 248),
-			("1_a", 1200, GROUND_Y), ("1_b", 1250, GROUND_Y)],
-	}),
-	("BossArena", {                               # 打到门口还有一队守着
-		"props": [("fence", 300, GROUND_Y), ("fountain", 800, GROUND_Y),
-			("bench2", 560, GROUND_Y)],
-		"walls": [(40, 56)],
-		"ledges": [(200, 248, 96), (380, 200, 96), (620, 248, 112)],
-		"enemies": [("1_g", 160, GROUND_Y), ("1_a", 260, 248),
-			("1_g", 420, 200), ("1_a", 500, GROUND_Y), ("1_c", 660, 248),
-			("1_boss", 1000, GROUND_Y)],
-	}),
-]
-
 
 ## 玩家出生点。
 SPAWN = (64.0, GROUND_Y - STAND)
@@ -518,15 +414,15 @@ SECTIONS_4 = [
 # 关卡之间**什么都不共用**：敌人、装饰、段落各写各的——23 关里每一关的敌人和素材都不一样，
 # 共用一份只会让「调第二关的节奏」把第一关也改掉。
 STAGES = {
+	# 第一、二关是**分层的格子地图**：`level1_map.py` / `level2_map.py` 画、`map_build.py` 查路和写场景，
+	# `theme` 是那个区的一套砖（`map_build.THEMES`）
 	"1": {
-		"out": "level_1.tscn", "root": "Level1", "prop_dir": "cyberpunk",
-		"sections": SECTIONS_1, "enemies": ENEMIES_1, "flying": FLYING_1,
-		"prop_frames": PROP_FRAMES_1, "scatter": SCATTER_1, "trees": TREES_1,
-		"seed": SCATTER_SEED_1,
+		"out": "level_1.tscn", "root": "Level1", "prop_dir": "cyberpunk", "map": "level1_map",
+		"theme": "green", "enemies": ENEMIES_1, "prop_frames": PROP_FRAMES_1,
 	},
-	# 第二关是**分层的格子地图**：`level2_map.py` 画、`map_build.py` 查路和写场景
 	"2": {
-		"out": "level_2.tscn", "root": "Level2", "prop_dir": "industrial", "map": True,
+		"out": "level_2.tscn", "root": "Level2", "prop_dir": "industrial", "map": "level2_map",
+		"theme": "industrial",
 		"enemies": ENEMIES_2, "prop_frames": PROP_FRAMES_2,
 	},
 	"3": {
@@ -954,28 +850,31 @@ def build_map_demo(write):
 		print("  写入 scenes/map_demo.tscn")
 
 
-def build_map_level_2(write):
-	"""第二关：分层的格子地图（`level2_map.py`）→ scenes/level_2.tscn。"""
-	import level2_map as l2
+def build_map_level(key, write):
+	"""分层的格子地图（第一关 `level1_map.py`、第二关 `level2_map.py`）→ scenes/level_N.tscn。"""
+	import importlib
 	import map_build as mb
 	import map_canvas
-	rows, props, decor = l2.assemble()
-	level = mb.MapLevel(rows, l2.LETTERS, ENEMIES_2, stand_of, l2.FLOATING, l2.HANGING)
-	problems = mb.check(level, chasers=l2.CHASERS, min_enemies=l2.MIN_ENEMIES)
+	stage = STAGES[key]
+	plan = importlib.import_module(stage["map"])
+	mb.use_theme(stage["theme"])
+	rows, props, decor = plan.assemble()
+	level = mb.MapLevel(rows, plan.LETTERS, stage["enemies"], stand_of, plan.FLOATING, plan.HANGING)
+	problems = mb.check(level, chasers=plan.CHASERS, min_enemies=plan.MIN_ENEMIES)
 	if problems:
 		map_canvas.dump(rows)
 		print("格子地图自检没过：")
 		for p in problems:
 			print("  -", p)
 		sys.exit(1)
-	mb.build(level, os.path.join(SCENES, "level_2.tscn"), "Level2", "industrial", write,
-		PROP_FRAMES_2, props, decor)
-	print("第二关（分层版）：%d 格宽（%d 屏）" % (level.width, level.width // 40))
-	print("  实心 %d 块、单向 %d、梯子 %d、液压机 %d、闸门 %d、敌人 %d、装饰 %d"
+	mb.build(level, os.path.join(SCENES, stage["out"]), stage["root"], stage["prop_dir"], write,
+		stage["prop_frames"], props, decor)
+	print("第 %s 关（分层）：%d 格宽（%d 屏）" % (key, level.width, level.width // 40))
+	print("  实心 %d 块、单向 %d、梯子 %d、液压机 %d、闸门 %d、箱子 %d、油桶 %d、敌人 %d、装饰 %d"
 		% (len(level.solids), len(level.ledges), len(level.ladders), len(level.presses),
-			len(level.gates), len(level.enemies), len(level.props)))
+			len(level.gates), len(level.crates), len(level.barrels), len(level.enemies), len(level.props)))
 	if write:
-		print("  写入 scenes/level_2.tscn")
+		print("  写入 scenes/%s" % stage["out"])
 
 
 def main():
@@ -1019,7 +918,7 @@ def build_vertical(key, write):
 
 def build_stage(key, write):
 	if STAGES[key].get("map"):
-		build_map_level_2(write)
+		build_map_level(key, write)
 		return
 	if STAGES[key].get("vertical"):
 		build_vertical(key, write)

@@ -1,7 +1,7 @@
-extends "res://tests/test_level_1.gd"
+extends "res://tests/level_checks.gd"
 ## 正式第三关（`scenes/level_3.tscn`，酒吧街）。
 ##
-## 几何检查整套从第一关那组继承（见 `test_level_2.gd` 开头那段）。这里只写**这一关独有的**。
+## 几何检查整套从正式关卡的基类继承（`level_checks.gd`）。这里只写**这一关独有的**。
 
 const LEVEL_INFO := "res://levels/level_3.tres"
 

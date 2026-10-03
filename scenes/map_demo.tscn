@@ -34,7 +34,6 @@
 [ext_resource type="Texture2D" path="res://skins/industrial/props/locker.png" id="p13"]
 [ext_resource type="Texture2D" path="res://skins/industrial/props/screen.png" id="p14"]
 [ext_resource type="Texture2D" path="res://skins/industrial/props/sign.png" id="p15"]
-[ext_resource type="Texture2D" path="res://skins/industrial/props/warning.png" id="p16"]
 [ext_resource type="PackedScene" path="res://scenes/trap_press.tscn" id="t0"]
 [ext_resource type="Script" path="res://scripts/belt_art.gd" id="bl"]
 
@@ -126,79 +125,54 @@ script = ExtResource("21")
 position = Vector2(544, 112)
 
 [node name="Prop14" type="Sprite2D" parent="Props"]
-texture = ExtResource("p3")
+texture = ExtResource("p4")
 script = ExtResource("21")
-position = Vector2(256, 0)
+position = Vector2(96, 112)
 
 [node name="Prop15" type="Sprite2D" parent="Props"]
-texture = ExtResource("p2")
-script = ExtResource("21")
-position = Vector2(400, 0)
-
-[node name="Prop16" type="Sprite2D" parent="Props"]
-texture = ExtResource("p6")
-script = ExtResource("21")
-position = Vector2(0, 112)
-
-[node name="Prop17" type="Sprite2D" parent="Props"]
-texture = ExtResource("p16")
-script = ExtResource("21")
-position = Vector2(176, 112)
-
-[node name="Prop18" type="Sprite2D" parent="Props"]
-texture = ExtResource("p1")
+texture = ExtResource("p5")
 script = ExtResource("21")
 position = Vector2(496, 112)
 
-[node name="Prop19" type="Sprite2D" parent="Props"]
-texture = ExtResource("p4")
+[node name="Prop16" type="Sprite2D" parent="Props"]
+texture = ExtResource("p2")
 script = ExtResource("21")
 position = Vector2(624, 112)
 
-[node name="Prop20" type="Sprite2D" parent="Props"]
-texture = ExtResource("p1")
+[node name="Prop17" type="Sprite2D" parent="Props"]
+texture = ExtResource("p3")
 script = ExtResource("21")
-position = Vector2(0, 208)
+position = Vector2(80, 208)
 
-[node name="Prop21" type="Sprite2D" parent="Props"]
+[node name="Prop18" type="Sprite2D" parent="Props"]
 texture = ExtResource("p5")
-script = ExtResource("21")
-position = Vector2(96, 208)
-
-[node name="Prop22" type="Sprite2D" parent="Props"]
-texture = ExtResource("p0")
 script = ExtResource("21")
 position = Vector2(256, 208)
 
-[node name="Prop23" type="Sprite2D" parent="Props"]
-texture = ExtResource("p13")
+[node name="Prop19" type="Sprite2D" parent="Props"]
+texture = ExtResource("p1")
 script = ExtResource("21")
 position = Vector2(544, 208)
 
-[node name="Prop24" type="Sprite2D" parent="Props"]
-texture = ExtResource("p3")
+[node name="Prop20" type="Sprite2D" parent="Props"]
+texture = ExtResource("p4")
 script = ExtResource("21")
 position = Vector2(80, 320)
 
-[node name="Prop25" type="Sprite2D" parent="Props"]
+[node name="Prop21" type="Sprite2D" parent="Props"]
 texture = ExtResource("p6")
-script = ExtResource("21")
-position = Vector2(160, 320)
-
-[node name="Prop26" type="Sprite2D" parent="Props"]
-texture = ExtResource("p4")
 script = ExtResource("21")
 position = Vector2(256, 320)
 
-[node name="Prop27" type="Sprite2D" parent="Props"]
+[node name="Prop22" type="Sprite2D" parent="Props"]
 texture = ExtResource("p9")
 script = ExtResource("21")
 position = Vector2(400, 320)
 
-[node name="Prop28" type="Sprite2D" parent="Props"]
-texture = ExtResource("p3")
+[node name="Prop23" type="Sprite2D" parent="Props"]
+texture = ExtResource("p6")
 script = ExtResource("21")
-position = Vector2(544, 320)
+position = Vector2(512, 320)
 
 [node name="FrontTiles" type="Node2D" parent="."]
 script = ExtResource("ta")

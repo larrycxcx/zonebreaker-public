@@ -55,6 +55,8 @@ GROUND_ROW = 20
 ## 一跳最多稳稳地上几格、横着最多跨几格（按 `player.gd` 的数字：跳 87 高、坑最宽 104）。
 JUMP_ROWS = 4
 JUMP_COLS = 6
+## 隔着空当往下跳，最多低几格还算（再低就是「掉下去」，走边缘那条路已经算了）
+DROP_ROWS = 6
 ## 人有多高（格）：站的地方上面这么多格得是空的。
 BODY_ROWS = 2
 TRAP_COLS = 2
@@ -239,7 +241,9 @@ class MapLevel:
 		return self.at(r, c) == "H" and self.at(r - 1, c) != "H"
 
 	def standable(self, r, c):
-		return 0 <= c < self.width and self.supports(r, c) and self.body_free(r, c)
+		# 地图底下那一行以下算实心（掉不出去），但**站不上去**——不然坑底就成了一条能走的路
+		# （往下跳那条加上以后，找路从坑底一路走过了第一关的大坑，拆掉梯子自检照样绿）
+		return 0 <= c < self.width and r < ROWS and self.supports(r, c) and self.body_free(r, c)
 
 	def _land(self, r, c):
 		"""从第 r 行往下掉（身子在 r 往上），落在哪一行（第一个能站的面）。掉出地图就是 None。"""
@@ -274,8 +278,10 @@ class MapLevel:
 			land = self._land(r + 1, c)
 			if land is not None:
 				out.append((land, c))
-		# 跳：往上最多 JUMP_ROWS 格、横着最多 JUMP_COLS 格；头顶那一片不能有实心
-		for up in range(0, JUMP_ROWS + 1):
+		# 跳：往上最多 JUMP_ROWS 格、横着最多 JUMP_COLS 格；头顶那一片不能有实心。
+		# 也能**往下跳到一块更低的台子**（最多低 DROP_ROWS 格，落得越低滞空越久，横着只会更远，按 JUMP_COLS 算是保守的）——
+		# 第一版只算了平跳和往上跳，隔着坑往下一级台子跳就被当成「到不了」（第一关空中那一串台子）
+		for up in range(-DROP_ROWS, JUMP_ROWS + 1):
 			for dc in range(-JUMP_COLS, JUMP_COLS + 1):
 				tr, tc = r - up, c + dc
 				if (up == 0 and abs(dc) <= 1) or not self.standable(tr, tc):
@@ -469,6 +475,52 @@ INDOOR_PROPS = ["box", "extinguisher", "bucket", "box_open", "barrel_rust", "cra
 PROP_STEP = (5, 11)
 ## 露天的地面上也撒（2026-10 用户：「尽量不出现大面积空旷的场景」），换一套露天该有的东西
 OUTDOOR_PROPS = ["barrel_rust", "box", "warning", "bucket", "crate", "box_open", "bench"]
+## 总图一行几块（工业区 9、绿区 12），背景墙压暗多少。
+COLUMNS = 9
+BACK_TINT = (0.72, 0.72, 0.8)
+
+## **每个区一套砖**（2026-10 做第一关时拆出来的）：上面那些常量就是工业区那套，`use_theme()` 换成别的区。
+## 绿区（第一关，`green-zone-tileset/Tileset.png`，12 列，编号 = 行 × 12 + 列 + 1）是**按四条边上的黑描边认出来的**：
+##   草皮整块 1/2/3、13/14/16、25/26/28；石砖顶 9/10/12，石砖身子是带砖纹的暗块 53/54/41，底 67/27/68；
+##   单行草皮浮台（底边垂着土）49/50/51、单行石台 44/45/46；一整块石头 30；一格宽的草皮柱子 5/17/29。
+##   暗紫色填充 + 稀疏砖纹（54、55、37~40）就是**洞里的墙**——绿区的「室内」是地下的山洞。
+THEMES = {
+	"industrial": {
+		"NINE": dict(NINE), "CRATES": CRATES, "BACK_TILES": BACK_TILES, "PIPE_TOP": PIPE_TOP,
+		"PIPE_BODY": PIPE_BODY, "INDOOR_PROPS": INDOOR_PROPS, "OUTDOOR_PROPS": OUTDOOR_PROPS,
+		"COLUMNS": 9, "BACK_TINT": (0.72, 0.72, 0.8),
+	},
+	"green": {
+		"NINE": {
+			"#": ((1, 2, 3), (13, 14, 16), (25, 26, 28)),
+			"%": ((9, 10, 12), (53, 54, 41), (67, 27, 68)),
+			"~": ((9, 10, 12), (53, 54, 41), (67, 27, 68)),
+			"-": ((9, 10, 12), (53, 54, 41), (67, 27, 68)),
+			"=": ((49, 50, 51), (49, 50, 51), (49, 50, 51)),
+			":": ((44, 45, 46), (44, 45, 46), (44, 45, 46)),
+		},
+		"CRATES": (30,),
+		# 大多是平的暗块（19 / 20），夹几块带青苔的（54 / 55）：青苔那块一格一格重复太抢眼（截图看出来的）
+		"BACK_TILES": [(19, 8), (20, 6), (54, 2), (55, 1)],
+		# `!` 在绿区是背景里的草皮石柱（一格宽那套：带草的顶 + 身子）
+		"PIPE_TOP": 5, "PIPE_BODY": (17, 17),
+		# 不撒 `box`：绿区可打爆的箱子就是这张图（`cyberpunk_trap_crate.tscn`），摆一堆打不烂的会让人分不清
+		"INDOOR_PROPS": ["rock_small", "rock", "bin", "rock_small", "grass_tuft"],
+		"OUTDOOR_PROPS": ["grass_tuft", "grass_blade", "bush_flat", "rock_small", "grass_tuft", "bush_big",
+			"bench", "rock", "grass_blade", "bin"],
+		"COLUMNS": 12, "BACK_TINT": (0.8, 0.8, 0.86),
+	},
+}
+
+
+def use_theme(name):
+	"""换成某个区的那套砖和装饰（模块里的常量直接换掉，后面的代码照常读）。"""
+	global NINE, CRATES, BACK_TILES, PIPE_TOP, PIPE_BODY, INDOOR_PROPS, OUTDOOR_PROPS, COLUMNS, BACK_TINT
+	t = THEMES[name]
+	NINE, CRATES, BACK_TILES = t["NINE"], t["CRATES"], t["BACK_TILES"]
+	PIPE_TOP, PIPE_BODY = t["PIPE_TOP"], t["PIPE_BODY"]
+	INDOOR_PROPS, OUTDOOR_PROPS = t["INDOOR_PROPS"], t["OUTDOOR_PROPS"]
+	COLUMNS, BACK_TINT = t["COLUMNS"], t["BACK_TINT"]
 
 
 def _hash(a, b, seed):
@@ -614,7 +666,9 @@ def dress(level, named, seed=20261003):
 		c = 0
 		next_at = roll(PROP_STEP[1])
 		while c < level.width:
-			floor = level.solid(r, c) and not level.solid(r - 1, c) and level.body_free(r, c)
+			# 不撒在钢架箱 / 石块（X）上：那是一块块掩体，顶上摆张长椅看着像叠罗汉
+			floor = level.solid(r, c) and not level.solid(r - 1, c) and level.body_free(r, c) \
+				and level.at(r, c) != "X"
 			if floor and c >= next_at and c not in busy and (c, r) not in taken \
 					and not any((cc, r) in enemy_cells for cc in range(c - 2, c + 3)):
 				pool = INDOOR_PROPS if _indoor(level, r - 1, c) else OUTDOOR_PROPS
@@ -658,12 +712,14 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 	if level.barrels:
 		extra.append('[ext_resource type="PackedScene" path="res://scenes/trap_barrel.tscn" id="t4"]')
 	width = level.width * CELL
+	# 总图一行几块：工业区是 TileArt 的默认值 9，不写；别的区写出来
+	columns_line = "" if COLUMNS == 9 else "columns = %d\n" % COLUMNS
 	lines = [lb.HEAD + "\n".join(extra) + "\n"]
 	lines.append('\n[node name="%s" type="Node2D"]\nscript = ExtResource("3")\n' % root)
 	# 画的顺序：背景（视差那几层，关卡加载时插到最前面）→ 室内的墙 → 装饰 → 实心的砖 → 平台（藏着）→ 机关 → 敌人
 	lines.append('\n[node name="BackTiles" type="Node2D" parent="."]\nscript = ExtResource("ta")\n'
-		'atlas = ExtResource("tb")\ntint = Color(0.72, 0.72, 0.8, 1)\ncells = PackedInt32Array(%s)\n'
-		% ", ".join(str(v) for v in back))
+		'atlas = ExtResource("tb")\n%stint = Color(%g, %g, %g, 1)\ncells = PackedInt32Array(%s)\n'
+		% ((columns_line,) + tuple(BACK_TINT) + (", ".join(str(v) for v in back),)))
 	# 编号牌上的数字：贴在圆盘正中，画在墙那一层上面
 	lines.append('\n[node name="Decals" type="Node2D" parent="."]\n')
 	for i, (digit, bx, by) in enumerate(signs):
@@ -677,7 +733,7 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 		if prop_frames and prop_frames.get(prop, 1) > 1:
 			lines.append("frames = %d\n" % prop_frames[prop])
 	lines.append('\n[node name="FrontTiles" type="Node2D" parent="."]\nscript = ExtResource("ta")\n'
-		'atlas = ExtResource("tb")\ncells = PackedInt32Array(%s)\n' % ", ".join(str(v) for v in front))
+		'atlas = ExtResource("tb")\n%scells = PackedInt32Array(%s)\n' % (columns_line, ", ".join(str(v) for v in front)))
 	# 传送带中间那一截的齿朝它带的方向滚（`BeltArt`），盖在砖上面
 	if level.belts:
 		lines.append('\n[node name="Belts" type="Node2D" parent="."]\nscript = ExtResource("bl")\n'

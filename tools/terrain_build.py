@@ -44,6 +44,10 @@ ZONES = {
 		"out": "cyberpunk",
 		"atlas": "Tileset.png",
 		"terrain": {"ground": [[(0, 1)], [(1, 1)]], "ledge": [[(4, 0), (4, 1), (4, 2)]], "stone": [[(2, 5)]]},
+		# 分层关卡（2026-10）逐格挑砖用的总图：`Tileset.png` 就是 `1 Tiles/Tile_01..96` 按 12 列排好的，
+		# 原样再排一遍（编号 = 行 × 12 + 列 + 1，和工业区那张一个规矩）
+		"tiles": "1 Tiles/Tile_%02d.png",
+		"tile_atlas": {"count": 96, "columns": 12},
 		"backdrop_dir": "2 Background/Day",
 		"backdrop": {"sky": "1", "buildings": "2", "trees_far": "3", "ground_line": "4", "trees_near": "5"},
 		# 梯子（2026-10）：中段能竖着无缝平铺。`Ladder2` 少一根横档，不用。别的区没有梯子素材的顺着 fallback 用这张

@@ -49,7 +49,8 @@ func _frame() -> int:
 
 
 func _draw() -> void:
-	if strip == null:
+	# 只有一帧的（绿区那只木箱）没有散架动画：打烂了就直接不画
+	if strip == null or (_broken and frames < 4):
 		return
 	var w := strip.get_width() / float(frames)
 	draw_texture_rect_region(strip, Rect2(at.x, at.y, w, strip.get_height()),

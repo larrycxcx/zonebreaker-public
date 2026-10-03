@@ -741,10 +741,10 @@ func test_the_pack_only_overrides_what_has_been_drawn() -> void:
 	# StringName 排序不按字母（按内部指针），先转成普通字符串再比
 	var drawn := pack.appearances.keys().map(func(k: StringName) -> String: return String(k))
 	drawn.sort()
-	check("it overrides the player, every enemy, every projectile, the terrain and the ladder",
+	check("it overrides the player, every enemy, every projectile, the terrain, the ladder, crates and barrels",
 		drawn == ["1_a", "1_b", "1_boss", "1_c", "1_d", "1_e", "1_f", "1_g", "biker", "boss_bullet", "cyborg",
 			"enemy_bullet", "enemy_grenade", "flyer_bullet", "ladder", "player_bullet", "player_grenade", "punk",
-			"terrain_ground", "terrain_ledge", "terrain_stone", "turret_bullet"],
+			"terrain_ground", "terrain_ledge", "terrain_stone", "trap_barrel", "trap_crate", "turret_bullet"],
 		str(drawn))
 	var effects := pack.effects.keys().map(func(k: StringName) -> String: return String(k))
 	effects.sort()
