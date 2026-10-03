@@ -142,13 +142,13 @@ func test_nothing_is_higher_than_a_jump() -> void:
 			if absf(face[2] - y) < 1.0 and face[0] != left \
 					and (absf(face[0] - right) <= reach or absf(left - face[1]) <= reach):
 				way = true          # 同一高度、跨得过去
-			if face[2] < y and face[0] < right and face[1] > left:
-				way = true          # 头顶有面、掉得下来
+			if face[2] < y and face[0] < right + reach and face[1] > left - reach:
+				way = true          # 头顶或者斜上方有面：掉下来、或者往下跳过来
 		for lnode in ladders:
 			var ladder := lnode as Ladder
-			if absf(ladder.global_position.y - y) < 1.0 and left <= ladder.global_position.x \
-					and ladder.global_position.x <= right:
-				way = true          # 梯子顶就在它上面
+			if absf(ladder.global_position.y - y) < 1.0 and left - 32.0 <= ladder.global_position.x \
+					and ladder.global_position.x <= right + 32.0:
+				way = true          # 梯子顶在它上面或者紧挨着它
 		check("%s can be reached" % slab.name, way, "%.0f..%.0f at %.0f" % [left, right, y])
 
 

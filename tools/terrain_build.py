@@ -85,6 +85,8 @@ ZONES = {
 		"pack": "bar-street-tileset",
 		"out": "bar_street",
 		"tiles": "1 Tiles/Tiles_%02d.png",
+		# 分层关卡（2026-10）逐格挑砖用的总图：100 块排成 10 列（编号 = 行 × 10 + 列 + 1）
+		"tile_atlas": {"count": 100, "columns": 10},
 		"terrain": {"ground": [[2], [5]], "ledge": {"tiles": [[7, 8, 9]], "crop": 16},
 			"stone": [[59]]},
 		"backdrop_dir": "2 Background/Night",

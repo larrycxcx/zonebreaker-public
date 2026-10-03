@@ -1,21 +1,22 @@
-"""按一份段落描述生成正式关卡场景，输出到 scenes/level_1.tscn。
+"""生成正式关卡场景（scenes/level_N.tscn）。
 
-    python tools/level_build.py          # 生成
+    python tools/level_build.py          # 全部关卡
+    python tools/level_build.py 2        # 只生成第二关
+    python tools/level_build.py demo     # 用户示意图那一屏（scenes/map_demo.tscn）
     python tools/level_build.py --check  # 只自检，不写文件
 
 **为什么用脚本生成**：正式关卡 12800 宽 = 20 屏，手写几百个节点没法迭代——
-调一下节奏就要重排一整屏。这里只改下面那张 `SECTIONS` 表，重跑一遍就行。
-和 `skin_build.py` 那套是一个路子：规则和数字写在脚本里，产物进仓库。
+调一下节奏就要重排一整屏。和 `skin_build.py` 那套是一个路子：规则和数字写在脚本里，产物进仓库。
 
-**关卡用的还是 `platform.tscn`，没换 TileMap**：墙挡子弹、单向平台、矮通道净空
-这些规则和测试全绑在它身上，地形贴图本来就是按大小九宫格平铺的，多长都行。
+**两种关卡**（2026-10 起）：
+- 第一、二、三关是**分层的格子地图**：`level1_map.py` / `level2_map.py` / `level3_map.py` 画，
+  `map_build.py` 找路自检、挑砖、写场景（见 CLAUDE.md「梯子与分层关卡」）。
+- 第四关是**纵向**往上爬的：段落表在下面的 `SECTIONS_4`，尺子和写场景在 `vlevel_build.py`。
+原来那套「横向段落表」的生成器（一条长地面 + 浮台、坑、矮通道、堵块）随着前三关都换成格子地图删掉了。
 
-一段 = 1280 宽（两屏）。段里的坐标写**段内相对值**，拼接时自动加上段的起点。
-生成时会自检（见 `check_level()`）：坑跳得过去、矮通道净空还是 30、墙翻得过去、
-浮台够得着、敌人没摆在坑上或矮通道底下。数字不对直接报错，不会悄悄产出一个过不去的关卡。
+这里只剩：几把公用的尺子、每关的敌人表、`STAGES` 那张总表、写场景用的文件头和平台节点。
 """
 import os
-import struct
 import sys
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -23,72 +24,30 @@ sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCENES = os.path.join(HERE, "..", "scenes")
 
-# ---------------------------------------------------------------- 关卡的尺子
+# ---------------------------------------------------------------- 公用的尺子
 
-## 一段多宽（两屏）。
-SECTION = 1280
-## 地面顶边的 y，以及地面画多厚。
+## 地面顶边的 y。
 GROUND_Y = 320.0
-GROUND_THICK = 40.0
 ## 画面多高。摄像机的 limit_bottom 用它。
 SCREEN_H = 360.0
 ## 站在地上的敌人 / 玩家的 y：判定框 32 高、原点在正中，所以是地面顶边往上 16。
 STAND = 16.0
 ## Boss A 的判定框 48 高，原点在正中 → 顶边往上 24。
 BOSS_STAND = 24.0
-## 飞行的 E 悬停高度。
-FLY_Y = 88.0
 
 ## 玩家的本事（`player.gd` 里的数字算出来的，改那边要跟着改这里）：
-## 跳跃 v=560、重力 g=1800 → 跳得起 560²/(2×1800) ≈ 87px，滞空 2×560/1800 ≈ 0.62 秒。
+## 跳跃 v=560、重力 g=1800 → 跳得起 560²/(2×1800) ≈ 87px。
 JUMP_HEIGHT = 87.0
-AIR_TIME = 0.62
-WALK_SPEED = 180.0
-## 坑最宽多少：走着跳（不冲刺）跳得过去的距离，再留一截余量。
-MAX_GAP = WALK_SPEED * AIR_TIME - 8.0      # ≈ 103
-## 浮台一次最多往上跳多高：跳跃高度留 15px 余量。
+## 浮台一次最多往上跳多高：跳跃高度留 15px 余量（纵向关用）。
 MAX_STEP = JUMP_HEIGHT - 15.0              # 72
-## 墙最高多少：CLAUDE.md 的规矩是比跳跃高度至少低 12。
-MAX_WALL = JUMP_HEIGHT - 12.0              # 75
-## 「堵死」用的实心方块最矮多少：比一次跳跃还高，底下那条路就断了，必须从上面的浮台绕过去。
-MIN_BLOCK = JUMP_HEIGHT + 16.0             # 103
-## 浮台要盖在堵块顶上多少，人站上去才不会嵌进方块里。
-BLOCK_CLEAR = 16.0
-## 矮通道净空：站着 32 过不去、站姿子弹 25 过得去，窗口只有几个像素（见 CLAUDE.md）。
-CRAWL_CLEAR = 30.0
-## 矮通道那块砖画多厚。
-CRAWL_THICK = 50.0
-## 摆在半空里：段落表里第三个值写 `("air", y)` 就是「原点直接放在这个 y」，
-## 给的是**绝对高度**，不是脚下那个面。两种用法：
-## 从天而降的 2-A 吊在画面顶边以上（`HANG_Y`），以及飘在空中的 Boss。
-AIR = "air"
+## 从天而降的 2-A 吊在画面顶边以上的这个高度，玩家走到脚下才砸下来。
 HANG_Y = -40.0
+## 纵向关的段落表里敌人写 `(AIR, 第几层)` 就是「悬在那一层的半空」（会飞的那几种）。
+AIR = "air"
 
-## **机关**（第二关，2026-10 加的）：液压机和闸门都是一帧 32×64、底边落在地面上。
-## 液压机挂在「压机通道」的天花板下面（天花板从画面顶一直垂到离地 64），闸门上面是一截通到画面顶的实心墙——
-## 门和压机都只有 64 高、一跳有 87，不封顶的话直接跳过去，机关就白放了。
-TRAP_W = 32.0
-TRAP_H = 64.0
-TRAP_TOP = GROUND_Y - TRAP_H
-## 一排液压机依次错开多少秒：同时砸下来就是一堵墙，错开了空当才是一台接一台地开。
-PRESS_STAGGER = 0.45
+## 机关的场景（第二关的液压机和闸门）。
 PRESS_SCENE = "res://scenes/trap_press.tscn"
 GATE_SCENE = "res://scenes/trap_gate.tscn"
-
-## 出生点往后多远之内不许摆敌人。
-## **人一进来就在挨打，连看清楚周围都来不及**（2026-09 试玩发现）。
-## 摄像机一开始夹在关卡左边，画面就是 x 0..640，而敌人**只要有一部分在画面里就算够得着**
-## （见 CLAUDE.md 的「视野对等」），所以第一个敌人得在画面外，再留一点余量。
-SAFE_START = 700.0
-
-## 装饰物：名字 → 横着排了几帧（1 = 静止）。贴图在 `skins/cyberpunk/props/`，
-## 由 `tools/terrain_build.py` 从地形素材包里挑出来。**纯显示，没有碰撞**，
-## 画在所有东西后面，再密也不挡敌人和子弹（`scripts/prop.gd`）。
-PROP_FRAMES_1 = {"fountain": 4}
-## 撒的间隔（像素）：小东西密一点，树疏一点。
-SCATTER_STEP = (40, 130)
-TREE_STEP = (240, 460)
-## 撒的随机种子写在每关的表里。**固定**：产物是要进仓库的，重新生成必须一模一样。
 
 ## 敌人在关卡里叫什么：键 `1_a` → `1-A`、`1_boss` → `1-Boss`。
 ## **编号带着关卡号**：23 关每关都有自己的一套敌人，字母只是这一关的序号（不代表打法），
@@ -110,33 +69,13 @@ ENEMIES_1 = {
 	"1_boss": "res://scenes/boss_1.tscn",
 }
 
-# ---------------------------------------------------------------- 横向关的段落格式（第三关在用）
-#
-# 第一、二关 2026-10 起是分层的格子地图（`level1_map.py` / `level2_map.py`），不走这一套。
-#
-# 每段：(名字, {
-#   "gaps":   [(段内 x, 宽)]            地面在这儿断开 —— 掉下去就死
-#   "ledges": [(段内 x, 顶边 y, 宽)]     单向浮台，从下面能穿上去
-#   "walls":  [(段内 x, 高)]            实心竖墙，挡路挡子弹，巡逻兵碰到掉头
-#   "blocks": [(段内 x, 宽, 高)]         **把下面那条路堵死**的实心方块：比一次跳跃还高，
-#                                        必须踩着上面的浮台绕过去（生成时会检查真有那条高路）
-#   "crawl":  [(段内 x, 宽)]            矮通道顶块，底下只剩 30px，必须趴着爬
-#   "enemies":[(类型, 段内 x, 站在哪个顶边上)]
-#   "props":  [(装饰名, 段内 x, 站在哪个顶边上)]   摆在固定位置的大件（喷泉、长椅、栅栏）；
-#                                        小草小石头由 `scatter()` 沿着地面自动撒
-# })
-#
-# 「站在哪个顶边上」写的是**脚下那个面的 y**（地面就是 GROUND_Y，浮台就是它的顶边），
-# 生成时自动换算成敌人的原点高度；飞行的 E 写 None。
-
-## 玩家出生点。
-SPAWN = (64.0, GROUND_Y - STAND)
+## 装饰物：名字 → 横着排了几帧（1 = 静止）。**纯显示，没有碰撞**（`scripts/prop.gd`）。
+PROP_FRAMES_1 = {"fountain": 4}
 
 
 # ---------------------------------------------------------------- 第二关（工业区）
 #
-# 2026-10 起是**分层的格子地图**（`level2_map.py` → `map_build.py`），不再走下面横向那套段落表。
-# 这里只留它的敌人表和会动的装饰。
+# 分层的格子地图（`level2_map.py`），这里只留它的敌人表和会动的装饰。
 
 PROP_FRAMES_2 = {"screen": 4, "conveyor": 4}
 
@@ -151,28 +90,12 @@ ENEMIES_2 = {
 }
 
 
-# ---------------------------------------------------------------- 第三关（酒吧街）的段落
+# ---------------------------------------------------------------- 第三关（酒吧街）
 #
-# 同样 10 段 = 20 屏，几何走同一套自检。这一关**没有会飞的**，空中的压力换成了：
-#   3-C 跳劈——唯一会主动越过地形的，摆在阶梯和屋顶段，躲在掩体后面对它没用；
-#   3-E 贴地开枪——趴下躲不掉、只能跳，摆在开阔地和坑边；
-#   3-D 正面减伤——摆在窄处和墙后，逼玩家绕背、跳过去或者把手雷扔过它头顶；
-#   3-A 突进刺——摆在**地面**上（冲的时候不在悬崖前掉头，摆在浮台上它会自己冲下去）；
-#   3-F 炮车——慢慢挪、停下来**从炮管里打手雷**，摆在长直路上。
-# Boss 是**站在地上的**，所以 Boss 区那一段**整片实地、不放墙**：
-# 墙挡在它和玩家之间时，视线从身体中心发出会被挡住，它就什么都不做（见 CLAUDE.md）。
+# 分层的格子地图（`level3_map.py`）。这一关**没有会飞的**，也**没有会动的装饰**：
+# 酒瓶、酒杯、飞钞、飘牌摆在地上像能捡的东西（2026-10 试玩反馈），都不要。
 
-## **不摆酒瓶、酒杯、飞钞、飘牌**（2026-10 试玩反馈）：这几样小小一个、亮晶晶地摆在地上，
-## 在一个打怪掉钱的游戏里看着就是「能捡的东西」，玩家会走过去试着捡。
-## 装饰只留一眼看得出是家具的大件。这一关因此没有会动的装饰。
 PROP_FRAMES_3 = {}
-SCATTER_3 = ["crate", "stool", "bin", "keg", "stool2", "crate", "keg", "bin"]
-TREES_3 = ["cabinet", "sign", "counter", "cabinet2", "counter2"]
-SCATTER_SEED_3 = 20261001
-## 街边那一排楼（`terrain_build.py` 按配方拼出来的整张图）。沿着地面一栋挨一栋摆，
-## 楼与楼之间留一截空当露出后面的夜景；**只摆在实地上**，坑上面立着一栋楼就不像话了。
-FACADES_3 = ["facade_1", "facade_2", "facade_3", "facade_4", "facade_5", "facade_6"]
-FACADE_GAP = (16, 120)
 
 ENEMIES_3 = {
 	"3_a": "res://scenes/enemy_3_a.tscn",
@@ -411,10 +334,10 @@ SECTIONS_4 = [
 # ---------------------------------------------------------------- 一关 = 一条配置
 #
 # 加一关就往这张表里加一条，跑 `python tools/level_build.py 2`。
-# 关卡之间**什么都不共用**：敌人、装饰、段落各写各的——23 关里每一关的敌人和素材都不一样，
+# 关卡之间**什么都不共用**：敌人、装饰、地图各写各的——23 关里每一关的敌人和素材都不一样，
 # 共用一份只会让「调第二关的节奏」把第一关也改掉。
 STAGES = {
-	# 第一、二关是**分层的格子地图**：`level1_map.py` / `level2_map.py` 画、`map_build.py` 查路和写场景，
+	# 第一、二、三关是**分层的格子地图**：`levelN_map.py` 画、`map_build.py` 查路和写场景，
 	# `theme` 是那个区的一套砖（`map_build.THEMES`）
 	"1": {
 		"out": "level_1.tscn", "root": "Level1", "prop_dir": "cyberpunk", "map": "level1_map",
@@ -426,10 +349,8 @@ STAGES = {
 		"enemies": ENEMIES_2, "prop_frames": PROP_FRAMES_2,
 	},
 	"3": {
-		"out": "level_3.tscn", "root": "Level3", "prop_dir": "bar_street",
-		"sections": SECTIONS_3, "enemies": ENEMIES_3, "flying": set(),
-		"prop_frames": PROP_FRAMES_3, "scatter": SCATTER_3, "trees": TREES_3,
-		"seed": SCATTER_SEED_3, "stand": STAND_3, "facades": FACADES_3,
+		"out": "level_3.tscn", "root": "Level3", "prop_dir": "bar_street", "map": "level3_map",
+		"theme": "bar", "enemies": ENEMIES_3, "prop_frames": PROP_FRAMES_3, "stand": STAND_3,
 	},
 	# 第四关是**纵向**的：段落、尺子、写场景都走 `vlevel_build.py`
 	"4": {
@@ -442,22 +363,12 @@ STAGES = {
 
 
 def use_stage(key):
-	"""把这一关的表装进全局，后面的代码照常读。"""
-	global OUT, ROOT, PROP_DIR, SECTIONS, ENEMIES, FLYING
-	global PROP_FRAMES, SCATTER, TREES, SCATTER_SEED, STAND_BY, FACADES
-	stage = STAGES[key]
-	OUT = os.path.join(SCENES, stage["out"])
-	ROOT = stage["root"]
-	PROP_DIR = stage["prop_dir"]
-	SECTIONS = stage.get("sections", [])
-	ENEMIES = stage["enemies"]
-	FLYING = stage.get("flying", set())
-	PROP_FRAMES = stage["prop_frames"]
-	SCATTER = stage.get("scatter", [])
-	TREES = stage.get("trees", [])
-	SCATTER_SEED = stage.get("seed", 0)
-	STAND_BY = stage.get("stand", {})
-	FACADES = stage.get("facades", [])
+	"""把这一关「哪种敌人脚底离原点多远」那张表装进全局（`stand_of()` 读它）。"""
+	global STAND_BY
+	STAND_BY = STAGES[key].get("stand", {})
+
+
+STAND_BY = {}
 
 
 def stand_of(kind):
@@ -465,248 +376,6 @@ def stand_of(kind):
 	if kind in STAND_BY:
 		return STAND_BY[kind]
 	return BOSS_STAND if kind.endswith("_boss") else STAND
-
-
-def prop_width(prop):
-	"""装饰贴图有多宽（读 PNG 头，楼面是 `terrain_build.py` 先生成好的）。"""
-	path = os.path.join(HERE, "..", "skins", PROP_DIR, "props", prop + ".png")
-	with open(path, "rb") as f:
-		return struct.unpack(">I", f.read(24)[16:20])[0]
-
-
-# ---------------------------------------------------------------- 摊平成一整关
-
-class Level:
-	def __init__(self):
-		self.width = SECTION * len(SECTIONS)
-		self.gaps = []        # (x, 宽)
-		self.ledges = []      # (名字, x, 顶边 y, 宽)
-		self.walls = []       # (名字, x, 高)
-		self.blocks = []      # (名字, x, 宽, 高)
-		self.crawls = []      # (名字, x, 宽)
-		self.enemies = []     # (名字, 类型, x, y)
-		self.floating = set() # 直接摆在半空里的那几个的名字（吊着的 2-A、飘着的 Boss）
-		self.props = []       # (名字, 装饰名, x, 底边 y)
-		self.halls = []       # (名字, x, 宽)       压机通道的天花板
-		self.presses = []     # (名字, x, 错开几秒)
-		self.gates = []       # (名字, x, 错开几秒)
-		self.ground = []      # (x, 宽)
-		self._build()
-
-	def _build(self):
-		counts = {}
-
-		def name(prefix):
-			counts[prefix] = counts.get(prefix, 0) + 1
-			return "%s%d" % (prefix, counts[prefix])
-
-		for index, (label, parts) in enumerate(SECTIONS):
-			base = index * SECTION
-			for x, wide in parts.get("gaps", []):
-				self.gaps.append((base + x, wide))
-			for x, top, wide in parts.get("ledges", []):
-				self.ledges.append((name("Ledge"), base + x, top, wide))
-			for x, high in parts.get("walls", []):
-				self.walls.append((name("Wall"), base + x, high))
-			for x, wide, high in parts.get("blocks", []):
-				self.blocks.append((name("Block"), base + x, wide, high))
-			for x, wide in parts.get("crawl", []):
-				self.crawls.append((name("Crawl"), base + x, wide))
-			for x, wide, count in parts.get("halls", []):
-				self.halls.append((name("Hall"), base + x, wide))
-				space = (wide - count * TRAP_W) / (count + 1)
-				for k in range(count):
-					self.presses.append((name("Press"), base + x + space * (k + 1) + TRAP_W * k,
-						PRESS_STAGGER * k))
-			for x, phase in parts.get("gates", []):
-				self.gates.append((name("Gate"), base + x, phase))
-			for prop, x, surface in parts.get("props", []):
-				self.props.append((name("Prop"), prop, base + x, surface))
-			for kind, x, surface in parts.get("enemies", []):
-				floats = False
-				if surface is None:
-					y = FLY_Y
-				elif isinstance(surface, tuple) and surface[0] == AIR:
-					y = surface[1]
-					floats = True
-				else:
-					y = surface - stand_of(kind)
-				# **名字必须各不相同**：一段里有好几个 1-A，重名的话 `.tscn` 里会出现同名节点，
-				# 引擎的子节点名字表就对不上了（free 一批敌人时刷一屏
-				# 「Children name does not match parent name in hashtable」）。
-				label = name(enemy_label(kind) + "-")
-				if floats:
-					self.floating.add(label)
-				self.enemies.append((label, kind, base + x, y))
-		self.ground = self._ground_runs()
-		self._scatter()
-		# 楼面**排在所有装饰最前面**：先声明的先画，楼要在吧台、酒桶后面
-		self.props = self._facades() + self.props
-
-	def _facades(self):
-		"""沿着每一段地面一栋挨一栋摆楼，放不下整栋就不放（不许悬在坑上）。
-		种子和小装饰的分开，加楼不会打乱原来那些小东西的位置。"""
-		if not FACADES:
-			return []
-		state = [SCATTER_SEED + 1]
-
-		def roll(low, high):
-			state[0] = (state[0] * 1103515245 + 12345) & 0x7FFFFFFF
-			return low + state[0] % max(1, high - low)
-
-		out = []
-		for left, wide in self.ground:
-			at = left + roll(0, 48)
-			while True:
-				facade = FACADES[roll(0, len(FACADES))]
-				width = prop_width(facade)
-				if at + width > left + wide - 8:
-					break
-				out.append(("Facade%d" % (len(out) + 1), facade, float(at), GROUND_Y))
-				at += width + roll(FACADE_GAP[0], FACADE_GAP[1])
-		return out
-
-	def _scatter(self):
-		"""沿着地面撒小东西和树。**自己写的线性同余**，不用 random：
-		产物要进仓库，换台机器、换个 Python 版本都得生成出一模一样的文件。"""
-		state = [SCATTER_SEED]
-
-		def roll(low, high):
-			state[0] = (state[0] * 1103515245 + 12345) & 0x7FFFFFFF
-			return low + state[0] % max(1, high - low)
-
-		count = [len(self.props)]
-
-		def add(prop, x):
-			count[0] += 1
-			self.props.append(("Prop%d" % count[0], prop, float(x), GROUND_Y))
-
-		for left, wide in self.ground:
-			right = left + wide
-			at = left + 24
-			while at < right - 24:
-				add(SCATTER[roll(0, len(SCATTER))], at)
-				at += roll(SCATTER_STEP[0], SCATTER_STEP[1])
-			at = left + roll(60, 200)
-			while at < right - 80:
-				add(TREES[roll(0, len(TREES))], at)
-				at += roll(TREE_STEP[0], TREE_STEP[1])
-
-	def _ground_runs(self):
-		"""地面 = 整条减去坑，切成一段一段。"""
-		runs, at = [], 0.0
-		for x, wide in sorted(self.gaps):
-			if x > at:
-				runs.append((at, x - at))
-			at = x + wide
-		if at < self.width:
-			runs.append((at, self.width - at))
-		return runs
-
-	def surfaces(self):
-		"""能站人的面：(左, 右, 顶边 y)。地面按段算，浮台各算一块。"""
-		out = [(x, x + wide, GROUND_Y) for x, wide in self.ground]
-		out += [(x, x + wide, top) for _, x, top, wide in self.ledges]
-		return out
-
-	def surface_at(self, x):
-		"""这个 x 站得住吗（在地面上还是悬空）。"""
-		for left, right, top in self.surfaces():
-			if left <= x <= right and top == GROUND_Y:
-				return top
-		return None
-
-
-# ---------------------------------------------------------------- 自检
-
-def check_level(level):
-	"""跑得通吗。**数字不对就报错**，不产出一个过不去的关卡。"""
-	problems = []
-	for x, wide in level.gaps:
-		# 坑里架了浮台就一跳一跳地算：从左岸跳上浮台、再从浮台跳到右岸
-		steps = [x]
-		for _, lx, top, lwide in level.ledges:
-			if lx >= x and lx + lwide <= x + wide:
-				if GROUND_Y - top > MAX_GAP / 2.0:
-					problems.append("坑 %.0f 里的浮台架得太高（%.0f），跳上去就没横向距离了"
-						% (x, GROUND_Y - top))
-				steps += [lx, lx + lwide]
-		steps.append(x + wide)
-		steps.sort()
-		for i in range(0, len(steps) - 1, 2):
-			hop = steps[i + 1] - steps[i]
-			if hop > MAX_GAP:
-				problems.append("坑 %.0f 有一跳是 %.0f，走着跳最多 %.0f" % (x, hop, MAX_GAP))
-	for name, x, high in level.walls:
-		if high > MAX_WALL:
-			problems.append("%s 高 %.0f，跳不过去（最多 %.0f）" % (name, high, MAX_WALL))
-		if level.surface_at(x) is None:
-			problems.append("%s 架在坑上" % name)
-	for name, x, wide in level.crawls:
-		if level.surface_at(x) is None or level.surface_at(x + wide) is None:
-			problems.append("%s 架在坑上" % name)
-	for name, x, wide, high in level.blocks:
-		if high < MIN_BLOCK:
-			problems.append("%s 只有 %.0f 高，一跳就过去了，堵不住（至少 %.0f）" % (name, high, MIN_BLOCK))
-		if level.surface_at(x) is None or level.surface_at(x + wide) is None:
-			problems.append("%s 架在坑上" % name)
-		top = GROUND_Y - high
-		over = [lx for _, lx, ltop, lwide in level.ledges
-			if ltop <= top - BLOCK_CLEAR and lx <= x and lx + lwide >= x + wide]
-		if not over:
-			problems.append("%s 把路堵死了，上面却没有整块盖过去的浮台" % name)
-	# 机关：底下是实地；那一条（压机通道 / 闸门连同上面那截墙）不许和平台、矮通道、堵块、竖墙打架；
-	# 跟前不许站敌人（站在压机底下的巡逻兵一直挨不着，站在门里的会被门卡住）
-	columns = [(n, x, wide) for n, x, wide in level.halls] + [(n, x, TRAP_W) for n, x, _ in level.gates]
-	for name, x, wide in columns:
-		if level.surface_at(x) is None or level.surface_at(x + wide) is None:
-			problems.append("%s 架在坑上" % name)
-		for other, ox, _, owide in level.ledges:
-			if ox < x + wide and x < ox + owide:
-				problems.append("%s 那一条里有浮台 %s，会被天花板 / 门上的墙穿过去" % (name, other))
-		solids = [(n, cx, cw) for n, cx, cw in level.crawls] + [(n, bx, bw) for n, bx, bw, _ in level.blocks] \
-			+ [(n, wx, 16.0) for n, wx, _ in level.walls]
-		for other, ox, owide in solids:
-			if ox < x + wide + 16 and x - 16 < ox + owide:
-				problems.append("%s 挨着 %s，挤在一起" % (name, other))
-		for ename, kind, ex, ey in level.enemies:
-			if x - 24 <= ex <= x + wide + 24 and ey > 0:
-				problems.append("%s 站在 %s 那一条里" % (ename, name))
-	# 浮台要够得着：横着差 120 以内、底下有个面，落差不超过一次跳
-	for name, x, top, wide in level.ledges:
-		best = None
-		for left, right, other in level.surfaces():
-			if other <= top:
-				continue
-			if right < x - 120.0 or left > x + wide + 120.0:
-				continue
-			step = other - top
-			best = step if best is None else min(best, step)
-		if best is None:
-			problems.append("%s 底下没有能起跳的地方" % name)
-		elif best > MAX_STEP:
-			problems.append("%s 比底下的面高 %.0f，一次跳最多 %.0f" % (name, best, MAX_STEP))
-	# 敌人：出生点那一屏不许有；站在地上的不能悬空，也不能塞进矮通道（32 高，净空只有 30，会卡死）
-	for name, kind, x, y in level.enemies:
-		if x < SAFE_START:
-			problems.append("%s 摆在 x %.0f，出生点那一屏里（%.0f 以内不许放），人一进来就在挨打"
-				% (name, x, SAFE_START))
-		if kind in FLYING or name in level.floating:
-			# 飞的、以及吊在画面上边的：脚下本来就没有面。
-			# 吊着的那个要落得下来——底下得是实地，不能是坑。
-			if y < 0.0 and level.surface_at(x) is None:
-				problems.append("%s 吊在 x %.0f 的坑上面，掉下来就摔死了" % (name, x))
-			continue
-		feet = y + stand_of(kind)
-		on_ledge = any(left - 8 <= x <= right + 8 and abs(top - feet) < 1.0
-			for left, right, top in level.surfaces())
-		if not on_ledge:
-			problems.append("%s 站在 (%.0f, %.0f)，脚下没有面" % (name, x, y))
-		if abs(feet - GROUND_Y) < 1.0:
-			for _, cx, cwide in level.crawls:
-				if cx - 24 <= x <= cx + cwide + 24:
-					problems.append("%s 摆在矮通道底下，会被卡住不动" % name)
-	return problems
 
 
 # ---------------------------------------------------------------- 写场景
@@ -738,95 +407,6 @@ def platform(name, parent, x, y, w, h, one_way=False, skin=None):
 	if one_way:
 		lines.append("one_way = true")
 	return "\n".join(lines) + "\n"
-
-
-def build(level, write):
-	ids = {}
-	extra = []
-	for index, kind in enumerate(sorted({e[1] for e in level.enemies})):
-		ids[kind] = "e%d" % index
-		extra.append('[ext_resource type="PackedScene" path="%s" id="%s"]' % (ENEMIES[kind], ids[kind]))
-
-	prop_ids = {}
-	for index, prop in enumerate(sorted({p[1] for p in level.props})):
-		prop_ids[prop] = "p%d" % index
-		extra.append('[ext_resource type="Texture2D" path="res://skins/%s/props/%s.png" id="%s"]'
-			% (PROP_DIR, prop, prop_ids[prop]))
-	extra.append('[ext_resource type="Script" path="res://scripts/prop.gd" id="21"]')
-	if level.presses:
-		extra.append('[ext_resource type="PackedScene" path="%s" id="t0"]' % PRESS_SCENE)
-	if level.gates:
-		extra.append('[ext_resource type="PackedScene" path="%s" id="t1"]' % GATE_SCENE)
-	out = [HEAD + "\n".join(extra) + "\n"]
-	out.append('\n[node name="Level1" type="Node2D"]\nscript = ExtResource("3")\n')
-	# **装饰在最前面声明**：关卡加载时背景会被插成第 0 个子节点，于是画的顺序就是
-	# 背景 → 装饰 → 地形 → 敌人 → 玩家，装饰再密也压不住要看的东西。
-	out.append('\n[node name="Props" type="Node2D" parent="."]\n')
-	for name, prop, x, bottom in level.props:
-		frames = PROP_FRAMES.get(prop, 1)
-		out.append('\n[node name="%s" type="Sprite2D" parent="Props"]\n'
-			'texture = ExtResource("%s")\n'
-			'script = ExtResource("21")\n'
-			'position = Vector2(%g, %g)\n' % (name, prop_ids[prop], x, bottom))
-		if frames > 1:
-			out.append("frames = %d\n".replace("\n", chr(10)) % frames)
-	out.append('\n[node name="Level" type="Node2D" parent="."]\n')
-	for index, (x, wide) in enumerate(level.ground):
-		out.append("\n" + platform("Ground%d" % (index + 1), "Level", x, GROUND_Y, wide,
-			GROUND_THICK, skin="terrain_ground"))
-	out.append("\n" + platform("WallLeft", "Level", -16, 0, 16, SCREEN_H))
-	out.append("\n" + platform("WallRight", "Level", level.width, 0, 16, SCREEN_H))
-	for name, x, top, wide in level.ledges:
-		out.append("\n" + platform(name, "Level", x, top, wide, 16, one_way=True))
-	for name, x, wide in level.crawls:
-		top = GROUND_Y - CRAWL_CLEAR - CRAWL_THICK
-		out.append("\n" + platform(name, "Level", x, top, wide, CRAWL_THICK))
-	for name, x, wide, high in level.blocks:
-		out.append("\n" + platform(name, "Level", x, GROUND_Y - high, wide, high))
-	for name, x, wide in level.halls:
-		out.append("\n" + platform(name, "Level", x, 0, wide, TRAP_TOP))
-	for name, x, _ in level.gates:
-		out.append("\n" + platform(name.replace("Gate", "Lintel"), "Level", x, 0, TRAP_W, TRAP_TOP))
-	out.append('\n[node name="Walls" type="Node2D" parent="Level"]\n')
-	for name, x, high in level.walls:
-		out.append("\n" + platform(name, "Level/Walls", x, GROUND_Y - high, 16, high))
-
-	if level.presses or level.gates:
-		# 机关画在地形后面、敌人前面
-		out.append('\n[node name="Traps" type="Node2D" parent="."]\n')
-		for name, x, phase in level.presses:
-			out.append('\n[node name="%s" parent="Traps" instance=ExtResource("t0")]\n'
-				'position = Vector2(%g, %g)\nphase = %g\nmount_y = %g\n' % (name, x, TRAP_TOP, phase, TRAP_TOP))
-		for name, x, phase in level.gates:
-			out.append('\n[node name="%s" parent="Traps" instance=ExtResource("t1")]\n'
-				'position = Vector2(%g, %g)\nphase = %g\n' % (name, x, TRAP_TOP, phase))
-	out.append('\n[node name="Enemies" type="Node2D" parent="."]\n')
-	for name, kind, x, y in level.enemies:
-		out.append('\n[node name="%s" parent="Enemies" instance=ExtResource("%s")]\n'
-			'position = Vector2(%g, %g)\n' % (name, ids[kind], x, y))
-
-	out.append('\n[node name="Fx" type="Node2D" parent="."]\n'
-		'script = ExtResource("13")\n'
-		'muzzle_flash_scene = ExtResource("14")\n'
-		'hit_spark_scene = ExtResource("15")\n'
-		'impact_spark_scene = ExtResource("16")\n'
-		'explosion_scene = ExtResource("18")\n')
-	out.append('\n[node name="Player" parent="." instance=ExtResource("2")]\n'
-		'position = Vector2(%g, %g)\n' % SPAWN)
-	out.append('\n[node name="Camera2D" type="Camera2D" parent="."]\n'
-		'position = Vector2(%g, %g)\n'
-		'script = ExtResource("17")\n'
-		'limit_left = 0\nlimit_top = 0\nlimit_right = %d\nlimit_bottom = %d\n'
-		% (SPAWN[0], SPAWN[1] - 8, level.width, SCREEN_H))
-	out.append('\n[node name="HUD" parent="." instance=ExtResource("6")]\n')
-	out.append('\n[node name="PauseMenu" parent="." instance=ExtResource("19")]\n')
-	out.append('\n[node name="DeathScreen" parent="." instance=ExtResource("20")]\n')
-	out.append('\n[node name="ClearScreen" parent="." instance=ExtResource("22")]\n')
-
-	if write:
-		with open(OUT, "w", newline="\n", encoding="utf-8") as f:
-			f.write("".join(out))
-	return "".join(out)
 
 
 def build_map_demo(write):
@@ -919,34 +499,10 @@ def build_vertical(key, write):
 def build_stage(key, write):
 	if STAGES[key].get("map"):
 		build_map_level(key, write)
-		return
-	if STAGES[key].get("vertical"):
+	elif STAGES[key].get("vertical"):
 		build_vertical(key, write)
-		return
-	level = Level()
-	problems = check_level(level)
-	if problems:
-		print("关卡自检没过：")
-		for p in problems:
-			print("  -", p)
-		sys.exit(1)
-	build(level, write)
-	print("第 %s 关：%d 宽（%d 段 / %d 屏）" % (key, level.width, len(SECTIONS), level.width // 640))
-	print("  地面 %d 段、坑 %d 个（最宽 %.0f，走着跳的上限 %.0f）"
-		% (len(level.ground), len(level.gaps),
-			max([w for _, w in level.gaps] or [0]), MAX_GAP))
-	print("  浮台 %d、竖墙 %d、矮通道 %d、堵块 %d"
-		% (len(level.ledges), len(level.walls), len(level.crawls), len(level.blocks)))
-	if level.presses or level.gates:
-		print("  机关：液压机 %d（%d 条压机通道）、闸门 %d" % (len(level.presses), len(level.halls), len(level.gates)))
-	print("  装饰 %d 件（纯显示，画在所有东西后面）" % len(level.props))
-	kinds = {}
-	for _, kind, _, _ in level.enemies:
-		kinds[kind] = kinds.get(kind, 0) + 1
-	print("  敌人 %d 个：%s" % (len(level.enemies),
-		"、".join("%s×%d" % (k, n) for k, n in sorted(kinds.items()))))
-	if write:
-		print("  写入 scenes/%s" % STAGES[key]["out"])
+	else:
+		sys.exit("第 %s 关既不是格子地图也不是纵向关" % key)
 
 
 if __name__ == "__main__":
