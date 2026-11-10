@@ -569,3 +569,26 @@ func test_speed_makes_sprints_last_longer() -> void:
 		drains.append(before - player.stamina)
 	check("setup: the sprint really used stamina", drains[0] > 5.0, str(drains))
 	check("speed 150: two thirds of the stamina for the same sprint", absf(drains[1] - drains[0] * 2.0 / 3.0) < 0.5, str(drains))
+
+
+func test_a_save_from_before_the_rename_is_carried_over() -> void:
+	# 2026-11 项目从 FirstGame 改名 ZONE BREAKER，`user://` 跟着换了目录。旧目录里有存档、新的没有，就拷过来；
+	# 新的已经有了就不动（不能拿旧档盖掉新进度）。全在临时目录里做，不碰真存档。
+	var root := ProjectSettings.globalize_path("user://rename_test")
+	var target := root.path_join("ZONE BREAKER/save.json")
+	DirAccess.make_dir_recursive_absolute(root.path_join("FirstGame"))
+	var old := FileAccess.open(root.path_join("FirstGame/save.json"), FileAccess.WRITE)
+	old.store_string("{\"old\": true}")
+	old.close()
+	check("the old save is copied over", Progress.adopt_old_save(target, root))
+	check("with the same contents", FileAccess.get_file_as_string(target) == "{\"old\": true}")
+	check("and the old one stays where it was", FileAccess.file_exists(root.path_join("FirstGame/save.json")))
+	var fresh := FileAccess.open(target, FileAccess.WRITE)
+	fresh.store_string("{\"new\": true}")
+	fresh.close()
+	check("a save already in the new place is left alone", not Progress.adopt_old_save(target, root)
+		and FileAccess.get_file_as_string(target) == "{\"new\": true}")
+	for path in [target, root.path_join("FirstGame/save.json")]:
+		DirAccess.remove_absolute(path)
+	for dir in [root.path_join("ZONE BREAKER"), root.path_join("FirstGame"), root]:
+		DirAccess.remove_absolute(dir)

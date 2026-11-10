@@ -1130,3 +1130,25 @@ func test_both_pads_can_still_pause_after_claiming() -> void:
 		check("seat %d's pad is among them" % seat,
 			_pad_devices(&"pause").has(Session.pad_of(seat)), str(_pad_devices(&"pause")))
 	check("and the keyboard still pauses", _has_key_event(&"pause"))
+
+
+func test_the_game_name_fits_inside_the_title_plate() -> void:
+	# 2026-11 定名 ZONE BREAKER：12 个字在 28px 下约 295 宽，素材原来那块牌子（285 宽、里面那格两边各让 16）装不下，
+	# 字戳出牌子两边（截图看出来的）。牌子由 `ui_build.py` 加宽了；以后改名太长，这条会先说话。
+	await open_menu()
+	var title: Label = null
+	var plate: TextureRect = null
+	for child in menu._body.get_children():
+		if child is Label and (child as Label).text == MainMenu.TITLE:
+			title = child
+		if child is TextureRect and (child as TextureRect).texture != null \
+				and (child as TextureRect).texture.resource_path.ends_with("title_plate.png"):
+			plate = child
+	check("setup: the title and its plate are on screen", title != null and plate != null)
+	var wide: float = title.get_theme_font("font").get_string_size(
+		MainMenu.TITLE, HORIZONTAL_ALIGNMENT_LEFT, -1, UiKit.TITLE_SIZE).x
+	var room: float = plate.texture.get_width() - 32.0
+	check("the name fits inside the plate's frame", wide <= room, "%.0f wide, %.0f of room" % [wide, room])
+	var screen := 640.0
+	check("and the plate is centred under it",
+		absf(plate.position.x + plate.texture.get_width() / 2.0 - screen / 2.0) < 1.0, str(plate.position.x))

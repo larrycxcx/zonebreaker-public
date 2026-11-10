@@ -18,8 +18,8 @@ extends Node2D
 static func level_scene() -> String:
 	var first := Catalog.first_level()
 	return first.scene_path if first != null else ""
-## 游戏名，写在标题牌里那一格。以后定了再改这里。
-const TITLE := "FIRST GAME"
+## 游戏名，写在标题牌里那一格（2026-11 定的，窗口标题 / 存档目录跟着 `application/config/name`）。
+const TITLE := "ZONE BREAKER"
 const SUBTITLE := "A RUN AND GUN"
 
 enum Page {

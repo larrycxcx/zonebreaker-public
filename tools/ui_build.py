@@ -144,12 +144,23 @@ def build_panel(write):
 STAT_ICONS = {"life": 16, "attack": 15, "defense": 18, "speed": 2}
 
 
+## 标题牌加宽多少、从哪一列加：素材 285 宽，里面那格装不下 28px 的「ZONE BREAKER」（约 295 宽，2026-11 定名后）。
+## 第 126..169 列上下每一行都一模一样（牌子上那一段没有花纹），把其中一列重复插进去，牌子就变宽了、花纹不动。
+## 字是位图字体，只有 14 / 28 两档是清楚的，所以改牌子不改字。
+TITLE_WIDEN = 56
+TITLE_PLAIN_COLUMN = 147
+
+
 def build_title(write):
-    """主菜单上那块标题牌（`5 Logo/Logo1`，285×115，游戏名写在里面那格）。"""
+    """主菜单上那块标题牌（`5 Logo/Logo1`，285×115，游戏名写在里面那格），中间加宽 `TITLE_WIDEN`。"""
     _, _, art = sb.read_png(os.path.join(GUI, "5 Logo", "Logo1.png"))
+    for row in art:
+        assert row[126:170] == [row[126]] * 44, "标题牌第 126..169 列不再是同一列了，换素材了？"
+    art = [row[:TITLE_PLAIN_COLUMN] + [row[TITLE_PLAIN_COLUMN]] * TITLE_WIDEN + row[TITLE_PLAIN_COLUMN:]
+           for row in art]
     if write:
         sb.write_png(os.path.join(OUT, "title_plate.png"), art)
-    print("  title_plate.png")
+    print("  title_plate.png  %d×%d" % (len(art[0]), len(art)))
 
 
 ## 装备图标：键就是装备资源的文件名（`weapons/rifle.tres` → `rifle`），

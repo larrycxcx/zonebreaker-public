@@ -18,6 +18,9 @@ signal seat_changed(index: int)
 
 const BALANCE := "res://progression/balance.tres"
 const DEFAULT_SAVE := "user://save.json"
+## 改名之前的项目名。`user://` 跟着 `application/config/name` 走，2026-11 从 FirstGame 改成 ZONE BREAKER，
+## 存档目录也跟着换了——旧目录里有存档、新目录里还没有，就搬过来一次（`_adopt_old_save()`）。
+const OLD_NAMES := ["FirstGame"]
 ## 没名字的角色（老存档迁移过来的、测试里现开的）按座位起个名。
 const DEFAULT_NAMES := ["PLAYER 1", "PLAYER 2"]
 ## 没挑外观时按座位给一套，免得双人时两个人长得一样。
@@ -162,8 +165,25 @@ func save_game() -> void:
 		file.store_string(JSON.stringify(data, "\t"))
 
 
+## 项目改过名的话，把旧名字那个目录里的存档拷过来（只拷一次：新目录里有了就不动）。
+## 拷而不是挪：万一新版本出了问题，退回老版本存档还在原处。
+## `target` 是新存档的完整路径，`parent` 是各个项目数据目录所在的那一层（测试传临时目录）。
+## 拷过来了返回 true。
+func adopt_old_save(target: String, parent: String) -> bool:
+	if FileAccess.file_exists(target):
+		return false
+	for old_name: String in OLD_NAMES:
+		var old := parent.path_join(old_name).path_join("save.json")
+		if FileAccess.file_exists(old):
+			DirAccess.make_dir_recursive_absolute(target.get_base_dir())
+			return DirAccess.copy_absolute(old, target) == OK
+	return false
+
+
 ## 读存档；没有存档或读坏了就保持新开一局的样子。
 func load_game() -> void:
+	if save_path == DEFAULT_SAVE:
+		adopt_old_save(ProjectSettings.globalize_path(DEFAULT_SAVE), OS.get_user_data_dir().get_base_dir())
 	if not FileAccess.file_exists(save_path):
 		return
 	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(save_path))
