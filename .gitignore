@@ -12,3 +12,7 @@ art_in/
 # 第 D 步的像素图预览：生成出来的场景和截图，随时重做，不进仓库
 scenes/map_preview.tscn
 art_src/maps/preview/
+
+# AI 助手的项目说明：只留在本地，不进仓库（2026-11）
+CLAUDE.md
+AGENTS.md
