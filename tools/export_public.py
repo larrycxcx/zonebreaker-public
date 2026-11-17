@@ -26,6 +26,12 @@ EXCLUDED = [
     "skins/basement/",
     # 上面那些包的外观场景：只有素材包会引用它们，包不在就是一堆断了链的场景
     "scenes/skins/",
+    # 在 CraftPix 原画上擦掉胳膊做出来的（不是从零画的），算第三方素材的衍生品。
+    # art_src 里其余的（趴姿、爬行、地图）是自己画的，留着。
+    "art_src/punk_idle.png",
+    "art_src/punk_run.png",
+    "art_src/cyborg_idle.png",
+    "art_src/cyborg_run.png",
     # AI 助手的项目说明（本来就不进仓库，这里再保险一次）
     "CLAUDE.md",
     "AGENTS.md",
