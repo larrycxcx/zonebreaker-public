@@ -8,6 +8,9 @@ vertical basement shaft — each with its own enemies, traps and boss. Levels ar
 and gaps connect multiple routes, and most segments force a detour (drop down, clear a lower floor,
 climb back up) instead of a straight run to the right.
 
+**Status:** 4 of 23 planned stages are playable. See the **[roadmap](ROADMAP.md)** for what is done
+and what comes next.
+
 > **About the graphics in this repository**
 >
 > The game's sprites, tiles, effects, UI font and some music come from third-party asset packs whose
