@@ -8,6 +8,41 @@ vertical basement shaft — each with its own enemies, traps and boss. Levels ar
 and gaps connect multiple routes, and most segments force a detour (drop down, clear a lower floor,
 climb back up) instead of a straight run to the right.
 
+> **About the graphics in this repository**
+>
+> The game's sprites, tiles, effects, UI font and some music come from third-party asset packs whose
+> licenses do not allow redistributing them. **The public repository therefore ships without that art**:
+> if you run it, you will see placeholder graphics — coloured blocks for characters and terrain, and
+> Godot's default font in the menus. Gameplay, levels and rules are exactly the same.
+>
+> **The screenshots below show what the actual game looks like** with the art in place.
+
+## Screenshots
+
+**Title screen**
+
+![Title screen](docs/screenshots/1_title.png)
+
+**Shop**
+
+![Shop](docs/screenshots/2_shop.png)
+
+**Stage 2 — industrial zone**
+
+![Stage 2](docs/screenshots/3_stage2.png)
+
+**Stage 4 — basement shaft (vertical climb)**
+
+![Stage 4](docs/screenshots/4_stage4.png)
+
+**Stage 1 boss**
+
+![Stage 1 boss](docs/screenshots/5_stage1_boss.png)
+
+**Stage 3 boss**
+
+![Stage 3 boss](docs/screenshots/6_stage3_boss.png)
+
 ## Features
 
 - **Contra-style shooting**: 8-direction aiming, prone/crawl, drop-through platforms, sprint with
@@ -83,6 +118,7 @@ failure, and each test has a 60-second watchdog.
 | `skins/<pack>/` | Skin packs: sprites, tiles, effects, HUD, music, sound |
 | `tools/` | Python asset and level generators (level maps, path checker, sprite/tile/sound builders) |
 | `art_src/` | Original source art and map paintings |
+| `docs/screenshots/` | Screenshots of the game with the full art (for this README) |
 
 Levels are not hand-placed: `tools/level_build.py` turns grid maps (`tools/level*_map.py`) into scenes,
 and a path checker verifies every level is completable — the exit is reachable, forced detours really
