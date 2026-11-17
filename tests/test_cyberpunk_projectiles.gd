@@ -45,6 +45,7 @@ func same_after(a: Image, b: Image, transform: Callable) -> bool:
 # ---------------------------------------------------------------- 贴图本身
 
 func test_every_texture_is_there() -> void:
+	if needs_art(): return
 	for who: StringName in BULLETS:
 		for name: StringName in DIRECTIONS:
 			check("%s %s exists" % [who, name], drawing(who, name) != null)
@@ -57,6 +58,7 @@ func test_every_texture_is_there() -> void:
 
 
 func test_the_eight_directions_are_flips_of_two_drawings() -> void:
+	if needs_art(): return
 	# 素材只画了朝右、朝右下两张，其余都是翻转 / 旋转出来的——任何一张单独改坏了都会对不上
 	var mirror_x := func(x: int, y: int, w: int, _h: int) -> Vector2i: return Vector2i(w - 1 - x, y)
 	var mirror_y := func(x: int, y: int, _w: int, h: int) -> Vector2i: return Vector2i(x, h - 1 - y)
@@ -71,6 +73,7 @@ func test_the_eight_directions_are_flips_of_two_drawings() -> void:
 
 
 func test_the_two_grenades_differ_only_in_colour() -> void:
+	if needs_art(): return
 	var mine := drawing(&"player_grenade", &"spin")
 	var theirs := drawing(&"enemy_grenade", &"spin")
 	var same_shape := mine.get_size() == theirs.get_size()
@@ -138,6 +141,7 @@ func fire(scene: String, direction: Vector2) -> Bullet:
 
 
 func test_bullets_pick_the_drawing_for_their_direction() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	for name: StringName in DIRECTIONS:
 		var shot := fire("res://scenes/bullet.tscn", DIRECTIONS[name])
@@ -155,6 +159,7 @@ func test_bullets_pick_the_drawing_for_their_direction() -> void:
 
 
 func test_projectile_art_is_pure_display() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	for scene in ["res://scenes/bullet.tscn", "res://scenes/enemy_bullet.tscn", "res://scenes/turret_bullet.tscn",
 			"res://scenes/flyer_bullet.tscn", "res://scenes/boss_bullet.tscn"]:
@@ -179,6 +184,7 @@ func test_placeholder_bullets_still_turn_with_the_shot() -> void:
 
 
 func test_grenades_wear_their_ball() -> void:
+	if needs_art(): return
 	await reset_scene(true, false, skin())
 	for pair in [["res://scenes/grenade.tscn", "/player_grenade"], ["res://scenes/enemy_grenade.tscn", "/enemy_grenade"]]:
 		var grenade := (load(pair[0]) as PackedScene).instantiate() as Grenade
@@ -251,6 +257,7 @@ func blow_up(pos: Vector2) -> Node:
 
 
 func test_explosions_pick_the_closest_size_without_scaling() -> void:
+	if needs_art(): return
 	var blast: SpriteExplosion = (load("res://scenes/skins/cyberpunk_explosion.tscn") as PackedScene).instantiate()
 	for case in [[56.0, 96], [36.0, 72], [24.0, 48], [10.0, 32], [200.0, 96]]:
 		blast.radius = case[0]
@@ -260,6 +267,7 @@ func test_explosions_pick_the_closest_size_without_scaling() -> void:
 
 
 func test_a_grenade_blast_plays_the_pack_art_once() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	var blast := await blow_up(Vector2(400, 280))
 	check("the skin draws the blast", blast is SpriteExplosion, str(blast))

@@ -3,7 +3,6 @@
 [ext_resource type="Script" path="res://scripts/weapons/weapon.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/grenade.tscn" id="2"]
 
-[ext_resource type="Texture2D" path="res://skins/cyberpunk/ui/gear_grenade.png" id="icon"]
 [resource]
 script = ExtResource("1")
 display_name = "GRENADE"
@@ -15,4 +14,4 @@ fire_event = &"grenade_throw"
 look = &"launcher"
 slot = 1
 hud_color = Color(0.45, 0.65, 0.3, 1)
-icon = ExtResource("icon")
+icon_path = "res://skins/cyberpunk/ui/gear_grenade.png"

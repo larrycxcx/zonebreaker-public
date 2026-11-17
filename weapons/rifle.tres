@@ -3,7 +3,6 @@
 [ext_resource type="Script" path="res://scripts/weapons/weapon.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/bullet.tscn" id="2"]
 
-[ext_resource type="Texture2D" path="res://skins/cyberpunk/ui/gear_rifle.png" id="icon"]
 [resource]
 script = ExtResource("1")
 display_name = "RIFLE"
@@ -13,4 +12,4 @@ automatic = true
 max_ammo = -1
 fire_event = &"player_shoot"
 look = &"rifle"
-icon = ExtResource("icon")
+icon_path = "res://skins/cyberpunk/ui/gear_rifle.png"

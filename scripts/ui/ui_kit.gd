@@ -8,6 +8,9 @@ extends RefCounted
 ##
 ## 界面用的美术目前直接引用这个目录，还没进 `SkinPack`。以后要让素材包也能换界面皮肤时再收进去，
 ## 那时只要把下面这几个常量改成问 `Skins` 要。
+##
+## **这个目录可能不在**：它是第三方素材，公开版里去掉了。那时字体退回引擎自带的
+## （`ThemeDB.fallback_font`）、窗口画成描边方框、图标空着——界面照样能用，只是不是像素风。
 
 const DIR := "res://skins/cyberpunk/ui"
 const FONT := DIR + "/font.fnt"
@@ -58,7 +61,17 @@ static func number(value: int) -> String:
 
 
 static func font(size := TEXT_SIZE) -> Font:
-	return load(FONT if size >= TITLE_SIZE else FONT_SMALL) as Font
+	var path := FONT if size >= TITLE_SIZE else FONT_SMALL
+	if ResourceLoader.exists(path):
+		return load(path) as Font
+	return ThemeDB.fallback_font
+
+
+## 素材包里有这张图就加载，没有就是 null（公开版去掉了第三方素材）。
+static func texture(path: String) -> Texture2D:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return null
+	return load(path) as Texture2D
 
 
 ## 一个不挡鼠标的文字控件。`box` 是它在父节点里占的矩形。
@@ -80,6 +93,10 @@ static func label(text: String, box: Rect2, tint := WHITE, size := TEXT_SIZE,
 ## 一个窗口：**先用中间那格铺满整块，再把九宫格边框盖上去**。
 ## 只画九宫格的话，边框图的内沿和中间那格之间会露出一圈缝（窗口越小越明显）。
 static func window(box: Rect2) -> Control:
+	if not ResourceLoader.exists(PANEL):
+		# 没有九宫格素材：画成描边方框，大小位置和九宫格那个一样
+		var plain := UiKit.box(box, Color(0.35, 0.45, 0.7), Color(0.08, 0.1, 0.2, 0.94))
+		return plain
 	var root := Control.new()
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.position = box.position
@@ -110,7 +127,7 @@ static func window(box: Rect2) -> Control:
 ## `path` 留空就是一个先空着的框（贴图之后再填，比如装备格）。
 static func picture(path: String, at: Vector2, tint := WHITE) -> TextureRect:
 	var node := TextureRect.new()
-	node.texture = load(path) as Texture2D if not path.is_empty() else null
+	node.texture = texture(path)
 	node.modulate = tint
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.position = at

@@ -219,6 +219,7 @@ func test_the_crawl_passages_still_need_crouching() -> void:
 # ---------------------------------------------------------------- 这一关独有的
 
 func test_it_is_the_fourth_stage_in_the_catalog() -> void:
+	if needs_art(): return
 	var info := load(LEVEL_INFO) as LevelInfo
 	check("it points at this scene", info.scene_path == level_path(), info.scene_path)
 	check("and it brings the basement pack", info.skin != null

@@ -45,6 +45,7 @@ func test_keys_cover_everyone() -> void:
 
 
 func test_the_key_list_is_a_readme_not_a_whitelist() -> void:
+	if needs_art(): return
 	# `APPEARANCE_KEYS` 是给做素材的人看的说明。**不能拿它当白名单**：
 	# 23 关各有各的敌人和 Boss，新键会一直加，当白名单的话「加一种敌人」就得改常量，DLC 更是改不到。
 	# 要守的是反过来那条：**包里填的每一个键，都得真能画出东西来**。
@@ -166,3 +167,41 @@ func test_the_explosion_is_drawn_by_the_fx_layer() -> void:
 			"%s vs %s" % [blasts[0].radius, radius])
 		check("drawn where it went off", blasts[0].global_position.distance_to(Vector2(460, 300)) < 4.0,
 			str(blasts[0].global_position))
+
+
+
+## 第三方素材包的目录：只有这几个包自己（和 `scenes/skins/` 里它们的外观场景）可以直接引用里面的文件。
+const THIRD_PARTY_PACKS := ["res://skins/cyberpunk/", "res://skins/industrial/",
+	"res://skins/bar_street/", "res://skins/basement/"]
+
+
+func test_nothing_outside_the_packs_hard_links_their_art() -> void:
+	# 公开版去掉了第三方素材（`tools/export_public.py`）。一个 `.tres` / `.tscn` 只要用 ext_resource
+	# 引用了缺的文件，**整个就加载不了**：步枪的 `.tres` 因为图标缺了读不出来，玩家连枪都拿不到。
+	# 所以素材包以外的地方一律存路径（`icon_path`、`skin_path`、`texture_path`、`atlas_path`），用的时候文件在才加载。
+	var offenders: Array[String] = []
+	var scanned := [0]
+	_scan_for_hard_links("res://", offenders, scanned)
+	check("setup: scanned the project's scenes and resources", scanned[0] > 60, str(scanned[0]))
+	check("no scene or resource outside the packs hard-links their art", offenders.is_empty(),
+		", ".join(offenders.slice(0, 5)))
+
+
+func _scan_for_hard_links(dir: String, offenders: Array[String], scanned: Array) -> void:
+	if dir in THIRD_PARTY_PACKS or dir == "res://scenes/skins/" or dir.begins_with("res://."):
+		return
+	for sub in DirAccess.get_directories_at(dir):
+		_scan_for_hard_links(dir + sub + "/", offenders, scanned)
+	for file in DirAccess.get_files_at(dir):
+		if not (file.ends_with(".tscn") or file.ends_with(".tres")):
+			continue
+		# 像素图工具的预览（`tools/map_paint.py preview`）：本地生成、不进仓库（.gitignore）
+		if dir + file == "res://scenes/map_preview.tscn":
+			continue
+		scanned[0] += 1
+		for line in FileAccess.get_file_as_string(dir + file).split("\n"):
+			if not line.begins_with("[ext_resource"):
+				continue
+			for pack: String in THIRD_PARTY_PACKS:
+				if pack in line:
+					offenders.append(dir + file)

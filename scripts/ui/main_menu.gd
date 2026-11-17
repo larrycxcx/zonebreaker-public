@@ -188,8 +188,11 @@ func _screen() -> Vector2:
 
 func _draw_title(screen: Vector2) -> void:
 	var plate := UiKit.picture(UiKit.DIR + "/title_plate.png", Vector2.ZERO)
-	plate.position = Vector2((screen.x - plate.texture.get_width()) / 2.0, 14.0)
-	_body.add_child(plate)
+	if plate.texture != null:
+		plate.position = Vector2((screen.x - plate.texture.get_width()) / 2.0, 14.0)
+		_body.add_child(plate)
+	else:
+		plate.free()
 	_body.add_child(UiKit.label(TITLE, Rect2(0, 40.0, screen.x, 34.0), UiKit.CYAN,
 		UiKit.TITLE_SIZE, HORIZONTAL_ALIGNMENT_CENTER))
 	_body.add_child(UiKit.label(SUBTITLE, Rect2(0, 98.0, screen.x, 20.0), Color(0.62, 0.68, 0.82),

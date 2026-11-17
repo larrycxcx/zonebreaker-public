@@ -12,6 +12,10 @@ extends Node2D
 
 ## 所有砖排成的一张总图：一行 `columns` 块，编号 n 在第 (n-1) % columns 列、第 (n-1) / columns 行。
 @export var atlas: Texture2D
+## 总图的路径。关卡场景里存的是这个（不直接引用贴图）：砖是第三方素材，公开版里没有，
+## 直接引用的话整个关卡场景加载不了。`_ready` 里有文件才加载；没有就什么都不画，
+## 关卡（`main.gd._show_bare_terrain()`）会把藏着的碰撞平台露出来当地形画。
+@export_file("*.png") var atlas_path := ""
 @export var columns := 9
 @export var tile_size := 32
 @export var cells: PackedInt32Array = PackedInt32Array()
@@ -22,6 +26,8 @@ const CELL := 16
 
 
 func _ready() -> void:
+	if atlas == null and not atlas_path.is_empty() and ResourceLoader.exists(atlas_path):
+		atlas = load(atlas_path) as Texture2D
 	queue_redraw()
 
 

@@ -11,6 +11,11 @@ extends Sprite2D
 ##
 ## 多帧的是横着排成一条的动画（喷泉 288×72 = 4 帧 × 72），按 `region_rect` 逐帧播。
 
+## 贴图的路径。**关卡场景里存路径、不直接引用贴图**：装饰是第三方素材，公开版里没有，
+## 直接引用的话整个关卡场景都加载不了；存路径的话缺了就是不画（`_ready` 里加载，没有就空着）。
+@export_file("*.png") var texture_path := ""
+## 贴图左下角对准节点位置（装饰的摆法）。false = 居中（贴花的摆法：编号牌上的数字贴在圆盘正中）。
+@export var bottom_left := true
 ## 贴图里横着排了几帧。1 = 静止的，不走 `_process`。
 @export var frames := 1
 ## 多帧时一秒播几帧。
@@ -20,8 +25,14 @@ var _time := 0.0
 
 
 func _ready() -> void:
+	if texture == null and not texture_path.is_empty() and ResourceLoader.exists(texture_path):
+		texture = load(texture_path) as Texture2D
+	if not bottom_left:
+		set_process(false)
+		return
 	centered = false
 	if texture == null:
+		set_process(false)
 		return
 	# 位置写的是「贴图底边落在哪儿」，所以整张往上挪一个身高
 	offset.y = -texture.get_height()

@@ -135,6 +135,7 @@ func test_the_shop_only_stocks_what_your_level_allows() -> void:
 
 
 func test_a_level_brings_its_own_art() -> void:
+	if needs_art(): return
 	# **23 关各有各的场景、敌人、Boss、音乐**，所以「用哪套素材」是**关卡**的属性，
 	# 不是项目设置里那一个全局包——共用一个包的话 23 关只能共用一张背景、一首曲子、一套地砖。
 	var zone := load("res://skins/cyberpunk/cyberpunk_skin.tres") as SkinPack
@@ -152,6 +153,7 @@ func test_a_level_brings_its_own_art() -> void:
 
 
 func test_the_first_level_names_the_pack_it_wants() -> void:
+	if needs_art(): return
 	var first := Catalog.first_level()
 	check("there is a first level", first != null)
 	check("and it brings its own art", first != null and first.skin != null,

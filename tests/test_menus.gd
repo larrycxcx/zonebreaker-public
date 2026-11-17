@@ -195,6 +195,7 @@ func hud() -> CanvasLayer:
 
 
 func test_the_hud_writes_in_the_pixel_font() -> void:
+	if needs_art(): return
 	await reset_scene()
 	await frames(2)
 	var label: Label = hud().get_node("ProgressLabel")

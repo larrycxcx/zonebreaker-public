@@ -5,6 +5,10 @@ extends Node2D
 ## 玩家一眼看得出这条带往哪边走。纯显示，规则全在平台的 `conveyor` 上。
 
 @export var atlas: Texture2D
+## 总图的路径。关卡场景里存的是这个（不直接引用贴图）：砖是第三方素材，公开版里没有，
+## 直接引用的话整个关卡场景加载不了。`_ready` 里有文件才加载；没有就什么都不画，
+## 关卡（`main.gd._show_bare_terrain()`）会把藏着的碰撞平台露出来当地形画。
+@export_file("*.png") var atlas_path := ""
 @export var columns := 9
 @export var tile_size := 32
 ## 中间那块传送带砖的编号（素材 `IndustrialTile_75`，齿每 4 像素一个）
@@ -19,6 +23,13 @@ const CHUNK := 16
 const CELL_H := 16
 
 var _time := 0.0
+
+
+func _ready() -> void:
+	if atlas == null and not atlas_path.is_empty() and ResourceLoader.exists(atlas_path):
+		atlas = load(atlas_path) as Texture2D
+	if atlas == null:
+		set_process(false)
 
 
 func _process(delta: float) -> void:

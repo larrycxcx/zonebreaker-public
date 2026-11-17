@@ -22,6 +22,7 @@ func skin() -> SkinPack:
 
 
 func test_sounds_come_from_the_pack_or_fall_back() -> void:
+	if needs_art(): return
 	var pack := skin()
 	for event: StringName in SkinPack.SOUND_EVENTS:
 		var stream := pack.find_sound(event)
@@ -35,11 +36,13 @@ func test_sounds_come_from_the_pack_or_fall_back() -> void:
 
 
 func test_the_pack_only_names_real_events() -> void:
+	if needs_art(): return
 	for event: StringName in skin().sounds:
 		check("%s is a real sound event" % event, SkinPack.SOUND_EVENTS.has(event))
 
 
 func test_rapid_sounds_are_short() -> void:
+	if needs_art(): return
 	# 每秒响好几下的声音得短：原素材的激光声 0.88 秒，连射起来会糊成一片
 	var pack := skin()
 	for pair in [[&"player_shoot", 0.25], [&"enemy_shoot", 0.3], [&"turret_shoot", 0.45], [&"flyer_shoot", 0.4],
@@ -52,6 +55,7 @@ func test_rapid_sounds_are_short() -> void:
 
 
 func test_enemies_sound_different_from_the_player() -> void:
+	if needs_art(): return
 	# 同一个激光声，靠降调分开：敌人比玩家低、炮台更低
 	var pack := skin()
 	var mine := pack.find_sound(&"player_shoot") as AudioStreamWAV
@@ -62,6 +66,7 @@ func test_enemies_sound_different_from_the_player() -> void:
 
 
 func test_the_level_plays_its_music_and_keeps_it_across_restarts() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	check("the level track is on", Music.current == &"level" and Music.playing_stream() == skin().find_music(&"level"),
 		"%s / %s" % [Music.current, Music.playing_stream()])
@@ -75,6 +80,7 @@ func test_the_level_plays_its_music_and_keeps_it_across_restarts() -> void:
 
 
 func test_the_level_track_is_ours_and_loops_without_a_seam() -> void:
+	if needs_art(): return
 	# 关卡那首是自己做的，**必须是 OGG**：MP3 的编码器会在开头结尾各补一小段静音，
 	# 循环转一圈能听见接缝，而关卡音乐是一直循环放的。
 	# 跑一遍 tools/sound_build.py 会把素材包里的 MP3 拷回来盖掉它，这条守着别被盖。
@@ -85,6 +91,7 @@ func test_the_level_track_is_ours_and_loops_without_a_seam() -> void:
 
 
 func test_the_boss_brings_its_own_track() -> void:
+	if needs_art(): return
 	await reset_scene(true, false, skin())
 	keep_only_enemies(["BossMissile"])
 	(main.get_node("Enemies/BossMissile") as Boss).appear()

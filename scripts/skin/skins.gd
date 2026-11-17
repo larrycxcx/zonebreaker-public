@@ -11,7 +11,9 @@ var current: SkinPack
 
 
 func _ready() -> void:
-	use(load(ProjectSettings.get_setting(SETTING, DEFAULT_SKIN)) as SkinPack)
+	# 设置里那个包可能不在（公开版去掉了第三方素材），那就用默认包（占位方块 + 8-bit 音效）
+	var path: String = ProjectSettings.get_setting(SETTING, DEFAULT_SKIN)
+	use(load(path if ResourceLoader.exists(path) else DEFAULT_SKIN) as SkinPack)
 
 
 func use(skin: SkinPack) -> void:

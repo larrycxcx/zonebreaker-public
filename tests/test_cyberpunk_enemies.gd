@@ -76,6 +76,7 @@ func place_c(pack: SkinPack, player_x := 760.0) -> EnemyWalker:
 # ---------------------------------------------------------------- 贴图本身
 
 func test_every_clip_is_there_for_every_walker() -> void:
+	if needs_art(): return
 	for variant: StringName in VARIANTS:
 		for clip: StringName in CLIPS:
 			for side in ["r", "l"]:
@@ -89,6 +90,7 @@ func test_every_clip_is_there_for_every_walker() -> void:
 
 
 func test_the_two_facings_are_mirrors() -> void:
+	if needs_art(): return
 	for clip: StringName in [&"idle", &"attack_up", &"prone", &"death"]:
 		var right := image(&"1_a", clip, "r")
 		var left := image(&"1_a", clip, "l")
@@ -108,6 +110,7 @@ func test_the_two_facings_are_mirrors() -> void:
 
 
 func test_the_three_walkers_differ_only_in_colour() -> void:
+	if needs_art(): return
 	# 同一套素材换色：轮廓（哪些像素不透明）一模一样，颜色不一样——一眼能分出 A/B/C，但动作完全同步
 	for clip: StringName in [&"idle", &"attack_level"]:
 		var a := image(&"1_a", clip)
@@ -129,6 +132,7 @@ func test_the_three_walkers_differ_only_in_colour() -> void:
 
 
 func test_the_art_stands_on_the_collision_box() -> void:
+	if needs_art(): return
 	# 脚底落在身体原点下方 16px（碰撞体 32 高），和玩家同一条地面线
 	for clip: StringName in [&"idle", &"walk", &"attack_level", &"death"]:
 		var img := image(&"1_a", clip)
@@ -141,6 +145,7 @@ func test_the_art_stands_on_the_collision_box() -> void:
 
 
 func test_the_prone_art_fits_the_rules() -> void:
+	if needs_art(): return
 	# 趴着的敌人：画面高度要和 12px 的判定框差不多，而且整个藏在玩家水平子弹下面——
 	# 玩家站着平射本来就打不到趴着的敌人（得斜着往下打），画面上也不能看着像打中了。
 	var shot_bottom := 16.0 - Player.LEVEL_MUZZLE.y - 2.0   # 玩家水平子弹最低处离地多高（子弹 4px 高）
@@ -164,6 +169,7 @@ func test_the_prone_art_fits_the_rules() -> void:
 # ---------------------------------------------------------------- 子弹从画面上的枪口出来
 
 func test_bullets_leave_from_the_gun_in_the_art() -> void:
+	if needs_art(): return
 	var c := await place_c(skin(), 460.0)
 	c.set_physics_process(false)
 	c.facing = 1
@@ -223,6 +229,7 @@ func test_the_sprite_skin_changes_nothing_about_the_rules() -> void:
 # ---------------------------------------------------------------- 接上去以后
 
 func test_each_walker_wears_its_own_colours() -> void:
+	if needs_art(): return
 	await reset_scene(true, false, skin())
 	# 测试关（`main.tscn`）里的节点名还是老的 WalkerA/B/C（那是夹具，被一堆用例引用着），
 	# 贴图目录已经按新编号改成 1_a/1_b/1_c，所以这里要把两边对起来。
@@ -236,6 +243,7 @@ func test_each_walker_wears_its_own_colours() -> void:
 
 
 func test_clips_follow_what_the_walker_is_doing() -> void:
+	if needs_art(): return
 	var c := await place_c(skin(), 460.0)
 	var visual: EnemySpriteAppearance = c.get_node("Visual")
 	await frames(5)
@@ -276,6 +284,7 @@ func test_clips_follow_what_the_walker_is_doing() -> void:
 
 
 func test_the_walker_really_fires_its_shot_pose() -> void:
+	if needs_art(): return
 	# 真打一枪（玩家在它正前方）：玩法调 fire()，外观就播开火
 	var c := await place_c(skin())
 	var visual: EnemySpriteAppearance = c.get_node("Visual")
@@ -291,6 +300,7 @@ func test_the_walker_really_fires_its_shot_pose() -> void:
 
 
 func test_dying_leaves_a_body_that_falls_and_fades() -> void:
+	if needs_art(): return
 	var c := await place_c(skin(), 460.0)
 	var visual: EnemySpriteAppearance = c.get_node("Visual")
 	c.take_damage(c.health)
@@ -352,6 +362,7 @@ func place_e(pack: SkinPack, x := 400.0) -> EnemyFlyer:
 
 
 func test_every_clip_is_there_for_the_flyer() -> void:
+	if needs_art(): return
 	for clip: StringName in E_CLIPS:
 		for side in ["r", "l"]:
 			var path := "%s/1_e/%s_%s.png" % [ART, clip, side]
@@ -368,6 +379,7 @@ func test_every_clip_is_there_for_the_flyer() -> void:
 
 
 func test_the_flyer_facings_are_mirrors() -> void:
+	if needs_art(): return
 	for clip: StringName in E_CLIPS:
 		var right := e_image(clip, "r")
 		var left := e_image(clip, "l")
@@ -387,6 +399,7 @@ func test_the_flyer_facings_are_mirrors() -> void:
 
 
 func test_the_flyer_art_sits_on_its_hitbox() -> void:
+	if needs_art(): return
 	# 判定框 28×20 以原点为中心：悬停那几帧的飞行器（含螺旋桨）要落在框里，而且居中。
 	# 素材的悬停动画自己会上下浮动 3px，纵向留这点余量
 	var box := Vector2(28, 20)
@@ -406,6 +419,7 @@ func test_the_flyer_art_sits_on_its_hitbox() -> void:
 
 
 func test_the_flyer_shoots_from_the_bolt_in_the_art() -> void:
+	if needs_art(): return
 	# 放电那几帧：闪电从机身底下劈出来，E 的子弹也要从那里出来。
 	# 只看前 3 帧：第 4 帧闪电已经散成火花，没有「起点」。机身在浮动，起点跟着上下差 4px，出膛点取中间
 	var e := await place_e(skin())
@@ -457,6 +471,7 @@ func test_the_flyer_skin_changes_nothing_about_the_rules() -> void:
 
 
 func test_the_flyer_wears_the_drone() -> void:
+	if needs_art(): return
 	await reset_scene(true, false, skin())
 	var visual: Node = main.get_node("Enemies/FlyerE/Visual")
 	check("E wears the sprite appearance", visual is EnemySpriteAppearance, str(visual))
@@ -466,6 +481,7 @@ func test_the_flyer_wears_the_drone() -> void:
 
 
 func test_the_flyer_hovers_and_zaps() -> void:
+	if needs_art(): return
 	# E 一直朝正下方瞄准，但那不是「举着枪等开火」：平时要显示悬停，只有开火那一下才放电
 	var e := await place_e(skin())
 	var visual: EnemySpriteAppearance = e.get_node("Visual")
@@ -502,6 +518,7 @@ func test_the_flyer_hovers_and_zaps() -> void:
 
 
 func test_a_shot_down_flyer_falls_and_fades() -> void:
+	if needs_art(): return
 	var e := await place_e(skin())
 	var visual: EnemySpriteAppearance = e.get_node("Visual")
 	e.take_damage(e.health)
@@ -540,6 +557,7 @@ func place_turret(pack: SkinPack, player_x := 400.0) -> EnemyTurret:
 
 
 func test_every_clip_is_there_for_the_turret() -> void:
+	if needs_art(): return
 	for clip: StringName in T_CLIPS:
 		for side in ["r", "l"]:
 			var path := "%s/1_g/%s_%s.png" % [ART, clip, side]
@@ -552,6 +570,7 @@ func test_every_clip_is_there_for_the_turret() -> void:
 
 
 func test_the_turret_facings_are_mirrors() -> void:
+	if needs_art(): return
 	for clip: StringName in [&"idle", &"attack_up", &"hurt_down", &"death"]:
 		var right := t_image(clip, "r")
 		var left := t_image(clip, "l")
@@ -571,6 +590,7 @@ func test_the_turret_facings_are_mirrors() -> void:
 
 
 func test_the_turret_stands_on_the_ground() -> void:
+	if needs_art(): return
 	# 履带底落在原点下方 16px（碰撞体 32 高），不管炮管朝哪
 	for clip: StringName in [&"idle", &"idle_up", &"idle_down", &"attack_up", &"attack_down"]:
 		var img := t_image(clip)
@@ -583,6 +603,7 @@ func test_the_turret_stands_on_the_ground() -> void:
 
 
 func test_turret_shots_leave_from_the_barrel_in_the_art() -> void:
+	if needs_art(): return
 	var t := await place_turret(skin())
 	t.set_physics_process(false)
 	t.facing = 1
@@ -632,6 +653,7 @@ func test_the_turret_skin_changes_nothing_about_the_rules() -> void:
 
 
 func test_the_turret_wears_its_art() -> void:
+	if needs_art(): return
 	await reset_scene(true, false, skin())
 	for name in ["Turret1", "Turret2"]:
 		var visual: Node = main.get_node("Enemies/%s/Visual" % name)
@@ -645,6 +667,7 @@ func test_the_turret_wears_its_art() -> void:
 
 
 func test_turret_clips_follow_its_aim() -> void:
+	if needs_art(): return
 	var t := await place_turret(skin())
 	t.set_physics_process(false)
 	var visual: EnemySpriteAppearance = t.get_node("Visual")
@@ -677,6 +700,7 @@ func test_turret_clips_follow_its_aim() -> void:
 
 
 func test_the_turret_really_fires_its_shot_pose() -> void:
+	if needs_art(): return
 	var t := await place_turret(skin(), 760.0)
 	var visual: EnemySpriteAppearance = t.get_node("Visual")
 	var fired := false
@@ -719,6 +743,7 @@ func place_one(pack: SkinPack, node: String, player_x := 300.0) -> EnemyWalker:
 
 
 func test_every_clip_is_there_for_d_and_f() -> void:
+	if needs_art(): return
 	for who: StringName in SINGLE_CLIPS:
 		for clip: StringName in SINGLE_CLIPS[who]:
 			for side in ["r", "l"]:
@@ -732,6 +757,7 @@ func test_every_clip_is_there_for_d_and_f() -> void:
 
 
 func test_d_and_f_facings_are_mirrors() -> void:
+	if needs_art(): return
 	for who: StringName in SINGLE_CLIPS:
 		for clip: StringName in SINGLE_CLIPS[who]:
 			var right := image(who, clip, "r")
@@ -752,6 +778,7 @@ func test_d_and_f_facings_are_mirrors() -> void:
 
 
 func test_d_and_f_stand_on_the_ground() -> void:
+	if needs_art(): return
 	for who: StringName in SINGLE_CLIPS:
 		for clip: StringName in SINGLE_CLIPS[who]:
 			if clip == &"air" or clip == &"death":
@@ -766,6 +793,7 @@ func test_d_and_f_stand_on_the_ground() -> void:
 
 
 func test_d_and_f_wear_their_art() -> void:
+	if needs_art(): return
 	await reset_scene(true, false, skin())
 	for pair in [["ChaserD", "/1_d"], ["WalkerF", "/1_f"]]:
 		var visual: Node = main.get_node("Enemies/%s/Visual" % pair[0])
@@ -778,6 +806,7 @@ func test_d_and_f_wear_their_art() -> void:
 
 
 func test_d_skates_charges_and_jumps() -> void:
+	if needs_art(): return
 	var d := await place_one(skin(), "ChaserD") as EnemyChaser
 	var visual: EnemySpriteAppearance = d.get_node("Visual")
 	await frames(5)
@@ -835,6 +864,7 @@ func test_d_skin_changes_nothing_about_the_rules() -> void:
 
 
 func test_f_bats_the_grenade_out_of_the_swing() -> void:
+	if needs_art(): return
 	# 出手点落在挥棒那一帧的弧光上：画面上手雷是从球棒打到的地方飞出去的
 	var offset := EnemyGrenadier.THROW_OFFSET
 	var near := INF
@@ -844,6 +874,7 @@ func test_f_bats_the_grenade_out_of_the_swing() -> void:
 
 
 func test_f_swings_when_it_throws() -> void:
+	if needs_art(): return
 	var f := await place_one(skin(), "WalkerF", 800.0) as EnemyGrenadier
 	var visual: EnemySpriteAppearance = f.get_node("Visual")
 	var swung := false
@@ -928,6 +959,7 @@ func place_boss(pack: SkinPack, player_x := 900.0) -> BossMissile:
 
 
 func test_every_clip_is_there_for_the_boss() -> void:
+	if needs_art(): return
 	for clip: StringName in B_CLIPS:
 		for side in ["r", "l"]:
 			var path := "%s/1_boss/%s_%s.png" % [ART, clip, side]
@@ -940,6 +972,7 @@ func test_every_clip_is_there_for_the_boss() -> void:
 
 
 func test_the_boss_facings_are_mirrors() -> void:
+	if needs_art(): return
 	for clip: StringName in [&"idle", &"attack_walk", &"air", &"death"]:
 		var right := image(&"1_boss", clip, "r")
 		var left := image(&"1_boss", clip, "l")
@@ -959,6 +992,7 @@ func test_the_boss_facings_are_mirrors() -> void:
 
 
 func test_the_boss_art_fits_its_hitbox() -> void:
+	if needs_art(): return
 	# 脚底落在判定框底边（原点下方 24px），机身和判定框差不多大（判定框略小一圈，擦边不算打中）
 	var box := Vector2(56, 48)
 	for clip: StringName in [&"idle", &"walk", &"attack_level", &"attack_walk", &"hurt"]:
@@ -978,6 +1012,7 @@ func test_the_boss_art_fits_its_hitbox() -> void:
 
 
 func test_missiles_leave_from_the_pod_in_the_art() -> void:
+	if needs_art(): return
 	# 出膛点在画面上的导弹巢口：离它最近的机身像素不超过 3px，而且在机身顶部那一截
 	var muzzle := BossMissile.POD_MUZZLE
 	var near := INF
@@ -988,6 +1023,7 @@ func test_missiles_leave_from_the_pod_in_the_art() -> void:
 
 
 func test_the_boss_wears_its_art_and_portrait() -> void:
+	if needs_art(): return
 	var boss := await place_boss(skin())
 	var visual: Node = boss.get_node("Visual")
 	check("the boss wears the sprite appearance", visual is EnemySpriteAppearance, str(visual))
@@ -1004,6 +1040,7 @@ func test_the_boss_wears_its_art_and_portrait() -> void:
 
 
 func test_boss_clips_follow_what_it_does() -> void:
+	if needs_art(): return
 	var boss := await place_boss(skin())
 	var visual: EnemySpriteAppearance = boss.get_node("Visual")
 	boss._fire_timer = 999.0

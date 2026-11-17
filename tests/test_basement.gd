@@ -21,6 +21,7 @@ func zone_art(rel: String) -> Image:
 # ---------------------------------------------------------------- 只装自己独有的
 
 func test_the_pack_brings_terrain_a_backdrop_light_and_its_own_track() -> void:
+	if needs_art(): return
 	var mine := pack()
 	for key: StringName in [&"terrain_ground", &"terrain_ledge", &"terrain_stone"]:
 		check("it declares %s" % key, mine.appearances.has(key))
@@ -33,6 +34,7 @@ func test_the_pack_brings_terrain_a_backdrop_light_and_its_own_track() -> void:
 
 
 func test_everything_else_comes_from_the_pack_behind_it() -> void:
+	if needs_art(): return
 	Skins.use(pack())
 	for key: StringName in [&"biker", &"player_bullet", &"enemy_bullet", &"player_grenade"]:
 		var scene := pack().find_appearance(key)
@@ -43,6 +45,7 @@ func test_everything_else_comes_from_the_pack_behind_it() -> void:
 
 
 func test_the_track_is_this_zone_and_loops_cleanly() -> void:
+	if needs_art(): return
 	Skins.use(pack())
 	var track := Skins.music(&"level")
 	check("there is level music", track != null)
@@ -53,6 +56,7 @@ func test_the_track_is_this_zone_and_loops_cleanly() -> void:
 
 
 func test_each_zone_plays_its_own_track() -> void:
+	if needs_art(): return
 	var heard := {}
 	for path: String in [PACK, "res://skins/bar_street/bar_street_skin.tres",
 			"res://skins/industrial/industrial_skin.tres", "res://skins/cyberpunk/cyberpunk_skin.tres"]:
@@ -66,6 +70,7 @@ func test_each_zone_plays_its_own_track() -> void:
 # ---------------------------------------------------------------- 地砖
 
 func test_the_terrain_art_is_this_zone_and_not_another() -> void:
+	if needs_art(): return
 	for name: String in ["ground", "ledge", "stone"]:
 		var mine := zone_art("terrain/%s.png" % name)
 		for other: String in ["cyberpunk", "industrial", "bar_street"]:
@@ -74,6 +79,7 @@ func test_the_terrain_art_is_this_zone_and_not_another() -> void:
 
 
 func test_no_terrain_tile_is_half_empty() -> void:
+	if needs_art(): return
 	# 41~44 那排薄条只画了上半格，生成时裁到 16 行；裁漏了九宫格会把空白也当成边
 	for name: String in ["ground", "ledge", "stone"]:
 		var img := zone_art("terrain/%s.png" % name)
@@ -91,6 +97,7 @@ func test_no_terrain_tile_is_half_empty() -> void:
 
 
 func test_walls_are_a_full_nine_slice() -> void:
+	if needs_art(): return
 	# 竖井两侧的墙和堵块都是大块头，要四角、四边、中间齐全才拼得出一整块岩体
 	var stone := zone_art("terrain/stone.png")
 	check("the stone source is three tiles each way", stone.get_size() == Vector2i(96, 96),
@@ -112,6 +119,7 @@ func backdrop_layers() -> Array[Parallax2D]:
 
 
 func test_the_backdrop_repeats_upwards_without_end() -> void:
+	if needs_art(): return
 	# 关卡有 20 屏高：背景得竖着重复，而且一层的高度就是重复的间距，否则会露缝或者重叠
 	var layers := backdrop_layers()
 	check("setup: there are layers", layers.size() >= 2, str(layers.size()))
@@ -126,6 +134,7 @@ func test_the_backdrop_repeats_upwards_without_end() -> void:
 
 
 func test_the_back_wall_is_solid() -> void:
+	if needs_art(): return
 	# 最后面那层是整面墙：哪怕一个像素透了，竖井里就会露出清屏色
 	var wall := zone_art("backdrop/wall.png")
 	var holes := 0
@@ -137,6 +146,7 @@ func test_the_back_wall_is_solid() -> void:
 
 
 func test_the_back_wall_sits_behind_the_terrain() -> void:
+	if needs_art(): return
 	# 墙是往后压暗过的：亮的那一截不到地形的一半，不然平台糊进墙里（不压暗时是 0.27 对 0.41，压了是 0.15）。
 	# **比亮的那一截，不比平均**：岩块中间是一大片深紫填充，平均下来本来就暗；
 	# 让平台和墙从背景里跳出来的是它那圈浅色描边。
@@ -162,6 +172,7 @@ func _bright_end(img: Image) -> float:
 # ---------------------------------------------------------------- 光照、装饰
 
 func test_the_light_is_the_neon_overlay_of_this_zone() -> void:
+	if needs_art(): return
 	var light := pack().lighting.instantiate()
 	check("it is a screen light", light is ScreenLight, str(light))
 	var material := (light as CanvasItem).material as ShaderMaterial
@@ -175,6 +186,7 @@ const PICKUP_LOOKALIKES := ["card", "money", "lamp", "bottle", "glass", "coin"]
 
 
 func test_no_prop_looks_like_a_pickup() -> void:
+	if needs_art(): return
 	var files := DirAccess.get_files_at("%s/props" % ART)
 	var pngs := 0
 	for file in files:
@@ -187,6 +199,7 @@ func test_no_prop_looks_like_a_pickup() -> void:
 
 
 func test_the_steam_is_the_one_thing_that_moves() -> void:
+	if needs_art(): return
 	# 会动的只要蒸汽：288×48 = 6 帧
 	var smoke := zone_art("props/smoke.png")
 	check("six square frames of steam", smoke.get_width() == smoke.get_height() * 6,
@@ -196,6 +209,7 @@ func test_the_steam_is_the_one_thing_that_moves() -> void:
 # ---------------------------------------------------------------- 接上去以后
 
 func test_every_platform_wears_this_zone_terrain() -> void:
+	if needs_art(): return
 	await reset_scene(true, true, pack())
 	var checked := 0
 	for p in main.get_node("Level").find_children("*", "Platform", true, false):
@@ -209,6 +223,7 @@ func test_every_platform_wears_this_zone_terrain() -> void:
 
 
 func test_the_level_is_lit_and_the_rules_do_not_change() -> void:
+	if needs_art(): return
 	# 换上这套包，测试关照常跑：玩家站得住、光照层夹在地形和人中间
 	await reset_scene(true, true, pack())
 	await frames(30)

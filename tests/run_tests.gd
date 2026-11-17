@@ -118,6 +118,8 @@ func _run() -> void:
 	var total := 0
 	var failed := 0
 	var failed_labels: Array[String] = []
+	# 素材不在（公开版）时，测素材本身的用例自己跳过（`GameTest.needs_art()`），这里只是数一数
+	var skipped := 0
 
 	for suite_name in SUITES:
 		if wanted.size() > 0 and not wanted.has(suite_name):
@@ -140,6 +142,7 @@ func _run() -> void:
 				continue
 			print("  ", test_name)
 			suite.results.clear()
+			suite.skipped = false
 			_script_errors.take() # 丢掉上一条用例收尾阶段可能产生的错误，只算这条自己的
 			_arm_watchdog("%s / %s" % [suite_name, test_name])
 			await suite.call(test_name)
@@ -148,6 +151,9 @@ func _run() -> void:
 			await physics_frame
 			for error in _script_errors.take():
 				suite.check("no script error (%s)" % error, false)
+			if suite.skipped:
+				skipped += 1
+				print("    SKIP  needs the third-party art (not in this build)")
 
 			for result in suite.results:
 				total += 1
@@ -162,6 +168,8 @@ func _run() -> void:
 
 	_test_serial += 1 # 解除最后一条用例的看门狗
 	print("\n", "-".repeat(50))
+	if skipped > 0:
+		print("%d tests skipped: they check the third-party art, which this build leaves out" % skipped)
 	if failed == 0:
 		print("all %d checks passed" % total)
 	else:

@@ -33,6 +33,7 @@ func boss() -> Boss:
 # ---------------------------------------------------------------- 这一关自己的
 
 func test_it_is_the_first_stage_in_the_catalog() -> void:
+	if needs_art(): return
 	var info := load(LEVEL_INFO) as LevelInfo
 	check("it points at this scene", info.scene_path == level_path(), info.scene_path)
 	check("and brings the green zone pack", info.skin != null
@@ -56,6 +57,7 @@ func test_this_stage_brings_its_own_cast() -> void:
 
 
 func test_crates_and_barrels_wear_the_pack_art() -> void:
+	if needs_art(): return
 	# 赛博朋克包（绿区）原来没有这两样，占位色块混在像素画里一眼就看得出来
 	await open_level()
 	var crates := 0

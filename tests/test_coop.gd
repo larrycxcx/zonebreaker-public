@@ -158,6 +158,7 @@ func test_a_dead_player_neither_drags_the_camera_nor_gets_dragged() -> void:
 # ---------------------------------------------------------------- 2 号玩家长什么样
 
 func test_the_two_players_wear_different_characters() -> void:
+	if needs_art(): return
 	# 同屏两个人得看得出谁是谁：两个座位默认拿两套不同的外观。
 	var skin := load(CYBERPUNK) as SkinPack
 	await reset_scene(false, false, skin, 2)
@@ -172,6 +173,7 @@ func test_the_two_players_wear_different_characters() -> void:
 
 
 func test_the_look_comes_from_the_character_not_the_seat() -> void:
+	if needs_art(): return
 	# 外观是角色自己的属性：1 号玩家照样可以是 Punk。
 	var skin := load(CYBERPUNK) as SkinPack
 	await reset_scene(false, false, skin, 1)
@@ -409,6 +411,7 @@ func test_the_two_huds_sit_on_opposite_sides() -> void:
 
 
 func test_the_skinned_hud_is_mirrored_too() -> void:
+	if needs_art(): return
 	# 素材包的 HUD 外观是另一棵树，镜像要一起做，否则右边那套画面还留在左边
 	var skin := load(CYBERPUNK) as SkinPack
 	await reset_scene(false, false, skin, 2)
@@ -433,6 +436,7 @@ func test_the_skinned_hud_is_mirrored_too() -> void:
 ## Boss 血条是两个人共用的，所以它**只能摆在正上方居中**——右上角是 2 号玩家的地盘。
 ## 占位 HUD 早就挪过来了，素材包那套（`SpriteHud`）当时忘了跟着挪，双人时和 2 号的血条叠在一起。
 func test_the_boss_bar_keeps_clear_of_the_second_player() -> void:
+	if needs_art(): return
 	var skin := load(CYBERPUNK) as SkinPack
 	await reset_scene(false, false, skin, 2)
 	var screen := float(ProjectSettings.get_setting("display/window/size/viewport_width", 640))

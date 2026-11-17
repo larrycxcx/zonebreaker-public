@@ -48,6 +48,7 @@ func test_the_ends_keep_their_outline() -> void:
 # ---------------------------------------------------------------- 接上去以后
 
 func test_every_platform_wears_the_right_terrain() -> void:
+	if needs_art(): return
 	await reset_scene(true, true, skin())
 	for p in platforms():
 		var visual := p.get_node("Visual")
@@ -81,6 +82,7 @@ func test_only_ledges_hang_below_their_hitbox() -> void:
 
 
 func test_walls_built_in_tests_get_the_terrain_too() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	var wall := add_wall(400, 40)
 	await frames(1)
@@ -98,6 +100,7 @@ func test_the_default_pack_keeps_the_blocks() -> void:
 
 
 func test_the_backdrop_is_behind_everything_and_pure_display() -> void:
+	if needs_art(): return
 	await reset_scene(true, true, skin())
 	var backdrop := main.get_node_or_null("Backdrop")
 	check("the skin puts a backdrop in the level", backdrop != null)

@@ -1,7 +1,6 @@
 [gd_resource type="Resource" script_class="Equipment" format=3]
 
 [ext_resource type="Script" path="res://scripts/rpg/equipment.gd" id="1"]
-[ext_resource type="Texture2D" path="res://skins/cyberpunk/ui/gear_scrap_body.png" id="icon"]
 
 [resource]
 script = ExtResource("1")
@@ -10,4 +9,4 @@ slot = 3
 price = 480
 min_level = 3
 bonuses = Dictionary[StringName, float]({&"life": 30.0})
-icon = ExtResource("icon")
+icon_path = "res://skins/cyberpunk/ui/gear_scrap_body.png"

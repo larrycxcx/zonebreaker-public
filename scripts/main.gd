@@ -33,11 +33,25 @@ var _over := false
 var _started: Array[Dictionary] = []
 
 
+## 格子地图生成的关卡，画面交给砖（`FrontTiles`），碰撞的平台都藏着。**砖的素材不在**
+## （公开版去掉了第三方素材）时什么都画不出来、地面是透明的，所以把那些平台露出来，
+## 用平台自己的占位外观（纯色方块）当地形——规则一点没变，只是退回方块的样子。
+func _show_bare_terrain() -> void:
+	var tiles := get_node_or_null("FrontTiles") as TileArt
+	if tiles == null or tiles.atlas != null:
+		return
+	# 只露 `Level` 底下的平台：梯子顶那块看不见的盖子（挂在梯子下面）本来就不该画
+	for node in get_node("Level").get_children():
+		if node is Platform:
+			(node as Platform).visible = true
+
+
 func _ready() -> void:
 	_add_players()
 	_add_huds()
 	_add_backdrop()
 	_add_lighting()
+	_show_bare_terrain()
 	# 关卡里的音乐；死了重开时已经在放同一首就接着放，不会从头来（见 Music）
 	Music.play(&"level")
 	for node in get_tree().get_nodes_in_group(&"player"):

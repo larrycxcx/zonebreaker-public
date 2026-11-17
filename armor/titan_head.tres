@@ -1,7 +1,6 @@
 [gd_resource type="Resource" script_class="Equipment" format=3]
 
 [ext_resource type="Script" path="res://scripts/rpg/equipment.gd" id="1"]
-[ext_resource type="Texture2D" path="res://skins/cyberpunk/ui/gear_titan_head.png" id="icon"]
 
 [resource]
 script = ExtResource("1")
@@ -10,4 +9,4 @@ slot = 2
 price = 9030
 min_level = 14
 bonuses = Dictionary[StringName, float]({&"defense": 22.0})
-icon = ExtResource("icon")
+icon_path = "res://skins/cyberpunk/ui/gear_titan_head.png"

@@ -57,6 +57,7 @@ func test_it_is_a_floating_boss() -> void:
 
 
 func test_the_pack_has_its_art() -> void:
+	if needs_art(): return
 	var pack := load(PACK) as SkinPack
 	for key: StringName in [&"4_boss", &"4_minion"]:
 		check("%s is in the pack" % key, pack.appearances.has(key))
@@ -200,6 +201,7 @@ func test_the_volley_is_a_fan() -> void:
 
 
 func test_the_volley_in_the_pack_needs_no_missing_art() -> void:
+	if needs_art(): return
 	# 截图抓到的：基类每打一发都让外观「播一遍开火动作」，骷髅头没有 attack_level 那组，
 	# 每发刷一条「Resource file not found」（第二关 2-C 当年同一个毛病）。默认皮肤下测不出来
 	await open_arena(load(PACK) as SkinPack)

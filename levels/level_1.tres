@@ -1,11 +1,10 @@
 [gd_resource type="Resource" script_class="LevelInfo" format=3]
 
 [ext_resource type="Script" path="res://scripts/level_info.gd" id="1"]
-[ext_resource type="Resource" path="res://skins/cyberpunk/cyberpunk_skin.tres" id="2"]
 
 [resource]
 script = ExtResource("1")
-skin = ExtResource("2")
+skin_path = "res://skins/cyberpunk/cyberpunk_skin.tres"
 scene_path = "res://scenes/level_1.tscn"
 display_name = "GREEN ZONE"
 order = 0

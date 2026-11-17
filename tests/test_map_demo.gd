@@ -155,6 +155,7 @@ func test_the_tiles_are_pure_decoration() -> void:
 
 
 func test_the_platforms_only_collide_and_the_tiles_draw() -> void:
+	if needs_art(): return
 	# 碰撞还是平台节点管；它们藏起来不画，不然砖和九宫格会叠成两层
 	await open_demo()
 	var front := tile_set("FrontTiles")
@@ -186,6 +187,7 @@ func test_indoor_rooms_have_a_wall_behind_them() -> void:
 
 
 func test_the_walls_carry_numbered_pipes_like_the_promo() -> void:
+	if needs_art(): return
 	# 宣传图墙上的紫色大管子和「4」「3」：管道按块拼（直管 / 管头 / 圆盘接头），编号牌 = 圆盘 + 数字
 	await open_demo()
 	var signs := main.get_node("Decals").get_children()
@@ -205,6 +207,7 @@ func test_the_walls_carry_numbered_pipes_like_the_promo() -> void:
 
 
 func test_a_railing_runs_along_the_top_floor() -> void:
+	if needs_art(): return
 	await open_demo()
 	var rail: Array[String] = []
 	for prop in main.get_node("Props").get_children():

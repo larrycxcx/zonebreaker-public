@@ -33,6 +33,7 @@ func effects_of(added: Array[Node], scene_name: String) -> Array:
 # ---------------------------------------------------------------- 贴图本身
 
 func test_every_texture_is_there() -> void:
+	if needs_art(): return
 	for kind in ["muzzle", "impact"]:
 		for d: StringName in DIRECTIONS:
 			var img := strip("%s/%s/%s.png" % [FX, kind, d])
@@ -43,6 +44,7 @@ func test_every_texture_is_there() -> void:
 
 
 func test_the_flash_starts_at_the_middle_of_every_frame() -> void:
+	if needs_art(): return
 	# 喷出点（枪口）在格子正中：第 1 帧那一小团要贴着中心
 	for kind in ["muzzle", "impact"]:
 		for d: StringName in DIRECTIONS:
@@ -58,6 +60,7 @@ func test_the_flash_starts_at_the_middle_of_every_frame() -> void:
 # ---------------------------------------------------------------- 接上去以后
 
 func test_the_muzzle_flash_points_the_way_you_shoot() -> void:
+	if needs_art(): return
 	for aim in [Vector2.RIGHT, Vector2(1, -1).normalized(), Vector2.UP, Vector2(-1, 1).normalized()]:
 		await reset_scene(false, false, skin())
 		player.global_position = Vector2(300, 200)
@@ -77,6 +80,7 @@ func test_the_muzzle_flash_points_the_way_you_shoot() -> void:
 
 
 func test_sparks_fly_back_off_a_wall() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	var wall := add_wall(400, 60)
 	await frames(1)
@@ -99,6 +103,7 @@ func test_sparks_fly_back_off_a_wall() -> void:
 
 
 func test_a_hit_on_an_enemy_flashes_red() -> void:
+	if needs_art(): return
 	await reset_scene(true, false, skin())
 	keep_only_enemies(["Turret1"])
 	var turret: Enemy = main.get_node("Enemies/Turret1")
@@ -114,6 +119,7 @@ func test_a_hit_on_an_enemy_flashes_red() -> void:
 
 
 func test_effects_are_pure_display_and_go_away() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	player.global_position = Vector2(300, 200)
 	await frames(2)

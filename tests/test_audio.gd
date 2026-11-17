@@ -31,6 +31,7 @@ func _only(enemy_name: String) -> Node:
 # ---------------------------------------------------------------- 结构
 
 func test_audio_setup() -> void:
+	if needs_art(): return
 	await reset_scene()
 	for autoload in ["GameEvents", "Skins", "Sfx"]:
 		check("autoload %s is running" % autoload, tree.root.has_node(autoload))

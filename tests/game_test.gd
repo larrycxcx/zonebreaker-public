@@ -26,6 +26,22 @@ var results: Array[Dictionary] = []
 var events: Array[StringName] = []
 
 
+## 第三方素材在不在（公开版去掉了，见 `tools/export_public.py`）。拿赛博朋克包当标志：别的包都 fallback 到它。
+const THIRD_PARTY_ART := "res://skins/cyberpunk/cyberpunk_skin.tres"
+
+## 这条用例跳过了没有（runner 读它，算进「跳过」而不是「通过」）。
+var skipped := false
+
+
+## **这条用例测的是素材本身**（贴图、字模、某个区的包）：素材不在就跳过，返回 true。
+## 用法：用例第一行 `if needs_art(): return`。只测规则的用例别加——公开版照样要守住规则。
+func needs_art() -> bool:
+	if ResourceLoader.exists(THIRD_PARTY_ART):
+		return false
+	skipped = true
+	return true
+
+
 func check(label: String, ok: bool, detail := "") -> void:
 	results.append({"label": label, "ok": ok, "detail": detail})
 

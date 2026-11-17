@@ -36,4 +36,15 @@ const SLOT_NAMES := {
 ## 异常状态抗性：状态名（`StatusEffect.id`）→ 0..1，1 = 完全免疫。多件装备取最大的那个。
 @export var resist: Dictionary[StringName, float] = {}
 ## 商店、背包、人物设置界面里显示的图标（32×32）。留空就画一个空格子。
-@export var icon: Texture2D
+## **存路径不存贴图**：图标在素材包里，素材包不在（公开版去掉了第三方素材）的话，
+## 直接引用会让整个 `.tres` 加载失败、连枪都拿不到；存路径的话只是图标空着。
+@export_file("*.png") var icon_path := ""
+## 图标本身：路径有文件才加载，没有就是 null（界面画空格子）。也可以直接塞一张（测试用）。
+var icon: Texture2D:
+	get:
+		if _icon == null and not icon_path.is_empty() and ResourceLoader.exists(icon_path):
+			_icon = load(icon_path) as Texture2D
+		return _icon
+	set(value):
+		_icon = value
+var _icon: Texture2D

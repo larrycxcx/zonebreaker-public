@@ -90,6 +90,7 @@ func distance_to_art(img: Image, frame: int, frame_w: int, point: Vector2) -> fl
 # ---------------------------------------------------------------- 贴图
 
 func test_every_enemy_is_registered_and_has_art() -> void:
+	if needs_art(): return
 	for key: StringName in ENEMIES:
 		check("%s is in the pack" % key, pack().appearances.has(key))
 		check("%s has an idle, a hurt and a death" % key,
@@ -103,6 +104,7 @@ func test_every_enemy_is_registered_and_has_art() -> void:
 
 
 func test_the_art_is_mirrored_about_the_anchor() -> void:
+	if needs_art(): return
 	for key: StringName in ENEMIES:
 		var w: int = ENEMIES[key][0]
 		var ax := anchor_of(key).x
@@ -121,6 +123,7 @@ func test_the_art_is_mirrored_about_the_anchor() -> void:
 
 
 func test_feet_meet_the_bottom_of_the_hit_box() -> void:
+	if needs_art(): return
 	# 走地上的：贴图最低一行 = 锚点 + 判定框半高 - 1。蜘蛛炮台的判定框矮（22），锚点跟着往下挪了
 	for key: StringName in ENEMIES:
 		if key == &"4_d":
@@ -142,6 +145,7 @@ func test_feet_meet_the_bottom_of_the_hit_box() -> void:
 
 
 func test_the_drone_was_turned_round_to_face_right() -> void:
+	if needs_art(): return
 	# 素材是**朝左**画的（枪管在左），生成时翻过来。`_r` 必须是朝右的：红色尾灯在后面（左边）
 	var img := sheet(&"4_d", "idle")
 	var ax := anchor_of(&"4_d").x
@@ -160,6 +164,7 @@ func test_the_drone_was_turned_round_to_face_right() -> void:
 
 
 func test_shots_leave_from_the_guns_in_the_art() -> void:
+	if needs_art(): return
 	# 出膛点（相对原点）放回贴图里，离画面上的枪 / 火光不超过 3 像素
 	var cases := [
 		[&"4_c", "attack_level", 1, "level"], [&"4_c", "attack_up", 1, "up"],

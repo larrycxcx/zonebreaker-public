@@ -343,6 +343,7 @@ func test_the_other_player_s_character_is_skipped() -> void:
 
 
 func test_body_text_uses_the_small_font_and_titles_the_big_one() -> void:
+	if needs_art(): return
 	# 位图字体只有做出来的那个尺寸是清楚的，所以正文和标题各用各的图集，不让引擎去缩。
 	await open_menu()
 	var title: Label = null
@@ -583,6 +584,7 @@ func test_the_stat_arrows_follow_the_keys_too() -> void:
 
 
 func test_the_gear_icon_sits_inside_its_slot() -> void:
+	if needs_art(): return
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	var slot := column.slot_rect(Equipment.Slot.GUN)
@@ -612,6 +614,7 @@ func ink_rows(texture: Texture2D) -> Vector2:
 
 
 func test_the_stat_rows_leave_room_for_their_icons() -> void:
+	if needs_art(): return
 	# 行距是**图标**说了算，不是字：字才 10px 高，属性图标里画着的东西有 20px。
 	# 挨太近的话上下两行的图标会叠在一起，选中的金框也会盖到邻居的图标上。
 	await reach_setup(1)
@@ -1133,6 +1136,7 @@ func test_both_pads_can_still_pause_after_claiming() -> void:
 
 
 func test_the_game_name_fits_inside_the_title_plate() -> void:
+	if needs_art(): return
 	# 2026-11 定名 ZONE BREAKER：12 个字在 28px 下约 295 宽，素材原来那块牌子（285 宽、里面那格两边各让 16）装不下，
 	# 字戳出牌子两边（截图看出来的）。牌子由 `ui_build.py` 加宽了；以后改名太长，这条会先说话。
 	await open_menu()

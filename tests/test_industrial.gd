@@ -32,6 +32,7 @@ func platforms() -> Array[Platform]:
 # ---------------------------------------------------------------- 只装自己独有的
 
 func test_the_pack_brings_its_own_terrain_and_a_backdrop() -> void:
+	if needs_art(): return
 	# 一个区独有的就这几样：三种地形 + 这一关的敌人 + 背景。
 	# **玩家、子弹、特效、HUD 一个都不该在它自己的表里**——那些 23 关共用，配在这儿就等于抄了一份。
 	var mine := pack()
@@ -50,6 +51,7 @@ func test_the_pack_brings_its_own_terrain_and_a_backdrop() -> void:
 
 
 func test_everything_else_comes_from_the_pack_behind_it() -> void:
+	if needs_art(): return
 	# 角色、子弹、特效、HUD、声音都得照常拿得到——拿不到的话第二关会变成一地占位方块。
 	Skins.use(pack())
 	for key: StringName in [&"biker", &"player_bullet", &"1_a", &"enemy_bullet", &"1_boss"]:
@@ -62,6 +64,7 @@ func test_everything_else_comes_from_the_pack_behind_it() -> void:
 
 
 func test_the_terrain_art_is_this_zone_and_not_the_last_one() -> void:
+	if needs_art(): return
 	# 光有一份 `.tres` 不算换了皮肤：贴图得真的不一样
 	for name: String in ["ground", "ledge", "stone"]:
 		var mine := zone_art("terrain/%s.png" % name)
@@ -72,6 +75,7 @@ func test_the_terrain_art_is_this_zone_and_not_the_last_one() -> void:
 # ---------------------------------------------------------------- 这次踩出来的两条
 
 func test_no_terrain_tile_is_half_empty() -> void:
+	if needs_art(): return
 	# 素材里薄条（16 高）和整砖（32 高）混在一起，编号又挨着。
 	# 拿薄条当地面顶砖的话上半截是透明的，游戏里地面看着像一排护栏——所以每张图都不许有整行空的。
 	for name: String in ["ground", "ledge", "stone"]:
@@ -90,6 +94,7 @@ func test_no_terrain_tile_is_half_empty() -> void:
 
 
 func test_the_backdrop_reaches_the_bottom_of_the_screen() -> void:
+	if needs_art(): return
 	# 素材只有 324 高，地面线以下什么都没有。关卡里有坑，坑那一块会露出清屏色、看着像块黑砖，
 	# 所以生成时把最底下那一行往下重复到画面底。
 	# **只有最后面那层要求不透明**：这套素材里 `sky` 画到地平线就没了，底下露出 `base` 那片雾色，
@@ -110,6 +115,7 @@ func test_the_backdrop_reaches_the_bottom_of_the_screen() -> void:
 # ---------------------------------------------------------------- 接上去以后
 
 func test_every_platform_wears_this_zone_terrain() -> void:
+	if needs_art(): return
 	await reset_scene(true, true, pack())
 	for p in platforms():
 		var visual := p.get_node("Visual")
@@ -121,6 +127,7 @@ func test_every_platform_wears_this_zone_terrain() -> void:
 
 
 func test_the_backdrop_goes_in_behind_everything() -> void:
+	if needs_art(): return
 	await reset_scene(true, true, pack())
 	var backdrop := main.get_node_or_null("Backdrop")
 	check("the level gets a backdrop", backdrop != null)
@@ -195,6 +202,7 @@ func has_clip(key: StringName, clip: String) -> bool:
 
 
 func test_every_enemy_the_pack_names_really_has_art() -> void:
+	if needs_art(): return
 	# 包里填了键却没贴图的话，游戏里那个敌人是一团看不见的东西——照样会打你
 	var mine := pack()
 	for key: StringName in ENEMIES:
@@ -210,6 +218,7 @@ func test_every_enemy_the_pack_names_really_has_art() -> void:
 
 
 func test_the_art_is_mirrored_left_and_right() -> void:
+	if needs_art(): return
 	# 转身只是换一张贴图（不用 flip_h，更不用负的 scale），所以两张必须是严格的镜像
 	for key: StringName in ENEMIES:
 		var spec: Array = ENEMIES[key]
@@ -230,6 +239,7 @@ func test_the_art_is_mirrored_left_and_right() -> void:
 
 
 func test_the_ones_that_walk_stand_on_the_same_line() -> void:
+	if needs_art(): return
 	# 脚底落在锚点下方 16px：和玩家、和第一关的敌人同一条线，换关不会有人陷进地里或者浮着
 	for key: StringName in ENEMIES:
 		var spec: Array = ENEMIES[key]
@@ -248,6 +258,7 @@ func test_the_ones_that_walk_stand_on_the_same_line() -> void:
 
 
 func test_the_one_that_flies_is_centred_on_its_anchor() -> void:
+	if needs_art(): return
 	# 走地上的靠脚底那条线对齐，飞的没有脚——它的判定框 28×20 是**以原点为中心**的，
 	# 所以横向要对准锚点那一列。差几像素的话，玩家瞄着机身打却打空。
 	var spec: Array = ENEMIES[&"2_e"]
@@ -265,6 +276,7 @@ func test_the_one_that_flies_is_centred_on_its_anchor() -> void:
 
 
 func test_the_ones_that_fight_have_the_frames_their_behaviour_needs() -> void:
+	if needs_art(): return
 	# 每种敌人的打法都卡在某一帧上，贴图少一组的话行为就没有画面
 	check("2-C has a firing pose", has_clip(&"2_c", "attack_level"))
 	check("2-D has the full hammer swing", has_clip(&"2_d", "attack_level")
@@ -286,6 +298,7 @@ func spawn(scene_path: String, at: Vector2) -> Enemy:
 
 
 func test_the_heaver_charges_like_the_chaser_does() -> void:
+	if needs_art(): return
 	await reset_scene(false, true, pack())
 	var heaver := spawn("res://scenes/enemy_2_b.tscn", Vector2(500, 300))
 	player.global_position = Vector2(340, 304)
@@ -595,6 +608,7 @@ func face_the_operator(player_at: Vector2) -> BossOperator:
 
 
 func test_the_operator_is_a_boss_and_shows_up_on_the_hud() -> void:
+	if needs_art(): return
 	await reset_scene(false, true, pack())
 	var boss := spawn_boss()
 	check("it is a boss", boss is Boss)
@@ -813,6 +827,7 @@ func test_it_holds_still_while_the_arm_is_out() -> void:
 
 
 func test_aiming_off_the_level_falls_back_to_the_art_this_pack_has() -> void:
+	if needs_art(): return
 	# **这套素材只画了水平开火**（赛博朋克那个巡逻兵自带水平 / 斜上 / 斜下三组）。
 	# 2-C 照样会斜着打——规则不变，只是画面上还是水平端枪的样子。
 	# 没有这条兜底的话，它一斜着瞄就去加载一张不存在的图，刷一屏「Resource file not found」，
@@ -831,6 +846,7 @@ func test_aiming_off_the_level_falls_back_to_the_art_this_pack_has() -> void:
 
 
 func test_the_characters_still_have_faces_in_this_zone() -> void:
+	if needs_art(): return
 	# **每关的包只装这一关独有的**，角色是 23 关共用的、只在最底下那个包里有一份。
 	# 头像一开始是直接按当前包的目录拼路径的，打完第二关回主菜单时当前包是工业区、
 	# 那儿一个角色目录都没有，三个头像就全空了（试玩发现）。现在顺着 fallback 找。
@@ -912,6 +928,7 @@ func test_the_fan_is_still_dodgeable() -> void:
 # ---------------------------------------------------------------- 这一关的音乐
 
 func test_the_zone_has_a_track_of_its_own() -> void:
+	if needs_art(): return
 	Skins.use(pack())
 	var track := Skins.music(&"level")
 	check("there is level music", track != null)
@@ -927,6 +944,7 @@ func test_the_zone_has_a_track_of_its_own() -> void:
 
 
 func test_each_zone_plays_its_own_music() -> void:
+	if needs_art(): return
 	# 两个区的关卡曲子得真的不一样——登记错了的话第二关会放第一关那首
 	Skins.use(pack())
 	var mine := Skins.music(&"level")

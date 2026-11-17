@@ -55,6 +55,7 @@ func stand_at(x: float) -> void:
 # ---------------------------------------------------------------- 贴图本身
 
 func test_every_clip_is_there_and_lines_up() -> void:
+	if needs_art(): return
 	var names := []
 	for clip in BODY_CLIPS:
 		names.append("body_" + clip)
@@ -74,6 +75,7 @@ func test_every_clip_is_there_and_lines_up() -> void:
 
 
 func test_the_two_facings_are_mirrors_of_each_other() -> void:
+	if needs_art(): return
 	# 朝左那套是按锚点那一列镜像出来的，两边必须严丝合缝地对称。
 	# 对不上就说明生成脚本把某一边切掉了一块——画面上表现为转身时角色少一截、或者整体挪了一格。
 	# 只比看得见的像素：导入器的「修复 alpha 边缘」会给全透明像素填上邻居的颜色，那不对称也无所谓。
@@ -117,6 +119,7 @@ func ink_box(texture: Texture2D, rows := Vector2i(0, FRAME - 1)) -> Rect2i:
 
 
 func test_the_art_sits_on_the_collision_box() -> void:
+	if needs_art(): return
 	# 锚点是贴图和玩法之间唯一的接缝：生成脚本里的 ANCHOR 一改，角色就会整体错位
 	# （脚陷进地里、或者浮在空中），而这种错位是任何玩法测试都发现不了的。
 	# 这里按碰撞体反推它应该在哪：脚底在原点下方 16px，躯干中心大致对着原点那一列。
@@ -140,6 +143,7 @@ func test_the_art_sits_on_the_collision_box() -> void:
 
 
 func test_the_prone_art_stays_under_enemy_fire() -> void:
+	if needs_art(): return
 	# 趴下躲子弹是规则，**画面也得说得通**：整张趴姿贴图要藏在敌人站着开枪的子弹下面，
 	# 否则玩家会看见子弹从背上穿过去却没掉血，会以为是穿模。
 	# 判定框 12px，贴图可以比它高一点（人躺着本来就有厚度），但不能高过子弹。
@@ -193,6 +197,7 @@ func ink_box_in(image: Image, frame: int) -> Rect2i:
 
 
 func test_the_death_art_falls_backwards_onto_the_ground() -> void:
+	if needs_art(): return
 	# 死亡动画保留画师原本的摆位，只按站立那一帧定一次位：人是往后倒的，
 	# 逐帧按躯干重新对齐会把后倒的位移抵消掉，倒地变成原地打转——这条守的就是这个。
 	var image := (load("%s/body_death_r.png" % ART_DIR) as Texture2D).get_image()
@@ -222,6 +227,7 @@ func test_the_death_art_falls_backwards_onto_the_ground() -> void:
 
 
 func test_dying_plays_the_fall_once_and_stays_down() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	await stand_at(400)
 	player.take_damage(player.health)
@@ -243,6 +249,7 @@ func test_dying_plays_the_fall_once_and_stays_down() -> void:
 
 
 func test_dying_while_lying_down_still_plays_the_fall() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	await stand_at(400)
 	Input.action_press("crouch")
@@ -315,6 +322,7 @@ func skin_pixels(image: Image, frame: int) -> int:
 
 
 func test_walking_shows_the_running_animation() -> void:
+	if needs_art(): return
 	# 试玩嫌节奏慢，所以**正常移动直接用素材里的跑**（速度一个数都没动）。
 	# 跑的姿势是整个人往前倾，走的姿势是直的——量这个就知道用的是哪一组。
 	var walk := (load("%s/body_walk_r.png" % ART_DIR) as Texture2D).get_image()
@@ -331,6 +339,7 @@ func test_walking_shows_the_running_animation() -> void:
 
 
 func test_hanging_in_the_air_is_one_single_pose() -> void:
+	if needs_art(): return
 	# 空中只有一个姿势，所以贴图本身就只有一帧——两帧的话运行时总有机会在半空换图。
 	var air := (load("%s/body_air_r.png" % ART_DIR) as Texture2D).get_image()
 	check("the air clip is a single frame", frames_in(air) == 1, "%d 帧" % frames_in(air))
@@ -340,6 +349,7 @@ func test_hanging_in_the_air_is_one_single_pose() -> void:
 
 
 func test_sprinting_shows_the_dash() -> void:
+	if needs_art(): return
 	# 冲刺换成素材里的 Dash：身后拖一条残影。速度还是原来的 270，只是看着像在冲。
 	for side in ["r", "l"]:
 		var run := (load("%s/body_run_%s.png" % [ART_DIR, side]) as Texture2D).get_image()
@@ -350,6 +360,7 @@ func test_sprinting_shows_the_dash() -> void:
 
 
 func test_no_clip_brings_its_own_arms() -> void:
+	if needs_art(): return
 	# 瞄准的手臂是单独贴上去的，所以身体那几张图必须是**脱了手臂的**。
 	# 素材包里只有 `*2.png` 本来就没手臂，Idle1、Dash 这些都带着，生成脚本会脱掉；
 	# 哪天素材被覆盖、或者生成脚本漏了这一步，角色就会长出三条胳膊——这里守的就是这个。
@@ -377,6 +388,7 @@ const ART_DIR_3 := "res://skins/cyberpunk/cyborg"
 
 
 func test_every_character_gets_a_full_set_of_their_own() -> void:
+	if needs_art(): return
 	for dir_ in [ART_DIR_2, ART_DIR_3]:
 		var missing := []
 		for clip in BODY_CLIPS:
@@ -394,6 +406,7 @@ func test_every_character_gets_a_full_set_of_their_own() -> void:
 
 
 func test_the_three_characters_look_like_three_people() -> void:
+	if needs_art(): return
 	# 同屏两个人得看得出谁是谁，三套图必须两两不同（指错目录就会指回同一套）。
 	for pair in [[ART_DIR, ART_DIR_2], [ART_DIR, ART_DIR_3], [ART_DIR_2, ART_DIR_3]]:
 		var differ := 0
@@ -407,6 +420,7 @@ func test_the_three_characters_look_like_three_people() -> void:
 
 
 func test_every_character_lines_up_exactly_like_the_first() -> void:
+	if needs_art(): return
 	# 换个角色不能把判定挪了：锚点是贴图和玩法之间唯一的接缝，两套图必须放在同一个位置上，
 	# 否则 2 号的子弹会从别的高度飞出来。
 	# 只比站在地上的那几组：空中的姿势本来就收着腿，各人收得不一样多，那是画的，不是放错了
@@ -423,6 +437,7 @@ func test_every_character_lines_up_exactly_like_the_first() -> void:
 
 
 func test_the_other_characters_art_is_mirrored_too() -> void:
+	if needs_art(): return
 	for dir_ in [ART_DIR_2, ART_DIR_3]:
 		for clip in ["idle", "walk", "crouch"]:
 			var right := (load("%s/body_%s_r.png" % [dir_, clip]) as Texture2D).get_image()
@@ -444,6 +459,7 @@ func test_the_other_characters_art_is_mirrored_too() -> void:
 # ---------------------------------------------------------------- 接上去以后
 
 func test_the_player_wears_the_sprite_appearance() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	await frames(5)
 	check("the player's Visual is the sprite appearance", visual() != null, str(player.get_node("Visual")))
@@ -454,6 +470,7 @@ func test_the_player_wears_the_sprite_appearance() -> void:
 
 
 func test_clips_follow_what_the_player_is_doing() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	await stand_at(400)
 	check("standing still: idle", visual().body_clip() == &"idle", str(visual().body_clip()))
@@ -502,6 +519,7 @@ func test_clips_follow_what_the_player_is_doing() -> void:
 
 
 func test_arms_follow_the_aim() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	await stand_at(400)
 	var cases := [
@@ -527,6 +545,7 @@ func test_arms_follow_the_aim() -> void:
 
 
 func test_turning_swaps_the_texture_and_never_flips_the_node() -> void:
+	if needs_art(): return
 	# 负的 scale 会让角色被引擎错误剔除（CLAUDE.md 里那个「Boss 跳起时消失」）。
 	# 这套外观靠换贴图转身，所以两边的 scale、position、offset 必须分毫不动。
 	await reset_scene(false, false, skin())
@@ -581,6 +600,7 @@ func gun_tip(look: StringName, clip: StringName, aim: Vector2) -> Vector2:
 
 
 func test_bullets_leave_from_the_gun_in_the_art() -> void:
+	if needs_art(): return
 	# 出膛点是规则、贴图是画面，两者本来可以各走各的——但那样玩家会看见子弹从肚子里飞出来。
 	# 所以这条把它们绑在一起：五个方向上，子弹出膛的地方都要落在贴图里枪口那几个像素上。
 	# 贴图重画、或者谁去动了 Player 那几个 MUZZLE 常量，这里都会报。
@@ -600,6 +620,7 @@ func test_bullets_leave_from_the_gun_in_the_art() -> void:
 
 
 func test_switching_weapons_swaps_the_gun_in_the_hands() -> void:
+	if needs_art(): return
 	# 步枪 ↔ 手雷（榴弹枪）随时切换：手里的枪跟着换，其它什么都不变——
 	# 身体动画、瞄准方向、出膛点、判定框都和换之前一样。外观键在武器资源里（Weapon.look）。
 	await reset_scene(false, false, skin())
@@ -636,6 +657,7 @@ func test_switching_weapons_swaps_the_gun_in_the_hands() -> void:
 
 
 func test_a_gun_without_art_falls_back_to_the_rifle() -> void:
+	if needs_art(): return
 	# 新武器还没画枪，或者这套皮肤没有这把枪的贴图：拿默认那把，不能手里空着、也不能报错
 	await reset_scene(false, false, skin())
 	await stand_at(400)
@@ -736,6 +758,7 @@ func test_lying_down_still_dodges_with_the_sprite_skin() -> void:
 
 
 func test_the_pack_only_overrides_what_has_been_drawn() -> void:
+	if needs_art(): return
 	# 这套包有玩家、所有敌人（含 Boss）、所有子弹和手雷、地形的贴图；音效和特效都回落到默认包
 	var pack := skin()
 	# StringName 排序不按字母（按内部指针），先转成普通字符串再比
@@ -779,6 +802,7 @@ const ARMLESS_CLIPS := ["idle", "run"]
 
 
 func test_the_body_art_has_its_arms_stripped() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	for art_dir in [ART_DIR, ART_DIR_2, ART_DIR_3]:
 		var who := String(art_dir).get_file()
@@ -809,6 +833,7 @@ func _ink(image: Image) -> int:
 ## 现在用的是素材包里现成的 `portrait.png`（`skin_build.py` 从素材原本的待机裁的），
 ## 所以它一定比脱过胳膊的身体多出一条胳膊那么多像素。
 func test_the_portrait_is_not_the_armless_game_body() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	var shot := UiKit.portrait(&"biker")
 	check("biker has a portrait", shot != null)
@@ -825,6 +850,7 @@ func test_the_portrait_is_not_the_armless_game_body() -> void:
 
 ## 三个角色的头像要一样大，界面上三张才对得齐、高矮才有可比性。
 func test_every_character_has_a_portrait_the_same_size() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	var size := Vector2i.ZERO
 	for look: StringName in [&"biker", &"punk", &"cyborg"]:
@@ -840,6 +866,7 @@ func test_every_character_has_a_portrait_the_same_size() -> void:
 
 ## 头像得装得进格子里，不然会盖到旁边那一格上。
 func test_the_portrait_fits_its_slot() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	var shot := UiKit.portrait(&"biker")
 	check("setup: there is a portrait", shot != null)

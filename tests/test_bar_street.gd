@@ -29,6 +29,7 @@ func platforms() -> Array[Platform]:
 # ---------------------------------------------------------------- 只装自己独有的
 
 func test_the_pack_brings_terrain_a_backdrop_and_its_own_track() -> void:
+	if needs_art(): return
 	var mine := pack()
 	var keys: Array[String] = []
 	for key: StringName in mine.appearances:
@@ -44,6 +45,7 @@ func test_the_pack_brings_terrain_a_backdrop_and_its_own_track() -> void:
 
 
 func test_everything_else_comes_from_the_pack_behind_it() -> void:
+	if needs_art(): return
 	Skins.use(pack())
 	for key: StringName in [&"biker", &"player_bullet", &"enemy_bullet", &"player_grenade"]:
 		var scene := pack().find_appearance(key)
@@ -54,6 +56,7 @@ func test_everything_else_comes_from_the_pack_behind_it() -> void:
 
 
 func test_the_track_is_this_zone_and_loops_cleanly() -> void:
+	if needs_art(): return
 	Skins.use(pack())
 	var track := Skins.music(&"level")
 	check("there is level music", track != null)
@@ -65,6 +68,7 @@ func test_the_track_is_this_zone_and_loops_cleanly() -> void:
 
 
 func test_each_zone_plays_its_own_track() -> void:
+	if needs_art(): return
 	var heard := {}
 	for path: String in [PACK, "res://skins/industrial/industrial_skin.tres",
 			"res://skins/cyberpunk/cyberpunk_skin.tres"]:
@@ -79,6 +83,7 @@ func test_each_zone_plays_its_own_track() -> void:
 # ---------------------------------------------------------------- 地砖挑得对不对
 
 func test_the_terrain_art_is_this_zone_and_not_another() -> void:
+	if needs_art(): return
 	for name: String in ["ground", "ledge", "stone"]:
 		var mine := zone_art("terrain/%s.png" % name)
 		for other: String in ["cyberpunk", "industrial"]:
@@ -87,6 +92,7 @@ func test_the_terrain_art_is_this_zone_and_not_another() -> void:
 
 
 func test_no_terrain_tile_is_half_empty() -> void:
+	if needs_art(): return
 	# 这套里 16 高的薄条（遮阳棚）和整砖混在一起。拿薄条当地面顶砖的话上半截是透明的。
 	for name: String in ["ground", "ledge", "stone"]:
 		var img := zone_art("terrain/%s.png" % name)
@@ -104,6 +110,7 @@ func test_no_terrain_tile_is_half_empty() -> void:
 
 
 func test_the_backdrop_reaches_the_bottom_of_the_screen() -> void:
+	if needs_art(): return
 	# 素材只有 324 高，关卡里有坑，坑那一块会露出清屏色——生成时往下补到画面底。
 	for layer: String in ["sky", "far", "mid", "near", "street"]:
 		var img := zone_art("backdrop/%s.png" % layer)
@@ -121,6 +128,7 @@ func test_the_backdrop_reaches_the_bottom_of_the_screen() -> void:
 # ---------------------------------------------------------------- 接上去以后
 
 func test_every_platform_wears_this_zone_terrain() -> void:
+	if needs_art(): return
 	await reset_scene(true, true, pack())
 	var checked := 0
 	for p in platforms():
@@ -135,6 +143,7 @@ func test_every_platform_wears_this_zone_terrain() -> void:
 
 
 func test_the_backdrop_goes_in_behind_everything() -> void:
+	if needs_art(): return
 	await reset_scene(true, true, pack())
 	var backdrop := main.get_node_or_null("Backdrop")
 	check("the level gets a backdrop", backdrop != null)
@@ -216,6 +225,7 @@ func spawn(scene_path: String, at: Vector2) -> Enemy:
 
 
 func test_every_enemy_the_pack_names_really_has_art() -> void:
+	if needs_art(): return
 	var mine := pack()
 	for key: StringName in ENEMIES:
 		var scene := mine.appearances.get(key) as PackedScene
@@ -230,6 +240,7 @@ func test_every_enemy_the_pack_names_really_has_art() -> void:
 
 
 func test_the_art_is_mirrored_left_and_right() -> void:
+	if needs_art(): return
 	for key: StringName in ENEMIES:
 		var spec: Array = ENEMIES[key]
 		var right := sheet(key, "idle")
@@ -248,6 +259,7 @@ func test_the_art_is_mirrored_left_and_right() -> void:
 
 
 func test_everyone_stands_on_the_same_line() -> void:
+	if needs_art(): return
 	# 脚底落在锚点下方 16px（生成脚本的约定）。**3-E 的锚点另算**：
 	# 它的贴图照样是脚底在帧底边，只是外观场景把锚点往下挪了，好对上矮判定框。
 	for key: StringName in ENEMIES:
@@ -264,6 +276,7 @@ func test_everyone_stands_on_the_same_line() -> void:
 
 
 func test_the_gunman_brings_real_diagonal_art() -> void:
+	if needs_art(): return
 	# **第二关 2-C 缺的就是这个**：那套素材只画了水平开火，斜着打时画面是水平端枪的。
 	# 这一关的枪手自带三个角度，所以规则和画面终于对得上。
 	check("it has a level firing pose", has_clip(&"3_b", "attack_level"))
@@ -277,6 +290,7 @@ func test_the_gunman_brings_real_diagonal_art() -> void:
 
 
 func test_the_ones_that_fight_have_the_frames_their_behaviour_needs() -> void:
+	if needs_art(): return
 	check("3-A has a charging pose for its lunge", has_clip(&"3_a", "run"))
 	check("3-C has an airborne pose for its leap", has_clip(&"3_c", "air"))
 	check("3-E has a firing pose", has_clip(&"3_e", "attack_level"))
@@ -558,6 +572,7 @@ func face_the_mech(player_at: Vector2) -> BossWheel:
 
 
 func test_the_mech_is_a_boss_and_stands_on_the_ground() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, pack())
 	var boss := spawn_boss()
 	check("it is a boss", boss is Boss)

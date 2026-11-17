@@ -241,6 +241,7 @@ func test_no_enemy_is_stuck_in_a_crawl_passage() -> void:
 # ---------------------------------------------------------------- 分层关都该有的
 
 func test_the_tiles_come_from_this_zones_atlas() -> void:
+	if needs_art(): return
 	# 画面交给砖（`TileArt`），碰撞的平台都藏着
 	await open_level()
 	for layer in ["FrontTiles", "BackTiles"]:

@@ -37,6 +37,7 @@ func test_filled_cuts_the_bar_where_the_fill_ends() -> void:
 # ---------------------------------------------------------------- 接上去以后
 
 func test_the_skin_draws_the_hud_and_the_default_does_not() -> void:
+	if needs_art(): return
 	await reset_scene()
 	check("the default pack keeps the placeholder HUD", main.get_node("HUD").look() == null)
 	check("and its blocks are drawn", main.get_node("HUD/HealthBar").modulate.a == 1.0)
@@ -49,6 +50,7 @@ func test_the_skin_draws_the_hud_and_the_default_does_not() -> void:
 
 
 func test_health_is_one_segment_per_point() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	check("full health at the start", look().health == player.max_health and look().max_health == player.max_health,
 		"%d / %d" % [look().health, look().max_health])
@@ -59,6 +61,7 @@ func test_health_is_one_segment_per_point() -> void:
 
 
 func test_stamina_follows_the_player_and_turns_orange_when_spent() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	player._set_stamina(player.max_stamina * 0.5)
 	await frames(1)
@@ -80,6 +83,7 @@ func test_stamina_follows_the_player_and_turns_orange_when_spent() -> void:
 
 
 func test_the_weapon_slot_shows_the_gun_in_hand() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	check("the rifle at the start", look().weapon_look == &"rifle" and look().weapon_texture() != null
 		and look().weapon_texture() == look().weapon_icons[&"rifle"], str(look().weapon_look))
@@ -92,6 +96,7 @@ func test_the_weapon_slot_shows_the_gun_in_hand() -> void:
 
 
 func test_the_ultimate_count_follows_its_ammo() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	check("both charges at the start", look().ultimate_ammo == player.ultimate_ammo() and look().ultimate_max == player.ultimate_weapon.max_ammo,
 		"%d / %d" % [look().ultimate_ammo, look().ultimate_max])
@@ -108,6 +113,7 @@ func test_the_ultimate_count_follows_its_ammo() -> void:
 
 
 func test_the_boss_bar_appears_and_drains_from_the_right() -> void:
+	if needs_art(): return
 	await reset_scene(true, false, skin())
 	keep_only_enemies(["BossMissile"])
 	var boss: BossMissile = main.get_node("Enemies/BossMissile")
@@ -126,6 +132,7 @@ func test_the_boss_bar_appears_and_drains_from_the_right() -> void:
 
 
 func test_the_hud_is_pure_display_and_on_screen() -> void:
+	if needs_art(): return
 	await reset_scene(false, false, skin())
 	var controls: Array = look().find_children("*", "Control", true, false)
 	controls.append(look())

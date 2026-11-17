@@ -97,7 +97,6 @@ def build_armor():
 				'[gd_resource type="Resource" script_class="Equipment" format=3]',
 				"",
 				'[ext_resource type="Script" path="res://scripts/rpg/equipment.gd" id="1"]',
-				'[ext_resource type="Texture2D" path="%s/%s.png" id="icon"]' % (ICONS, icon),
 				"",
 				"[resource]",
 				'script = ExtResource("1")',
@@ -106,7 +105,7 @@ def build_armor():
 				"price = %d" % price_at(level),
 				"min_level = %d" % level,
 				bonus_block(parts[part]),
-				'icon = ExtResource("icon")',
+				'icon_path = "%s/%s.png"' % (ICONS, icon),
 				"",
 			])
 			file = "armor/%s_%s.tres" % (name.lower(), part.lower())
@@ -123,7 +122,6 @@ def build_weapons():
 			"",
 			'[ext_resource type="Script" path="res://scripts/weapons/weapon.gd" id="1"]',
 			'[ext_resource type="PackedScene" path="%s" id="2"]' % projectile,
-			'[ext_resource type="Texture2D" path="%s/%s.png" id="icon"]' % (ICONS, icon),
 			"",
 			"[resource]",
 			'script = ExtResource("1")',
@@ -138,7 +136,7 @@ def build_weapons():
 			"power = %s" % power,
 			"price = %d" % price_at(level),
 			"min_level = %d" % level,
-			'icon = ExtResource("icon")',
+			'icon_path = "%s/%s.png"' % (ICONS, icon),
 			"",
 		]
 		if slot == 1:

@@ -155,6 +155,7 @@ func test_the_ladder_blocks_nothing_but_its_cap() -> void:
 # ---------------------------------------------------------------- 画面
 
 func test_climbing_shows_the_climb_and_hides_the_gun_arms() -> void:
+	if needs_art(): return
 	await open_two_floors(load(PACK) as SkinPack)
 	player.global_position = Vector2(LADDER_X, GROUND_Y - 16.0)
 	await frames(3)
@@ -175,6 +176,7 @@ func test_climbing_shows_the_climb_and_hides_the_gun_arms() -> void:
 
 
 func test_every_zone_can_draw_a_ladder() -> void:
+	if needs_art(): return
 	for path: String in ["res://skins/cyberpunk/cyberpunk_skin.tres", "res://skins/industrial/industrial_skin.tres",
 			"res://skins/bar_street/bar_street_skin.tres", "res://skins/basement/basement_skin.tres"]:
 		var scene := (load(path) as SkinPack).find_appearance(&"ladder")

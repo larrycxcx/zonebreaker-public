@@ -27,6 +27,7 @@ func the_boss() -> Boss:
 
 
 func test_it_is_the_third_stage_in_the_catalog() -> void:
+	if needs_art(): return
 	var info := load(LEVEL_INFO) as LevelInfo
 	check("it points at this scene", info.scene_path == level_path(), info.scene_path)
 	check("and it brings the bar street pack", info.skin != null
@@ -100,6 +101,7 @@ func facades() -> Array[Prop]:
 
 
 func test_the_street_is_lined_with_buildings() -> void:
+	if needs_art(): return
 	# 宣传图里街边那排楼：素材包只给了砖，楼是 terrain_build.py 拼出来的
 	await open_level()
 	var found := facades()
@@ -111,6 +113,7 @@ func test_the_street_is_lined_with_buildings() -> void:
 
 
 func test_the_buildings_stand_behind_the_rest_of_the_scenery() -> void:
+	if needs_art(): return
 	# 先摆的先画：楼要排在吧台、酒桶、招牌前面，不然一栋楼把它们全盖住
 	await open_level()
 	var last_facade := -1
@@ -125,6 +128,7 @@ func test_the_buildings_stand_behind_the_rest_of_the_scenery() -> void:
 
 
 func test_no_building_stands_over_a_pit() -> void:
+	if needs_art(): return
 	# 楼的整个底边都要落在同一块面上（街面、骑楼顶），悬在坑上看着就是一栋飘着的楼
 	await open_level()
 	var faces := surfaces()
@@ -140,6 +144,7 @@ func test_no_building_stands_over_a_pit() -> void:
 
 
 func test_no_building_is_drawn_over_an_indoor_wall() -> void:
+	if needs_art(): return
 	# 楼面画在室内墙那一层上面：摆进楼里（头顶有楼板的地方）就把墙盖住了
 	await open_level()
 	var solids := solid_rects()
@@ -154,6 +159,7 @@ func test_no_building_is_drawn_over_an_indoor_wall() -> void:
 
 
 func test_the_neon_light_falls_on_the_set_not_on_the_cast() -> void:
+	if needs_art(): return
 	# 光照层要夹在地形和人中间：背景、楼、装饰、地形被染色，人和子弹保持原色
 	await open_level()
 	var light := main.get_node_or_null("Lighting")
@@ -170,6 +176,7 @@ func test_the_neon_light_falls_on_the_set_not_on_the_cast() -> void:
 
 
 func test_the_light_is_pure_decoration_and_covers_the_screen() -> void:
+	if needs_art(): return
 	await open_level()
 	var light := main.get_node_or_null("Lighting") as ScreenLight
 	check("setup: the level is lit", light != null)
@@ -206,6 +213,7 @@ const PICKUP_LOOKALIKES := ["bottle", "glass", "money", "card", "bin", "crate"]
 
 
 func test_nothing_lying_around_looks_like_a_pickup() -> void:
+	if needs_art(): return
 	await open_level()
 	check("setup: the street is dressed", props().size() >= 100, str(props().size()))
 	for node in props():

@@ -784,13 +784,13 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 	dress(level, named_props)
 	signs = decor.get("signs", [])
 	extra.append('[ext_resource type="Script" path="res://scripts/tile_art.gd" id="ta"]')
-	extra.append('[ext_resource type="Texture2D" path="res://skins/%s/tiles/atlas.png" id="tb"]' % prop_dir)
 	extra.append('[ext_resource type="Script" path="res://scripts/prop.gd" id="21"]')
-	prop_ids = {}
-	for index, prop in enumerate(sorted({p[1] for p in level.props} | {"digit_%d" % d for d, _, _ in signs})):
-		prop_ids[prop] = "p%d" % index
-		extra.append('[ext_resource type="Texture2D" path="res://skins/%s/props/%s.png" id="%s"]'
-			% (prop_dir, prop, prop_ids[prop]))
+	# 贴图（砖的总图、装饰）**按路径写、不写成 ext_resource**：它们是第三方素材，公开版里没有，
+	# 引用了缺的文件整个场景就加载不了；按路径写的话缺了只是不画（`TileArt` / `Prop` 自己加载）。
+	atlas_line = 'atlas_path = "res://skins/%s/tiles/atlas.png"\n' % prop_dir
+
+	def prop_path(prop):
+		return "res://skins/%s/props/%s.png" % (prop_dir, prop)
 	if level.presses:
 		extra.append('[ext_resource type="PackedScene" path="%s" id="t0"]' % lb.PRESS_SCENE)
 	if level.gates:
@@ -810,27 +810,28 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 		# 纵向关：掉出关卡的线在最底下再往下 40（画面卷上去以后 main.gd 按画面底边算）
 		lines.append("fall_y = %g\n" % (level.height * CELL + 40.0))
 	# 画的顺序：背景（视差那几层，关卡加载时插到最前面）→ 室内的墙 → 装饰 → 实心的砖 → 平台（藏着）→ 机关 → 敌人
-	lines.append('\n[node name="BackTiles" type="Node2D" parent="."]\nscript = ExtResource("ta")\n'
-		'atlas = ExtResource("tb")\n%stint = Color(%g, %g, %g, 1)\ncells = PackedInt32Array(%s)\n'
+	lines.append('\n[node name="BackTiles" type="Node2D" parent="."]\nscript = ExtResource("ta")\n' +
+		atlas_line + '%stint = Color(%g, %g, %g, 1)\ncells = PackedInt32Array(%s)\n'
 		% ((columns_line,) + tuple(BACK_TINT) + (", ".join(str(v) for v in back),)))
 	# 编号牌上的数字：贴在圆盘正中，画在墙那一层上面
 	lines.append('\n[node name="Decals" type="Node2D" parent="."]\n')
 	for i, (digit, bx, by) in enumerate(signs):
-		lines.append('\n[node name="Sign%d" type="Sprite2D" parent="Decals"]\ntexture = ExtResource("%s")\n'
-			'position = Vector2(%g, %g)\n' % (i + 1, prop_ids["digit_%d" % digit], bx * 32 + 16, by * 32 + 16))
+		lines.append('\n[node name="Sign%d" type="Sprite2D" parent="Decals"]\nscript = ExtResource("21")\n'
+			'texture_path = "%s"\nbottom_left = false\nposition = Vector2(%g, %g)\n'
+			% (i + 1, prop_path("digit_%d" % digit), bx * 32 + 16, by * 32 + 16))
 	lines.append('\n[node name="Props" type="Node2D" parent="."]\n')
 	for name, prop, x, bottom in level.props:
 		lines.append('\n[node name="%s" type="Sprite2D" parent="Props"]\n'
-			'texture = ExtResource("%s")\nscript = ExtResource("21")\nposition = Vector2(%g, %g)\n'
-			% (name, prop_ids[prop], x, bottom))
+			'script = ExtResource("21")\ntexture_path = "%s"\nposition = Vector2(%g, %g)\n'
+			% (name, prop_path(prop), x, bottom))
 		if prop_frames and prop_frames.get(prop, 1) > 1:
 			lines.append("frames = %d\n" % prop_frames[prop])
-	lines.append('\n[node name="FrontTiles" type="Node2D" parent="."]\nscript = ExtResource("ta")\n'
-		'atlas = ExtResource("tb")\n%scells = PackedInt32Array(%s)\n' % (columns_line, ", ".join(str(v) for v in front)))
+	lines.append('\n[node name="FrontTiles" type="Node2D" parent="."]\nscript = ExtResource("ta")\n' +
+		atlas_line + '%scells = PackedInt32Array(%s)\n' % (columns_line, ", ".join(str(v) for v in front)))
 	# 传送带中间那一截的齿朝它带的方向滚（`BeltArt`），盖在砖上面
 	if level.belts:
-		lines.append('\n[node name="Belts" type="Node2D" parent="."]\nscript = ExtResource("bl")\n'
-			'atlas = ExtResource("tb")\nbelts = PackedFloat32Array(%s)\n'
+		lines.append('\n[node name="Belts" type="Node2D" parent="."]\nscript = ExtResource("bl")\n' +
+			atlas_line + 'belts = PackedFloat32Array(%s)\n'
 			% ", ".join("%g, %g, %g, %g" % (x, y, w, speed) for _, x, y, w, _, speed in level.belts))
 	lines.append('\n[node name="Level" type="Node2D" parent="."]\n')
 	for name, x, y, w, h in level.solids:

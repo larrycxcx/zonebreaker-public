@@ -402,6 +402,7 @@ func test_the_level_plays_the_same_without_any_scenery() -> void:
 
 
 func test_the_fountain_actually_runs() -> void:
+	if needs_art(): return
 	await open_level()
 	var animated: Prop = null
 	for node in props():

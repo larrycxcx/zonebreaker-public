@@ -22,7 +22,18 @@ extends Resource
 ## 包之间用 `SkinPack.fallback` 串起来：`zone_02` 里没填的（角色、子弹、特效、HUD、界面）
 ## 自动去公共包找，所以每关的包只装「这一关独有的」。
 ## 留空 = 不换，用项目设置里那个（测试关就是这一档）。
-@export var skin: SkinPack
+## **存路径不存资源**：包是第三方素材，公开版里没有。直接引用的话这个 `.tres` 整个读不出来、
+## 选关页上这一关就没了；存路径的话包不在时 `skin` 是 null，关卡照样能玩（用占位的默认皮肤）。
+@export_file("*.tres") var skin_path := ""
+## 包本身：路径有文件才加载。也可以直接塞一个（测试用）。
+var skin: SkinPack:
+	get:
+		if _skin == null and not skin_path.is_empty() and ResourceLoader.exists(skin_path):
+			_skin = load(skin_path) as SkinPack
+		return _skin
+	set(value):
+		_skin = value
+var _skin: SkinPack
 
 @export_group("强度")
 ## 这一关的敌人血量 / 伤害 / 奖励各乘多少。**23 关用同一批敌人**，靠这三个数拉开强度，

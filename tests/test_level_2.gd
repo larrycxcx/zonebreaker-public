@@ -30,6 +30,7 @@ func hanging() -> Array[Enemy]:
 # ---------------------------------------------------------------- 这一关自己的
 
 func test_it_is_a_second_stage_in_the_catalog() -> void:
+	if needs_art(): return
 	var info := load(LEVEL_INFO) as LevelInfo
 	check("it points at this scene", info.scene_path == level_path(), info.scene_path)
 	check("it comes after the first one", info.order > 0, str(info.order))
