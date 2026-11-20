@@ -244,9 +244,14 @@ func test_minions_fly_through_solid_ground() -> void:
 	minion._left = 100.0
 	player.global_position = Vector2(320, STAND_Y)
 	snap_camera()
-	await frames(120)
-	check("it got through the slab to the player", minion.global_position.y > 220.0,
-		str(minion.global_position))
+	# 它绕着玩家转圈（方向、相位随机），只看最后一帧的话碰巧转到上面就判成「没穿过来」——
+	# 全量测试里偶发过一次。看它这两秒里到过的最低处
+	var lowest := minion.global_position.y
+	for i in 120:
+		await tree.physics_frame
+		if is_instance_valid(minion):
+			lowest = maxf(lowest, minion.global_position.y)
+	check("it got through the slab to the player", lowest > 220.0, "lowest %.0f" % lowest)
 
 
 func test_minions_wind_up_then_dive_fast_and_straight() -> void:

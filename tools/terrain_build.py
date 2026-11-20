@@ -162,6 +162,64 @@ ZONES = {
 			"smoke": ("4 Animated objects/Smoke.png", 6),
 		},
 	},
+	# 第五关：实验室（2026-11）。地砖是 100 个独立文件（`Tiles_01..100`），编号 = 行 × 10 + 列 + 1。
+	# 前 60 块是三种材质的九宫格（每种占 3 列）：1~3 列青色斜纹钢板、4~6 列同款带污渍、7~9 列干净的灰蓝墙板，
+	# 每种第 1~3 行是九宫格、第 4 行是整块的箱子（31 / 37 带 X 撑）、第 6 行是一砖厚的条；
+	# 第 10 列是深色的背景砖（斜纹、斑点、纯色、暗红斑点）；61~100 是两块拼成的大背景墙板（灰、紫，带透明）。
+	# 地面 = 斜纹钢板顶 2 压在身子 12 上；浮台 = 一砖厚的条 51/52/53 的上半截；墙和堵块 = 灰蓝墙板九宫格。
+	# 背景用 **Day**：六层，1 底色、2/3 远处的厂房、4 吊着的机器、5 近处、6 最前面的大柱子。
+	# 素材包里**没有酸液池**（`Acid1/2` 是酸液溅开的特效），新机关是会伸缩的地刺（`Spikes`）。
+	"lab": {
+		"pack": "lab-tileset",
+		"out": "lab",
+		"tiles": "1 Tiles/Tiles_%02d.png",
+		"tile_atlas": {"count": 100, "columns": 10},
+		"terrain": {"ground": [[2], [12]], "ledge": {"tiles": [[51, 52, 53]], "crop": 16},
+			"stone": [[7, 8, 9], [17, 18, 19], [27, 28, 29]]},
+		"backdrop_dir": "2 Background/Day",
+		"backdrop": {"base": "1", "far": "2", "mid": "3", "machines": "4", "near": "5", "pillars": "6"},
+		# 往后退：前景的钢板也是青蓝色，近处那几层不混一点会和地形糊在一起
+		"haze": {"base": 0.0, "far": 0.15, "mid": 0.2, "machines": 0.25, "near": 0.3, "pillars": 0.35},
+		# 地刺（6 帧 × 32，收着 → 伸出 → 收回）
+		"traps": {"spikes": "4 Animated objects/Spikes.png"},
+		# **毒气罐 = 这一关的可打爆障碍**（素材的 `Chest` 是掀盖子的补给箱、帧宽还不齐，不是打得烂的东西）：
+		# `Capsule2~4` 完好（蓝、蓝绿、绿）、5 打裂、6 碎一半、7 只剩一圈碎片。都是 50×48、内容 39×48 靠左。
+		# `Capsule1` 侧面接着一根管子，不进可破坏的那组——它看着是完好的，当装饰摆的话玩家会去打它
+		"capsules": {"capsule_1": "3 Objects/Capsule2.png", "capsule_2": "3 Objects/Capsule3.png",
+			"capsule_3": "3 Objects/Capsule4.png", "capsule_cracked": "3 Objects/Capsule5.png",
+			"capsule_half": "3 Objects/Capsule6.png", "capsule_debris": "3 Objects/Capsule7.png"},
+		# 原样拷过去的几张（不是地形、装饰、机关的那些）：科学家扔的酸液瓶就是素材里那支绿色小试管（4 帧翻滚）
+		"copies": {"projectiles/acid_flask/spin.png": "4 Animated objects/Capsule.png",
+			# 小 Boss 房间的门（关着时的样子，开门往天花板里缩）：带红色警示灯的那根门柱
+			"traps/arena_door.png": "3 Objects/Door3.png"},
+		# 酸液溅开（科学家扔的酸液瓶落地时）：72×72 一帧，6 帧
+		"effects": {"acid_splash": "4 Animated objects/Acid2.png", "acid_drip": "4 Animated objects/Acid1.png"},
+		"props": {
+			# 罐子只摆**碎完的那张**（7）：完好的、打裂的、碎一半的都是还能挡路的阶段，
+			# 当装饰摆的话玩家分不清哪个打得碎、哪个已经能走过去（长得一样的东西规则也要一样）
+			"capsule_shards": ("3 Objects/Capsule7.png", 1),
+			"chair": ("3 Objects/Chair1.png", 1),
+			"chair2": ("3 Objects/Chair3.png", 1),
+			"door": ("3 Objects/Door1.png", 1),
+			"door2": ("3 Objects/Door2.png", 1),
+			"monitor": ("3 Objects/Monitor1.png", 1),
+			"monitor2": ("3 Objects/Monitor4.png", 1),
+			"monitor3": ("3 Objects/Monitor7.png", 1),
+			"table": ("3 Objects/Table1.png", 1),
+			"table2": ("3 Objects/Table2.png", 1),
+			"grass": ("3 Objects/Grass1.png", 1),
+			"grass2": ("3 Objects/Grass4.png", 1),
+			"web": ("3 Objects/Web1.png", 1),
+			"web2": ("3 Objects/Web4.png", 1),
+			"tube": ("3 Objects/Tube_01.png", 1),
+			"tube_valve": ("3 Objects/Tube_06.png", 1),
+			# 会动的：发电机、阀门、扫描仪、摄像头。Card / Money 不要（像能捡的东西）
+			"generator": ("4 Animated objects/Generator.png", 4),
+			"valve": ("4 Animated objects/Valve.png", 4),
+			"scanner": ("4 Animated objects/Scanner.png", 6),
+			"camera": ("4 Animated objects/Camera.png", 6),
+		},
+	},
 	# 第二关：工业区。地砖是 81 个独立文件，编号 = 行 × 9 + 列 + 1。
 	# **背景第 1 层是底色不是天空**：2 才是天空（只画到地平线 y=247），
 	# 地平线以下露出第 1 层那片雾色，所以两层都不雾化。
@@ -417,6 +475,23 @@ def build_zone(key, write):
 			if write:
 				sb.write_png(os.path.join(out, "traps", name + ".png"), art)
 			print("  traps/%s.png  32x1" % name)
+	for target, rel in zone.get("copies", {}).items():
+		width, height, pixels = sb.read_png(os.path.join(pack, *rel.split("/")))
+		if write:
+			sb.write_png(os.path.join(out, *target.split("/")), pixels)
+		print("  %s  %dx%d" % (target, width, height))
+	for name, rel in zone.get("capsules", {}).items():
+		width, height, pixels = sb.read_png(os.path.join(pack, *rel.split("/")))
+		if write:
+			sb.write_png(os.path.join(out, "traps", name + ".png"), pixels)
+		print("  traps/%s.png  %dx%d" % (name, width, height))
+	if "effects" in zone:
+		print("特效：")
+		for name, rel in zone["effects"].items():
+			width, height, pixels = sb.read_png(os.path.join(pack, *rel.split("/")))
+			if write:
+				sb.write_png(os.path.join(out, "effects", name + ".png"), pixels)
+			print("  effects/%s.png  %dx%d（%d 帧）" % (name, width, height, width // height))
 	if "facades" in zone:
 		print("楼面：")
 		for name, recipe in globals()[zone["facades"]].items():

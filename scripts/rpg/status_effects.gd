@@ -77,7 +77,10 @@ func can_act() -> bool:
 	return true
 
 
+## 全部解除。**先清空再发信号**：听信号的（HUD 那行字）收到时会回头查 `has()`，
+## 反过来的话它查到的状态还挂着，那行 POISON 就一直不消失（写中毒的测试时撞到的）。
 func clear() -> void:
-	for id: StringName in _active.keys():
-		changed.emit(id, false)
+	var ids := _active.keys()
 	_active.clear()
+	for id: StringName in ids:
+		changed.emit(id, false)

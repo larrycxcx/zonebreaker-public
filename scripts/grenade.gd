@@ -30,6 +30,9 @@ const GROUP := &"grenades"
 @export_flags_2d_physics var target_layer := 8
 ## 素材包里用哪一项画它（`SkinPack.APPEARANCE_KEYS`）。只管长什么样，玩家和 F 的手雷规则完全一样。
 @export var skin_key := &""
+## 炸开时报告哪个事件：特效层（`Fx`）按它画——手雷是 `explosion`（一团火），
+## 第五关科学家的酸液瓶是 `acid_splash`（一团绿色的酸液溅开）。规则完全一样，只是画面不同。
+@export var blast_event := &"explosion"
 
 ## 谁扔的（武器槽发射时填）。敌人被炸死时奖励记在这个人头上，双人各算各的。
 var shooter: Node
@@ -95,7 +98,7 @@ func explode(direct_hit: Node2D = null) -> void:
 	if exploded:
 		return
 	exploded = true
-	GameEvents.report(&"explosion", self)
+	GameEvents.report(blast_event, self)
 	# 炸得到谁、怎么衰减都在 `Blast` 里，自爆的机器人用的是同一套
 	var space := get_world_2d().direct_space_state
 	for victim in Blast.victims(space, global_position, blast_radius, target_layer):

@@ -239,6 +239,7 @@ func _ready() -> void:
 	health_changed.emit(health, max_health)
 	progress.stats_changed.connect(_apply_stats)
 	statuses.on_damage = take_status_damage
+	statuses.changed.connect(_on_status_changed)
 	stamina = max_stamina
 	stamina_changed.emit(stamina, max_stamina)
 	# HeadCheck 正好覆盖「站起来需要多出来的那段空间」：从站立头顶到趴下后的头顶。
@@ -732,6 +733,16 @@ func apply_status(effect: StatusEffect) -> void:
 	if _dead or _downed or effect == null:
 		return
 	statuses.apply(effect, progress.resistance(effect.id))
+
+
+## 状态挂上 / 解除：告诉外观（染色）；HUD 那行字听 `status_changed`。
+signal status_changed(id: StringName, active: bool)
+
+
+func _on_status_changed(id: StringName, active: bool) -> void:
+	if _visual != null and _visual.has_method(&"show_status"):
+		_visual.call(&"show_status", id, active)
+	status_changed.emit(id, active)
 
 
 ## 异常状态的持续伤害：不吃防御、不触发无敌时间、不击退（防它靠抗性）。

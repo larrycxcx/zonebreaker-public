@@ -24,6 +24,9 @@ signal health_changed(health: int, max_health: int)
 @export_range(0.0, 1.0) var ultimate_damage_ratio := 0.25
 ## 出场时报告的事件名（素材包按它找声音）。
 @export var appear_event := &"boss_appear"
+## 打死它算不算通关（2026-11，第五关的中段小 Boss 关掉）：关卡只接「算通关」的那种的死讯。
+## 血条、头像、终极武器只扣血这些规矩两种都一样。
+@export var ends_level := true
 
 var has_appeared := false
 

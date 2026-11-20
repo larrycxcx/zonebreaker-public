@@ -8,8 +8,15 @@ extends StaticBody2D
 @export var skin_key := &"trap_crate"
 ## 几下打烂（不按伤害算，按次数：换了把伤害高的枪，箱子不会一碰就碎，谜题的节奏才稳）。
 @export var toughness := 4
+## 判定框多大（左上角在原点）。箱子是 `SIZE`；第五关的毒气罐 32×48（场景里配，碰撞形状要跟着配）。
+@export var size := SIZE
+## 打烂之后留着碎片（不删节点、只撤碰撞）：毒气罐碎了地上还有一圈玻璃碴，人照常走过去。
+## 箱子是散架动画走完就整个删掉。
+@export var keep_debris := false
 
 const SIZE := Vector2(32, 24)
+## 碎片多高（占位色块画一条这么高的，素材包的外观画最破的那张图）。
+const DEBRIS_H := 8.0
 
 var hits := 0
 var broken := false
@@ -34,7 +41,7 @@ func take_damage(_amount: int, _source_position := Vector2.INF, _from: Node = nu
 		_shape.set_deferred(&"disabled", true)
 		GameEvents.report(&"bullet_impact", self)
 	_show()
-	if broken:
+	if broken and not keep_debris:
 		# 散架动画走完再撤掉（外观自己播；占位色块就直接没了）
 		var timer := get_tree().create_timer(0.5)
 		timer.timeout.connect(queue_free)
@@ -51,4 +58,6 @@ func _show() -> void:
 
 
 func art_rects(_frame: int) -> Array[Rect2]:
-	return [] if broken else [Rect2(Vector2.ZERO, SIZE)]
+	if broken:
+		return [Rect2(0.0, size.y - DEBRIS_H, size.x, DEBRIS_H)] if keep_debris else []
+	return [Rect2(Vector2.ZERO, size)]

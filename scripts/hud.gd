@@ -57,6 +57,8 @@ func _ready() -> void:
 	if player == null:
 		return
 	_player = player
+	_add_status_line()
+	player.status_changed.connect(_on_status_changed)
 	player.health_changed.connect(_on_health_changed)
 	player.stamina_changed.connect(_on_stamina_changed)
 	player.weapon_switched.connect(_on_weapon_switched)
@@ -133,6 +135,42 @@ func _movable() -> Array[Control]:
 		if not SHARED_PARTS.has(String(control.name)):
 			found.append(control)
 	return found
+
+
+## 异常状态那一行（2026-11 第五关的中毒）：进度那两行底下，绿字写着身上挂着什么。
+## 位置照抄进度那行（双人右边那套也跟着贴右、靠右对齐），所以它在 `_mirror()` 之后才摆。
+const STATUS_NAMES := {&"poison": "POISON"}
+var _status_label: Label
+
+
+func _add_status_line() -> void:
+	var top := _progress_label.offset_bottom + 2.0
+	_status_label = UiKit.label("", Rect2(_progress_label.offset_left, top,
+		_progress_label.offset_right - _progress_label.offset_left, 12.0), UiKit.GREEN)
+	_status_label.name = "StatusLabel"
+	_status_label.horizontal_alignment = _progress_label.horizontal_alignment
+	_status_label.add_theme_color_override("font_shadow_color", Color(0.04, 0.05, 0.11, 0.95))
+	_status_label.add_theme_constant_override("shadow_offset_x", 1)
+	_status_label.add_theme_constant_override("shadow_offset_y", 1)
+	add_child(_status_label)
+	_refresh_status()
+
+
+func _on_status_changed(_id: StringName, _active: bool) -> void:
+	_refresh_status()
+
+
+func _refresh_status() -> void:
+	var names: Array[String] = []
+	for id: StringName in STATUS_NAMES:
+		if _player != null and _player.statuses.has(id):
+			names.append(STATUS_NAMES[id])
+	_status_label.text = "  ".join(names)
+
+
+## 状态那一行（测试用）。
+func status_label() -> Label:
+	return _status_label
 
 
 ## 素材包的 HUD 外观（测试用），没有返回 null。

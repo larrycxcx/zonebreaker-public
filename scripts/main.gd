@@ -163,7 +163,8 @@ func _remember_start() -> void:
 
 func _on_boss_appeared(boss: Node2D) -> void:
 	var it := boss as Boss
-	if it != null and not it.died.is_connected(_on_boss_died):
+	# 中段小 Boss（`ends_level` 关着）打死了不算通关，接着往前打
+	if it != null and it.ends_level and not it.died.is_connected(_on_boss_died):
 		it.died.connect(_on_boss_died)
 
 

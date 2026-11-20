@@ -96,11 +96,47 @@ func kick(offset: Vector2) -> void:
 	_apply_offset()
 
 
+## 异常状态的染色（2026-11，第五关的中毒）：挂着状态时整个人带一层颜色，一眼看得出中招了。
+## 闪白、复活之后**回到这个颜色而不是纯白**，不然挨一下打绿色就没了；无敌闪烁只动透明度，不受影响。
+## 几种状态同时挂着时颜色相乘。表里没有的状态不染色。
+const STATUS_TINTS := {&"poison": Color(0.62, 1.0, 0.5)}
+
+var _statuses := {}
+var _tint := Color.WHITE
+
+
+## 某个异常状态挂上 / 解除（玩家接 `StatusEffects.changed`）。
+func show_status(id: StringName, active: bool) -> void:
+	if active:
+		_statuses[id] = true
+	else:
+		_statuses.erase(id)
+	_tint = Color.WHITE
+	for key: StringName in _statuses:
+		_tint *= STATUS_TINTS.get(key, Color.WHITE)
+	modulate = Color(_tint.r, _tint.g, _tint.b, modulate.a)
+
+
+## 埋在地下（第五关的 5-E）：占位方块画成半透明的一块——公开版没有素材也看得出「这儿埋着东西」；
+## 素材包的外观停在「钻出来」那组的第一帧（地上只有一块履带）。`emerge()` 是钻出来那一下。
+func show_buried(buried: bool) -> void:
+	modulate.a = 0.3 if buried else 1.0
+
+
+func emerge() -> void:
+	modulate.a = 1.0
+
+
+## 现在的状态染色（纯白 = 没有）。
+func status_tint() -> Color:
+	return _tint
+
+
 ## 挨了一下：闪一下白。
 func flash_hit() -> void:
 	modulate = Color(2.0, 2.0, 2.0)
 	var tween := create_tween()
-	tween.tween_property(self, "modulate", Color.WHITE, 0.12)
+	tween.tween_property(self, "modulate", Color(_tint.r, _tint.g, _tint.b, 1.0), 0.12)
 
 
 ## 无敌闪烁：1.0 是正常，小于 1 是变淡的那一下。
@@ -115,7 +151,7 @@ func show_dead() -> void:
 
 ## 又站起来了（双人的濒死被队友救起来）。`show_dead()` 的反面；敌人不会用到（它们死了就删）。
 func revive() -> void:
-	modulate = Color.WHITE
+	modulate = _tint
 
 
 func _apply_offset() -> void:

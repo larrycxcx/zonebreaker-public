@@ -394,3 +394,139 @@ func test_a_conveyor_carries_whoever_stands_on_it() -> void:
 		var moved := player.global_position.x - x0
 		check("a belt at %+.0f carries an idle player that way" % speed, signf(moved) == signf(speed)
 			and absf(moved) > 40.0, "%.1f" % moved)
+
+
+# ---------------------------------------------------------------- 第五关（实验室）：地刺、毒气罐
+
+const SPIKES := "res://scenes/trap_spikes.tscn"
+const CAPSULE := "res://scenes/trap_capsule.tscn"
+
+
+## 地刺摆在地面上（帧底边 = 地面 + 底座嵌进去的 4 行），玩家站在它正上方。
+func spikes_at(x: float) -> SpikeTrap:
+	var trap := (load(SPIKES) as PackedScene).instantiate() as SpikeTrap
+	main.add_child(trap)
+	trap.global_position = Vector2(x, GROUND_Y + 4.0 - SpikeTrap.SIZE.y)
+	return trap
+
+
+func capsule_at(x: float, bottom := GROUND_Y) -> BreakableCrate:
+	var capsule := (load(CAPSULE) as PackedScene).instantiate() as BreakableCrate
+	main.add_child(capsule)
+	capsule.global_position = Vector2(x, bottom - capsule.size.y)
+	return capsule
+
+
+func test_resting_spikes_show_but_are_safe_to_stand_on() -> void:
+	await reset_scene()
+	var trap := spikes_at(400)
+	check("setup: it starts at rest", trap.frame == SpikeTrap.REST and not trap.is_armed())
+	# 平时露出一小截：远远就看得见这儿有地刺（用户定的：默认就要看得到，不另加警示）
+	check("at rest the tips stick out of the floor where you can see them", trap.height() >= 4.0,
+		"%.0f px" % trap.height())
+	player.global_position = Vector2(416, STAND_Y)
+	var full := player.health
+	await frames(30)
+	check("standing on resting spikes is safe", player.health == full, "%d -> %d" % [full, player.health])
+	check("the base is flush with the floor (nothing to trip on)", player.global_position.y > STAND_Y - 1.0,
+		"%.1f" % player.global_position.y)
+
+
+func test_spikes_warn_before_they_strike() -> void:
+	await reset_scene()
+	var trap := spikes_at(400)
+	# 预警是「先缩回去」：全缩进地面那一步就排在「弹出」前面，而且留够反应时间
+	var warn := SpikeTrap.ORDER.find(SpikeTrap.WARN)
+	var strike := SpikeTrap.ORDER.find(2)
+	check("the spikes duck right before they strike", strike == warn + 1, "%d -> %d" % [warn, strike])
+	check("and stay down long enough to react to", trap.durations[warn] >= 0.3, str(trap.durations[warn]))
+	check("ducking really hides them (lower than at rest)",
+		SpikeTrap.TIPS[SpikeTrap.WARN] > SpikeTrap.TIPS[SpikeTrap.REST],
+		"%d vs %d" % [SpikeTrap.TIPS[SpikeTrap.WARN], SpikeTrap.TIPS[SpikeTrap.REST]])
+	check("the warning itself does not hurt",
+		SpikeTrap.SURFACE - SpikeTrap.TIPS[SpikeTrap.WARN] < SpikeTrap.HARMFUL)
+
+
+func test_extended_spikes_hurt_whoever_stands_on_them() -> void:
+	await reset_scene()
+	var trap := spikes_at(400)
+	player.global_position = Vector2(416, STAND_Y)
+	await frames(2)
+	var full := player.health
+	var struck := await until_frame(trap, [2, 3])
+	await frames(2)
+	check("setup: the spikes came up", struck)
+	check("they hurt a player standing on them", player.health < full, "%d -> %d" % [full, player.health])
+
+
+func test_the_resting_stub_does_not_hurt() -> void:
+	await reset_scene()
+	var trap := spikes_at(400)
+	trap.set_physics_process(false)
+	trap.frame = SpikeTrap.REST
+	check("the stub showing at rest is harmless (it only marks the trap)", not trap.is_armed(),
+		"%.0f px" % trap.height())
+	trap.frame = 3
+	check("while full height is not", trap.is_armed(), "%.0f px" % trap.height())
+	check("and full height reaches the feet of someone standing on the floor",
+		trap.danger_rect().intersects(Rect2(408, GROUND_Y - 32.0, 24, 32)), str(trap.danger_rect()))
+
+
+func test_spikes_block_nothing() -> void:
+	await reset_scene()
+	var trap := spikes_at(300)
+	trap.set_physics_process(false)
+	trap.frame = 3
+	player.global_position = Vector2(240, STAND_Y)
+	player.grant_invincibility(5.0)
+	Input.action_press("move_right")
+	await frames(40)
+	release_all_input()
+	check("you can walk straight through (they hurt, they don't wall you off)", player.global_position.x > 340,
+		"%.0f" % player.global_position.x)
+	check("nothing in it collides", trap.find_children("*", "CollisionObject2D", true, false).is_empty())
+
+
+func test_a_capsule_blocks_until_it_is_shattered() -> void:
+	await reset_scene()
+	var capsule := capsule_at(300)
+	player.global_position = Vector2(240, STAND_Y)
+	Input.action_press("move_right")
+	await frames(40)
+	release_all_input()
+	check("a whole capsule stops the player", player.global_position.x < 300, "%.0f" % player.global_position.x)
+	for i in capsule.toughness - 1:
+		capsule.take_damage(SHOT, Vector2.INF, player)
+	await frames(2)
+	check("one hit short it still stands", not capsule.broken)
+	capsule.take_damage(SHOT, Vector2.INF, player)
+	# 等过箱子那种「散架动画走完就删掉」的时间（0.5 秒）再看：碎片得还在
+	await frames(60)
+	check("the shards stay on the floor (the node is kept)", is_instance_valid(capsule))
+	check("the last hit shattered it", is_instance_valid(capsule) and capsule.broken)
+	Input.action_press("move_right")
+	await frames(40)
+	release_all_input()
+	check("then you walk over the shards", player.global_position.x > 340, "%.0f" % player.global_position.x)
+
+
+func test_one_capsule_can_be_jumped_but_two_cannot() -> void:
+	# 单个 48 高，一跳翻得过去（不打也行，跳过去）；两个摞起来 96，比一跳高——非打不可
+	await reset_scene()
+	var capsule := capsule_at(300)
+	check("setup: a capsule is 48 tall", is_equal_approx(capsule.size.y, 48.0), str(capsule.size))
+	player.global_position = Vector2(220, STAND_Y)
+	Input.action_press("move_right")
+	Input.action_press("jump")
+	await frames(70)
+	release_all_input()
+	check("one capsule is jumped over", player.global_position.x > 340, "%.0f" % player.global_position.x)
+	await reset_scene()
+	capsule_at(300)
+	capsule_at(300, GROUND_Y - 48.0)
+	player.global_position = Vector2(220, STAND_Y)
+	Input.action_press("move_right")
+	Input.action_press("jump")
+	await frames(70)
+	release_all_input()
+	check("two stacked are not", player.global_position.x < 300, "%.0f" % player.global_position.x)

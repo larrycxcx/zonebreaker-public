@@ -162,3 +162,130 @@ func test_enemies_can_resist_and_burning_to_death_pays() -> void:
 			break
 	check("burning to death kills it", not is_instance_valid(walker))
 	check("and still pays", me().xp == reward, "%d vs %d" % [me().xp, reward])
+
+
+# ---------------------------------------------------------------- 第一个真正的状态：中毒（第五关的毒雾）
+
+const POISON := "res://status/poison.tres"
+const CLOUD := "res://scenes/poison_cloud.tscn"
+
+
+func cloud_at(x: float, y: float) -> PoisonCloud:
+	var cloud := (load(CLOUD) as PackedScene).instantiate() as PoisonCloud
+	main.add_child(cloud)
+	cloud.global_position = Vector2(x, y)
+	return cloud
+
+
+func test_poison_is_a_real_status() -> void:
+	var poison := load(POISON) as StatusEffect
+	check("it is called poison", poison.id == &"poison", str(poison.id))
+	check("it hurts over time", poison.tick_damage > 0 and poison.tick_interval > 0.0)
+	check("and wears off by itself", poison.duration > 0.0 and poison.duration < 10.0, str(poison.duration))
+	check("it does not slow you or stop you (that would be another status)",
+		poison.move_scale == 1.0 and poison.can_act)
+
+
+func test_standing_in_a_cloud_poisons_you_and_it_lingers_after() -> void:
+	await reset_scene()
+	player.global_position = Vector2(400, 304)
+	await frames(2)
+	var full := player.health
+	var cloud := cloud_at(400, 300)
+	await frames(10)
+	check("standing in it poisons you", player.statuses.has(&"poison"))
+	player.global_position = Vector2(560, 304)
+	await frames(2)
+	check("setup: you walked out of it", not cloud.touches(player.hit_box()))
+	await frames(40)
+	check("out of the cloud the poison keeps working", player.health < full, "%d -> %d" % [full, player.health])
+	await frames(200)
+	check("and then it wears off", not player.statuses.has(&"poison"))
+	var after := player.health
+	await frames(60)
+	check("after that no more damage", player.health == after, "%d -> %d" % [after, player.health])
+
+
+func test_staying_in_the_cloud_does_not_stack() -> void:
+	# 待在里面一直刷新持续时间，但每跳的伤害不变——两秒里掉的血和「中一次毒两秒」一样多
+	await reset_scene()
+	var poison := load(POISON) as StatusEffect
+	player.global_position = Vector2(400, 304)
+	await frames(2)
+	var cloud := cloud_at(400, 300)
+	cloud.lifetime = 30.0
+	var full := player.health
+	await frames(120)
+	var lost := full - player.health
+	var expected := int(2.0 / poison.tick_interval) * poison.tick_damage
+	check("two seconds in the cloud cost about two seconds of poison", absi(lost - expected) <= poison.tick_damage,
+		"%d lost, expected about %d" % [lost, expected])
+
+
+func test_a_cloud_fades_away_on_its_own() -> void:
+	await reset_scene()
+	var cloud := cloud_at(400, 200)
+	var life := cloud.lifetime
+	await frames(int(life * 60.0) + 10)
+	check("after its lifetime it is gone", not is_instance_valid(cloud))
+
+
+func test_a_cloud_only_poisons_players() -> void:
+	await reset_scene(true)
+	keep_only_enemies(["Turret1"])
+	var turret := main.get_node("Enemies/Turret1") as Enemy
+	turret.set_physics_process(false)
+	var full := turret.health
+	var cloud := cloud_at(turret.global_position.x, turret.global_position.y)
+	cloud.lifetime = 30.0
+	await frames(90)
+	check("an enemy standing in it is untouched", turret.health == full and not turret.statuses.has(&"poison"),
+		"%d -> %d" % [full, turret.health])
+
+
+func test_gear_can_make_you_immune_to_poison() -> void:
+	await reset_scene()
+	var mask := Equipment.new()
+	mask.slot = Equipment.Slot.HEAD
+	mask.resist = {&"poison": 1.0}
+	me().owned.append(mask)
+	me().equip(mask)
+	player.global_position = Vector2(400, 304)
+	await frames(2)
+	var full := player.health
+	cloud_at(400, 300)
+	await frames(60)
+	check("full poison resistance: the cloud does nothing", player.health == full and not player.statuses.has(&"poison"),
+		"%d -> %d" % [full, player.health])
+
+
+func test_a_poisoned_player_turns_green_and_stays_green_through_a_hit() -> void:
+	await reset_scene()
+	var look := player.get_node("Visual") as Appearance
+	check("setup: no tint to start with", look.status_tint() == Color.WHITE)
+	player.apply_status(load(POISON) as StatusEffect)
+	await frames(2)
+	check("poisoned: the player is tinted", look.status_tint() != Color.WHITE and look.modulate.g > look.modulate.r,
+		str(look.modulate))
+	look.flash_hit()
+	await frames(20)
+	check("a hit flash fades back to the tint, not to white", look.modulate.is_equal_approx(
+		Color(look.status_tint().r, look.status_tint().g, look.status_tint().b, look.modulate.a)), str(look.modulate))
+	player.statuses.clear()
+	await frames(2)
+	check("cured: back to normal colours", look.status_tint() == Color.WHITE and look.modulate.r > 0.99,
+		str(look.modulate))
+
+
+func test_the_hud_says_poison_while_it_lasts() -> void:
+	await reset_scene()
+	var hud: Node = main.get_node("HUD")
+	var line: Label = hud.call("status_label")
+	check("setup: the status line is empty", line.text == "")
+	player.apply_status(load(POISON) as StatusEffect)
+	await frames(2)
+	check("poisoned: the HUD says so", line.text == "POISON", line.text)
+	check("in green", line.get_theme_color("font_color") == UiKit.GREEN)
+	player.statuses.clear()
+	await frames(2)
+	check("cured: the line is empty again", line.text == "", line.text)

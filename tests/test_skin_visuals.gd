@@ -172,7 +172,7 @@ func test_the_explosion_is_drawn_by_the_fx_layer() -> void:
 
 ## 第三方素材包的目录：只有这几个包自己（和 `scenes/skins/` 里它们的外观场景）可以直接引用里面的文件。
 const THIRD_PARTY_PACKS := ["res://skins/cyberpunk/", "res://skins/industrial/",
-	"res://skins/bar_street/", "res://skins/basement/"]
+	"res://skins/bar_street/", "res://skins/basement/", "res://skins/lab/"]
 
 
 func test_nothing_outside_the_packs_hard_links_their_art() -> void:

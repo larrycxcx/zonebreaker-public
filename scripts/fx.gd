@@ -49,6 +49,12 @@ func _on_event(event: StringName, source: Node) -> void:
 		var blast := _spawn(&"explosion", explosion_scene, _body_center(source))
 		if blast != null:
 			blast.set(&"radius", source.get(&"blast_radius"))
+	elif event == &"acid_splash":
+		# 酸液瓶摔碎（第五关的科学家扔的）：规则就是手雷那套，画面换成一团酸液溅开，
+		# 素材包没有这个特效时退回手雷的爆炸
+		var splash := _spawn(&"acid_splash", explosion_scene, (source as Node2D).global_position)
+		if splash != null:
+			splash.set(&"radius", source.get(&"blast_radius"))
 	elif event == &"ultimate_blast":
 		# 终极武器定格结束：在它这一下打的每个敌人身上各炸一团（报告时敌人还没被消灭，读得到位置）。
 		# 只有终极武器本身带着 targets；别处（比如测音效时）拿别的对象报告这个事件，就没有要画的

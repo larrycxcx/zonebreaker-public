@@ -13,12 +13,15 @@
     K   可打爆的箱子（2 格宽）：竖着几行 K 就摞几只（一只 24 高，按 `CRATE_H` 换算），开 4 枪一只。
         找路时**当它不存在**（打烂了就过得去）；挡子弹、挡视线，敌人可以躲在后面
     O   油桶：打一枪就炸（手雷那种爆炸），炸附近的敌人，也炸玩家。不挡路
+    ^   地刺（2 格宽，写在地板上面那一格）：按节奏伸缩，伸着的时候碰到扣血。不挡路（第五关）
     !   竖着的红白管子（2 格宽，纯装饰、不挡人，画在背景层）：宣传图左上那种烟囱
     =   单向平台：人从上面踩得住、按下 + 跳能穿下去，子弹穿得过去
     :   单向平台：带支架的钢梁走道（画面不同，规则和 = 一样）
     H   梯子（2 格宽）。最上面那一格所在的那一行就是梯子顶：那层地板在这儿留洞、盖上一块看不见的单向盖子
     P   液压机（左上角，占 2×4 格，吊在正上方的天花板下面）
     G   闸门（左上角，占 2×4 格，上面得是实心的一直到顶——不然跳过去了）
+    [ ] 小 Boss 房间的入口门 / 出口门（左上角，2×4 格，和闸门一样要封顶）：入口门开着、人都进去了才关，
+        出口门关着、小 Boss 死了才开。找路时都当开着的
     @   出生点（脚站在下面那一格上）
     >   出口（脚站在下面那一格上）：自检认的终点。没有 Boss 的一段一定要写一个——
         不写的话「最右边那一列能站的地方」都算，中层一直通到右边缘时不爬梯子也「到了」
@@ -47,6 +50,11 @@ SOLIDS = "#X%~-"
 BELT_SPEED = 70.0
 BELTS = {"~": BELT_SPEED, "-": -BELT_SPEED}
 CRATE_H = 24
+## 可打爆的那种东西用哪个场景（工业区那些是箱子；实验室是毒气罐，48 高，三行 `K` 一个）。
+CRATE_SCENE = "res://scenes/trap_crate.tscn"
+SPIKE_SCENE = "res://scenes/trap_spikes.tscn"
+## 地刺帧的底边比地板表面低几像素：底座那 4 行嵌进地板表面（`SpikeTrap.SURFACE`）。
+SPIKE_SINK = 4
 BARREL_H = 22
 ## 单向平台的两种画法（规则一样）。
 ONE_WAYS = "=:"
@@ -98,9 +106,11 @@ class MapLevel:
 		self.ladders = []     # (名字, 中线 x, 顶 y, 高)
 		self.presses = []     # (名字, x, y, 天花板 y, 错开几秒)
 		self.gates = []       # (名字, x, y, 错开几秒)
+		self.doors = []       # (名字, x, y, 是不是出口门)
 		self.belts = []       # (名字, x, y, 宽, 高, 速度)
 		self.crates = []      # (名字, 左上 x, 左上 y)
 		self.barrels = []     # (名字, 中心 x, 中心 y)
+		self.spikes = []      # (名字, 左上 x, 左上 y, 错开几秒)
 		self.enemies = []     # (名字, 类型, x, y)
 		self.props = []
 		self.spawn = None
@@ -216,8 +226,14 @@ class MapLevel:
 					press_index += 1
 				elif ch == "G":
 					self.gates.append((name("Gate"), c * CELL, r * CELL, 0.0))
+				elif ch in "[]":
+					self.doors.append((name("ArenaDoor"), c * CELL, r * CELL, ch == "]"))
 				elif ch == "O":
 					self.barrels.append((name("Barrel"), x, feet - BARREL_H / 2.0))
+				elif ch == "^" and self.at(r, c - 1) != "^":
+					# 两格宽，按左边那一格认；一排相邻的错开节奏，空当一块接一块地开
+					phase = 0.35 * (len(self.spikes) % 4)
+					self.spikes.append((name("Spikes"), c * CELL, feet + SPIKE_SINK - 32, phase))
 				elif ch == "@":
 					self.spawn = (x, feet - lb.STAND)
 				elif ch == ">":
@@ -388,7 +404,7 @@ def check(level, safe_cols=SAFE_COLS, chasers=(), min_enemies=0):
 			problems.append("%s 底下没有地板" % name)
 	# 闸门：门正上方得一直是实心的，直到接上一整层天花板（门两边也都是实心的那一行）或者画面顶——
 	# 门 64 高、一跳 87，中间留个缝就跳过去了。在厂房里接的是天花板，在露天就得一直封到顶
-	for name, x, y, _ in level.gates:
+	for name, x, y, _ in level.gates + [(d[0], d[1], d[2], 0.0) for d in level.doors]:
 		c, r = int(x // CELL), int(y // CELL)
 		sealed = True
 		for rr in range(r - 1, -1, -1):
@@ -409,6 +425,11 @@ def check(level, safe_cols=SAFE_COLS, chasers=(), min_enemies=0):
 		c, r = int(x // CELL), int((y + BARREL_H / 2.0) // CELL)
 		if not level.supports(r, c):
 			problems.append("%s 底下悬空" % name)
+	for name, x, y, _ in level.spikes:
+		# 地刺嵌在地板表面上：底下两格都得是实心的（单向台子上不放——人可以从底下钻上来）
+		c, r = int(x // CELL), int((y + 32 - SPIKE_SINK) // CELL)
+		if not (level.solid(r, c) and level.solid(r, c + 1)):
+			problems.append("%s 底下不是实心地板" % name)
 	for label, kind, x, y in level.enemies:
 		if kind not in chasers:
 			continue
@@ -446,8 +467,15 @@ def check(level, safe_cols=SAFE_COLS, chasers=(), min_enemies=0):
 		# Boss 区那两屏（Boss 那一屏和它前面一屏）不算：那儿是单挑
 		if level.boss_cell is not None:
 			screens = min(screens, level.boss_cell[1] // 40 - 1)
+		# 小 Boss 的房间（入口门 [ 到出口门 ] 之间）也是单挑：和它有交叠的那几屏不算
+		entries = sorted(d[1] for d in level.doors if not d[3])
+		exits = sorted(d[1] for d in level.doors if d[3])
+		arenas = [(x0, min((x1 for x1 in exits if x1 > x0), default=x0)) for x0 in entries]
 		for screen in range(1, screens):
-			count = sum(1 for e in level.enemies if screen * 40 * CELL <= e[2] < (screen + 1) * 40 * CELL)
+			lo, hi = screen * 40 * CELL, (screen + 1) * 40 * CELL
+			if any(x0 < hi and x1 > lo for x0, x1 in arenas):
+				continue
+			count = sum(1 for e in level.enemies if lo <= e[2] < hi)
 			if count < min_enemies:
 				problems.append("第 %d 屏只有 %d 个敌人（至少 %d 个）" % (screen + 1, count, min_enemies))
 	# 敌人：出生那一屏不许有（人一进来就挨打）；站着的脚下能站、身子不嵌在墙里；
@@ -592,13 +620,38 @@ THEMES = {
 		"COLUMNS": 10, "BACK_TINT": (0.55, 0.55, 0.62),
 		"INDOOR_REACH": 10, "PROPS_ON_LEDGES": True,
 	},
+	## 实验室（第五关，`lab-tileset/1 Tiles/Tiles_01..100`，10 列）：
+	##   楼板和地面 = 青色斜纹钢板 1/2/3、11/12/13、21/22/23；墙和堵块（`%`）= 干净的灰蓝墙板 7/8/9、17/18/19、27/28/29；
+	##   浮台 = 一砖厚的斜纹条 51/52/53，第二种单向台子 = 灰蓝的条 57/58/59；
+	##   **掩体用带窗的那两块（32 / 38），不用 X 撑的 31 / 37**：可打爆的箱子就是拿 31 裁的，摆一堆打不烂的分不清；
+	##   **室内**是第 10 列的深色背景砖（纯色 30 / 40 为主，夹几块斑点 20、斜纹 10）。
+	"lab": {
+		"NINE": {
+			"#": ((1, 2, 3), (11, 12, 13), (21, 22, 23)),
+			"%": ((7, 8, 9), (17, 18, 19), (27, 28, 29)),
+			"~": ((1, 2, 3), (11, 12, 13), (21, 22, 23)),
+			"-": ((1, 2, 3), (11, 12, 13), (21, 22, 23)),
+			"=": ((51, 52, 53), (51, 52, 53), (51, 52, 53)),
+			":": ((57, 58, 59), (57, 58, 59), (57, 58, 59)),
+		},
+		"CRATES": (32, 38),
+		"BACK_TILES": [(30, 12), (40, 6), (20, 2), (10, 1)],
+		"PIPE_TOP": 30, "PIPE_BODY": (30, 30),
+		# 培养舱、桌椅、小显示器；会动的（发电机、阀门、扫描仪、摄像头）在地图里点名摆
+		# 完好的罐子一律是能打碎的毒气罐（`K`），装饰里只有碎完的那张
+		"INDOOR_PROPS": ["chair", "table", "monitor3", "chair2", "table2", "capsule_shards"],
+		"OUTDOOR_PROPS": ["capsule_shards", "grass", "grass2", "table", "chair"],
+		"COLUMNS": 10, "BACK_TINT": (0.7, 0.72, 0.8),
+		# 可打爆的是**毒气罐**：48 高，三行 `K` 一个、六行摞两个（96，一跳翻不过去）
+		"CRATE_H": 48, "CRATE_SCENE": "res://scenes/trap_capsule.tscn",
+	},
 }
 
 
 def use_theme(name):
 	"""换成某个区的那套砖和装饰（模块里的常量直接换掉，后面的代码照常读）。"""
 	global NINE, CRATES, BACK_TILES, PIPE_TOP, PIPE_BODY, INDOOR_PROPS, OUTDOOR_PROPS, COLUMNS, BACK_TINT
-	global INDOOR_REACH, PROPS_ON_LEDGES
+	global INDOOR_REACH, PROPS_ON_LEDGES, CRATE_H, CRATE_SCENE
 	t = THEMES[name]
 	NINE, CRATES, BACK_TILES = t["NINE"], t["CRATES"], t["BACK_TILES"]
 	PIPE_TOP, PIPE_BODY = t["PIPE_TOP"], t["PIPE_BODY"]
@@ -606,6 +659,8 @@ def use_theme(name):
 	COLUMNS, BACK_TINT = t["COLUMNS"], t["BACK_TINT"]
 	INDOOR_REACH = t.get("INDOOR_REACH")
 	PROPS_ON_LEDGES = t.get("PROPS_ON_LEDGES", False)
+	CRATE_H = t.get("CRATE_H", 24)
+	CRATE_SCENE = t.get("CRATE_SCENE", "res://scenes/trap_crate.tscn")
 
 
 def _hash(a, b, seed):
@@ -736,12 +791,14 @@ def dress(level, named, seed=20261003):
 			busy.add(cc)
 	for _, x, _, _, _ in level.presses:
 		busy.update(range(int(x // CELL) - 1, int(x // CELL) + 3))
-	for _, x, _, _ in level.gates:
+	for _, x, _, _ in level.gates + level.doors:
 		busy.update(range(int(x // CELL) - 1, int(x // CELL) + 3))
 	for _, x, _ in level.crates:
 		busy.update(range(int(x // CELL) - 1, int(x // CELL) + 3))
 	for _, x, _ in level.barrels:
 		busy.update(range(int(x // CELL) - 1, int(x // CELL) + 2))
+	for _, x, _, _ in level.spikes:
+		busy.update(range(int(x // CELL) - 1, int(x // CELL) + 3))
 	taken = {(int(p[2] // CELL), int(p[3] // CELL)) for p in level.props}
 	enemy_cells = {(int(x // CELL), int((y + 16) // CELL)) for _, _, x, y in level.enemies}
 	state = [seed]
@@ -798,9 +855,13 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 	if level.belts:
 		extra.append('[ext_resource type="Script" path="res://scripts/belt_art.gd" id="bl"]')
 	if level.crates:
-		extra.append('[ext_resource type="PackedScene" path="res://scenes/trap_crate.tscn" id="t3"]')
+		extra.append('[ext_resource type="PackedScene" path="%s" id="t3"]' % CRATE_SCENE)
 	if level.barrels:
 		extra.append('[ext_resource type="PackedScene" path="res://scenes/trap_barrel.tscn" id="t4"]')
+	if level.spikes:
+		extra.append('[ext_resource type="PackedScene" path="%s" id="t5"]' % SPIKE_SCENE)
+	if level.doors:
+		extra.append('[ext_resource type="PackedScene" path="res://scenes/arena_door.tscn" id="t6"]')
 	width = level.width * CELL
 	# 总图一行几块：工业区是 TileArt 的默认值 9，不写；别的区写出来
 	columns_line = "" if COLUMNS == 9 else "columns = %d\n" % COLUMNS
@@ -848,8 +909,11 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 		lines.append('\n[node name="%s" parent="Level" instance=ExtResource("t2")]\n'
 			'position = Vector2(%g, %g)\nheight = %g\n' % (name, x, top, height))
 	lines.append('\n[node name="Walls" type="Node2D" parent="Level"]\n')
-	if level.presses or level.gates or level.crates or level.barrels:
+	if level.presses or level.gates or level.crates or level.barrels or level.spikes or level.doors:
 		lines.append('\n[node name="Traps" type="Node2D" parent="."]\n')
+		for name, x, y, phase in level.spikes:
+			lines.append('\n[node name="%s" parent="Traps" instance=ExtResource("t5")]\n'
+				'position = Vector2(%g, %g)\nphase = %g\n' % (name, x, y, phase))
 		for name, x, y in level.crates:
 			lines.append('\n[node name="%s" parent="Traps" instance=ExtResource("t3")]\n'
 				'position = Vector2(%g, %g)\n' % (name, x, y))
@@ -862,6 +926,9 @@ def build(level, out, root, prop_dir, write, prop_frames=None, named_props=(), d
 		for name, x, y, phase in level.gates:
 			lines.append('\n[node name="%s" parent="Traps" instance=ExtResource("t1")]\n'
 				'position = Vector2(%g, %g)\nphase = %g\n' % (name, x, y, phase))
+		for name, x, y, is_exit in level.doors:
+			lines.append('\n[node name="%s" parent="Traps" instance=ExtResource("t6")]\n'
+				'position = Vector2(%g, %g)\n%s' % (name, x, y, "exit_door = true\n" if is_exit else ""))
 	lines.append('\n[node name="Enemies" type="Node2D" parent="."]\n')
 	for name, kind, x, y in level.enemies:
 		lines.append('\n[node name="%s" parent="Enemies" instance=ExtResource("%s")]\n'

@@ -214,6 +214,24 @@ ENEMIES_4 = {
 STAND_4 = {"4_e": 11.0}
 PROP_FRAMES_4 = {"smoke": 6}
 
+# ---------------------------------------------------------------- 第五关（实验室）
+#
+# 分层的格子地图（`level5_map.py`）。中段有一间小 Boss 的房间（门 `[` `]`，见 `ArenaDoor`）。
+
+ENEMIES_5 = {
+	"5_a": "res://scenes/enemy_5_a.tscn",
+	"5_b": "res://scenes/enemy_5_b.tscn",
+	"5_c": "res://scenes/enemy_5_c.tscn",
+	"5_d": "res://scenes/enemy_5_d.tscn",
+	"5_e": "res://scenes/enemy_5_e.tscn",
+	"5_f": "res://scenes/enemy_5_f.tscn",
+	"5_mid": "res://scenes/boss_5_mid.tscn",
+	"5_boss": "res://scenes/boss_5.tscn",
+}
+## 变异枪手的判定框 48 高，脚底在原点下方 24（它的名字不以 _boss 结尾，得点名）。
+STAND_5 = {"5_mid": 24.0}
+PROP_FRAMES_5 = {"generator": 4, "valve": 4, "scanner": 6, "camera": 6}
+
 # ---------------------------------------------------------------- 一关 = 一条配置
 #
 # 加一关就往这张表里加一条，跑 `python tools/level_build.py 2`。
@@ -239,6 +257,10 @@ STAGES = {
 	"4": {
 		"out": "level_4.tscn", "root": "Level4", "prop_dir": "basement", "map": "level4_map",
 		"theme": "basement", "enemies": ENEMIES_4, "prop_frames": PROP_FRAMES_4, "stand": STAND_4,
+	},
+	"5": {
+		"out": "level_5.tscn", "root": "Level5", "prop_dir": "lab", "map": "level5_map",
+		"theme": "lab", "enemies": ENEMIES_5, "prop_frames": PROP_FRAMES_5, "stand": STAND_5,
 	},
 }
 

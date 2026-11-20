@@ -1,0 +1,14 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/enemy_grenade.tscn" id="1"]
+
+[node name="AcidFlask" instance=ExtResource("1")]
+skin_key = &"acid_flask"
+blast_event = &"acid_splash"
+bounces = 0
+blast_radius = 32.0
+max_damage = 44
+min_damage = 20
+
+[node name="ColorRect" parent="Visual" index="0"]
+color = Color(0.4, 0.9, 0.45, 1)

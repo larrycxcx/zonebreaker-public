@@ -1,0 +1,57 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/boss_pod.gd" id="1"]
+[ext_resource type="Texture2D" path="res://skins/default/portraits/5_boss.png" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/turret_bullet.tscn" id="3"]
+[ext_resource type="Script" path="res://scripts/appearance.gd" id="99"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+resource_local_to_scene = true
+size = Vector2(36, 40)
+
+[node name="BossPod" type="CharacterBody2D"]
+collision_layer = 8
+collision_mask = 1
+motion_mode = 1
+script = ExtResource("1")
+skin_key = &"5_boss"
+display_name = "BIOPOD"
+portrait = ExtResource("2")
+ultimate_damage_ratio = 0.25
+max_health = 880
+contact_damage = 50
+xp_reward = 472
+money_reward = 315
+gravity = 0.0
+detect_range = 640.0
+bullet_scene = ExtResource("3")
+burst_min = 3
+burst_max = 3
+burst_gap = 0.16
+fire_interval = 0.7
+shoot_event = &"turret_shoot"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_1")
+
+[node name="Visual" type="Node2D" parent="."]
+script = ExtResource("99")
+
+[node name="Body" type="ColorRect" parent="Visual"]
+offset_left = -18.0
+offset_top = -20.0
+offset_right = 18.0
+offset_bottom = 20.0
+mouse_filter = 2
+color = Color(0.35, 0.75, 0.45, 1)
+
+[node name="Eye" type="ColorRect" parent="Visual"]
+offset_left = 8.0
+offset_top = -4.0
+offset_right = 18.0
+offset_bottom = 8.0
+mouse_filter = 2
+color = Color(0.9, 1, 0.6, 1)
+
+[node name="Muzzle" type="Marker2D" parent="."]
+position = Vector2(20, 20)

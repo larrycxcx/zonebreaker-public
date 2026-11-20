@@ -189,7 +189,7 @@ func crate_stacks() -> Dictionary:
 	for crate: BreakableCrate in crates:
 		var last: BreakableCrate = null if current.is_empty() else current[-1]
 		if last != null and (last.position.x != crate.position.x
-				or absf(crate.position.y - last.position.y - BreakableCrate.SIZE.y) > 0.5):
+				or absf(crate.position.y - last.position.y - crate.size.y) > 0.5):
 			stacks["%d@%d" % [int(last.position.x), int(last.position.y)]] = current
 			current = []
 		current.append(crate)
@@ -211,12 +211,13 @@ func test_the_blocked_routes_really_block_and_really_have_a_way_over() -> void:
 		var bottom := -INF
 		for crate: BreakableCrate in stack:
 			top = minf(top, crate.position.y)
-			bottom = maxf(bottom, crate.position.y + BreakableCrate.SIZE.y)
+			bottom = maxf(bottom, crate.position.y + crate.size.y)
 		var ceiling := -INF
 		for rect in solid_rects():
 			if rect.position.x < x + 32.0 and rect.end.x > x and rect.end.y <= top + 0.5:
 				ceiling = maxf(ceiling, rect.end.y)
-		if stack.size() >= 3:
+		# 按摞起来多高算，不按几只：三只箱子 72、两个毒气罐 96，都是跳不过去、要打烂的那种
+		if bottom - top >= 72.0:
 			sealed += 1
 			check("the stack at %s reaches the ceiling" % key, top - ceiling < 32.0,
 				"%.0f left over it" % (top - ceiling))

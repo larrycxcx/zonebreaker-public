@@ -56,6 +56,10 @@ var _elapsed := 0.0
 ## 正在播的一次性动作（开火、受伤）和它从什么时候开始；空表示没有。
 var _once := &""
 var _once_since := 0.0
+## 播完停在最后一帧（`play_once(…, true)`）：第五关科学家变身，最后一帧已经是变异体的样子，停在那儿等换人。
+var _hold := false
+## 埋在地下：停在 `emerge` 那组的第一帧（只有一块履带）。
+var _buried := false
 var _dead_since := 0.0
 ## 这套贴图有没有某个动作（按名字缓存，免得每帧问文件系统）。
 var _has := {}
@@ -70,7 +74,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_elapsed += delta
-	if _once != &"" and not _dead and _body.texture != null \
+	if _once != &"" and not _dead and not _hold and _body.texture != null \
 			and (_elapsed - _once_since) * ONCE_FPS >= _body.hframes:
 		_once = &""
 		_refresh()
@@ -124,6 +128,10 @@ func flash_hit() -> void:
 	_play_once(_aimed(&"hurt"))
 
 
+## 没有倒地动画时原地炸的那一团多大（半径）。
+const DEATH_BLAST := 40.0
+
+
 ## 死了：本体马上会被删掉，所以外观把自己挪到特效层下面，播完倒地、躺一会儿、淡出后自己消失。
 ## 特效层不在（比如测试把它删了）就挂到敌人的父节点下，效果一样。
 func show_dead() -> void:
@@ -133,6 +141,17 @@ func show_dead() -> void:
 	_dead_since = _elapsed
 	_once = &""
 	var host := get_tree().get_first_node_in_group(Fx.GROUP)
+	if not _exists(&"death"):
+		# 没有倒地动画的（第五关的大型机甲）：**原地炸一团**就没了。不去加载不存在的贴图——
+		# 那会每次刷一条「Resource file not found」（第二关 2-C 斜射踩过同一个坑）
+		var boom_scene := Skins.effect(&"explosion", null)
+		if boom_scene != null and host != null:
+			var boom := boom_scene.instantiate() as Node2D
+			host.add_child(boom)
+			boom.global_position = global_position
+			boom.set(&"radius", DEATH_BLAST)
+		queue_free()
+		return
 	if host == null:
 		host = get_parent().get_parent()
 	if host != null:
@@ -149,6 +168,8 @@ func show_dead() -> void:
 func clip() -> StringName:
 	if _dead:
 		return &"death"
+	if _buried:
+		return &"emerge"
 	if _once != &"":
 		return _once
 	if _prone:
@@ -202,9 +223,38 @@ func _aimed(name: StringName) -> StringName:
 	return variant if _exists(variant) else name
 
 
+## 播一遍某个动作（玩法用：科学家变身）。`hold` = 播完停在最后一帧，不回待机。
+## 这套贴图没有这个动作就什么都不做。
+func play_once(name: StringName, hold := false) -> void:
+	if not _exists(name):
+		return
+	_play_once(name)
+	_hold = hold
+
+
+func show_buried(buried: bool) -> void:
+	_buried = buried
+	_refresh()
+
+
+## 钻出来：播一遍 `emerge`（履带滑开、机甲升上来），播完回待机。
+func emerge() -> void:
+	_buried = false
+	play_once(&"emerge")
+
+
+## 这个动作要播多久（秒）：一帧 `ONCE_FPS` 分之一秒。没有这个动作返回 0。
+func once_length(name: StringName) -> float:
+	if not _exists(name):
+		return 0.0
+	var texture: Texture2D = load("%s/%s_r.png" % [art_dir, name])
+	return float(texture.get_width()) / float(frame_size.x) / ONCE_FPS
+
+
 func _play_once(name: StringName) -> void:
 	if _dead:
 		return
+	_hold = false
 	_once = name
 	_once_since = _elapsed
 	_refresh()

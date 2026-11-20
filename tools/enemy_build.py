@@ -841,6 +841,288 @@ def build_boss_skull(write):
 	build_flyer(write, MINION4_OUT, ".", MINION4, BOSS4_DIR, BASE_OUT, MINION4_BODY)
 
 
+# ---------------------------------------------------------------- 实验室（第五关）
+# 素材 CraftPix Lab Enemies（`lab-tileset/enemies/`，不进仓库）。1~3 号是 48×48、脚底在帧底边的小个子，走 `build_singles`；
+# 4~6 号是 96×96 的炮塔头、`Mech base/` 是底座，叠起来拼成大型机甲（`build_lab_mechs()`）。
+LAB_PACK = os.path.join(HERE, "..", "art_in", "default", "lab-tileset", "enemies")
+LAB_OUT = os.path.join(HERE, "..", "skins", "lab", "enemies")
+LAB_SINGLES = {
+	# 5-A 科学家（黑发）：巡逻、往前扔酸液瓶（Attack 第 4 帧胳膊甩到最前——出手卡这一帧）；
+	# 挨打或被逼近时**变身**（Transform 4 帧，最后一帧已经是变异体的样子），变完换成 5-C。
+	"5_a": ("1", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3, 4, 5]),
+		"transform": ("Transform.png", [0, 1, 2, 3]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+	# 5-B 科学家（灰发）：一看见玩家就变身。
+	"5_b": ("2", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3, 4, 5]),
+		"transform": ("Transform.png", [0, 1, 2, 3]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+	# 5-C 变异体：走近、举手、砸地。Attack 6 帧里第 4 帧（下标 3）大臂砸到地上——伤害和震波卡这一帧。
+	"5_c": ("3", "idle", {
+		"idle": ("Idle.png", [0, 1, 2, 3]),
+		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+		"attack_level": ("Attack.png", [0, 1, 2, 3, 4, 5]),
+		"hurt": ("Hurt.png", [0, 1]),
+		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+	}),
+}
+
+
+## 大型机甲 = 炮塔头（4~6 号）叠在底座（`Mech base/`）上：头的底边在第 62 行、底座从第 61~63 行开始，
+## **同一个 96×96 帧里直接叠起来就接上了**，不用挪。输出帧照旧 96×96，锚点是身体中心（外观场景里配）。
+## 表：键 → (锚点, 上下翻转没有, {动作: (头的文件, 帧, 底座的文件, 底座帧（None = 每帧用第 0 帧）)})。
+## - 5-D 原地炮台：机枪头 + 履带。身子那一列中心在 x 46、脚底在第 72 行 → 锚点 (46, 56)；炮口在 (73, 48)。
+## - 5-F 天花板发射器：发射器头 + 小运输车当吊架，**整个上下翻转**（倒挂在天花板上）。
+##   翻过来之后吊架在上、头在下，头的中心 (45, 45) 是锚点，吊架顶边（天花板）在锚点上面 20。
+LAB_MECHS = {
+	"5_d": ((46, 56), False, {
+		"idle": ("5/Idle.png", [0, 1, 2, 3, 4, 5], "Mech base/Walk2.png", None),
+		"attack_level": ("5/Attack.png", [0, 1, 2, 3, 4, 5], "Mech base/Walk2.png", None),
+		"hurt": ("5/Hurt.png", [0, 1], "Mech base/Hurt2.png", [0, 1]),
+	}),
+	"5_f": ((45, 45), True, {
+		"idle": ("4/Idle.png", [0, 1, 2, 3], "Mech base/Hurt3.png", None),
+		"attack_level": ("4/Attack.png", [0, 1, 2, 3], "Mech base/Hurt3.png", None),
+		"hurt": ("4/Hurt.png", [0, 1], "Mech base/Hurt3.png", [0, 1]),
+	}),
+}
+## 5-E 地下钻出来的蜘蛛爪臂：爪臂头 + 蜘蛛腿。身子那一列中心 x 46、脚底第 76 行 → 锚点 (46, 60)。
+## 走路是腿的 6 帧配头的待机 4 帧（轮着用）；攻击那 6 帧爪臂从右边一路扫到左边（第 5、6 帧胳膊甩到另一侧），
+## 玩法里一边转身一边播，正好是「原地转一圈扫两边」。
+## `emerge`（钻出来）是这里拼出来的：前 4 帧地上那块**履带**往旁边滑开，后 4 帧机甲从地板下面升上来
+## （地板线以下的像素切掉）。埋着的时候停在第 1 帧——地上只有一块履带，那就是给玩家的提醒。
+LAB_BURROWER = {
+	"anchor": (46, 60),
+	"floor": 76,
+	"idle": ("6/Idle.png", [0, 1, 2, 3], "Mech base/Walk1.png", [0]),
+	"walk": ("6/Idle.png", [0, 1, 2, 3, 0, 1], "Mech base/Walk1.png", [0, 1, 2, 3, 4, 5]),
+	"attack_level": ("6/Attack.png", [0, 1, 2, 3, 4, 5], "Mech base/Walk1.png", [0]),
+	"hurt": ("6/Hurt.png", [0, 1], "Mech base/Hurt1.png", [0, 1]),
+	# 履带（`Walk2` 第 1 帧，第 63~71 行）往右滑开多远、机甲每帧还埋在地下多深
+	"hatch": ("Mech base/Walk2.png", 0),
+	"hatch_slide": [0, 8, 16, 26, 28, 28, 28, 28],
+	"rise": [None, None, None, None, 40, 28, 16, 6],
+}
+MECH_CELL = 96
+## 5-F 滴下来的那滴毒液：`Acid1` 第 1 帧里那滴（带长尾巴，25×59）只取下面 30 行——一个球带一小截尾巴。
+POISON_DRIP = ("Acid1.png", (24, 30, 25, 30))
+
+
+def build_lab_mechs(write):
+	def frames_of_cell(rel, indices):
+		_, _, pixels = sb.read_png(os.path.join(LAB_PACK, *rel.split("/")))
+		return [sb.cut(pixels, i * MECH_CELL, 0, MECH_CELL, MECH_CELL) for i in indices]
+
+	for key, (anchor, flip, clips) in LAB_MECHS.items():
+		for clip, (head_rel, head_idx, base_rel, base_idx) in clips.items():
+			heads = frames_of_cell(head_rel, head_idx)
+			bases = frames_of_cell(base_rel, base_idx if base_idx is not None else [0])
+			right = []
+			for i, head in enumerate(heads):
+				frame = sb.blank(MECH_CELL, MECH_CELL)
+				sb.blit(frame, bases[i % len(bases)], 0, 0, "%s %s base" % (key, clip))
+				sb.blit(frame, head, 0, 0, "%s %s head" % (key, clip))
+				if flip:
+					frame = frame[::-1]
+				right.append(frame)
+			left = [mirror_about(f, anchor[0]) for f in right]
+			save_frames(key, "%s_r.png" % clip, right, MECH_CELL, MECH_CELL, write, LAB_OUT)
+			save_frames(key, "%s_l.png" % clip, left, MECH_CELL, MECH_CELL, write, LAB_OUT)
+	build_lab_burrower(write, frames_of_cell)
+	rel, (x, y, w, h) = POISON_DRIP
+	_, _, pixels = sb.read_png(os.path.join(LAB_PACK, "..", "4 Animated objects", rel))
+	drip = sb.cut(pixels, x, y, w, h)
+	out = os.path.join(HERE, "..", "skins", "lab", "projectiles", "poison_drip", "spin.png")
+	if write:
+		sb.write_png(out, drip)
+	print("  projectiles/poison_drip/spin.png  %dx%d" % (w, h))
+
+
+def build_lab_burrower(write, frames_of_cell):
+	spec = LAB_BURROWER
+	anchor, floor = spec["anchor"], spec["floor"]
+
+	def stack(head, base):
+		frame = sb.blank(MECH_CELL, MECH_CELL)
+		sb.blit(frame, base, 0, 0, "5_e base")
+		sb.blit(frame, head, 0, 0, "5_e head")
+		return frame
+
+	clips = {}
+	for clip in ("idle", "walk", "attack_level", "hurt"):
+		head_rel, head_idx, base_rel, base_idx = spec[clip]
+		heads = frames_of_cell(head_rel, head_idx)
+		bases = frames_of_cell(base_rel, base_idx)
+		clips[clip] = [stack(h, bases[i % len(bases)]) for i, h in enumerate(heads)]
+	clips["run"] = clips["walk"]
+	# 钻出来：履带滑开，机甲从地板下升上来
+	hatch_rel, hatch_frame = spec["hatch"]
+	hatch = frames_of_cell(hatch_rel, [hatch_frame])[0]
+	# 履带底边在第 71 行，往下挪到正好躺在地板线上
+	hatch_drop = floor - 72
+	mech = clips["idle"][0]
+	emerge = []
+	for slide, sunk in zip(spec["hatch_slide"], spec["rise"]):
+		frame = sb.blank(MECH_CELL, MECH_CELL)
+		if sunk is not None:
+			for yy in range(MECH_CELL):
+				ty = yy + sunk
+				if ty >= floor or ty >= MECH_CELL:
+					continue
+				for xx in range(MECH_CELL):
+					if mech[yy][xx][3] > 8:
+						frame[ty][xx] = mech[yy][xx]
+		for yy in range(MECH_CELL):
+			ty = yy + hatch_drop
+			if not 0 <= ty < MECH_CELL:
+				continue
+			for xx in range(MECH_CELL):
+				tx = xx + slide
+				if hatch[yy][xx][3] > 8 and 0 <= tx < MECH_CELL:
+					frame[ty][tx] = hatch[yy][xx]
+		emerge.append(frame)
+	clips["emerge"] = emerge
+	for clip, right in clips.items():
+		left = [mirror_about(f, anchor[0]) for f in right]
+		save_frames("5_e", "%s_r.png" % clip, right, MECH_CELL, MECH_CELL, write, LAB_OUT)
+		save_frames("5_e", "%s_l.png" % clip, left, MECH_CELL, MECH_CELL, write, LAB_OUT)
+
+
+# ---------------------------------------------------------------- 实验室的中段小 Boss（变异枪手，`boss/1`）
+# 每帧 72×72、身子在 x 9..44、脚底在帧底边；身子那一列（腿）中心 x 25。动作是看图认的：
+#   Attack1 站着开激光（第 4 帧粗白光、第 5 帧细绿光，打到帧边）、Attack2 边走边开、Attack3 前踢、
+#   Attack4 往前一顶（枪托冲撞）、Special 枪身微微一抬（蓄力，当预警用）。
+# **输出帧 128×72、锚点 (64, 48)**：激光那一截伸到素材帧边（x 71），往右挪 39 对准锚点后到 110，
+# 左右镜像绕锚点翻，两边都得留这么宽。判定框 32×48（脚底在原点下方 24）。
+# 激光本身由外观按玩法给的长度另外画（和地下室骷髅头一个做法）：取出光那两帧的一列。
+LAB_MIDBOSS_DIR = os.path.join(LAB_PACK, "..", "boss", "1")
+LAB_MIDBOSS_OUT = "5_midboss"
+LAB_MIDBOSS_CELL = 72
+LAB_MIDBOSS_FRAME = (128, 72)
+LAB_MIDBOSS_ANCHOR = (64, 48)
+LAB_MIDBOSS_BODY_X = 25
+LAB_MIDBOSS_CLIPS = {
+	"idle": ("Idle.png", [0, 1, 2, 3]),
+	"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
+	"charge": ("Special.png", [0, 1, 2, 3]),
+	"beam": ("Attack1.png", [3, 4]),
+	"attack_level": ("Attack1.png", [0, 1, 2, 3, 4, 5]),
+	"attack_walk": ("Attack2.png", [0, 1, 2, 3, 4, 5]),
+	"kick": ("Attack3.png", [0, 1, 2, 3, 4, 5]),
+	"lunge": ("Attack4.png", [0, 1, 2, 3, 4, 5]),
+	"hurt": ("Hurt.png", [0, 1]),
+	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+}
+## 激光那一条：Attack1 出光帧里 x 60 那一列。粗的是第 4 帧（第 41~45 行），细的是第 5 帧。
+LAB_MIDBOSS_BEAM = {"beam_thick": (3, 41, 46), "beam_thin": (4, 42, 45)}
+LAB_MIDBOSS_BEAM_COLUMN = 60
+## HUD 头像：头和枪那一块。
+LAB_MIDBOSS_PORTRAIT = (12, 20, 32, 32)
+
+
+def build_lab_midboss(write):
+	dx = LAB_MIDBOSS_ANCHOR[0] - LAB_MIDBOSS_BODY_X
+	fw, fh = LAB_MIDBOSS_FRAME
+	for name, (f, idx) in LAB_MIDBOSS_CLIPS.items():
+		_, _, pixels = sb.read_png(os.path.join(LAB_MIDBOSS_DIR, f))
+		right = []
+		for i in idx:
+			frame = sb.cut(pixels, i * LAB_MIDBOSS_CELL, 0, LAB_MIDBOSS_CELL, LAB_MIDBOSS_CELL)
+			placed = sb.blank(fw, fh)
+			sb.blit(placed, frame, dx, 0, "midboss %s" % name)
+			right.append(placed)
+		left = [mirror_about(fr, LAB_MIDBOSS_ANCHOR[0]) for fr in right]
+		save_frames(LAB_MIDBOSS_OUT, "%s_r.png" % name, right, fw, fh, write, LAB_OUT)
+		save_frames(LAB_MIDBOSS_OUT, "%s_l.png" % name, left, fw, fh, write, LAB_OUT)
+	_, _, attack = sb.read_png(os.path.join(LAB_MIDBOSS_DIR, "Attack1.png"))
+	for name, (frame, top, bottom) in LAB_MIDBOSS_BEAM.items():
+		column = [[attack[y][frame * LAB_MIDBOSS_CELL + LAB_MIDBOSS_BEAM_COLUMN]] for y in range(top, bottom)]
+		if write:
+			sb.write_png(os.path.join(LAB_OUT, LAB_MIDBOSS_OUT, name + ".png"), column)
+		print("  %s/%s.png  1x%d" % (LAB_MIDBOSS_OUT, name, bottom - top))
+	_, _, idle = sb.read_png(os.path.join(LAB_MIDBOSS_DIR, "Idle.png"))
+	x, y, w, h = LAB_MIDBOSS_PORTRAIT
+	if write:
+		sb.write_png(os.path.join(LAB_OUT, LAB_MIDBOSS_OUT, "portrait.png"), sb.cut(idle, x, y, w, h))
+	print("  %s/portrait.png  %dx%d" % (LAB_MIDBOSS_OUT, w, h))
+
+
+## 关底 Boss「生化舱」（素材 `boss/3`）：飞着的，朝右（推进器在左边）。帧 72×72，机身中心在 (26, 34)。
+## 输出帧 144×96、锚点 (72, 48) 放在机身中心——激光和炮口闪光伸到素材右边缘，镜像时两边都得留出来。
+## 文件名对内容：Attack1/2 一样是眼睛打水平激光，Attack3 缩成圆壳，Attack4_1/2/3 是正下 / 斜下 / 水平三门炮，
+## Special 是叶片转一圈（换位置时播），Death 掉下去摔成两半。
+LAB_POD_DIR = os.path.join(LAB_PACK, "..", "boss", "3")
+LAB_POD_OUT = "5_boss"
+LAB_POD_CELL = 72
+LAB_POD_FRAME = (144, 96)
+LAB_POD_ANCHOR = (72, 48)
+LAB_POD_CENTER = (26, 34)
+LAB_POD_CLIPS = {
+	"idle": ("Idle.png", [0, 1, 2, 3]),
+	"walk": ("Walk.png", [0, 1, 2, 3]),
+	"charge": ("Attack1.png", [0, 1]),
+	"beam": ("Attack1.png", [3, 4]),
+	"shell": ("Attack3.png", [2, 3, 4, 5]),
+	"cannon_down": ("Attack4_1.png", [0, 1, 2, 3]),
+	"cannon_diag": ("Attack4_2.png", [0, 1, 2, 3]),
+	"cannon_level": ("Attack4_3.png", [0, 1, 2, 3]),
+	"spin": ("Special.png", [0, 1, 2, 3]),
+	"hurt": ("Hurt.png", [0, 1]),
+	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
+}
+## 激光那一条：Attack1 出光帧里 x 70 那一列。粗的是第 4 帧（第 30~41 行），细的是第 6 帧（第 32~37 行）。
+LAB_POD_BEAM = {"beam_thick": (3, 30, 42), "beam_thin": (5, 32, 38)}
+LAB_POD_BEAM_COLUMN = 70
+## HUD 头像：眼睛那一块。
+LAB_POD_PORTRAIT = (12, 18, 32, 32)
+
+
+def build_lab_pod(write):
+	dx = LAB_POD_ANCHOR[0] - LAB_POD_CENTER[0]
+	dy = LAB_POD_ANCHOR[1] - LAB_POD_CENTER[1]
+	fw, fh = LAB_POD_FRAME
+	for name, (f, idx) in LAB_POD_CLIPS.items():
+		_, _, pixels = sb.read_png(os.path.join(LAB_POD_DIR, f))
+		right = []
+		for i in idx:
+			frame = sb.cut(pixels, i * LAB_POD_CELL, 0, LAB_POD_CELL, LAB_POD_CELL)
+			placed = sb.blank(fw, fh)
+			sb.blit(placed, frame, dx, dy, "pod %s" % name)
+			right.append(placed)
+		left = [mirror_about(fr, LAB_POD_ANCHOR[0]) for fr in right]
+		save_frames(LAB_POD_OUT, "%s_r.png" % name, right, fw, fh, write, LAB_OUT)
+		save_frames(LAB_POD_OUT, "%s_l.png" % name, left, fw, fh, write, LAB_OUT)
+	_, _, attack = sb.read_png(os.path.join(LAB_POD_DIR, "Attack1.png"))
+	for name, (frame, top, bottom) in LAB_POD_BEAM.items():
+		column = [[attack[y][frame * LAB_POD_CELL + LAB_POD_BEAM_COLUMN]] for y in range(top, bottom)]
+		if write:
+			sb.write_png(os.path.join(LAB_OUT, LAB_POD_OUT, name + ".png"), column)
+		print("  %s/%s.png  1x%d" % (LAB_POD_OUT, name, bottom - top))
+	_, _, idle = sb.read_png(os.path.join(LAB_POD_DIR, "Idle.png"))
+	x, y, w, h = LAB_POD_PORTRAIT
+	if write:
+		sb.write_png(os.path.join(LAB_OUT, LAB_POD_OUT, "portrait.png"), sb.cut(idle, x, y, w, h))
+	print("  %s/portrait.png  %dx%d" % (LAB_POD_OUT, w, h))
+
+
+def build_lab(write):
+	if not os.path.isdir(LAB_PACK):
+		sys.exit("找不到实验室敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(LAB_PACK))
+	build_singles(write, LAB_SINGLES, LAB_PACK, LAB_OUT)
+	build_lab_mechs(write)
+	build_lab_midboss(write)
+	build_lab_pod(write)
+
+
 def build_basement(write):
 	if not os.path.isdir(BASE_PACK):
 		sys.exit("找不到地下室敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(BASE_PACK))
@@ -867,6 +1149,11 @@ def build_bar_street(write):
 def main():
 	write = "--check" not in sys.argv
 	only = [a for a in sys.argv[1:] if not a.startswith("--")]
+	if only == ["lab"]:
+		print("实验室（第五关）的敌人：")
+		build_lab(write)
+		_report(write)
+		return
 	if only == ["basement"]:
 		print("地下室（第四关）的六种敌人：")
 		build_basement(write)
