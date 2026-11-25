@@ -1,11 +1,11 @@
 extends GameTest
-## 赛博朋克皮肤包的地形和背景（tools/terrain_build.py 从 Green Zone Tileset 生成）。
+## The cyberpunk skin pack's terrain and backdrop (generated from the Green Zone Tileset by tools/terrain_build.py).
 ##
-## 地形不换 TileMap：还是 platform.tscn 搭的关卡，外观按平台大小九宫格平铺（TerrainAppearance）。
-## 守的东西：九宫格怎么切是对的（铺满、不缩放、头尾描边都在）、每块平台挑对了地形、画面和判定框对得上
-## （站立面就是判定框顶边，只有浮空平台底下的碎块往下挂几像素；矮通道顶块底边是平的，净空看着和实际一样），
-## 以及**换皮肤不改变规则**——所有平台的碰撞体、站在平台上的高度、矮通道能不能过，方块和精灵图一模一样。
-## 背景纯显示、在最底下，默认包没有背景。
+## The terrain does not switch to TileMap: levels are still built from platform.tscn, with the look nine-sliced and tiled to the platform size (TerrainAppearance).
+## What it guards: the nine-slice is cut correctly (fills the whole length, no scaling, outlines at both ends intact), every platform picks the right terrain, the picture and the hitbox agree
+## (the standing surface is the top of the hitbox; only the bits under floating platforms hang down a few pixels; crawl passage roofs have flat bottoms so the clearance looks as it is),
+## and **switching skins does not change the rules** — every platform's collision shape, the height of standing on platforms and whether crawl passages can be passed are exactly the same with blocks and sprites.
+## The backdrop is display only, at the very bottom; the default pack has no backdrop.
 
 const SKIN := "res://skins/cyberpunk/cyberpunk_skin.tres"
 
@@ -21,10 +21,10 @@ func platforms() -> Array[Platform]:
 	return out
 
 
-# ---------------------------------------------------------------- 九宫格怎么切
+# ---------------------------------------------------------------- How the nine-slice is cut
 
 func test_pieces_cover_the_length_without_scaling() -> void:
-	# 各种长度都要：从 0 连续铺到头、不重叠，每段取的源图都在源图里面（源图段和目标段一样长 = 只裁不缩）
+	# Every length has to work: laid out continuously from 0 to the end without overlaps, every source segment inside the source image (source and target segments the same length = cropped, never scaled)
 	for case in [[96, 96, 32, 32], [112, 96, 32, 32], [128, 96, 32, 32], [16, 32, 3, 3], [8, 32, 3, 3],
 			[40, 64, 32, 0], [1280, 32, 0, 0], [22, 32, 10, 12], [50, 32, 10, 3], [4, 32, 3, 3]]:
 		var parts: Array = TerrainAppearance.pieces(case[0], case[1], case[2], case[3])
@@ -37,7 +37,7 @@ func test_pieces_cover_the_length_without_scaling() -> void:
 
 
 func test_the_ends_keep_their_outline() -> void:
-	# 头一段从源图第 0 列开始、尾一段以源图最后一列结束：平台两头的描边、圆角永远画得出来
+	# The head segment starts at the source's column 0 and the tail segment ends at its last column: the outlines and rounded corners at both ends of a platform are always drawn
 	for case in [[112, 96, 32, 32], [8, 32, 3, 3], [22, 32, 10, 12]]:
 		var parts: Array = TerrainAppearance.pieces(case[0], case[1], case[2], case[3])
 		var last: Array = parts[-1]
@@ -45,7 +45,7 @@ func test_the_ends_keep_their_outline() -> void:
 		check("pieces %s end at the source's last column" % [case], last[2] + last[1] == case[1], str(parts))
 
 
-# ---------------------------------------------------------------- 接上去以后
+# ---------------------------------------------------------------- Once plugged in
 
 func test_every_platform_wears_the_right_terrain() -> void:
 	if needs_art(): return
@@ -74,10 +74,10 @@ func test_only_ledges_hang_below_their_hitbox() -> void:
 			continue
 		var below := look.drawn_size().y - roundi(p.size.y)
 		if p.one_way:
-			# 浮空平台底下挂着碎块：只挂几像素，平台看起来不会比判定厚太多
+			# Bits hang under floating platforms: only a few pixels, so the platform does not look much thicker than its hit check
 			check("%s hangs only a little below its hitbox" % p.name, below > 0 and below <= 6, "%dpx" % below)
 		else:
-			# 实心块底边是平的：矮通道画出来的净空和实际一样
+			# Solid blocks have flat bottoms: the crawl passage's drawn clearance is the real one
 			check("%s ends exactly at its hitbox" % p.name, below == 0, "%dpx" % below)
 
 
@@ -113,7 +113,7 @@ func test_the_backdrop_is_behind_everything_and_pure_display() -> void:
 		and backdrop.find_children("*", "CollisionShape2D", true, false).is_empty())
 
 
-# ---------------------------------------------------------------- 换皮肤不改变规则
+# ---------------------------------------------------------------- Switching skins does not change the rules
 
 func measure(pack: SkinPack) -> Dictionary:
 	await reset_scene(false, true, pack)
@@ -123,13 +123,13 @@ func measure(pack: SkinPack) -> Dictionary:
 		var shape := p.get_node("CollisionShape2D") as CollisionShape2D
 		shapes.append([String(p.name), p.global_position + shape.position, (shape.shape as RectangleShape2D).size, shape.one_way_collision])
 	out["platforms"] = str(shapes)
-	# 落在一块浮空平台上：站的高度
+	# Landing on a floating platform: the standing height
 	player.global_position = Vector2(208, 200)
 	player.velocity = Vector2.ZERO
 	await frames(40)
 	out["stands_on_ledge_at"] = snappedf(player.global_position.y, 0.01)
 	out["on_floor"] = player.is_on_floor()
-	# 趴着钻矮通道：能从左边爬到右边
+	# Crawling through the crawl passage prone: you can get from the left side to the right
 	player.global_position = Vector2(560, 304)
 	player.velocity = Vector2.ZERO
 	await frames(5)
@@ -148,4 +148,4 @@ func test_the_terrain_skin_changes_nothing_about_the_rules() -> void:
 		blocks["on_floor"] and blocks["stands_on_ledge_at"] < 250.0 and blocks["crawled_to"] > 704.0, str(blocks))
 	for key: String in blocks:
 		check("%s is the same with either skin" % key, blocks[key] == sprites[key],
-			"方块 %s，精灵图 %s" % [blocks[key], sprites[key]])
+			"blocks %s, sprites %s" % [blocks[key], sprites[key]])

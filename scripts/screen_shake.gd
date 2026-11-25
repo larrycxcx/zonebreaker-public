@@ -1,11 +1,11 @@
 class_name ScreenShake
 extends Camera2D
-## 屏幕抖动：和 `Fx`、`Sfx` 一样是事件总线上的听众，按事件名决定抖多狠。
+## Screen shake: like `Fx` and `Sfx` it listens on the event bus and decides how hard to shake by event name.
 ##
-## 只改摄像机的 `offset`，不碰跟随玩家的位置，也不碰关卡边界，所以抖完自动回到原位。
-## 每帧朝一个随机方向偏移固定的幅度，再按整像素取整——320×180 的像素画面，半个像素的抖动只会让画面发糊。
+## Only the camera's `offset` changes, not the position following the player nor the level limits, so it returns to rest by itself.
+## Every frame it offsets by a fixed amount in a random direction, rounded to whole pixels — on a 320×180 pixel image, half-pixel shake only blurs the picture.
 
-## 各事件抖多少像素。玩家自己开枪只抖一点点，爆炸和终极武器最狠。
+## How many pixels each event shakes. The player's own shots shake only a little; explosions and the ultimate the most.
 const SHAKES := {
 	&"player_shoot": 1.2,
 	&"player_hurt": 4.0,
@@ -18,16 +18,16 @@ const SHAKES := {
 	&"ultimate_blast": 8.0,
 }
 
-## 整体强度倍率：试玩觉得晃得难受就调小，设 0 就完全不抖。
+## Overall strength multiplier: turn it down if playtesters feel queasy; 0 means no shaking at all.
 @export var strength_scale := 1.0
-## 每秒衰减多少像素（越大停得越快）。
+## Pixels of decay per second (larger stops sooner).
 @export var decay := 28.0
 
 var _strength := 0.0
 
 
 func _ready() -> void:
-	# 终极武器发动时整棵树会暂停，那一下的抖动要照常看得见。
+	# The whole tree is paused when the ultimate fires, and that shake must still be visible.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	GameEvents.event_happened.connect(_on_event)
 
@@ -37,7 +37,7 @@ func _on_event(event: StringName, _source: Node) -> void:
 		shake(SHAKES[event])
 
 
-## 抖 amount 像素。已经在抖更狠的就保持更狠的，别让小抖动打断大抖动。
+## Shake by amount pixels. If a stronger shake is already running keep it; a small shake must not cut off a big one.
 func shake(amount: float) -> void:
 	_strength = maxf(_strength, amount * strength_scale)
 
@@ -48,5 +48,5 @@ func _process(delta: float) -> void:
 			offset = Vector2.ZERO
 		return
 	_strength = move_toward(_strength, 0.0, decay * delta)
-	# 方向随机、幅度固定：两个分量各自随机的话会有相当一部分帧取整成 (0, 0)，抖动会一帧一帧地漏。
+	# Random direction, fixed amplitude: with each component random on its own, a good share of frames would round to (0, 0) and the shake would leak away frame by frame.
 	offset = (Vector2.from_angle(randf() * TAU) * _strength).round()

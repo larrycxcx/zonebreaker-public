@@ -1,21 +1,21 @@
-"""第五关（实验室）的分层版：一段一段画，`map_canvas.stitch()` 拼成一整关。
+"""The layered version of stage 5 (lab): drawn segment by segment and joined into a whole stage by `map_canvas.stitch()`.
 
-和前几关同一套设计原则（2026-10 用户定的）：
-- **只有一个出口**（最后的 Boss「生化舱」）。十段里七段**必须绕路**（标 [绕]），三段**两条路随便挑**（标 [选]）。
-- **敌人多、摆得合理**：会冲的（5-A / 5-B 科学家变身以后、5-C 变异体、5-E 钻地爪臂）只放在两头堵死的路上；
-  天花板上的 5-F 吊在玩家必经的路上方；原地炮台 5-D 守在路口。每一屏至少 4 个（`MIN_ENEMIES`）。
-- **中段小 Boss「变异枪手」**（2026-11 用户定的）：第 6 段一间封住的房间，进去门就关、打死它前面的门才开，
-  **它死了不算通关**。房间两边的墙一直通到画面顶，从房顶上绕不过去。
-- **新机关**：地刺（`^`，2 格宽，写在地板上面那一格）、毒气罐（`K`，一只 48 高 = 3 行：
-  单个跳得过去，**摞两只或者放进矮走廊就堵死**，打碎了才过得去）。
-- **画面要满**：摄像头、蛛网吊在天花板下，监视器挂墙上，桌椅、发电机、扫描仪、阀门、管子摆在地上。
+The same design principles as the earlier stages (set by the user in 2026-10):
+- **Only one exit** (the final boss "biopod"). Seven of the ten segments **force a detour** (marked [detour]), three let you **pick either of two routes** (marked [choice]).
+- **Lots of enemies, placed sensibly**: chargers (scientists 5-A / 5-B once transformed, mutant 5-C, burrowing claw arm 5-E) only go on paths blocked at both ends;
+  5-Fs on the ceiling hang above paths the player must take; stationary turrets 5-D guard junctions. At least 4 per screen (`MIN_ENEMIES`).
+- **Mid-level boss "mutant gunner"** (set by the user in 2026-11): a sealed room in segment 6, whose door shuts when you go in, and the door ahead only opens once it is dead;
+  **its death does not clear the stage**. The walls on both sides of the room reach the top of the view, so there is no way around over the roof.
+- **New traps**: spikes (`^`, 2 cells wide, written on the cell above the floor), gas capsules (`K`, one is 48 tall = 3 rows:
+  a single one can be jumped, **two stacked or one in a low corridor blocks the way**, and you only get through by breaking them).
+- **A full picture**: cameras and cobwebs hanging under the ceilings, monitors on the walls, desks and chairs, generators, scanners, valves and pipes on the floor.
 
-实验室的「室内」：头顶有楼板的地方铺灰蓝墙板（`map_build.THEMES["lab"]`）。
-字母表：a 5-A（科学家，扔酸液瓶，挨打 / 被贴近就变身）、b 5-B（科学家，一看见人就变身）、c 5-C（变异体，砸地震波）、
-d 5-D（原地炮台，三连发、能斜射）、e 5-E（埋在地下的爪臂，走近才钻出来）、f 5-F（倒挂在天花板上，滴毒液）、
-m 小 Boss「变异枪手」、B 关底 Boss「生化舱」。
-行号：上层地板第 7 行、中层第 13 行、地面第 20 行；敌人写在**脚下那一行的上一行**，
-5-F 写在**天花板下面那一行**（`FLOAT_AT`：原点在那一格顶边往下 20，吊架顶边正好贴着天花板）。
+The lab's "indoors": where there is a floor overhead, grey-blue wall panels are laid (`map_build.THEMES["lab"]`).
+Letters: a 5-A (scientist, throws acid flasks, transforms when hit / closed in on), b 5-B (scientist, transforms on sight), c 5-C (mutant, ground-smash shockwave),
+d 5-D (stationary turret, three-round bursts, can shoot diagonally), e 5-E (claw arm buried in the ground, only digs out when you come close), f 5-F (hanging upside down from the ceiling, drips poison),
+m the mid-level boss "mutant gunner", B the stage boss "biopod".
+Rows: the upper floor is row 7, the middle row 13, the ground row 20; enemies are written **on the row above the one under their feet**,
+and 5-F is written **on the row right below the ceiling** (`FLOAT_AT`: the origin is 20 below that cell's top edge, so the top of the mount touches the ceiling exactly).
 """
 
 from map_canvas import Canvas, stitch
@@ -23,32 +23,32 @@ from map_canvas import Canvas, stitch
 LETTERS = {"a": "5_a", "b": "5_b", "c": "5_c", "d": "5_d", "e": "5_e", "f": "5_f", "m": "5_mid", "boss": "5_boss"}
 FLOATING = {"5_f", "5_boss"}
 HANGING = set()
-## 5-F 的吊架顶边在原点上面 20（`EnemyCeilingEmitter.MOUNT`）：写在天花板下面那一行，原点就在那一格顶边往下 20
+## The top of 5-F's mount is 20 above the origin (`EnemyCeilingEmitter.MOUNT`): written on the row right below the ceiling, the origin is 20 below that cell's top edge
 FLOAT_AT = {"5_f": 20.0}
 CHASERS = {"5_a", "5_b", "5_c", "5_e"}
 MIN_ENEMIES = 4
 
 
 def capsules(cv, c, row, count=1):
-	"""毒气罐：第 c~c+1 列，站在第 row 行的地板上，摞 count 只（一只 48 高 = 3 行）。"""
+	"""Gas capsules: columns c~c+1, standing on the floor of row row, count stacked (one is 48 tall = 3 rows)."""
 	cv.fill(c, c + 1, row - 3 * count, row - 1, "K")
 
 
 def spikes(cv, c, row, pairs=1):
-	"""地刺：从第 c 列起 pairs 组（一组 2 格宽），站在第 row 行的地板上。"""
+	"""Spikes: pairs groups starting from column c (each group 2 cells wide), standing on the floor of row row."""
 	cv.fill(c, c + 2 * pairs - 1, row - 1, row - 1, "^")
 
 
 def ceiling_props(cv, row, items):
-	"""吊在第 row 行天花板底下的东西（摄像头、蛛网）：贴图顶边贴着天花板。"""
+	"""Things hanging under the ceiling of row row (cameras, cobwebs): the top edge of the art touches the ceiling."""
 	for name, c in items:
 		cv.prop(name, c, row + 2)
 
 
 def entrance():
-	"""[绕] 第 1 段「入口」。第一屏不放敌人：门口的发电机、几块台子。
-	第二屏是实验楼：从正门进一楼，**一楼走到头是墙**（墙后堆着毒气罐的仓库），顺梯子上二楼，
-	二楼天花板上吊着一台发射器，从二楼的窗口出到外面的台子上、跳回地面。"""
+	"""[detour] Segment 1 "Entrance". No enemies on the first screen: a generator by the door and a few platforms.
+	The second screen is the lab building: enter the ground floor by the front door, **the ground floor ends at a wall** (a store of gas capsules is behind it), climb the ladder to the first floor,
+	where an emitter hangs from the ceiling, and go out of the first floor window onto the platforms outside and jump back down to the ground."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.put(3, 19, "@")
@@ -57,7 +57,7 @@ def entrance():
 	cv.prop("chair", 27, 20)
 	cv.floor(14, 19, 15, "=")
 	cv.floor(24, 29, 12, "=")
-	# 实验楼：屋顶第 7 行，正门在左墙下面，右墙二楼那一截是窗
+	# The lab building: roof on row 7, the front door at the bottom of the left wall, and the first floor part of the right wall is a window
 	cv.floor(44, 75, 7)
 	cv.fill(44, 45, 8, 15, "%")
 	cv.floor(46, 73, 13)
@@ -81,8 +81,8 @@ def entrance():
 
 
 def gas_hall():
-	"""[选] 第 2 段「毒气走廊」。**上面**：一条长廊，天花板上一排发射器往下滴毒液、科学家在廊里扔酸液瓶；
-	**下面**：地面上一组组地刺、埋着的爪臂、原地炮台。左头顺梯子上长廊，两条路在右头会合。"""
+	"""[choice] Segment 2 "Gas corridor". **Above**: a long corridor with a row of emitters on the ceiling dripping poison and scientists throwing acid flasks;
+	**below**: groups of spikes on the ground, buried claw arms, stationary turrets. Climb the ladder at the left end into the corridor; the two routes meet at the right end."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.floor(4, 75, 7)
@@ -111,16 +111,16 @@ def gas_hall():
 
 
 def tanks():
-	"""[绕] 第 3 段「培养舱」。地面走到一半被墙挡死，顺梯子上二楼；二楼走到头又是墙，
-	**从地板的洞掉进底下的储藏室**：两只毒气罐摞起来把储藏室整个堵住，打碎了才从后门出去。"""
+	"""[detour] Segment 3 "Incubators". Halfway along, the ground is blocked by a wall, so climb the ladder to the first floor; the first floor ends at a wall too,
+	**so drop through the hole in the floor into the storeroom below**: two stacked gas capsules block the storeroom completely, and you only get out the back door after breaking them."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
-	cv.floor(10, 70, 13)                 # 二楼地板（也是储藏室的顶）
-	cv.fill(38, 39, 14, 19, "%")         # 地面走到这儿是墙
-	cv.floor(40, 57, 7)                  # 二楼后半间的天花板
-	cv.fill(56, 57, 8, 12, "%")          # 二楼走到头
-	cv.clear(48, 49, 13, 13)             # 地板上的洞
-	cv.fill(70, 71, 14, 15, "%")         # 储藏室后门上面那截墙（门 4 格高）
+	cv.floor(10, 70, 13)                 # The first floor (also the storeroom's ceiling)
+	cv.fill(38, 39, 14, 19, "%")         # The ground hits a wall here
+	cv.floor(40, 57, 7)                  # The ceiling of the back half of the first floor
+	cv.fill(56, 57, 8, 12, "%")          # The end of the first floor
+	cv.clear(48, 49, 13, 13)             # The hole in the floor
+	cv.fill(70, 71, 14, 15, "%")         # The wall above the storeroom's back door (the door is 4 cells tall)
 	cv.ladder(8, 13, 20)
 	capsules(cv, 62, 20, 2)
 	cv.put(16, 19, "a")
@@ -144,14 +144,14 @@ def tanks():
 
 
 def vent_shaft():
-	"""[绕] 第 4 段「沉降池」。地面断开一大截（32 格，跳不过去），**只能爬上去踩一串悬着的台子**，
-	头顶的管廊下吊着一排发射器往台子上滴毒液；过去以后跳回地面。"""
+	"""[detour] Segment 4 "Settling pit". The ground breaks for a long stretch (32 cells, too far to jump), **so the only way is to climb up and step across a string of floating platforms**,
+	with a row of emitters hanging under the pipe gallery overhead dripping poison onto the platforms; once across, jump back down to the ground."""
 	cv = Canvas(80)
 	cv.ground(0, 23)
 	cv.ground(56, 79)
-	cv.fill(22, 23, 18, 19)              # 坑沿：冲的敌人冲不过来（地面跨段连着，左边冲过来的也会掉）
+	cv.fill(22, 23, 18, 19)              # Pit edge: chargers cannot charge across (the ground runs on across segments, so ones charging from the left would fall in too)
 	cv.fill(56, 57, 18, 19)
-	cv.floor(18, 60, 3)                  # 管廊（发射器吊在它下面）
+	cv.floor(18, 60, 3)                  # The pipe gallery (emitters hang under it)
 	cv.ladder(18, 11, 20)
 	cv.floor(20, 26, 11, "=")
 	cv.floor(31, 36, 10, "=")
@@ -177,8 +177,8 @@ def vent_shaft():
 
 
 def turrets():
-	"""[选] 第 5 段「炮台区」。**上面**一条长长的钢架走道（单向，子弹上下穿得过），科学家站在上面往下扔酸液瓶；
-	**下面**地面上一台台原地炮台斜着往上打、地刺夹在中间。左头梯子上走道，或者直接走地面。"""
+	"""[choice] Segment 5 "Turret zone". **Above**, a long steel walkway (one-way, bullets pass through both ways) with scientists on it throwing acid flasks down;
+	**below**, stationary turrets on the ground fire diagonally up, with spikes in between. Take the ladder at the left end onto the walkway, or just walk the ground."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.floor(4, 74, 11, ":")
@@ -204,15 +204,15 @@ def turrets():
 
 
 def arena():
-	"""[绕] 第 6 段「小 Boss 房」。前面一截走廊（科学家、爪臂、炮台），然后是一间封住的房间：
-	**两边的墙一直通到画面顶**（从房顶上绕不过去），门在墙脚。进去以后入口门关上，
-	变异枪手在里面——打死它，出口门才开。房间里两块低台子（蹦起来打的那一道激光，站在地上躲；趴下躲低的那道）。"""
+	"""[detour] Segment 6 "Mid-boss room". First a stretch of corridor (scientists, claw arms, turrets), then a sealed room:
+	**the walls on both sides reach the top of the view** (no way around over the roof), with the doors at the foot of the walls. Once you are in, the entrance door shuts,
+	and the mutant gunner is inside — only when it is dead does the exit door open. Two low platforms in the room (the laser fired from a hop is dodged on the ground; the low one by lying down)."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
-	cv.fill(18, 19, 0, 15, "%")          # 入口那面墙（下面 4 格是门）
+	cv.fill(18, 19, 0, 15, "%")          # The entrance wall (the bottom 4 cells are the door)
 	cv.put(18, 16, "[")
-	cv.floor(20, 61, 13)                 # 房间的天花板
-	cv.fill(62, 63, 0, 15, "%")          # 出口那面墙
+	cv.floor(20, 61, 13)                 # The room's ceiling
+	cv.fill(62, 63, 0, 15, "%")          # The exit wall
 	cv.put(62, 16, "]")
 	cv.floor(26, 31, 16, "=")
 	cv.floor(50, 55, 16, "=")
@@ -222,7 +222,7 @@ def arena():
 	cv.put(14, 19, "a")
 	cv.put(70, 19, "a")
 	cv.put(76, 19, "d")
-	# 房间里不摆 door / door2：和房间的门是同一套门柱，玩家分不清哪个是真门
+	# No door / door2 props in the room: they are the same door frame as the room's doors, and players could not tell which one is real
 	cv.prop("tube", 34, 20)
 	cv.prop("tube_valve", 46, 20)
 	cv.prop("monitor2", 24, 18)
@@ -232,15 +232,15 @@ def arena():
 
 
 def spike_field():
-	"""[绕] 第 7 段「地刺阵」。地面到这儿全是地刺，再往前是一道跳不过去的坑：
-	顺梯子上二楼的长台子，台子之间的缺口跳过去，天花板上的发射器往下滴；过了坑跳回地面。"""
+	"""[detour] Segment 7 "Spike field". From here the ground is all spikes, and further on is a pit too wide to jump:
+	climb the ladder to the long platforms on the first floor, jump the gaps between them while emitters on the ceiling drip down; past the pit, jump back down to the ground."""
 	cv = Canvas(80)
 	cv.ground(0, 29)
 	cv.ground(52, 79)
-	cv.fill(28, 29, 18, 19)              # 坑沿（两边都垒）
+	cv.fill(28, 29, 18, 19)              # Pit edges (built up on both sides)
 	cv.fill(52, 53, 18, 19)
 	spikes(cv, 14, 20, 6)
-	cv.floor(10, 66, 5)                  # 天花板
+	cv.floor(10, 66, 5)                  # Ceiling
 	cv.floor(10, 24, 12)
 	cv.floor(30, 40, 11)
 	cv.floor(46, 60, 12)
@@ -263,9 +263,9 @@ def spike_field():
 
 
 def crossfire():
-	"""[绕] 第 8 段「三层交叉火力」。一楼前半间到头是墙，梯子上二楼；二楼有一截是单向的钢架楼板，
-	楼下的炮台往上斜着打得到你、你也打得到它；二楼走到一半被墙挡住，梯子上屋顶，
-	从屋顶的洞掉回二楼后半截，再从二楼的洞掉进一楼后半间出去。"""
+	"""[detour] Segment 8 "Three-layer crossfire". The front half of the ground floor ends at a wall, take the ladder to the first floor; part of the first floor is a one-way steel floor,
+	and the turret downstairs can shoot diagonally up at you, and you at it; halfway along the first floor a wall blocks the way, so take the ladder to the roof,
+	drop through the roof's hole back into the back half of the first floor, then through the first floor's hole into the back half of the ground floor and out."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.floor(10, 79, 7)
@@ -299,12 +299,12 @@ def crossfire():
 
 
 def corridor():
-	"""[绕] 第 9 段「隔离通道」。一条矮矮的通道（3 格高，一只毒气罐就把它堵满了），一条道走到底：
-	**两只毒气罐把路堵死**（打碎才过得去），埋着的爪臂、变异体迎面过来，地刺夹在中间。
-	通道太矮，发射器吊不进来（人会撞上它）。通道上面的楼上不去。"""
+	"""[detour] Segment 9 "Isolation passage". A low passage (3 cells tall, a single gas capsule fills it), one way straight through:
+	**two gas capsules block the way** (you only get through by breaking them), buried claw arms and mutants come head-on, with spikes in between.
+	The passage is too low for emitters to hang in (people would run into them). The floors above the passage cannot be reached."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
-	cv.fill(4, 75, 15, 16)               # 通道的顶：底下第 17~19 行，3 格高
+	cv.fill(4, 75, 15, 16)               # The passage roof: rows 17~19 below it, 3 cells tall
 	cv.fill(4, 7, 0, 14, "%")
 	capsules(cv, 26, 20, 1)
 	capsules(cv, 52, 20, 1)
@@ -328,8 +328,8 @@ def corridor():
 
 
 def boss_room():
-	"""[选] 第 10 段「Boss 区」。生化舱飘在空中，横扫激光会一路压到地面上站着的人胸口：
-	**一整片平地、没有墙**（墙挡激光也挡它的视线），头顶几块单向台子（扫的时候站在台子上的得跳下来）。"""
+	"""[choice] Segment 10 "Boss area". The biopod floats in the air, and its sweeping laser presses all the way down to the chest of a person standing on the ground:
+	**one stretch of flat ground with no walls** (walls block the laser and its sight), with a few one-way platforms overhead (anyone standing on them during a sweep has to jump down)."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	for c0, c1 in ((8, 14), (28, 34), (50, 56), (68, 74)):

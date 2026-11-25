@@ -1,7 +1,7 @@
 ﻿extends GameTest
-## 手雷与武器切换：Shift / 手柄 X 在 [步枪, 手雷] 之间切换，J / RT 用当前武器开火。
-## 手雷规则：直接砸中敌人立刻爆炸；撞到地面/墙弹一下，再碰到就爆炸；最长 1.5 秒保底爆炸；
-## 伤害中心/直接命中最高、往边缘递减、范围外为零；不伤自己；墙挡爆炸；单向平台上穿下落；不限数量。
+## Grenades and weapon switching: Shift / pad X switches between [rifle, grenade], J / RT fires the current weapon.
+## Grenade rules: hitting an enemy directly explodes at once; hitting the ground / a wall bounces once, and the next touch explodes; it explodes after 1.5 seconds at most;
+## damage is highest at the centre / on a direct hit, decreasing toward the edge, zero outside; it does not hurt its thrower; walls block the blast; it passes up through one-way platforms and lands on them; unlimited supply.
 
 const GRENADE_SCENE := "res://scenes/grenade.tscn"
 
@@ -17,13 +17,13 @@ func grenades() -> Array:
 	return main.get_children().filter(func(c): return c is Grenade)
 
 
-## 切到手雷，朝当前瞄准方向扔一颗，返回它。
+## Switch to the grenade, throw one in the current aim direction and return it.
 func throw_one() -> Grenade:
 	if player.current_weapon != 1:
 		player.switch_weapon()
 	player.current_slot().cooldown_left = 0.0
-	# 手雷每按一次扔一颗，看的是「刚按下」；用 action_press 模拟时它在下一个物理帧才成立，
-	# 所以要按住两帧——只按一帧就松开，轮到判定时键已经松了，什么也扔不出去。
+	# One grenade per press, looking at "just pressed"; simulated with action_press it only becomes true on the next physics frame,
+	# so hold it for two frames — pressed for one frame and released, the key is already up when the check comes round and nothing is thrown.
 	Input.action_press("shoot")
 	await frames(2)
 	Input.action_release("shoot")
@@ -31,7 +31,7 @@ func throw_one() -> Grenade:
 	return found[-1] if not found.is_empty() else null
 
 
-## 直接在某处放一颗手雷（不经过扔的动作），用来精确摆几何关系。
+## Put a grenade straight down somewhere (without the throw), for setting up exact geometry.
 func spawn_grenade(pos: Vector2, velocity := Vector2.ZERO, gravity := -1.0) -> Grenade:
 	var grenade: Grenade = load(GRENADE_SCENE).instantiate()
 	grenade.launch(Vector2.DOWN)
@@ -43,7 +43,7 @@ func spawn_grenade(pos: Vector2, velocity := Vector2.ZERO, gravity := -1.0) -> G
 	return grenade
 
 
-## 记下这颗手雷爆炸的位置（和是否弹过）。
+## Record where this grenade exploded (and whether it bounced).
 func track(grenade: Grenade) -> Dictionary:
 	var info := {"exploded_at": null, "bounces": 0}
 	var on_event := func(event: StringName, source: Node) -> void:
@@ -58,7 +58,7 @@ func track(grenade: Grenade) -> Dictionary:
 	return info
 
 
-## 把一个巡逻兵摆在地面 x 处、站定不动、血量调高，用来量伤害。
+## Put a patroller on the ground at x, standing still with raised health, for measuring damage.
 func dummy(walker_name: String, x: float, health := 100) -> EnemyWalker:
 	var w: EnemyWalker = main.get_node("Enemies/" + walker_name)
 	w.global_position = Vector2(x, 306)
@@ -69,7 +69,7 @@ func dummy(walker_name: String, x: float, health := 100) -> EnemyWalker:
 	return w
 
 
-# ---------------------------------------------------------------- 武器与切换
+# ---------------------------------------------------------------- Weapons and switching
 
 func test_weapons_and_bindings() -> void:
 	await start()
@@ -103,11 +103,11 @@ func test_each_weapon_keeps_its_own_cooldown() -> void:
 	await start()
 	await throw_one()
 	var grenade_cooldown := player.current_slot().cooldown_left
-	player.switch_weapon() # 回到步枪
+	player.switch_weapon() # Back to the rifle
 	check("the rifle is ready right away", player.current_slot().is_ready())
-	player.switch_weapon() # 再切回手雷
+	player.switch_weapon() # And back to the grenade again
 	check("the grenade is still cooling down", not player.current_slot().is_ready() and player.current_slot().cooldown_left <= grenade_cooldown, "%.2f" % player.current_slot().cooldown_left)
-	# 拿着步枪等 0.6 秒：放在一边的手雷也在冷却，切回来就能扔。
+	# Wait 0.6 seconds holding the rifle: the grenade set aside cools down too and can be thrown on switching back.
 	player.switch_weapon()
 	await frames(36)
 	player.switch_weapon()
@@ -135,7 +135,7 @@ func test_grenades_are_unlimited_but_one_per_press() -> void:
 	check("holding the button throws only one", events.count(&"grenade_throw") - before_hold == 1, str(events.count(&"grenade_throw") - before_hold))
 
 
-# ---------------------------------------------------------------- 飞行与爆炸方式
+# ---------------------------------------------------------------- Flight and how it explodes
 
 func test_forward_throw_arcs_bounces_once_then_explodes() -> void:
 	await start()
@@ -181,7 +181,7 @@ func test_direct_hit_explodes_at_once() -> void:
 
 func test_fuse_forces_the_explosion() -> void:
 	await start()
-	# 悬空不动的手雷（没有重力、不碰任何东西）：1.5 秒到了也要炸。
+	# A grenade hanging still in the air (no gravity, touching nothing): it still explodes once 1.5 seconds are up.
 	var grenade := spawn_grenade(Vector2(400, 240), Vector2.ZERO, 0.0)
 	var info := track(grenade)
 	var frame := 0
@@ -192,7 +192,7 @@ func test_fuse_forces_the_explosion() -> void:
 	check("a grenade that never lands explodes after 1.5s", info["exploded_at"] != null and frame >= 88 and frame <= 92, "frame %d" % frame)
 
 
-# ---------------------------------------------------------------- 伤害
+# ---------------------------------------------------------------- Damage
 
 func test_damage_falls_off_with_distance() -> void:
 	await reset_scene(true)
@@ -211,7 +211,7 @@ func test_damage_falls_off_with_distance() -> void:
 	await frames(1)
 	check("at the centre: full damage (3 shots)", at_centre.health == 100 - 3 * SHOT, str(100 - at_centre.health))
 	check("half way out: 2 shots", half_way.health == 100 - 2 * SHOT, str(100 - half_way.health))
-	# 线性衰减后取整：边缘附近那一点算出来是一发多一点
+	# Linear falloff then rounding: near the edge it works out to a little more than one shot
 	check("near the edge: about 1 shot", 100 - near_edge.health >= SHOT and 100 - near_edge.health < SHOT * 3 / 2, str(100 - near_edge.health))
 	check("outside the blast: nothing", d.health == d_health, str(d_health - d.health))
 
@@ -219,7 +219,7 @@ func test_damage_falls_off_with_distance() -> void:
 func test_walls_block_the_blast() -> void:
 	await reset_scene(true, true)
 	keep_only_enemies(["WalkerA", "WalkerB"])
-	# Wall2：x 800..408，高 56。爆炸在墙左边，两个巡逻兵离爆炸一样远（40px），一个在墙这边、一个在墙后面。
+	# Wall2: x 800..408, 56 tall. The explosion is left of the wall, the two patrollers equally far from it (40px), one on this side of the wall, one behind it.
 	var same_side := dummy("WalkerA", 750)
 	var behind_wall := dummy("WalkerB", 830)
 	await frames(2)
@@ -233,7 +233,7 @@ func test_walls_block_the_blast() -> void:
 
 func test_walls_bounce_grenades() -> void:
 	await reset_scene(false, true)
-	# 贴着 Wall2 左边往右扔：手雷撞墙弹回来，不会穿过去。
+	# Throwing right from against the left side of Wall2: the grenade bounces back off the wall instead of passing through.
 	player.global_position = Vector2(770, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
@@ -272,13 +272,13 @@ func test_the_blast_reaches_a_prone_enemy() -> void:
 	check("a prone enemy nearby is hurt", c.health < 100, str(c.health))
 
 
-# ---------------------------------------------------------------- 实战
+# ---------------------------------------------------------------- In action
 
 func test_lob_over_a_wall_onto_the_turret() -> void:
-	# 在 Turret1（x=1160）前面搭一堵 72px 高的墙（x 1080..548）。玩家在墙左边往前扔，手雷越过墙砸到炮台。
+	# Put up a 72px wall (x 1080..548) in front of Turret1 (x=1160). The player throws forward from left of the wall, and the grenade clears the wall and hits the turret.
 	await reset_scene(true)
 	keep_only_enemies(["Turret1"])
-	# BossPlatform（x 992..552，y=248）会接住抛过去的手雷，这条用例只关心墙，先挪开它。
+	# BossPlatform (x 992..552, y=248) would catch the lobbed grenade; this case only cares about the wall, so move it out of the way first.
 	main.get_node("Level/BossPlatform").free()
 	add_wall(1080, 72)
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
@@ -299,7 +299,7 @@ func test_lob_over_a_wall_onto_the_turret() -> void:
 
 
 func test_one_way_platforms_up_through_down_onto() -> void:
-	# 站在 Platform1（单向，x 160..128，顶面 y=256）正下方往正上方扔：穿过平台飞上去，落回来时落在平台上面炸。
+	# Standing right under Platform1 (one-way, x 160..128, top y=256), throw straight up: it flies up through the platform, falls back onto it and explodes on top.
 	await start(208)
 	Input.action_press("aim_up")
 	await frames(2)

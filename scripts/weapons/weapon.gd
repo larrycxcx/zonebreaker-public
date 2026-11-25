@@ -1,25 +1,25 @@
 class_name Weapon
 extends Equipment
-## 一把武器的参数（资源文件，放在 weapons/ 下）。角色的武器槽（WeaponSlot）拿着它，换武器 = 换这个文件。
-## 这里只有数据；运行时的冷却和剩余弹药记在 WeaponSlot 里——同一个资源文件可能被好几个角色同时用。
-## 武器也是装备（`Equipment`）：`slot` 是 GUN 或 GRENADE，可以带属性加成、价格。
+## A weapon's parameters (resource file, kept under weapons/). A character's weapon slot (WeaponSlot) holds it; changing weapons = changing this file.
+## Data only; the run-time cooldown and remaining ammo live in WeaponSlot — the same resource file may be used by several characters at once.
+## Weapons are gear too (`Equipment`): `slot` is GUN or GRENADE, and they can carry stat bonuses and a price.
 
-## 发射物场景。它的根节点脚本要有 launch(direction: Vector2)，在加入场景树之前被调用（子弹、手雷都有）。
+## Projectile scene. Its root script must have launch(direction: Vector2), called before it joins the scene tree (bullets and grenades both have it).
 @export var projectile: PackedScene
-## 两次发射之间的最短间隔（秒）。玩家的速度属性会按比例缩短它（见 Balance.cooldown_scale）。
+## Shortest time between two shots (seconds). The player's speed stat shortens it proportionally (see Balance.cooldown_scale).
 @export var cooldown := 0.15
-## 伤害倍率：发射物场景里的伤害 × power × 玩家攻击力的倍率。同一种子弹做出强弱不同的枪就改它。
+## Damage multiplier: damage in the projectile scene × power × the player's attack multiplier. Change this to make stronger and weaker guns from the same bullet.
 @export var power := 1.0
-## 打中时挂的异常状态（留空就没有）：发射时填进发射物的 `status`，比如燃烧弹、毒弹。
+## Status applied on hit (empty for none): filled into the projectile's `status` when firing, e.g. incendiary or poison rounds.
 @export var status: StatusEffect
-## 按住开火键就连发（步枪）；关掉则每次都要重新按一下（手雷）。
+## Holding the fire button fires continuously (rifle); off means pressing again for every shot (grenade).
 @export var automatic := true
-## 弹药上限，-1 表示无限。
+## Ammo cap, -1 for unlimited.
 @export var max_ammo := -1
-## 发射时报告的事件名，素材包按它找声音（见 SkinPack.SOUND_EVENTS）。
+## Event reported when firing; the skin pack looks up a sound by it (see SkinPack.SOUND_EVENTS).
 @export var fire_event := &"player_shoot"
-## 拿在手里长什么样：外观层按这个键挑枪的贴图（赛博朋克包里 rifle = 步枪、launcher = 榴弹枪）。
-## 只是个名字，和玩法无关——出膛点、射速、发射物都不看它。素材包里没有这个键的贴图就用默认那把，留空同理。
+## What it looks like in the hand: the appearance layer picks the gun sprites by this key (in the cyberpunk pack rifle = rifle, launcher = grenade launcher).
+## Only a name, unrelated to gameplay — muzzle positions, fire rate and projectile ignore it. If the pack has no sprites for the key the default gun is used; same when empty.
 @export var look := &""
-## HUD 上表示这把武器的小色块（占位美术，第 4 步换成图标）。
+## Small colour block representing this weapon in the HUD (placeholder art, replaced by an icon in step 4).
 @export var hud_color := Color(0.7, 0.7, 0.75)

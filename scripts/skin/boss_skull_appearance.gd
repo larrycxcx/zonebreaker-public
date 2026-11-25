@@ -1,30 +1,30 @@
 class_name BossSkullAppearance
 extends EnemySpriteAppearance
-## 地下室 Boss「骷髅头」的外观：骷髅走基类那套贴图，另外**按玩法给的长度画一道激光**。
+## The look of the basement boss, the "skull": the skull uses the base class sprites, plus **a laser drawn at the length gameplay gives**.
 ##
-## 素材的出光帧里激光只伸出去四十几像素，而玩法要它射到对面的墙为止，
-## 所以把激光拆成「一列」（`beam_thick` / `beam_thin`）横着平铺，长度由玩法说了算。
-## 和机械臂（`BossArmAppearance`）同一个做法：**玩法只调 `show_beam()` 和 `play()`**，
-## 占位方块那套没有这两个方法，默认皮肤下就是不画——规则一点不变。
+## In the art's firing frames the beam only reaches forty-odd pixels, but gameplay wants it to reach the opposite wall,
+## so the beam is split into "one column" (`beam_thick` / `beam_thin`) tiled horizontally, and gameplay decides the length.
+## The same approach as the arm (`BossArmAppearance`): **gameplay only calls `show_beam()` and `play()`**;
+## the placeholder blocks do not have these methods, so with the default skin nothing is drawn — the rules do not change at all.
 ##
-## 蓄力和出光是**循环的**（持续多久是玩法定的，不是播一遍就完）：蓄力循环攻击的前两帧（`charge`），
-## 出光循环后两帧（`beam`），激光一粗一细地闪。
+## Charging and firing **loop** (how long is up to gameplay, they do not just play once): charging loops the first two attack frames (`charge`),
+## firing loops the last two (`beam`), with the beam flickering thick and thin.
 
 @export var beam_thick: Texture2D
 @export var beam_thin: Texture2D
-## 激光从骨手哪儿出来（相对身体原点，朝右时）。和 `BossSkull.BEAM_ORIGIN` 是同一个点。
+## Where the laser leaves the bony hand (relative to the body origin, facing right). The same point as `BossSkull.BEAM_ORIGIN`.
 @export var beam_origin_x := 20.0
-## 蓄力、出光循环多快。
+## How fast the charge and firing loops run.
 @export var beam_fps := 10.0
 
-## 0 = 没在打激光，1 = 蓄力，2 = 出光。
+## 0 = no laser, 1 = charging, 2 = firing.
 var _beam_state := 0
 var _beam_length := 0.0
-## 激光相对身体原点的高度（玩法锁定的那一条）。
+## Height of the beam relative to the body origin (the one gameplay locked).
 var _beam_dy := 16.0
 
 
-## 玩法每帧告诉它：现在在不在打激光、射多长、在哪个高度。
+## Gameplay tells it every frame: whether the laser is on, how far it reaches and at what height.
 func show_beam(state: int, length: float, dy: float) -> void:
 	if state == _beam_state and is_equal_approx(length, _beam_length) and is_equal_approx(dy, _beam_dy):
 		return
@@ -37,21 +37,21 @@ func show_beam(state: int, length: float, dy: float) -> void:
 	queue_redraw()
 
 
-## 打骨弹时基类每发都会调这个「播一遍开火动作」——**骷髅头没有那一组**（`attack_level`），
-## 照基类去找就是每发一条「Resource file not found」（截图看出来的，第二关 2-C 当年同一个毛病）。
-## 打骨弹的时候玩法已经让它在循环蓄力那两帧（骨手发光），所以这里什么都不用播。
-## 也不能拿出光那组顶上：那组画面里带着一截水平的激光，往下打骨弹时对不上。
+## When firing bone shots the base class calls this "play the firing clip once" for every shot — **the skull has no such clip** (`attack_level`),
+## and going by the base class would print a "Resource file not found" per shot (found in a screenshot; stage 2's 2-C once had the same problem).
+## While firing bone shots gameplay already keeps it looping the two charge frames (the bony hand glowing), so nothing needs playing here.
+## Nor can the firing clip stand in: it has a stretch of level beam drawn in it, which does not match bone shots fired downward.
 func fire() -> void:
 	pass
 
 
-## 同理：斜着打一发骨弹之后，基类会当它「斜着举枪」、去显示开火那一组（这包没有）。
-## 骷髅头没有瞄准的姿势，瞄哪儿都是同一张脸。
+## Likewise: after a diagonal bone shot the base class would think it is "aiming diagonally" and show the firing clip (missing from this pack).
+## The skull has no aiming pose; it shows the same face wherever it aims.
 func aim(_direction: Vector2) -> void:
 	pass
 
 
-## 播一遍某个一次性动作（召唤、嘲讽）。
+## Play a one-shot clip once (summon, sneer).
 func play(clip_name: StringName) -> void:
 	_play_once(clip_name)
 
@@ -77,7 +77,7 @@ func _advance() -> void:
 func _draw() -> void:
 	if _beam_state != 2 or _beam_length <= 0.0 or _dead:
 		return
-	# 一粗一细地闪，和素材出光那两帧一个节奏
+	# Flicker thick and thin, in step with the two firing frames of the art
 	var thick := int(_elapsed * beam_fps) % 2 == 0
 	var tile := beam_thick if thick or beam_thin == null else beam_thin
 	if tile == null:

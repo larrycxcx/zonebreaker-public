@@ -1,14 +1,14 @@
 class_name CloudAppearance
 extends Appearance
-## 毒雾的外观：玩法告诉它「散到几成了」（`show_progress(0..1)`），它就画到那一帧——
-## 不自己按时间播，画面和判定是同一个进度。
-## 有贴图（素材包的 `Acid2`，一团慢慢散开的毒雾，一帧正方形）就按进度挑帧，中心对准节点原点；
-## 没有（默认皮肤）就画一个半透明的圈，越散越淡。
+## The look of a poison cloud: gameplay tells it "how far it has spread" (`show_progress(0..1)`) and it draws that frame —
+## it does not play on its own timer, so the picture and the hit check share one progress.
+## With a texture (the pack's `Acid2`, a cloud of poison slowly spreading out, square frames) it picks the frame by progress, centred on the node origin;
+## without one (default skin) it draws a translucent ring that fades as it spreads.
 
 @export var strip: Texture2D
 @export var frames := 6
 @export var color := Color(0.35, 0.85, 0.45, 0.55)
-## 没贴图时圈的半径（跟玩法的判定半径一样大）。
+## Radius of the ring without a texture (the same as gameplay's hit radius).
 @export var radius := 24.0
 
 var _progress := 0.0

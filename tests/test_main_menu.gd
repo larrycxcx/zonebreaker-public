@@ -1,8 +1,8 @@
 extends GameTest
-## 主菜单：选几个人玩、每个座位新建或读档、删存档，然后进关卡。
+## Main menu: how many players, each seat creates or loads, deleting saves, then into the stage.
 ##
-## 菜单是单独一个场景（游戏启动时先进它），所以这一组**不用 `reset_scene()`**，
-## 自己实例化 `main_menu.tscn` 来跑；关卡那边的老测试照旧直接加载 `main.tscn`，不受影响。
+## The menu is a scene of its own (the game starts in it), so this suite **does not use `reset_scene()`**,
+## it instantiates `main_menu.tscn` itself; the old stage tests still load `main.tscn` directly, unaffected.
 
 var menu: MainMenu
 
@@ -13,7 +13,7 @@ func open_menu() -> void:
 	Progress.persist = false
 	Progress.new_game()
 	Session.set_player_count(1)
-	# 手柄绑定是改 InputMap 的，那是全局状态——上一条用例认领过的得还原
+	# Pad bindings live in the InputMap, which is global state — whatever the previous case claimed has to be restored
 	Session.reset_pads()
 	Skins.use(Skins.default_skin())
 	events.clear()
@@ -25,19 +25,19 @@ func open_menu() -> void:
 	await frames(2)
 
 
-## 菜单里按一下（菜单也是收物理帧里的按键，和游戏里一样）。
+## Press once in the menu (menus also take keys in physics frames, as in the game).
 func press(action: StringName) -> void:
 	await tap(action)
 
 
-## **按当前这一页听的那个座位的键**。写着 PLAYER 2 的那几页只认 `p2_*`——
-## 用 1 号的键去敲 2 号那一页，界面根本不动，用例会卡在那儿（这正是要守的规则）。
+## **Use the keys of the seat this page listens to**. The pages saying PLAYER 2 only accept `p2_*` —
+## pressing player 1's keys on player 2's page does nothing, and the case would get stuck there (which is exactly the rule being guarded).
 func press_here(action: StringName) -> void:
 	await tap(Session.action_for(action, maxi(0, menu._menu.listens_to)))
 
 
-## 把光标挪到第 row 项。**按次数封顶**：挪不过去就算了，别把用例卡死——
-## 出问题时要的是一条断言失败，不是 60 秒看门狗超时（那样连哪条断言错了都看不出来）。
+## Move the cursor to item row. **Capped by number of presses**: if it cannot get there, give up rather than hang the case —
+## when something is wrong we want an assertion failure, not the 60-second watchdog (which would not even show which assertion was wrong).
 func move_to(row: int) -> void:
 	for i in 12:
 		if menu._menu.index == row:
@@ -45,13 +45,13 @@ func move_to(row: int) -> void:
 		await press_here(&"aim_down")
 
 
-## 走到第 index 项再确认。
+## Go to item index, then confirm.
 func choose(index: int) -> void:
 	await move_to(index)
 	await press_here(&"jump")
 
 
-# ---------------------------------------------------------------- 流程
+# ---------------------------------------------------------------- Flow
 
 func test_the_title_asks_how_many_are_playing() -> void:
 	await open_menu()
@@ -59,7 +59,7 @@ func test_the_title_asks_how_many_are_playing() -> void:
 	check("with three choices", menu._menu._items == ["1 PLAYER", "2 PLAYERS", "QUIT"], str(menu._menu._items))
 	await choose(0)
 	check("picking one player moves on", menu.page() == MainMenu.Page.SOURCE and Session.player_count == 1,
-		"%d 人" % Session.player_count)
+		"%d players" % Session.player_count)
 	check("and it is the first seat's turn", menu.seat() == 0)
 
 
@@ -75,9 +75,9 @@ func test_two_players_each_get_a_turn() -> void:
 func test_backing_out_walks_the_flow_backwards() -> void:
 	await open_menu()
 	await choose(1)
-	await choose(0)                       # 1 号选完 NEW，轮到 2 号
+	await choose(0)                       # Player 1 chose NEW, now it is player 2's turn
 	check("setup: on the second seat", menu.seat() == 1)
-	# **按这一页听的那个座位的键**：2 号那一页不认 1 号的 B
+	# **Use the keys of the seat this page listens to**: player 2's page ignores player 1's B
 	await press_here(&"cancel")
 	check("backing out goes to the seat before", menu.seat() == 0 and menu.page() == MainMenu.Page.SOURCE)
 	await press_here(&"cancel")
@@ -94,8 +94,8 @@ func test_a_new_character_takes_the_seat() -> void:
 
 
 func test_the_hint_names_a_key_that_actually_works() -> void:
-	# 标题上原来写的是「ENTER OR A TO START」，可 Enter 根本没绑——菜单确认走的是 `jump`。
-	# 提示上写哪个键，那个键就得真的按得动。
+	# The title used to say "ENTER OR A TO START", but Enter was never bound — menu confirm goes through `jump`.
+	# Whatever key a hint names has to really work.
 	await open_menu()
 	var hint := ""
 	for child in menu._body.get_children():
@@ -112,8 +112,8 @@ func test_the_hint_names_a_key_that_actually_works() -> void:
 
 
 func test_the_menu_switches_the_music_over_to_its_own_slot() -> void:
-	# 主菜单归 `intro` 这个用途管。**现在包里没有这首**（原来那首不合适，撤了等换），
-	# 所以进菜单是安静的；以后往包里放一首就会响，这条测试两种情况都成立。
+	# The main menu belongs to the `intro` purpose. **The pack has no such track right now** (the old one did not fit and was removed until a replacement turns up),
+	# so the menu is silent; put a track in the pack later and it will play — this test holds either way.
 	await open_menu()
 	check("the menu took over the music slot", Music.current == &"intro", str(Music.current))
 	var track := Skins.music(&"intro")
@@ -124,7 +124,7 @@ func test_the_menu_switches_the_music_over_to_its_own_slot() -> void:
 		check("the pack's track is the one playing", Music.playing_stream() == track)
 
 
-# ---------------------------------------------------------------- 存档列表
+# ---------------------------------------------------------------- Save list
 
 func test_the_list_shows_what_is_in_the_roster() -> void:
 	await open_menu()
@@ -158,10 +158,10 @@ func test_the_other_player_cannot_take_the_same_character() -> void:
 	var one := Progress.create("RYU")
 	Progress.create("NOVA")
 	await choose(1)                       # 2 PLAYERS
-	await choose(1)                       # 1 号 LOAD
+	await choose(1)                       # Player 1 LOAD
 	await choose(menu.listed().find(one))
 	check("setup: the second seat is choosing", menu.seat() == 1)
-	await choose(1)                       # 2 号 LOAD
+	await choose(1)                       # Player 2 LOAD
 	var row := menu.listed().find(one)
 	check("the one already playing is greyed out", menu._menu.greyed.has(row), str(menu._menu.greyed))
 
@@ -187,7 +187,7 @@ func test_deleting_a_character_asks_first() -> void:
 		not menu.listed().any(func(p: PlayerProgress) -> bool: return p == doomed))
 
 
-## 名册列表那一页里，内容都得落在窗口边框里面。
+## On the roster list page, all content has to fall inside the window frame.
 func list_box() -> Rect2:
 	var screen := Vector2(640, 360)
 	return Rect2((screen.x - MainMenu.LIST_BOX.x) / 2.0, 46.0, MainMenu.LIST_BOX.x, MainMenu.LIST_BOX.y)
@@ -208,7 +208,7 @@ func test_the_list_stays_inside_the_window() -> void:
 			var label := child as Label
 			var wide: float = label.get_theme_font("font").get_string_size(
 				label.text, label.horizontal_alignment, -1, UiKit.TEXT_SIZE).x
-			# 靠右对齐的（滚动标记）从右边量起，别的从左边
+			# Right-aligned things (the scroll marker) are measured from the right, the rest from the left
 			var right: float = (label.position.x + label.size.x if label.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT
 				else label.position.x + wide)
 			if label.position.y >= inside.position.y:
@@ -226,10 +226,10 @@ func test_the_gold_box_is_drawn_over_the_window() -> void:
 	Progress.create("RYU")
 	await choose(0)
 	await choose(1)
-	# 窗口是每一页临时加的，加在菜单后面就会把选中框盖住——界面上看不出光标在哪
+	# Windows are added per page, and added after the menu they cover its selection box — you cannot see where the cursor is
 	check("the menu is the last thing drawn",
 		menu._body.get_child(menu._body.get_child_count() - 1) == menu._menu,
-		"第 %d 个，共 %d 个" % [menu._menu.get_index(), menu._body.get_child_count()])
+		"item %d of %d" % [menu._menu.get_index(), menu._body.get_child_count()])
 
 
 func test_a_long_roster_scrolls_instead_of_being_cut_off() -> void:
@@ -252,7 +252,7 @@ func test_a_long_roster_scrolls_instead_of_being_cut_off() -> void:
 		menu._menu.index - menu._menu.first_row() < MainMenu.ROWS
 		and menu._menu.index >= menu._menu.first_row(),
 		"%d / %d" % [menu._menu.index, menu._menu.first_row()])
-	# 一路走到底，最后一个也够得着
+	# Walk all the way down: the last one is reachable too
 	for i in names.size():
 		await press(&"aim_down")
 	check("and the last one can be reached", menu._menu.index == menu.listed().size() - 1
@@ -264,9 +264,9 @@ func test_the_cursor_starts_on_a_row_that_can_be_picked() -> void:
 	var one := Progress.create("RYU")
 	Progress.create("NOVA")
 	await choose(1)                       # 2 PLAYERS
-	await choose(1)                       # 1 号 LOAD
+	await choose(1)                       # Player 1 LOAD
 	await choose(menu.listed().find(one))
-	await choose(1)                       # 2 号 LOAD
+	await choose(1)                       # Player 2 LOAD
 	var taken := menu.listed().find(one)
 	check("setup: the one already playing is greyed out", menu._menu.greyed.has(taken), str(menu._menu.greyed))
 	if taken == 0:
@@ -275,17 +275,17 @@ func test_the_cursor_starts_on_a_row_that_can_be_picked() -> void:
 
 
 func test_one_press_does_not_fall_through_two_pages() -> void:
-	# 退出人物设置那一下 B，同一帧就把 NEW/LOAD 那一页摆了出来。那一页的菜单**不该再吃一次**，
-	# 否则一下 B 连退两页，直接回到标题。
+	# The B that leaves character setup puts up the NEW/LOAD page on the same frame. That page's menu **must not take it again**,
+	# or one B would go back two pages, straight to the title.
 	await reach_setup(1)
 	await press(&"cancel")
 	check("backing out of setup lands on the source page and stops there",
 		menu.page() == MainMenu.Page.SOURCE, str(menu.page()))
 
 
-# ---------------------------------------------------------------- 人物设置
+# ---------------------------------------------------------------- Character setup
 
-## 走到「选完 NEW / LOAD」那一步，停在人物设置界面上。
+## Go as far as "NEW / LOAD chosen" and stop at character setup.
 func reach_setup(players: int) -> void:
 	await open_menu()
 	await choose(players - 1)             # 1 PLAYER / 2 PLAYERS
@@ -294,13 +294,13 @@ func reach_setup(players: int) -> void:
 	await frames(2)
 
 
-## 某一栏走到某一行（界面上就是按上下，这里直接放光标，省得一路敲）。
+## Move a column to a row (in the UI that is pressing up / down; here the cursor is placed directly to save typing).
 func at_row(column: SetupColumn, row: int) -> void:
 	column.go_to_row(row)
 	await frames(1)
 
 
-## 光标放到最后那一行的某一半（SHOP / ACCEPT 并排在同一行上，左右选）。
+## Put the cursor on one half of the last row (SHOP / ACCEPT sit side by side on one row, chosen with left / right).
 func at_foot(column: SetupColumn, which: int) -> void:
 	column.go_to_foot(which)
 	await frames(1)
@@ -344,7 +344,7 @@ func test_the_other_player_s_character_is_skipped() -> void:
 
 func test_body_text_uses_the_small_font_and_titles_the_big_one() -> void:
 	if needs_art(): return
-	# 位图字体只有做出来的那个尺寸是清楚的，所以正文和标题各用各的图集，不让引擎去缩。
+	# A bitmap font is only sharp at the one size it was made at, so body text and titles each use their own atlas instead of letting the engine scale.
 	await open_menu()
 	var title: Label = null
 	var item: Label = menu._menu._labels[0]
@@ -391,7 +391,7 @@ func test_points_go_in_and_out_with_left_and_right() -> void:
 	var column: SetupColumn = menu.setup().columns()[0]
 	var points := column.progress.points
 	check("setup: a new character has points", points > 0, str(points))
-	await at_row(column, SetupColumn.Row.STAT)          # 第一个属性
+	await at_row(column, SetupColumn.Row.STAT)          # The first stat
 	await press(&"move_right")
 	check("right puts one point in", column.progress.points == points - 1, str(column.progress.points))
 	check("and it landed on life", column.progress.allocated.get(Balance.LIFE, 0) == 1,
@@ -408,13 +408,13 @@ func test_points_stop_at_none_left_and_at_the_starting_value() -> void:
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	await at_row(column, SetupColumn.Row.STAT)
-	# 一路加到点数见底
+	# Keep adding until the points run out
 	for i in column.progress.points + 3:
 		await press(&"move_right")
 	check("it stops when the points run out", column.progress.points == 0, str(column.progress.points))
 	var spent: int = column.progress.allocated.get(Balance.LIFE, 0)
 	check("setup: they all went into life", spent > 0, str(spent))
-	# 一路退回去，退到一点都没加为止
+	# Take them all back until none are spent
 	for i in spent + 3:
 		await press(&"move_left")
 	check("and it stops again at the starting value", not column.progress.allocated.has(Balance.LIFE),
@@ -423,8 +423,8 @@ func test_points_stop_at_none_left_and_at_the_starting_value() -> void:
 
 
 func test_a_point_always_reads_as_plus_one() -> void:
-	# 每点加的量各不相同（生命 +10、攻击 +1、防御速度 +5），金色那列照实写的话，
-	# 同样按一下右，三个属性冒出来的数字不一样，玩家会以为自己按错了键。写的是**投了几点**。
+	# Each point adds a different amount (life +10, attack +1, defence / speed +5); if the gold column showed the real amounts,
+	# the same press of right would pop up different numbers for the three stats and players would think they pressed the wrong key. It shows **points put in**.
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	for i in Balance.STATS.size():
@@ -493,8 +493,8 @@ func test_the_look_you_picked_is_not_marked_in_gold() -> void:
 
 
 func test_only_the_row_you_are_on_is_lit_up() -> void:
-	# ACCEPT 一直画成纯白的话，它比金框还抢眼——读档进来名字是淡的，看上去就像光标停在 ACCEPT 上。
-	# **用按键走，不用 go_to_row**：换行时重画是单独接的一条线，go_to_row 自己会 refresh，走那条路测不出来。
+	# Drawn pure white all the time, ACCEPT stood out more than the gold box — with the name faded when loaded from a save, it looked as if the cursor rested on ACCEPT.
+	# **Walk with key presses, not go_to_row**: redrawing on row change is wired up separately, and go_to_row refreshes by itself, so that path would not catch it.
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	check("setup: starting on the name", column.row() == SetupColumn.Row.NAME)
@@ -503,7 +503,7 @@ func test_only_the_row_you_are_on_is_lit_up() -> void:
 	for i in SetupColumn.Row.FOOT:
 		await press(&"aim_down")
 	check("setup: walked down to the bottom row", column.row() == SetupColumn.Row.FOOT, str(column.row()))
-	# **走下来先落在 SHOP 上**（左边那个），ACCEPT 要按「右」才轮到
+	# **Coming down you land on SHOP first** (the left one); ACCEPT needs a press of "right"
 	check("the left half lights up first",
 		column._shop.get_theme_color("font_color") == UiKit.WHITE
 		and column._accept.get_theme_color("font_color") == UiKit.DIM,
@@ -518,8 +518,8 @@ func test_only_the_row_you_are_on_is_lit_up() -> void:
 
 
 func test_shop_and_accept_sit_on_one_row_and_are_picked_left_and_right() -> void:
-	# 它们**画在同一条线上**，一左一右。分成两行的话，画面上明明并排的两块要用上下键切换，
-	# 和这一栏「上下换行、左右在行内选」那条规矩正好拧着（2026-09 试玩反馈）。
+	# They are **drawn on the same line**, one left and one right. As two rows, two blocks clearly side by side on screen would be switched with up / down,
+	# going exactly against this column's rule "up / down changes rows, left / right chooses within a row" (2026-09 playtest feedback).
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	check("they really are drawn on the same line",
@@ -534,14 +534,14 @@ func test_shop_and_accept_sit_on_one_row_and_are_picked_left_and_right() -> void
 		and column.foot() == SetupColumn.Foot.ACCEPT, "%d / %d" % [column.row(), column.foot()])
 	await press(&"move_left")
 	check("and left comes back", column.foot() == SetupColumn.Foot.SHOP, str(column.foot()))
-	# **它们之间没有「另一行」**：这一行就是最后一行，上下键在它俩之间插不进来
+	# **There is no "other row" between them**: this row is the last row, and up / down cannot squeeze in between the two
 	check("the bottom row is the last one",
 		SetupColumn.ROW_COUNT == SetupColumn.Row.FOOT + 1,
-		"%d 行，最后一行是第 %d" % [SetupColumn.ROW_COUNT, SetupColumn.Row.FOOT])
+		"%d rows, the last row is %d" % [SetupColumn.ROW_COUNT, SetupColumn.Row.FOOT])
 
 
 func test_the_cursor_box_follows_which_half_you_are_on() -> void:
-	# 金框框住的是**那块内容本身**，所以左右挪的时候框要跟着挪到另一半去
+	# The gold box frames **the content itself**, so moving left / right has to move the box to the other half
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	for i in SetupColumn.Row.FOOT:
@@ -565,17 +565,17 @@ func test_shop_opens_from_the_left_half_and_accept_from_the_right() -> void:
 	await frames(2)
 	await at_foot(column, SetupColumn.Foot.ACCEPT)
 	await press(&"jump")
-	# **单人按下 ACCEPT 就整页翻到选关了**，那一栏当场被拆掉，所以查的是页面
+	# **Alone, pressing ACCEPT turns the whole page to stage select**, and the column is torn down on the spot, so it checks the page
 	check("A on the right half readies up instead",
 		menu.page() == MainMenu.Page.STAGE, str(menu.page()))
 
 
 func test_the_stat_arrows_follow_the_keys_too() -> void:
-	# 同上：走按键那条路，确认换行真的会重画（`go_to_row` 那条路会掩盖掉漏接的信号）
+	# As above: walk with key presses to confirm row changes really redraw (the `go_to_row` path would hide a missing signal connection)
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	await press(&"aim_down")              # NAME -> LOOK
-	await press(&"aim_down")              # LOOK -> 第一个属性
+	await press(&"aim_down")              # LOOK -> the first stat
 	check("setup: on the first stat", column.row() == SetupColumn.Row.STAT, str(column.row()))
 	check("its arrow showed up", column._stat_rows[0]["more"].visible)
 	await press(&"aim_down")
@@ -598,7 +598,7 @@ func test_the_gear_icon_sits_inside_its_slot() -> void:
 		"%s %s vs %s" % [icon.position, size, slot])
 
 
-## 一张图里真正画着东西的那几行（从贴图上数出来，换了图这条测试跟着变）。
+## The rows of an image that really have something drawn (counted from the texture, so this test follows a new image).
 func ink_rows(texture: Texture2D) -> Vector2:
 	var image := texture.get_image()
 	var top := -1.0
@@ -615,8 +615,8 @@ func ink_rows(texture: Texture2D) -> Vector2:
 
 func test_the_stat_rows_leave_room_for_their_icons() -> void:
 	if needs_art(): return
-	# 行距是**图标**说了算，不是字：字才 10px 高，属性图标里画着的东西有 20px。
-	# 挨太近的话上下两行的图标会叠在一起，选中的金框也会盖到邻居的图标上。
+	# Row spacing is decided by **the icon**, not the text: the text is only 10px tall, but the drawing in a stat icon is 20px.
+	# Too close together, the icons of neighbouring rows overlap, and the gold selection box covers the neighbour's icon too.
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	var boxes: Array[Rect2] = []
@@ -648,7 +648,7 @@ func test_the_gear_row_walks_the_slots() -> void:
 
 
 func test_a_loaded_character_starts_on_accept() -> void:
-	# 读档进来多半是「就这样，开打」，所以光标直接停在 ACCEPT 上，按一下就走。
+	# Loading a save usually means "as it is, let's go", so the cursor starts right on ACCEPT and one press is enough.
 	await open_menu()
 	var mine := Progress.create("RYU")
 	await choose(0)                       # 1 PLAYER
@@ -658,11 +658,11 @@ func test_a_loaded_character_starts_on_accept() -> void:
 	var column: SetupColumn = menu.setup().columns()[0]
 	check("the cursor waits on accept", column.row() == SetupColumn.Row.FOOT
 		and column.foot() == SetupColumn.Foot.ACCEPT,
-		"第 %d 行 / %d" % [column.row(), column.foot()])
+		"row %d / %d" % [column.row(), column.foot()])
 	check("and it is the lit-up row", column._accept.get_theme_color("font_color") == UiKit.WHITE,
 		str(column._accept.get_theme_color("font_color")))
 	await press(&"jump")
-	# **按下去之后这一栏就没了**（设置界面整个被选关页换掉），所以查的是页面，不是 `column.confirmed`
+	# **Once pressed the column is gone** (the whole setup screen is replaced by stage select), so it checks the page, not `column.confirmed`
 	check("so one press is enough to finish setting up",
 		menu.page() == MainMenu.Page.STAGE, str(menu.page()))
 	if is_instance_valid(menu):
@@ -673,7 +673,7 @@ func test_a_loaded_character_starts_on_accept() -> void:
 
 
 func test_a_new_character_starts_at_the_top_of_the_column() -> void:
-	# 新建的什么都还没填，从名字那一行开始
+	# A new character has nothing filled in yet; it starts on the name row
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	check("the cursor is on the first row", column.row() == SetupColumn.Row.NAME, str(column.row()))
@@ -690,25 +690,25 @@ func test_a_loaded_character_cannot_be_renamed() -> void:
 	check("and the name is locked", not menu.setup().columns()[0].can_rename)
 
 
-# ---------------------------------------------------------------- 改名字
+# ---------------------------------------------------------------- Renaming
 
 func test_typing_a_name_on_the_letter_grid() -> void:
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
-	# 打字是接着现有名字打的（可以小改），所以先把名字弄短一点再测
+	# Typing continues from the existing name (small edits are possible), so shorten the name a bit before testing
 	column.progress.character_name = "X"
 	await at_row(column, SetupColumn.Row.NAME)
 	await press(&"jump")
 	check("the letter grid is up", column.grid() != null)
 	check("and the column stops listening", column.busy())
-	# 光标从 A 开始：A，右一格是 B，再往下一行是 H（一行 6 个）
+	# The cursor starts on A: A, one right is B, one row further down is H (6 per row)
 	await press(&"jump")
 	await press(&"move_right")
 	await press(&"jump")
 	await press(&"aim_down")
 	await press(&"jump")
 	check("the letters land in order", column.grid().text == "XABH", column.grid().text)
-	# 退格那一格在最后一行中间
+	# The backspace cell is in the middle of the last row
 	column.grid()._cursor = column.grid()._cells.find(LetterGrid.BACK)
 	await press(&"jump")
 	check("and delete takes one off", column.grid().text == "XAB", column.grid().text)
@@ -729,7 +729,7 @@ func test_a_name_that_is_taken_is_refused() -> void:
 	await at_row(column, SetupColumn.Row.NAME)
 	await press(&"jump")
 	await press(&"move_right")
-	await press(&"jump")                      # 打成 AB，而 AB 已经有人用了
+	await press(&"jump")                      # Type AB, which someone already uses
 	check("setup: typed a name somebody already has", column.grid().text == "AB", column.grid().text)
 	await press(&"cancel")
 	check("the old name stays", column.progress.character_name == before, column.progress.character_name)
@@ -748,11 +748,11 @@ func test_a_loaded_name_cannot_be_typed_over() -> void:
 	check("no grid for a loaded character", column.grid() == null)
 
 
-## **一个人玩的时候，人物设置界面不该只认 1 号那套键**。
-## 前面几页的菜单 `listens_to` 是 -1（谁按都算），人物设置是整个菜单里第一个按玩家过滤输入的页面，
-## 所以同一只手柄在前几页好好的、到这一页整页全死——手柄插在第二个槽位上就会这样
-## （前一个槽被没拔干净的幽灵设备占着是常事）。键盘上的 ↑ 同理：单人时它既是 1 号的跳跃、
-## 又是 2 号的「上」，只认 1 号那套的话它在这一页从「上移」变成了「确认」。
+## **Playing alone, character setup must not accept only player 1's keys**.
+## The menus on the pages before have `listens_to` at -1 (anyone's press counts); character setup is the first page of the whole menu that filters input by player,
+## so the same pad that worked fine on the earlier pages went completely dead on this one — which is what happens with the pad in the second slot
+## (an earlier slot held by a ghost device that was not cleanly unplugged is common). The same goes for ↑ on the keyboard: alone it is both player 1's jump
+## and player 2's "up", and accepting only player 1's set would turn it from "move up" into "confirm" on this page.
 func test_playing_alone_is_not_tied_to_one_controller() -> void:
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
@@ -767,7 +767,7 @@ func test_playing_alone_is_not_tied_to_one_controller() -> void:
 	check("and still back out", menu.setup().shop() == null)
 
 
-## 双人时反过来：每个座位只认自己那套，不然两个人会互相把对方的光标带着走。
+## In co-op it is the other way round: each seat only accepts its own set, or the two players would drag each other's cursors around.
 func test_two_players_stay_on_their_own_controllers() -> void:
 	await reach_setup(2)
 	var one: SetupColumn = menu.setup().columns()[0]
@@ -779,7 +779,7 @@ func test_two_players_stay_on_their_own_controllers() -> void:
 	check("player one did not", one.row() == SetupColumn.Row.GEAR, str(one.row()))
 
 
-# ---------------------------------------------------------------- 装备格 / 商店入口
+# ---------------------------------------------------------------- Gear boxes / shop entrance
 
 func test_the_gear_row_only_shows_what_you_are_wearing() -> void:
 	await reach_setup(1)
@@ -787,7 +787,7 @@ func test_the_gear_row_only_shows_what_you_are_wearing() -> void:
 	await at_row(column, SetupColumn.Row.GEAR)
 	check("setup: the gun slot has the rifle", column.progress.gear(Equipment.Slot.GUN) != null)
 	await press(&"jump")
-	# **只读**：装备只能在商店的背包页换，这里按 A 什么也不该发生
+	# **Read-only**: gear can only be changed on the shop's bag page; pressing A here should do nothing
 	check("A does not open anything", not column.busy() and menu.setup().shop() == null)
 	check("and the rifle is still on", column.progress.gear(Equipment.Slot.GUN) != null)
 	for i in Equipment.Slot.HEAD:
@@ -807,7 +807,7 @@ func test_the_shop_row_opens_the_shop() -> void:
 	await frames(2)
 	check("backing out closes it again", menu.setup().shop() == null)
 	check("and the setup column is back", column.is_visible_in_tree())
-	# 退出商店那一下 B **不该**被设置界面再吃一次（那会把整页退回去）
+	# The B that leaves the shop **must not** be taken again by the setup screen (that would back out of the whole page)
 	check("without falling out of setup", menu.page() == MainMenu.Page.SETUP,
 		str(menu.page()))
 
@@ -856,8 +856,8 @@ func test_everyone_has_to_accept_before_the_level_starts() -> void:
 
 
 func test_backing_out_of_ready_and_then_out_of_setup() -> void:
-	# **这条得用双人来测**：单人按一下 ACCEPT 就整页翻到选关了，那一栏当场被拆掉，
-	# 「先取消 ACCEPT、再退出设置」这两步只有在「另一个人还没好」的时候才走得到。
+	# **This one has to be tested in co-op**: alone, one press of ACCEPT turns the page to stage select and the column is torn down on the spot,
+	# and the two steps "cancel ACCEPT, then leave setup" can only be reached while "the other player is not ready yet".
 	await reach_setup(2)
 	var one: SetupColumn = menu.setup().columns()[0]
 	await at_foot(one, SetupColumn.Foot.ACCEPT)
@@ -872,7 +872,7 @@ func test_backing_out_of_ready_and_then_out_of_setup() -> void:
 
 
 func test_backing_out_of_the_stage_list_returns_to_setup() -> void:
-	# 选关页是设置界面之后那一页，B 退回来还能改人
+	# Stage select is the page after setup; B goes back to it and characters can still be changed
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	await at_foot(column, SetupColumn.Foot.ACCEPT)
@@ -886,10 +886,10 @@ func test_backing_out_of_the_stage_list_returns_to_setup() -> void:
 
 
 func test_every_stage_is_listed_while_the_unlock_switch_is_on() -> void:
-	# 项目设置 `game/unlock_all_levels`：开着时选关页列出全部关卡，不看打到哪儿了。
-	# 做关卡时要随时跳到任意一关去试——**发布前要关掉**。
+	# The project setting `game/unlock_all_levels`: when on, stage select lists every stage regardless of progress.
+	# While making stages you need to jump to any stage to try it — **turn it off before release**.
 	check("the switch is on while levels are being built",
-		ProjectSettings.get_setting("game/unlock_all_levels", false), "记得发布前关掉")
+		ProjectSettings.get_setting("game/unlock_all_levels", false), "remember to turn it off before release")
 	await reach_setup(1)
 	var column: SetupColumn = menu.setup().columns()[0]
 	await at_foot(column, SetupColumn.Foot.ACCEPT)
@@ -898,7 +898,7 @@ func test_every_stage_is_listed_while_the_unlock_switch_is_on() -> void:
 	var listed := menu._unlocked()
 	check("a brand new character can still pick any stage",
 		listed.size() == Catalog.levels().size(),
-		"%d / %d，角色只解锁了 %d 关"
+		"%d / %d, the character only unlocked %d stages"
 			% [listed.size(), Catalog.levels().size(), Progress.of(0).reached])
 	check("setup: this character really has not unlocked them all",
 		Progress.of(0).reached < Catalog.levels().size(), str(Progress.of(0).reached))
@@ -915,15 +915,15 @@ func test_finishing_the_last_seat_starts_the_level() -> void:
 		await tree.physics_frame
 		if tree.current_scene != null:
 			break
-	# 按**场景文件**认，不按根节点的名字：正式关卡是 level_N.tscn，测试关才叫 main.tscn
+	# Identify by **scene file**, not root node name: the real stages are level_N.tscn, only the test level is main.tscn
 	check("the level is loaded", tree.current_scene != null
 		and tree.current_scene.scene_file_path == Catalog.levels()[0].scene_path,
 		str(tree.current_scene))
-	# 收尾要收两样东西，少收一样都会祸害后面的用例：
-	# 1. **菜单节点自己**——它是手动 add_child 到 root 上的，`change_scene_to_file` 只换 current_scene，
-	#    不会动它。留着的话它还在每帧收按键，后面的用例一按 A 就被它当成菜单确认。
-	# 2. **current_scene**——只 free() 的话 SceneTree 还记着那个已经没了的节点，后面玩家一死，
-	#    `main.gd` 会对着它调 `reload_current_scene()`，协程当场断掉，表现成一堆莫名其妙的「事件没报」。
+	# Teardown has to clean up two things; missing either one wrecks the cases that follow:
+	# 1. **The menu node itself** — it was add_child'ed to root by hand, and `change_scene_to_file` only replaces current_scene,
+	# leaving it alone. Left there it keeps taking keys every frame, and the next case pressing A would be taken as a menu confirm.
+	# 2. **current_scene** — only free()ing it leaves the SceneTree remembering a node that is gone; when a player later dies,
+	# `main.gd` calls `reload_current_scene()` on it and the coroutine dies on the spot, showing up as a pile of mysterious "event not reported".
 	if is_instance_valid(menu):
 		menu.free()
 	tree.unload_current_scene()
@@ -932,9 +932,9 @@ func test_finishing_the_last_seat_starts_the_level() -> void:
 
 
 func test_the_shop_does_not_print_two_hints_on_top_of_each_other() -> void:
-	# 设置界面底下那行 `A CHOOSE  B BACK` 和商店那行 `A CHOOSE … B LEAVE` 在**同一个 y**，
-	# 两行居中的字叠在一起会糊成一团（2026-09 试玩截图看出来的，无头测试量不到位置重叠，
-	# 所以守的是「商店开着时只剩一行在显示」）。
+	# The setup screen's bottom line `A CHOOSE  B BACK` and the shop's line `A CHOOSE … B LEAVE` are at **the same y**,
+	# and two centred lines on top of each other blur into a mess (found in a 2026-09 playtest screenshot; headless tests cannot measure overlapping positions,
+	# so what it guards is "only one line shows while the shop is open").
 	await reach_setup(2)
 	var setup := menu.setup()
 	var hints := _visible_hints(setup)
@@ -953,7 +953,7 @@ func test_the_shop_does_not_print_two_hints_on_top_of_each_other() -> void:
 		hints.size() == 1 and hints[0].contains("BACK"), str(hints))
 
 
-## 现在屏幕上**看得见的**那几行操作提示（设置界面一行、商店一行，都贴在画面底边）。
+## The hint lines **visible** on screen now (one for setup, one for the shop, both against the bottom of the view).
 func _visible_hints(setup: SetupScreen) -> Array[String]:
 	var out: Array[String] = []
 	for node in setup.find_children("*", "Label", true, false):
@@ -964,10 +964,10 @@ func _visible_hints(setup: SetupScreen) -> Array[String]:
 
 
 func test_a_seat_can_only_be_filled_by_its_own_controller() -> void:
-	# **试玩报的「手柄错位」**：1 号 LOAD 完进人物设置界面，发现自己是 2 号。
-	# 原因是写着 PLAYER 1 的那几页**谁按都算**——拿 2 号手柄的人把角色选进了 1 号座位，
-	# 一进设置界面（那一栏只听 1 号手柄）他就只能操作 2 号那一栏了。
-	# 删存档本来就是按座位取的，漏的是导航这一半。
+	# **The "pads swapped" report from playtesting**: player 1 loaded a save, entered character setup and found they were player 2.
+	# The cause: the pages saying PLAYER 1 **accepted anyone's press** — the person holding pad 2 chose a character into seat 1,
+	# and once in setup (where that column only listens to pad 1) they could only operate player 2's column.
+	# Deleting saves already went by seat; what was missing was the navigation half.
 	await open_menu()
 	await choose(1)                       # 2 PLAYERS
 	check("setup: it is the first seat's turn", menu.seat() == 0 and menu.page() == MainMenu.Page.SOURCE)
@@ -977,10 +977,10 @@ func test_a_seat_can_only_be_filled_by_its_own_controller() -> void:
 		"%d -> %d" % [at, menu._menu.index])
 	await tap(&"p2_jump")
 	check("nor choose for it", menu.seat() == 0 and menu.page() == MainMenu.Page.SOURCE,
-		"座位 %d，第 %d 页" % [menu.seat(), menu.page()])
-	await press(&"jump")                  # 1 号自己按 NEW
+		"seat %d, page %d" % [menu.seat(), menu.page()])
+	await press(&"jump")                  # Player 1 presses NEW themselves
 	check("the first pad does", menu.seat() == 1 and menu.page() == MainMenu.Page.SOURCE)
-	# 轮到 2 号了，这回反过来
+	# Player 2's turn now, the other way round
 	at = menu._menu.index
 	await tap(&"aim_down")
 	check("and now the first pad cannot move the second seat's cursor", menu._menu.index == at,
@@ -990,8 +990,8 @@ func test_a_seat_can_only_be_filled_by_its_own_controller() -> void:
 
 
 func test_the_shared_pages_still_take_anybody() -> void:
-	# 「几个人玩」和「选哪一关」是大家一起定的，不该按座位分
-	# （那时候还没人有座位 / 两个人打的是同一关），和死亡页同一个道理。
+	# "How many players" and "which stage" are decided by everyone together and should not be split by seat
+	# (at that point nobody has a seat yet / both play the same stage), for the same reason as the death screen.
 	await open_menu()
 	check("setup: on the title", menu.page() == MainMenu.Page.TITLE)
 	var at: int = menu._menu.index
@@ -1003,8 +1003,8 @@ func test_the_shared_pages_still_take_anybody() -> void:
 
 
 func test_playing_alone_is_never_locked_out_by_which_slot_the_pad_is_in() -> void:
-	# 单人时谁按都算（规则在 `Session.just_pressed()`）：手柄插在第二个槽位上是常事，
-	# 按座位过滤的话一个人玩会整页按不动。
+	# Alone, anyone's press counts (the rule lives in `Session.just_pressed()`): the pad in the second slot is common,
+	# and filtering by seat would leave a lone player with a page that does not respond.
 	await open_menu()
 	await choose(0)                       # 1 PLAYER
 	check("setup: one player, first seat", Session.player_count == 1 and menu.seat() == 0)
@@ -1014,13 +1014,13 @@ func test_playing_alone_is_never_locked_out_by_which_slot_the_pad_is_in() -> voi
 		"%d -> %d" % [at, menu._menu.index])
 
 
-# ---------------------------------------------------------------- 哪只手柄是几号
+# ---------------------------------------------------------------- Which pad is which player
 
 func test_the_pad_that_starts_the_game_becomes_player_one() -> void:
-	# **Godot 的 device 号是按插入顺序给的**，和玩家心里的「1 号手柄」没关系：
-	# 前一个槽被没拔干净的幽灵设备占着是常事，手里那只就成了 device 1。
-	# 写死「座位 0 ↔ device 0」的话，他在标题页（谁按都算）一切正常，
-	# 一到写着 PLAYER 1 的那页就按不动了，另一只手柄反而能动（2026-09 试玩报的）。
+	# **Godot hands out device numbers in plug-in order**, which has nothing to do with the player's idea of "pad 1":
+	# an earlier slot held by a ghost device that was not cleanly unplugged is common, and the pad in hand becomes device 1.
+	# With a hard-coded "seat 0 ↔ device 0", everything works for them on the title screen (anyone's press counts),
+	# but the page saying PLAYER 1 no longer responds, while the other pad does (reported in the 2026-09 playtest).
 	await open_menu()
 	check("setup: it starts on the project's own wiring",
 		Session.pad_of(0) == 0 and Session.pad_of(1) == 1,
@@ -1030,8 +1030,8 @@ func test_the_pad_that_starts_the_game_becomes_player_one() -> void:
 		str(Session.pad_of(0)))
 	check("and the first seat's buttons now listen to it",
 		_pad_devices(&"jump") == [1], str(_pad_devices(&"jump")))
-	# **键盘的键一个都不许碰**：它们的 `device` 是 -1（任意设备），
-	# 跟着改成某一只手柄的号就等于把键盘绑死在那只设备上
+	# **Not a single keyboard key may be touched**: their `device` is -1 (any device),
+	# and changing them to one pad's number would tie the keyboard to that one device
 	check("while the keyboard keys are untouched",
 		_key_devices(&"jump") == [-1], str(_key_devices(&"jump")))
 
@@ -1048,7 +1048,7 @@ func test_claiming_a_pad_does_not_disturb_the_keyboard() -> void:
 
 
 func test_a_keyboard_start_leaves_the_pads_alone() -> void:
-	# 用键盘开的局（`last_pad` 还是 -1）不该把手柄绑定搅乱
+	# A game started from the keyboard (`last_pad` still -1) must not scramble the pad bindings
 	await open_menu()
 	Session.claim_pads(-1)
 	check("nothing moved", Session.pad_of(0) == 0 and Session.pad_of(1) == 1,
@@ -1056,7 +1056,7 @@ func test_a_keyboard_start_leaves_the_pads_alone() -> void:
 
 
 func test_the_title_hands_out_the_pads() -> void:
-	# 标题页选完几个人玩那一下就认领——那是第一个「谁按的」有意义的时刻
+	# Claim the pads at the moment the number of players is chosen on the title screen — the first moment "who pressed it" means something
 	await open_menu()
 	Session.last_pad = 1
 	await choose(0)                       # 1 PLAYER
@@ -1065,7 +1065,7 @@ func test_the_title_hands_out_the_pads() -> void:
 
 
 func test_resetting_puts_the_pads_back() -> void:
-	# InputMap 是全局状态，每条用例跑完要还原（`GameTest.reset_scene()` 里调）
+	# The InputMap is global state and has to be restored after every case (called in `GameTest.reset_scene()`)
 	await open_menu()
 	Session.claim_pads(1)
 	check("setup: it moved", Session.pad_of(0) == 1)
@@ -1075,7 +1075,7 @@ func test_resetting_puts_the_pads_back() -> void:
 	check("and the buttons follow", _pad_devices(&"jump") == [0], str(_pad_devices(&"jump")))
 
 
-## 这个动作上的手柄事件各绑在哪只手柄上（排好序，去掉重复）。
+## Which pads the pad events on this action are bound to (sorted, duplicates removed).
 func _pad_devices(action: StringName) -> Array[int]:
 	var out: Array[int] = []
 	for event in InputMap.action_get_events(action):
@@ -1086,7 +1086,7 @@ func _pad_devices(action: StringName) -> Array[int]:
 	return out
 
 
-## 这个动作上的键盘事件各绑在哪个设备上（正常都是 -1 = 任意设备）。
+## Which devices the keyboard events on this action are bound to (normally all -1 = any device).
 func _key_devices(action: StringName) -> Array[int]:
 	var out: Array[int] = []
 	for event in InputMap.action_get_events(action):
@@ -1096,7 +1096,7 @@ func _key_devices(action: StringName) -> Array[int]:
 	return out
 
 
-## 这个动作上还有没有键盘的键。
+## Does this action still have keyboard keys?
 func _has_key_event(action: StringName) -> bool:
 	for event in InputMap.action_get_events(action):
 		if event is InputEventKey:
@@ -1105,12 +1105,12 @@ func _has_key_event(action: StringName) -> bool:
 
 
 func test_two_seats_never_share_one_pad() -> void:
-	# 只插了一只手柄又选了双人：1 号认领了它，2 号要是还绑在同一只上，
-	# 一个人动两个角色都动。认领时和原来占着它的那个座位**对换**。
+	# Only one pad plugged in and two players chosen: player 1 claimed it, and if player 2 were still bound to the same one,
+	# one person moving would move both characters. On claiming, it **swaps** with the seat that held it before.
 	await open_menu()
 	check("setup: the seats start on different pads", Session.pad_of(0) != Session.pad_of(1),
 		"%d / %d" % [Session.pad_of(0), Session.pad_of(1)])
-	Session.claim_pads(1)                 # 1 号认领了本来属于 2 号的那只
+	Session.claim_pads(1)                 # Player 1 claimed the pad that belonged to player 2
 	check("they still have one each", Session.pad_of(0) != Session.pad_of(1),
 		"%d / %d" % [Session.pad_of(0), Session.pad_of(1)])
 	check("and they simply swapped", Session.pad_of(0) == 1 and Session.pad_of(1) == 0,
@@ -1121,14 +1121,14 @@ func test_two_seats_never_share_one_pad() -> void:
 
 
 func test_both_pads_can_still_pause_after_claiming() -> void:
-	# `pause` **故意绑了两只手柄的 Start**（两个玩家都能暂停）。
-	# 按座位一刀切地重绑会把它压成一只手柄——认领之后只剩一个人能暂停。
+	# `pause` **is deliberately bound to the Start button of two pads** (both players can pause).
+	# Rebinding everything by seat would squash it to one pad — after claiming only one player could pause.
 	await open_menu()
 	check("setup: both pads start out able to pause", _pad_devices(&"pause") == [0, 1],
 		str(_pad_devices(&"pause")))
 	Session.claim_pads(1)
 	check("after claiming, two pads can still pause", _pad_devices(&"pause").size() == 2,
-		"%s，座位 %d / %d" % [_pad_devices(&"pause"), Session.pad_of(0), Session.pad_of(1)])
+		"%s, seats %d / %d" % [_pad_devices(&"pause"), Session.pad_of(0), Session.pad_of(1)])
 	for seat in 2:
 		check("seat %d's pad is among them" % seat,
 			_pad_devices(&"pause").has(Session.pad_of(seat)), str(_pad_devices(&"pause")))
@@ -1137,8 +1137,8 @@ func test_both_pads_can_still_pause_after_claiming() -> void:
 
 func test_the_game_name_fits_inside_the_title_plate() -> void:
 	if needs_art(): return
-	# 2026-11 定名 ZONE BREAKER：12 个字在 28px 下约 295 宽，素材原来那块牌子（285 宽、里面那格两边各让 16）装不下，
-	# 字戳出牌子两边（截图看出来的）。牌子由 `ui_build.py` 加宽了；以后改名太长，这条会先说话。
+	# Named ZONE BREAKER in 2026-11: 12 characters at 28px are about 295 wide, and the art's original plate (285 wide, the panel inset 16 on each side) could not hold them,
+	# so the text stuck out on both sides (seen in a screenshot). The plate was widened by `ui_build.py`; if a future name is too long, this speaks up first.
 	await open_menu()
 	var title: Label = null
 	var plate: TextureRect = null

@@ -1,23 +1,23 @@
 class_name EnemyScientist
 extends EnemyGrenadier
-## 第五关的科学家（5-A / 5-B）：巡逻、往前扔**酸液瓶**（敌人手雷的一种，`acid_flask.tscn`：
-## 碰到东西就摔碎、溅开一小团，规则和手雷一样），而且会**变身成变异体**（5-C）。
+## Stage 5's scientists (5-A / 5-B): patrol, throw **acid flasks** forward (a kind of enemy grenade, `acid_flask.tscn`:
+## it shatters on whatever it touches and splashes a small area, same rules as a grenade), and can **turn into a mutant** (5-C).
 ##
-## 变身：站住不动、播 `transform` 那几帧（最后一帧已经是变异体的样子，停在那儿），
-## `transform_time` 秒之后原地换成一只变异体（`mutant_scene`），自己悄悄消失——**不给奖励**，
-## 奖励在打死变异体的时候给。变身那段时间照样挨打、打死了就是普通的死（有奖励），所以那一下是破绽。
-## - 5-A（`transform_on_sight` 关）：**挨打没死、或者玩家贴到 `transform_range` 以内**才变。
-##   想省事就在它变之前一口气打死。
-## - 5-B（`transform_on_sight` 开）：**一看见玩家就变**，不扔瓶子。
+## Transforming: stands still and plays the `transform` frames (the last frame already looks like the mutant and holds there),
+## and after `transform_time` seconds it is replaced on the spot by a mutant (`mutant_scene`) and quietly disappears — **no reward**;
+## the reward comes from killing the mutant. While transforming it can still be hit, and killing it then is an ordinary death (with reward), so that moment is an opening.
+## - 5-A (`transform_on_sight` off): it only transforms **when hit without dying, or when the player gets within `transform_range`**.
+## To save yourself trouble, kill it in one go before it changes.
+## - 5-B (`transform_on_sight` on): **transforms as soon as it sees the player**, never throws a flask.
 
 @export_group("Transform")
-## 变成什么。留空就不会变身（只会扔瓶子的科学家）。
+## What it turns into. Leave empty to never transform (a scientist that only throws flasks).
 @export var mutant_scene: PackedScene
-## 一看见玩家就变（5-B）；关着就是挨打 / 被贴近才变（5-A）。
+## Transform as soon as it sees the player (5-B); off means it transforms when hit / approached (5-A).
 @export var transform_on_sight := false
-## 玩家贴到多近就变（5-A）。
+## How close the player has to get to trigger the transformation (5-A).
 @export var transform_range := 56.0
-## 变身要多久（站着不动、可以挨打的那一段）。
+## How long the transformation takes (the stretch where it stands still and can be hit).
 @export var transform_time := 0.9
 @export var transform_event := &"chaser_alert"
 
@@ -47,7 +47,7 @@ func _physics_process(delta: float) -> void:
 		start_transform()
 
 
-## 5-B 一看见就变，所以它不扔瓶子：「交上火」= 看见了，看见了就站定变身。
+## 5-B transforms on sight, so it never throws: "engaged" = it has seen you, and once it has, it stands still and transforms.
 func throw_target() -> Node2D:
 	if transform_on_sight and mutant_scene != null:
 		return null
@@ -59,7 +59,7 @@ func take_damage(amount: int, source_position := Vector2.INF, from: Node = null)
 	if health > 0 and not _transforming and mutant_scene != null and not is_queued_for_deletion():
 		start_transform()
 	elif _transforming and health > 0 and _visual != null and _visual.has_method(&"play_once"):
-		# 挨打的那一下受伤帧把变身动画打断了，接着摆回变身的样子
+		# The hurt frames of a hit interrupted the transform clip; put the transform pose back
 		_visual.call(&"play_once", &"transform", true)
 
 
@@ -81,7 +81,7 @@ func _become_mutant() -> void:
 	mutant.set(&"facing", facing)
 	if mutant.has_method(&"face"):
 		mutant.call(&"face", facing)
-	# 悄悄消失：不 die()，不报死亡、不给奖励（奖励在变异体身上）
+	# Quietly disappear: no die(), no death report, no reward (the reward is on the mutant)
 	queue_free()
 
 

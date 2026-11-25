@@ -1,25 +1,25 @@
 class_name TileArt
 extends Node2D
-## 分层关卡的「砖」（2026-10）：按格子地图一格一格地画素材包的砖，**纯显示**——
-## 碰撞是关卡里那些平台节点管的（它们在格子地图生成的关卡里藏起来、不画），这里只管好看。
+## The "tiles" of layered stages (2026-10): draws the skin pack's tiles cell by cell from the grid map, **display only** —
+## collision is handled by the platform nodes in the level (hidden and not drawn in stages built from grid maps); this only makes it look good.
 ##
-## 和装饰（`Prop`）一样是按贴图路径直接引用的：哪一格用哪块砖是生成脚本（`map_build.py`）按
-## 这块实心区域的形状算好的（顶边、侧边、拐角、内部各用各的砖），存在 `cells` 里。
+## Like scenery (`Prop`) it references its texture by path: which tile each cell uses is worked out by the build script (`map_build.py`)
+## from the shape of that solid area (top edges, sides, corners and insides each get their own tile) and stored in `cells`.
 ##
-## 素材的砖是 32×32，格子是 16×16，所以**一格画一块砖的四分之一**：`cells` 里每四个数一组——
-## 格子的列、行、砖的编号（总图里第几块，从 1 数）、取哪个角（0 左上 / 1 右上 / 2 左下 / 3 右下）。
-## 顶边那一格取上半、左边那一格取左半……这样 16 厚的楼板也带着完整的高光边。
+## The art's tiles are 32×32 and the cells 16×16, so **each cell draws a quarter of a tile**: `cells` holds groups of four numbers —
+## the cell's column, row, the tile number (which tile of the atlas, counting from 1) and which corner to take (0 top-left / 1 top-right / 2 bottom-left / 3 bottom-right).
+## A top-edge cell takes the top half, a left-edge cell the left half... so even a 16-thick floor gets the full highlight edge.
 
-## 所有砖排成的一张总图：一行 `columns` 块，编号 n 在第 (n-1) % columns 列、第 (n-1) / columns 行。
+## One atlas with every tile: `columns` tiles per row, tile n in column (n-1) % columns and row (n-1) / columns.
 @export var atlas: Texture2D
-## 总图的路径。关卡场景里存的是这个（不直接引用贴图）：砖是第三方素材，公开版里没有，
-## 直接引用的话整个关卡场景加载不了。`_ready` 里有文件才加载；没有就什么都不画，
-## 关卡（`main.gd._show_bare_terrain()`）会把藏着的碰撞平台露出来当地形画。
+## Path of the atlas. The level scene stores this (not a direct reference to the texture): the tiles are third-party art missing from the public build,
+## and a direct reference would stop the whole level scene from loading. `_ready` only loads it if the file is there; otherwise nothing is drawn
+## and the level (`main.gd._show_bare_terrain()`) shows the hidden collision platforms as terrain instead.
 @export_file("*.png") var atlas_path := ""
 @export var columns := 9
 @export var tile_size := 32
 @export var cells: PackedInt32Array = PackedInt32Array()
-## 整层的染色（背景墙压暗一点，好让前面的东西跳出来）。
+## Tint for the whole layer (the back wall is darkened a little so the things in front stand out).
 @export var tint := Color.WHITE
 
 const CELL := 16

@@ -1,24 +1,24 @@
 class_name SetupScreen
 extends Control
-## 人物设置界面：每个玩家一栏（名字、外观、加点、装备），**两栏同时显示、各按各的手柄**，
-## 两个人都按了 ACCEPT 才开始游戏。
+## Character setup: one column per player (name, look, points, gear), **both shown at once, each driven by its own pad**;
+## the game starts once both players have pressed ACCEPT.
 ##
-## 这里只管摆栏和收尾，一栏自己的事在 `SetupColumn` 里。
-## 界面上的玩家是**临时造出来的**（还没进关卡，场上没有真玩家节点），
-## 只为了让 `SetupColumn` 能拿到 `player_index` 和 `progress`——和加点界面共用同一套零件。
+## This only lays out the columns and wraps up; a column's own business is in `SetupColumn`.
+## The players on this screen are **made up for the moment** (the stage has not started, there are no real player nodes yet),
+## just so `SetupColumn` can get a `player_index` and `progress` — sharing the same parts as the skill screen.
 
-## 所有人都确定了。
+## Everyone has confirmed.
 signal finished
-## 有人在没确定的时候按了返回。
+## Someone pressed back while not confirmed.
 signal cancelled
 
 const GAP := 16.0
 
 var _columns: Array[SetupColumn] = []
 var _stand_ins: Array[Player] = []
-## 开着的商店（**整个界面共用一个**：两栏并排，谁按 SHOP 都是开这一个）。
+## The open shop (**one for the whole screen**: two columns side by side, whoever presses SHOP opens this one).
 var _shop: ShopScreen
-## 底下那行操作提示。商店开着时要藏起来——商店自己也在同一个位置写一行。
+## The hint line at the bottom. It has to hide while the shop is open — the shop writes a line in the same place.
 var _prompt: Label
 
 
@@ -28,7 +28,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-## 给这几个座位各摆一栏。`locked` 里是读档进来的座位（名字不能改）。
+## Lay out a column for each of these seats. `locked` holds the seats loaded from a save (names cannot change).
 func build(seats: int, locked: Array[int] = []) -> void:
 	for child in get_children():
 		child.queue_free()
@@ -57,21 +57,21 @@ func columns() -> Array[SetupColumn]:
 	return _columns
 
 
-## 开着的商店，没开就是 null（测试用）。
+## The open shop, null if it is not open (for tests).
 func shop() -> ShopScreen:
 	return _shop if is_instance_valid(_shop) else null
 
 
-## 进商店。**两个人的栏一起开**：一个人要买东西，另一个也就顺便逛了——
-## 分别进出的话两边的界面会在同一块屏幕上抢地方。设置界面这几栏先藏起来，免得它们也在收键
-## （`MenuList` 看的是 `is_visible_in_tree()`）。
+## Enter the shop. **Both players' columns open together**: when one wants to buy something, the other might as well browse —
+## entering and leaving separately, the two screens would fight for the same piece of screen. The setup columns are hidden first so they do not take keys too
+## (`MenuList` looks at `is_visible_in_tree()`).
 func _open_shop() -> void:
 	if is_instance_valid(_shop):
 		return
 	for column in _columns:
 		column.hide()
-	# **自己那行提示也要藏**：商店在同一个 y 上也写一行，两行居中的字叠在一起会糊成一团
-	# （2026-09 试玩截图看出来的，无头测试量不到）。
+	# **Its own hint line must hide too**: the shop writes a line at the same y, and two centred lines on top of each other blur into a mess
+	# (found in a 2026-09 playtest screenshot; headless tests cannot measure it).
 	if is_instance_valid(_prompt):
 		_prompt.hide()
 	_shop = ShopScreen.new()
@@ -88,12 +88,12 @@ func _close_shop() -> void:
 		_prompt.show()
 	for column in _columns:
 		column.show()
-		# 商店就是用这一下 B 退出来的，同一帧这一层不该再吃一次（那会把整页退回去）
+		# The shop was closed with this press of B; this layer should not take it again on the same frame (that would back out of the whole page)
 		column.menu_list().ignore_this_frame()
 		column.refresh()
 
 
-## 场上还没有真玩家，造一个只带编号和进度的替身给这一栏用。
+## There is no real player yet, so make a stand-in carrying just the number and progress for this column.
 func _stand_in(index: int) -> Player:
 	var stand_in := Player.new()
 	stand_in.player_index = index
@@ -114,7 +114,7 @@ func _on_readiness_changed(_confirmed: bool) -> void:
 		finished.emit()
 
 
-## 告诉每一栏「另一个人选了哪个外观」，那个就选不动了。
+## Tell each column "which look the other player picked", so that one cannot be chosen.
 func _share_looks() -> void:
 	if _columns.size() < 2:
 		return

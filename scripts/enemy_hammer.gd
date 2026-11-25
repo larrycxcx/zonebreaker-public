@@ -1,60 +1,60 @@
 class_name EnemyHammer
 extends EnemyWalker
-## 2-D Hammer：履带机器人，巡逻兵的一种，但**不开枪**——走到跟前抡锤砸。
+## 2-D Hammer: a tracked robot, a kind of patroller that **does not shoot** — it walks up and swings a hammer.
 ##
-## 和 F 只扔手雷是同一个做法：巡逻、转身、接触伤害全走基类，`bullet_scene` 留空所以基类那套射击不开火，
-## 自己只管「够得着就站定抡一下」。
+## Same approach as F's grenades only: patrol, turning and contact damage all come from the base class; `bullet_scene` is empty so the base class shooting never fires,
+## and it only handles "stand still and swing when in reach".
 ##
-## **伤害卡在抡到底那一帧**（`HIT_FRAME`），不是按下去就扣血：
-## 画面上锤子还举在半空人就掉血的话，玩家没法从动作判断该什么时候躲。
-## 抡的这段时间它站着不动，所以躲开的办法是退出锤子够得着的范围，或者跳过它。
+## **Damage lands on the frame the swing hits bottom** (`HIT_FRAME`), not when the swing starts:
+## if the player lost health while the hammer was still raised in the art, they could not read from the motion when to dodge.
+## It stands still while swinging, so the way out is to step out of the hammer's reach, or jump over it.
 
 @export_group("Charge")
-## 看见玩家就**转过去冲**（巡逻兵本来只打正前方、不回头）。
-## 比玩家走路（180）慢，和 D 一个道理：走开追不上，它只能逼你且战且退。
+## When it sees the player it **turns and charges** (a patroller normally only fires straight ahead and never turns back).
+## Slower than the player's walk (180), for the same reason as D: walking away outpaces it, so it can only push you to fight while backing off.
 @export var charge_speed := 140.0
-## 隔多高就不追了（它只会平地抡锤，爬不上平台）。
+## It stops chasing beyond this height difference (it only swings on flat ground and cannot climb onto platforms).
 @export var charge_height := 48.0
 
 @export_group("Hammer")
-## 玩家在正前方这个水平距离以内就抡。
+## It swings when the player is straight ahead within this horizontal distance.
 @export var smash_range := 44.0
-## 高度差超过这么多就够不着（锤子是横着扫出去的）。
+## Beyond this height difference it cannot reach (the hammer sweeps sideways).
 @export var smash_height := 28.0
-## 两次抡之间至少隔多久。
+## Minimum time between two swings.
 @export var smash_interval := 1.8
 @export var smash_damage := 42
-## 锤头落点（相对身体中心，朝右时；朝左 x 取反）。
+## Where the hammer head lands (relative to the body centre, facing right; x flipped when facing left).
 @export var smash_offset := Vector2(28, 8)
-## 锤头周围这个半径里的玩家挨打。
+## Players within this radius of the hammer head get hit.
 @export var smash_radius := 22.0
 @export var smash_event := &"hammer_smash"
-## 打中时把人往外甩多猛（朝右时；朝左 x 取反）。0 = 不额外甩，挨打就是玩家自己那一下小击退。
-## 地下室 4-F 那个骷髅衫打手就靠这个：伤害不高，但一胳膊把人从平台上抡出去——
-## 纵向关里往下掉才是真的疼（掉出画面扣血、白爬）。
+## How hard a hit flings the player away (facing right; x flipped when facing left). 0 = no extra fling, just the player's own small knockback.
+## The skull-shirt brawler 4-F in the basement relies on this: low damage, but one swing of the arm throws you off the platform —
+## in a vertical stage the fall is what really hurts (dropping off the screen costs health and the climb).
 @export var smash_knockback := Vector2.ZERO
 
-## 抡到第几帧砸到地上，以及一次性动作是多少帧一秒。
-## **必须和 `EnemySpriteAppearance.ONCE_FPS` 对得上**：画面上锤子落地那一刻才是扣血那一刻。
+## The frame on which the swing hits the ground, and how many frames per second one-shot clips run.
+## **Must match `EnemySpriteAppearance.ONCE_FPS`**: the moment the hammer hits the ground on screen is the moment the damage lands.
 const HIT_FRAME := 5
 const SWING_FPS := 12.0
-## 从起手到砸中隔多久（默认那一帧）。
+## Time from the start of the swing to the hit (for the default frame).
 const HIT_DELAY := HIT_FRAME / SWING_FPS
 
-## 这一种在第几帧打中。默认是锤子兵那一下（`HIT_FRAME`）；素材不一样的自己配——
-## 地下室 4-F 的胳膊在第 5 帧（下标 4）甩到最远，第 6 帧已经在往回收了。
+## The frame on which this kind hits. The default is the hammer man's (`HIT_FRAME`); kinds with different art set their own —
+## the basement 4-F's arm reaches furthest on frame 5 (index 4) and is already coming back on frame 6.
 @export var hit_frame := HIT_FRAME
 
-## 正在冲向谁，没有就是 null。
+## Who it is charging at, null if nobody.
 var _hunted: Node2D = null
 
 var _smash_timer := 0.0
-## 抡到一半还剩多久砸中；<= 0 表示没在抡。
+## Time left in the swing until it lands; <= 0 means not swinging.
 var _swing_left := 0.0
 
 
 func _physics_process(delta: float) -> void:
-	# **抡的时候不换目标也不转身**：抡到一半还跟着人转的话，起手之后躲开就没意义了
+	# **It does not switch target or turn while swinging**: if it kept turning to follow you mid-swing, dodging after the wind-up would be pointless
 	_hunted = null if is_swinging() else hunt_target()
 	if _hunted != null:
 		var ahead := signi(_hunted.global_position.x - global_position.x)
@@ -65,23 +65,23 @@ func _physics_process(delta: float) -> void:
 	_update_smash(delta)
 
 
-## 这一帧走多快：冲的时候快，巡逻的时候还是慢悠悠。
+## How fast it walks this frame: fast while charging, still leisurely while patrolling.
 func walk_speed() -> float:
 	return charge_speed if _hunted != null else move_speed
 
 
-## 冲的时候不按巡逻规则掉头——朝向那会儿是冲着人的。
+## While charging it does not turn around by the patrol rules — at that point it is facing the player.
 func patrolling() -> bool:
 	return _hunted == null
 
 
-## 正在冲向谁（测试用）。
+## Who it is charging at (for tests).
 func is_charging() -> bool:
 	return _hunted != null
 
 
-## 够得着、看得见、高度也差不多的玩家。**不分前后**——它要转过去冲。
-## 「够得着」用 `within_reach`，所以在屏幕里的玩家它一定有反应（见 CLAUDE.md 的「视野对等」）。
+## A player in reach, in sight and at about the same height. **Front or back alike** — it turns around to charge.
+## "In reach" uses `within_reach`, so it always reacts to a player on screen (see "vision parity" in CLAUDE.md).
 func hunt_target() -> Node2D:
 	for player in players_by_distance():
 		var offset := player.global_position - global_position
@@ -92,12 +92,12 @@ func hunt_target() -> Node2D:
 	return null
 
 
-## 够得着就站定抡，够不着就接着巡逻走近点（和 F 一个道理：它手上没枪，基类那套「交火」判断不适用）。
+## Within reach it stands and swings, otherwise it keeps patrolling closer (same idea as F: it has no gun, so the base class "engaged" check does not apply).
 func is_engaged(_target: Node2D) -> bool:
 	return _swing_left > 0.0 or smash_target() != null
 
 
-## 从起手到打中隔多久。
+## Time from the start of the swing to the hit.
 func hit_delay() -> float:
 	return hit_frame / SWING_FPS
 
@@ -121,7 +121,7 @@ func _update_smash(delta: float) -> void:
 	GameEvents.report(smash_event, self)
 
 
-## 正前方、够得着、并且看得见的玩家；否则返回 null。和巡逻兵开枪一样只打正前方。
+## A player straight ahead, in reach and in sight; otherwise null. Like a patroller's shooting, straight ahead only.
 func smash_target() -> Node2D:
 	for player in players_by_distance():
 		var offset := player.global_position - global_position
@@ -134,12 +134,12 @@ func smash_target() -> Node2D:
 	return null
 
 
-## 锤子落地：这一刻还站在锤头周围的才挨打——起手之后躲开就躲掉了。
+## The hammer lands: only those still standing around the hammer head get hit — dodging after the wind-up works.
 func _land_the_blow() -> void:
 	var at := smash_point()
 	for player in players_by_distance():
 		if player.body_center().distance_to(at) <= smash_radius:
-			# 无敌中的不甩：没挨到打就不该被抡飞
+			# No fling while invincible: no hit taken, no flying
 			var landed := not player.is_invincible()
 			player.take_damage(roundi(smash_damage * Stage.damage_scale()), at, self)
 			if landed and smash_knockback != Vector2.ZERO:

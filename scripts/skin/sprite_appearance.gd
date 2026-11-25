@@ -1,22 +1,22 @@
 class_name SpriteAppearance
 extends Appearance
-## 精灵图版的外观：身体一张图、手臂加枪一张图，两张叠在一起。
+## Sprite version of the look: one image for the body and one for arms plus gun, stacked.
 ##
-## 贴图由 `tools/skin_build.py` 从原始素材包生成，每个动作、每个瞄准方向都有**朝左朝右两套**，
-## 两套图的锚点落在同一个像素上，所以转身只是换一张贴图——不用 `flip_h`，
-## 更不用负的 `scale`（负 scale 会让角色被引擎错误剔除，见 CLAUDE.md 里踩过的坑）。
+## The sprites are generated from the original art pack by `tools/skin_build.py`; every clip and every aim direction has **a left-facing and a right-facing set**,
+## with both sets' anchors on the same pixel, so turning around just swaps the texture — no `flip_h`,
+## and certainly no negative `scale` (a negative scale makes the engine cull the character wrongly, see the pitfalls in CLAUDE.md).
 ##
-## 这里只管画面。判定点全在角色本体上，换不换这套外观游戏规则都一样
-## （`tests/test_skin_visuals.gd` 拿它和占位方块逐项对过）。
+## This only handles the picture. All hit points are on the character's body, and the game rules are the same with or without this look
+## (`tests/test_skin_visuals.gd` compares it item by item with the placeholder blocks).
 
-## 贴图每帧的边长，和**锚点**（帧里对应角色身体原点的那个像素）。
-## 这三个数由 `tools/skin_build.py` 决定，两边必须一致——改了那边就要改这里。
-## 朝左那套图是按 ANCHOR_X 那一列镜像出来的，所以转身不需要动节点。
+## Size of a frame and the **anchor** (the pixel in the frame matching the character's body origin).
+## These three numbers are set by `tools/skin_build.py`, and both sides must agree — change them there and you change them here.
+## The left-facing set is mirrored around the ANCHOR_X column, so turning around never moves a node.
 const FRAME_SIZE := 56
 const ANCHOR_X := 28
 const ANCHOR_Y := 40
 
-## 身体动画的播放速度（帧/秒）。没列的是单帧，不用播。
+## Playback speed of body clips (frames / second). Clips not listed are single frames and do not play.
 const BODY_FPS := {
 	&"idle": 6.0,
 	&"walk": 10.0,
@@ -24,13 +24,13 @@ const BODY_FPS := {
 	&"crawl": 8.0,
 	&"climb": 8.0,
 }
-## 手里的枪没有专门的贴图时（`Weapon.look` 留空，或者这套皮肤没画这把枪）就用这一把。
+## The gun used when the gun in hand has no sprites of its own (`Weapon.look` empty, or this skin did not draw that gun).
 const DEFAULT_LOOK := &"rifle"
 
-## 死亡动画的播放速度：只播一遍，播完停在最后一帧（躺在地上）。
+## Playback speed of the death clip: it plays once and holds the last frame (lying on the ground).
 const DEATH_FPS := 10.0
 
-## 瞄准方向 → 手臂贴图的名字。键和 `Appearance.GUN_BY_AIM` 用的是同一套（x 取绝对值、y 取符号）。
+## Aim direction → name of the arm sprite. The keys follow the same scheme as `Appearance.GUN_BY_AIM` (absolute x, sign of y).
 const ARMS_BY_AIM := {
 	Vector2(0, -1): &"up",
 	Vector2(1, -1): &"diag_up",
@@ -39,7 +39,7 @@ const ARMS_BY_AIM := {
 	Vector2(0, 1): &"down",
 }
 
-## 动作 → 身体贴图的名字。空中上升和下落共用一张两帧的图，按状态取第几帧。
+## Motion → name of the body sprite. Rising and falling in the air share one two-frame image, picking the frame by state.
 const BODY_BY_MOTION := {
 	Motion.IDLE: &"idle",
 	Motion.WALK: &"walk",
@@ -50,7 +50,7 @@ const BODY_BY_MOTION := {
 	Motion.HANG: &"climb",
 }
 
-## 贴图放在哪个目录下，文件名形如 `body_walk_r.png` / `arms_level_l.png`。
+## Which folder the sprites live in; file names look like `body_walk_r.png` / `arms_level_l.png`.
 @export_dir var art_dir := "res://skins/cyberpunk/player"
 
 @onready var _body: Sprite2D = $Body
@@ -61,14 +61,14 @@ var _crouched := false
 var _elapsed := 0.0
 var _dead := false
 var _dead_since := 0.0
-## 爬梯子：只在真的在爬时才往前播，停在梯子上就停在当前这一帧（`_climb_time` 只在爬的时候走）。
+## Climbing a ladder: the clip only advances while actually climbing; stopped on the ladder it holds the current frame (`_climb_time` only runs while climbing).
 var _climb_time := 0.0
 var _look := DEFAULT_LOOK
 
 
 func _ready() -> void:
-	# 不调 super()：基类那套按位置镜像子节点的翻转法是给占位方块用的，这里靠换贴图翻转。
-	# 贴图居中画，再往上挪，让锚点那个像素正好落在角色的身体原点上。
+	# No super(): the base class flips by mirroring child positions, which is for the placeholder blocks; this flips by swapping textures.
+	# The texture is drawn centred, then moved up so the anchor pixel lands exactly on the character's body origin.
 	var offset := Vector2(FRAME_SIZE / 2.0 - ANCHOR_X, FRAME_SIZE / 2.0 - ANCHOR_Y)
 	for sprite: Sprite2D in [_body, _arms]:
 		sprite.centered = true
@@ -83,7 +83,7 @@ func _process(delta: float) -> void:
 	_advance()
 
 
-## 转身：换成另一边那套贴图。不镜像子节点的位置，也不动 scale。
+## Turning around: switch to the other side's set. Child positions are not mirrored and scale is not touched.
 func face(facing: int) -> void:
 	if facing == _facing:
 		return
@@ -91,7 +91,7 @@ func face(facing: int) -> void:
 	_refresh()
 
 
-## 换枪：整套手臂贴图换成这把枪的（`arms_<look>_<方向>_<朝向>.png`）。
+## Switching guns: the whole set of arm sprites becomes this gun's (`arms_<look>_<direction>_<facing>.png`).
 func hold(look: StringName) -> void:
 	var wanted := look if look != &"" else DEFAULT_LOOK
 	if wanted == _look:
@@ -100,7 +100,7 @@ func hold(look: StringName) -> void:
 	_refresh()
 
 
-## 现在显示的是哪把枪的贴图（测试用）：没有这把枪的贴图时是回落后的那把。
+## Which gun's sprites are shown now (for tests): the fallback gun when this gun has no sprites.
 func held_look() -> StringName:
 	return _look if ResourceLoader.exists(_arms_path(_look, &"level", &"r")) else DEFAULT_LOOK
 
@@ -112,7 +112,7 @@ func aim(direction: Vector2) -> void:
 	_refresh()
 
 
-## 趴下与否。精灵图有专门的趴姿，不压扁、也不整体下移（那张图自己的脚底就在原地）。
+## Prone or not. The sprites have a dedicated prone pose; no squashing and no moving down (that image's own feet stay in place).
 func pose(height_ratio: float, _lowered: float) -> void:
 	var crouched := height_ratio < 1.0
 	if crouched == _crouched:
@@ -128,8 +128,8 @@ func motion(state: Motion) -> void:
 	_refresh()
 
 
-## 死了：播一遍倒地动画，停在最后一帧。不像占位方块那样变暗——倒在地上本身就说明白了。
-## 死亡动画里人是空手的（枪脱手了），所以手臂那张图整个藏起来。
+## Dead: play the fall once and hold the last frame. Not darkened like the placeholder blocks — lying on the ground says it all.
+## In the death clip the character is empty-handed (the gun has dropped), so the arms image is hidden entirely.
 func show_dead() -> void:
 	if _dead:
 		return
@@ -138,7 +138,7 @@ func show_dead() -> void:
 	_refresh()
 
 
-## 又站起来了：倒地那组停在最后一帧，这里换回正常的动作。
+## Back on its feet: the death clip was holding its last frame; switch back to the normal clips here.
 func revive() -> void:
 	if not _dead:
 		return
@@ -146,8 +146,8 @@ func revive() -> void:
 	_refresh()
 
 
-## 当前这一帧身体用的贴图名（测试用）。死亡优先于一切（趴着、在空中被打死都一样倒）。
-## 趴着时：不动用静止那一帧，在挪就播爬行（走和跑都算挪——趴着本来也跑不起来）。
+## The body sprite name for the current frame (for tests). Death beats everything (dying prone or in the air falls the same way).
+## When prone: still uses the static frame, moving plays the crawl (walking and running both count as moving — you cannot run while prone anyway).
 func body_clip() -> StringName:
 	if _dead:
 		return &"death"
@@ -156,7 +156,7 @@ func body_clip() -> StringName:
 	return BODY_BY_MOTION[_motion]
 
 
-## 当前这一帧手臂用的贴图名；趴下、死亡、爬梯子时没有手臂（那几套身体图自带手臂——爬梯是背影，两只手都在梯子上）。
+## The arm sprite name for the current frame; no arms while prone, dead or climbing (those body images come with arms — the climb is seen from behind, both hands on the ladder).
 func arms_clip() -> StringName:
 	if _crouched or _dead or _motion == Motion.CLIMB or _motion == Motion.HANG:
 		return &""
@@ -165,7 +165,7 @@ func arms_clip() -> StringName:
 
 func _refresh() -> void:
 	if _body == null:
-		return # _ready 之前玩法就可能调过来，那时 @onready 还没赋值，等 _ready 里统一刷一次
+		return # Gameplay may call in before _ready, when @onready has not been assigned yet; refresh once in _ready to catch up
 	var side := &"r" if _facing >= 0 else &"l"
 	_put(_body, "body_%s_%s" % [body_clip(), side])
 	var arms := arms_clip()
@@ -179,17 +179,17 @@ func _arms_path(look: StringName, aim_clip: StringName, side: StringName) -> Str
 	return "%s/arms_%s_%s_%s.png" % [art_dir, look, aim_clip, side]
 
 
-## 换贴图并按图宽算出有几帧（每帧都是正方形）。
+## Swap the texture and work out the frame count from the image width (every frame is square).
 func _put(sprite: Sprite2D, file: String) -> void:
 	var texture: Texture2D = load("%s/%s.png" % [art_dir, file])
 	if texture == null:
-		push_warning("皮肤贴图缺失：%s/%s.png" % [art_dir, file])
+		push_warning("missing skin sprite: %s/%s.png" % [art_dir, file])
 		return
 	sprite.texture = texture
 	sprite.hframes = maxi(1, texture.get_width() / texture.get_height())
 
 
-## 按时间推进身体动画；空中那两帧按上升/下落取，不按时间播。
+## Advance the body clip with time; the two air frames are picked by rising / falling, not played by time.
 func _advance() -> void:
 	if _body == null or _body.texture == null:
 		return

@@ -1,10 +1,10 @@
 class_name EnemyCeilingEmitter
 extends Enemy
-## 第五关的 5-F：**倒挂在天花板上的毒气发射器**，一动不动。玩家走到它下方（左右 `trigger_width` 以内、
-## 往下 `trigger_depth` 以内、看得见）就开始：**先充能**（播攻击那几帧，面板在变——预警），
-## `charge_time` 秒后**滴一滴毒液**（`PoisonDrip`），落地炸成一团毒雾（中毒），然后歇 `cooldown` 秒。
-## 躲法：看见它充能就加快走过去，或者先把它打掉（得往上 / 斜上打）。
-## 不受重力（场景里 floating），原点是发射器的中心，吊架顶边（天花板）在原点上面 20（`MOUNT`）。
+## Stage 5's 5-F: **a poison gas emitter hanging upside down from the ceiling**, never moving. When a player walks under it (within `trigger_width` left or right,
+## within `trigger_depth` below, in sight) it starts: **charging first** (the attack frames play, the panels change — the warning),
+## then after `charge_time` seconds **it drips a drop of poison** (`PoisonDrip`) that bursts into a poison cloud on landing (poisons you), then it rests for `cooldown` seconds.
+## Dodge: hurry past when you see it charging, or shoot it down first (you have to fire up / diagonally up).
+## No gravity (floating in the scene); the origin is the centre of the emitter, and the top of the mount (the ceiling) is 20 above the origin (`MOUNT`).
 
 @export_group("Drip")
 @export var drip_scene: PackedScene = preload("res://scenes/poison_drip.tscn")
@@ -12,11 +12,11 @@ extends Enemy
 @export var trigger_depth := 280.0
 @export var charge_time := 0.6
 @export var cooldown := 2.2
-## 毒液从哪儿滴出来（相对原点）：发射器底下。
+## Where the poison drips from (relative to the origin): under the emitter.
 @export var drip_offset := Vector2(0, 14)
 @export var charge_event := &"chaser_alert"
 
-## 吊架顶边在原点上面多少（摆位用：顶边贴着天花板）。
+## How far above the origin the top of the mount is (for placement: the top edge touches the ceiling).
 const MOUNT := 20.0
 
 var _charge := 0.0
@@ -41,7 +41,7 @@ func _physics_process(delta: float) -> void:
 		GameEvents.report(charge_event, self)
 
 
-## 正下方的玩家（左右够近、往下够得着、中间没被实心挡住），没有就 null。
+## The player right below (close enough left or right, within reach below, not blocked by anything solid), or null.
 func drip_target() -> Player:
 	for player in players_by_distance():
 		var offset := player.global_position - global_position

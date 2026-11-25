@@ -1,7 +1,7 @@
 extends "res://tests/layered_checks.gd"
-## 正式第一关（`scenes/level_1.tscn`，绿区）——2026-10 起是**分层的格子地图**
-## （`tools/level1_map.py` 画、`tools/map_build.py` 查路和写场景，砖用绿区那套 `THEMES["green"]`）。
-## 分层关共用的检查在 `layered_checks.gd`；这里只写**这一关独有的**，下半截拿真规则把几处必须绕的路跑一遍。
+## The first real stage (`scenes/level_1.tscn`, green zone) — **a layered grid map** since 2026-10
+## (drawn in `tools/level1_map.py`, path-checked and written by `tools/map_build.py`, with the green zone tiles `THEMES["green"]`).
+## Checks shared by layered stages are in `layered_checks.gd`; this only covers **what is unique to this stage**, and the second half runs the forced detours with the real rules.
 
 const LEVEL_INFO := "res://levels/level_1.tres"
 
@@ -18,7 +18,7 @@ func zone() -> String:
 	return "cyberpunk"
 
 
-## 这一关的地面只断开两处（大坑、空岛），别的「低处」都是山洞——不是坑
+## This stage's ground only breaks in two places (the chasm, the floating islands); every other "low spot" is a cave — not a pit
 func min_pits() -> int:
 	return 2
 
@@ -30,7 +30,7 @@ func boss() -> Boss:
 	return null
 
 
-# ---------------------------------------------------------------- 这一关自己的
+# ---------------------------------------------------------------- This stage's own
 
 func test_it_is_the_first_stage_in_the_catalog() -> void:
 	if needs_art(): return
@@ -58,7 +58,7 @@ func test_this_stage_brings_its_own_cast() -> void:
 
 func test_crates_and_barrels_wear_the_pack_art() -> void:
 	if needs_art(): return
-	# 赛博朋克包（绿区）原来没有这两样，占位色块混在像素画里一眼就看得出来
+	# The cyberpunk pack (green zone) did not have these two before, and placeholder blocks among the pixel art were obvious at a glance
 	await open_level()
 	var crates := 0
 	var barrels := 0
@@ -74,8 +74,8 @@ func test_crates_and_barrels_wear_the_pack_art() -> void:
 
 
 func test_the_boss_arena_is_flat_open_ground() -> void:
-	# Boss A 站在地上、在出生点左右 160 里走位、还会跳：那片地上不能有坑，也不能有挡视线的墙
-	# （视线从身体中心发出，被墙挡住它就什么都不做）；头顶要有台子给玩家躲扇形
+	# Boss A stands on the ground, moves within 160 of its spawn point and jumps: that ground can have no pits and no walls blocking sight
+	# (its sight comes from its body centre, and with a wall in the way it does nothing); overhead there must be platforms for the player to dodge the fan
 	await open_level()
 	var b := boss()
 	check("there is a boss", b != null)
@@ -96,7 +96,7 @@ func test_the_boss_arena_is_flat_open_ground() -> void:
 	check("there are platforms above the arena", above >= 4, str(above))
 
 
-# ---------------------------------------------------------------- 必须绕的路，拿真规则跑一遍
+# ---------------------------------------------------------------- Forced detours, run with the real rules
 
 func climb(direction: StringName) -> void:
 	Input.action_press(direction)
@@ -109,7 +109,7 @@ func climb(direction: StringName) -> void:
 
 
 func test_the_rock_in_the_park_is_climbed_not_jumped() -> void:
-	# 第 1 段：石山从第 8 行一直到地面（高过一跳），只能顺左边的梯子上去
+	# Segment 1: the stone hill runs from row 8 all the way to the ground (higher than a jump); the only way up is the ladder on the left
 	await open_empty()
 	player.global_position = Vector2(col_x(1, 40), GROUND_Y - 16.0)
 	await frames(3)
@@ -126,7 +126,7 @@ func test_the_rock_in_the_park_is_climbed_not_jumped() -> void:
 
 
 func test_the_burrow_mouth_is_sealed_and_the_hilltop_ends_at_a_cliff() -> void:
-	# 第 3 段：洞口被石头封死，得先上山顶；山顶又被石崖挡住，得从地上的口子掉进洞里
+	# Segment 3: the cave mouth is sealed with stone, so climb the hill first; the hilltop is blocked by a cliff, so drop into the cave through the opening in the ground
 	await open_empty()
 	player.global_position = Vector2(col_x(3, 0) - 40.0, GROUND_Y - 16.0)
 	await frames(3)
@@ -150,7 +150,7 @@ func test_the_burrow_mouth_is_sealed_and_the_hilltop_ends_at_a_cliff() -> void:
 
 
 func test_the_chasm_cannot_be_jumped_from_the_ground() -> void:
-	# 第 4 段：地面断开 48 格，助跑跳也过不去，得爬梯子上那一串台子
+	# Segment 4: the ground breaks for 48 cells, not even a running jump gets across; climb the ladder to the string of platforms
 	await open_empty()
 	player.global_position = Vector2(col_x(4, 6), GROUND_Y - 16.0)
 	await frames(3)
@@ -167,7 +167,7 @@ func test_the_chasm_cannot_be_jumped_from_the_ground() -> void:
 
 
 func test_the_tunnel_is_sealed_with_crates() -> void:
-	# 第 9 段：地道里两摞箱子把路堵死，打烂才过得去
+	# Segment 9: two stacks of crates block the tunnel; you only get through by breaking them
 	await open_empty()
 	var stack: Array = []
 	for node in main.get_node("Traps").get_children():

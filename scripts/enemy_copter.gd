@@ -1,30 +1,30 @@
 class_name EnemyCopter
 extends EnemyFlyer
-## 2-E Copter：会飞的那一种，但**不开枪，往下扔炸弹**——和 F 一样用现成的手雷。
+## 2-E Copter: the flying one, but it **does not shoot; it drops bombs** — the ready-made grenade, like F.
 ##
-## 飞行、巡逻、跟随全走 `EnemyFlyer`；`bullet_scene` 留空所以基类那套射击不开火。
-## 炸弹就是敌人的手雷（`enemy_grenade.tscn`）：往正下方松手、不加上抛，所以它是直着掉下去的，
-## 落地弹一下、再碰到就炸，规则和玩家的手雷完全一样。
+## Flying, patrolling and following all come from `EnemyFlyer`; `bullet_scene` is empty, so the base class shooting never fires.
+## The bomb is the enemy grenade (`enemy_grenade.tscn`): released straight down with no upward toss, so it falls straight,
+## bounces once on landing and explodes on the next touch, exactly the same rules as the player's grenade.
 ##
-## **炸弹在动作的第 3 帧脱钩**（`RELEASE_FRAME`），不是按下去就出手：素材里那两帧是机身下沉、松开挂钩，
-## 炸弹从机腹离开的位置正好对得上。
+## **The bomb lets go on frame 3 of the clip** (`RELEASE_FRAME`), not the moment the attack starts: those two frames in the art are the hull dipping and the hook opening,
+## and the bomb leaves the belly right where it should.
 
 @export_group("Bombs")
-## 留空表示不扔（那样它就只是飞来飞去）。
+## Leave empty to never drop anything (then it just flies around).
 @export var bomb_scene: PackedScene
-## 两颗之间至少隔多久。
+## Minimum time between two bombs.
 @export var drop_interval := 2.0
-## 松手点（相对身体中心；朝左时 x 取反，不过它是从机腹正下方掉的，x 本来就是 0）。
+## Release point (relative to the body centre; x flipped when facing left, though it drops from right under the belly and x is 0 anyway).
 @export var bomb_offset := Vector2(0, 10)
 @export var drop_event := &"grenade_throw"
 
-## 动作的第几帧脱钩，以及一次性动作多少帧一秒（**要和 `EnemySpriteAppearance.ONCE_FPS` 对得上**）。
+## The frame of the clip on which it lets go, and how many frames per second one-shot clips run (**must match `EnemySpriteAppearance.ONCE_FPS`**).
 const RELEASE_FRAME := 2
 const RELEASE_FPS := 12.0
 const RELEASE_DELAY := RELEASE_FRAME / RELEASE_FPS
 
 var _drop_timer := 0.0
-## 起手了还剩多久脱钩；<= 0 表示没在扔。
+## Time left until release after starting the drop; <= 0 means not dropping.
 var _release_left := 0.0
 
 
@@ -47,7 +47,7 @@ func _update_drop(delta: float) -> void:
 	_visual.fire()
 
 
-## 正下方（水平 below_width 以内）、看得见的玩家；否则 null。和基类开火的判断是同一条。
+## A player right below (within below_width horizontally) and in sight; otherwise null. Same check as the base class firing.
 func drop_target() -> Node2D:
 	var target := find_target()
 	if target == null or absf(target.global_position.x - global_position.x) > below_width:

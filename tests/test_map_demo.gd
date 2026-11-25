@@ -1,9 +1,9 @@
 extends GameTest
-## 格子地图（`tools/map_build.py`）生成的第一段：用户示意图那一屏（`tools/level_maps.py` 的 `DEMO`）。
+## The first segment built from a grid map (`tools/map_build.py`): the screen of the user's sketch (`DEMO` in `tools/level_maps.py`).
 ##
-## 生成脚本自己会在格子上找路，这里拿**真的游戏规则**再跑一遍那条路线：
-## 上层被 1 号块挡住 → 从 2 号缺口掉到中层 → （可以顺 4 号梯子下底层）→ 中层跳不回上层 →
-## 底层敌人的子弹从单向那截地板穿得上来 → 顺 5 号梯子爬回上层出口。
+## The build script finds paths on the cells by itself; this runs the route again with **the real game rules**:
+## the upper layer blocked by block 1 → drop to the middle layer through gap 2 → (ladder 4 can go down to the bottom layer) → no jumping from the middle back up →
+## bullets from the bottom-layer enemy come up through the one-way stretch of floor → climb ladder 5 back to the exit on the upper layer.
 
 const DEMO := "res://scenes/map_demo.tscn"
 const TOP_FLOOR := 112.0
@@ -31,7 +31,7 @@ func get_tree_ladders() -> Array:
 
 
 func test_the_top_route_is_blocked() -> void:
-	# 1 号块从画面顶一直压到楼板：上层往右走、跳都过不去
+	# Block 1 presses from the top of the view all the way down to the floor: walking or jumping right along the upper layer gets nowhere
 	await open_demo()
 	player.global_position = Vector2(200, TOP_FLOOR - 16.0)
 	await frames(3)
@@ -55,8 +55,8 @@ func test_the_gap_drops_you_to_the_middle() -> void:
 
 
 func test_you_cannot_jump_back_up_through_the_gap() -> void:
-	# 两层隔 96、一跳实测约 92：站在 2 号缺口正下方往上跳，头伸得出去，**脚站不上去**——只能走梯子。
-	# 只差 4 像素：改跳跃高度的话这里最先出事（见 CLAUDE.md）
+	# The layers are 96 apart and a jump measures about 92: jumping up from right under gap 2, the head gets through but **the feet cannot stand on it** — only the ladder works.
+	# Just 4 pixels short: change the jump height and this is the first thing to break (see CLAUDE.md)
 	await open_demo()
 	player.global_position = Vector2(9 * 16.0 + 8.0, MIDDLE_FLOOR - 16.0)
 	await frames(3)
@@ -97,7 +97,7 @@ func test_ladder_four_takes_you_down_and_back() -> void:
 
 
 func test_the_shooter_below_can_hit_the_press_corridor() -> void:
-	# 中层压机那一截是单向的：底层那个 2-C 斜着往上打，子弹穿得上来（这是「不打很难过」的来由）
+	# The press stretch of the middle layer is one-way: the 2-C below fires diagonally up and the bullets come through (which is why "hard to get past without shooting it")
 	await open_demo(true)
 	var shooter: Enemy = null
 	for enemy in enemies():
@@ -135,7 +135,7 @@ func test_ladder_five_takes_you_up_to_the_exit() -> void:
 		and player.global_position.x > 26 * 16.0, "feet at %.1f, x %.0f" % [feet(), player.global_position.x])
 
 
-# ---------------------------------------------------------------- 画面：砖（只管好看，不碰规则）
+# ---------------------------------------------------------------- Picture: tiles (only for looks, never touching the rules)
 
 func tile_set(node_name: String) -> Dictionary:
 	var art := main.get_node(node_name) as TileArt
@@ -156,7 +156,7 @@ func test_the_tiles_are_pure_decoration() -> void:
 
 func test_the_platforms_only_collide_and_the_tiles_draw() -> void:
 	if needs_art(): return
-	# 碰撞还是平台节点管；它们藏起来不画，不然砖和九宫格会叠成两层
+	# Collision is still handled by the platform nodes; they are hidden, otherwise the tiles and the nine-slice would stack into two layers
 	await open_demo()
 	var front := tile_set("FrontTiles")
 	var checked := 0
@@ -173,12 +173,12 @@ func test_the_platforms_only_collide_and_the_tiles_draw() -> void:
 				if not front.has(Vector2i(cx, cy)):
 					missing += 1
 		checked += 1
-		check("every cell of %s is tiled" % slab.name, missing == 0, "%d 格没有砖" % missing)
+		check("every cell of %s is tiled" % slab.name, missing == 0, "%d cells without tiles" % missing)
 	check("setup: there are platforms", checked >= 5, str(checked))
 
 
 func test_indoor_rooms_have_a_wall_behind_them() -> void:
-	# 中层、底层后面要是室内的墙，不是天空（用户要的「像宣传图」）
+	# Behind the middle and bottom layers there has to be an indoor wall, not sky (what the user wanted: "like the promo art")
 	await open_demo()
 	var back := tile_set("BackTiles")
 	for cell: Vector2i in [Vector2i(3, 10), Vector2i(20, 16), Vector2i(30, 11)]:
@@ -188,7 +188,7 @@ func test_indoor_rooms_have_a_wall_behind_them() -> void:
 
 func test_the_walls_carry_numbered_pipes_like_the_promo() -> void:
 	if needs_art(): return
-	# 宣传图墙上的紫色大管子和「4」「3」：管道按块拼（直管 / 管头 / 圆盘接头），编号牌 = 圆盘 + 数字
+	# The big purple pipe and the "4" "3" on the wall in the promo art: pipes are assembled from pieces (straight / end / disc joint), and a sign = disc + digit
 	await open_demo()
 	var signs := main.get_node("Decals").get_children()
 	check("two number plates", signs.size() == 2, str(signs.size()))
@@ -201,7 +201,7 @@ func test_the_walls_carry_numbered_pipes_like_the_promo() -> void:
 	for sign in signs:
 		var at := Vector2i(int((sign as Node2D).position.x / 16.0), int((sign as Node2D).position.y / 16.0))
 		check("each sign sits on a pipe joint", back.get(at) == 39, str(back.get(at)))
-	# 中层那条：左头是管头（38），往右是横管（20）
+	# The middle layer's pipe: an end piece (38) on the left, horizontal pipe (20) going right
 	check("the middle pipe starts with a cap", back.get(Vector2i(12, 8)) == 38, str(back.get(Vector2i(12, 8))))
 	check("and runs on as a straight pipe", back.get(Vector2i(16, 8)) == 20, str(back.get(Vector2i(16, 8))))
 

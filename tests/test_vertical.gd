@@ -1,13 +1,13 @@
 extends GameTest
-## 纵向关的引擎规则（第四关地下室是往上爬的，魂斗罗瀑布关那种）。
+## The engine rules of vertical stages (stage 4, the basement, is climbed upward, like the Contra waterfall stage).
 ##
-## 还没有真的纵向关卡，所以每条用例都在测试关上**临时往上搭几层浮台**当竖井用，
-## 把摄像机切成 `only_up`、上边界放开。测的是规则本身：
-## 画面只往上卷、掉出画面底边就按掉坑算、捞回到画面里、被甩在底下的敌人悄悄收走。
-## 横向关一条都不受影响（`only_up` 默认关着），最后一条守着这个。
+## There is no real vertical stage yet, so every case **temporarily builds a few layers of ledges going up** on the test level to act as a shaft,
+## switches the camera to `only_up` and lifts the upper limit. What is tested is the rules themselves:
+## the view only scrolls up, falling off the bottom of the view counts as a pit, players are brought back into view, and enemies left behind below are quietly removed.
+## Horizontal stages are not affected at all (`only_up` is off by default), and the last case guards that.
 
 const GROUND_Y := 320.0
-## 竖井往上放开多高（四屏）。
+## How high the shaft is opened up (four screens).
 const SHAFT_TOP := -1440.0
 
 
@@ -18,7 +18,7 @@ func open_shaft(players := 1) -> void:
 	rig.limit_top = int(SHAFT_TOP)
 
 
-## 搭一块单向浮台，顶边在 `top`。
+## Build a one-way ledge with its top at `top`.
 func add_ledge(x: float, top: float, wide := 160.0) -> Platform:
 	var ledge: Platform = load("res://scenes/platform.tscn").instantiate()
 	ledge.one_way = true
@@ -28,7 +28,7 @@ func add_ledge(x: float, top: float, wide := 160.0) -> Platform:
 	return ledge
 
 
-## 把人放到某块浮台上站稳（站稳了「最后站稳的地方」才会记下来）。
+## Put the player on a ledge and let them stand firmly (only standing firmly records the "last spot stood on firmly").
 func stand_on(who: Player, ledge: Platform) -> void:
 	who.global_position = Vector2(ledge.position.x + ledge.size.x / 2.0, ledge.position.y - 16.0)
 	who.velocity = Vector2.ZERO
@@ -45,7 +45,7 @@ func test_the_screen_climbs_with_you_and_never_comes_back_down() -> void:
 	var up_there := camera_rig().view_rect()
 	check("the screen climbs with you", up_there.position.y < at_start.position.y - 100.0,
 		"%.0f -> %.0f" % [at_start.position.y, up_there.position.y])
-	# 往下走一层（还在画面里）：画面不跟着下来
+	# Go down one layer (still in view): the view does not follow down
 	await stand_on(player, lower)
 	var after := camera_rig().view_rect()
 	check("setup: you really went down a floor", player.global_position.y > high.position.y + 50.0,
@@ -55,7 +55,7 @@ func test_the_screen_climbs_with_you_and_never_comes_back_down() -> void:
 
 
 func test_on_a_side_scrolling_level_the_screen_still_follows_you_down() -> void:
-	# 对照：同样的走法，横向关（`only_up` 关着）画面照常跟回来
+	# Control: walking the same way in a horizontal stage (`only_up` off) the view follows back as usual
 	await reset_scene()
 	camera_rig().limit_top = int(SHAFT_TOP)
 	var high := add_ledge(240, -200)
@@ -75,7 +75,7 @@ func test_dropping_out_of_the_bottom_of_the_screen_is_a_fall() -> void:
 	var full := player.health
 	var stood := player.global_position
 	var view := camera_rig().view_rect()
-	# 画面底边以下一截——**比关卡固定的判定线（400）高得多**，横向关的规矩管不到这儿
+	# A stretch below the bottom of the view — **much higher than the stage's fixed fall line (400)**, so the horizontal rule does not reach here
 	var below := view.end.y + 60.0
 	check("setup: this is well above the old fixed line", below < main.fall_y - 200.0,
 		"%.0f vs %.0f" % [below, main.fall_y])
@@ -102,8 +102,8 @@ func test_the_screen_follows_whoever_climbs_highest() -> void:
 
 
 func test_a_partner_left_behind_falls_out_and_lands_beside_the_leader() -> void:
-	# 魂斗罗的规矩：领头的往上爬，落后的被甩出底边就算掉坑。
-	# 但**捞回最后站稳的地方**在这儿行不通——那块地已经卷出画面了，捞回去马上又掉一次。
+	# The Contra rule: the leader climbs, and whoever falls behind and drops out of the bottom counts as falling into a pit.
+	# But **bringing them back to the last spot they stood on** does not work here — that ground has scrolled out of view, and putting them back means falling again at once.
 	await open_shaft(2)
 	var high := add_ledge(240, -500)
 	await frames(5)
@@ -118,7 +118,7 @@ func test_a_partner_left_behind_falls_out_and_lands_beside_the_leader() -> void:
 		"%s in %s" % [player2.global_position, view])
 	check("next to the leader", player2.global_position.distance_to(player._safe_spot) < 24.0,
 		"%s vs %s" % [player2.global_position, player._safe_spot])
-	# 捞上来之后不该再掉一次
+	# Once brought back up they should not fall again
 	var after := player2.health
 	await frames(30)
 	check("and stays there", player2.health == after, "%d -> %d" % [after, player2.health])
@@ -146,7 +146,7 @@ func test_enemies_left_far_below_are_cleared_without_a_reward() -> void:
 
 
 func test_side_scrolling_levels_do_not_switch_this_on() -> void:
-	# 纵向的规矩是关卡自己开的：测试关和前三关都不开
+	# The vertical rules are switched on by the stage itself: the test level and the first three stages do not
 	for path in ["res://scenes/main.tscn", "res://scenes/level_1.tscn",
 			"res://scenes/level_2.tscn", "res://scenes/level_3.tscn"]:
 		var scene := (load(path) as PackedScene).instantiate()

@@ -1,30 +1,30 @@
 class_name ClearScreen
 extends CanvasLayer
-## 通关结算：Boss 倒下之后停住关卡，摆出这一关每个人赚了多少，再问下一步去哪。
+## Stage clear results: after the boss falls the stage freezes, shows how much each player earned this stage, then asks where to go next.
 ##
-## 以前关卡只有一个出口——全灭。打死 Boss 什么都不会发生，你可以继续往右走到墙边站着。
-## 23 关要接得上，就得有「打完了」这件事。
+## Stages used to have only one way out — everyone dying. Killing the boss did nothing, and you could keep walking right until you stood at the wall.
+## For 23 stages to connect there has to be "cleared".
 ##
-## **双人时两个人的成绩都显示**（左右两栏），因为经验和金钱是各算各的——
-## 谁打死的记谁头上（见 `Progress` 的奖励归属）。
+## **In co-op both players' results are shown** (left and right columns), because XP and money are counted separately —
+## each kill is credited to whoever made it (see reward attribution in `Progress`).
 ##
-## 和死亡页是同一套零件（`UiKit` + `MenuList`），也一样把整棵树定住；
-## 区别是这一页有「下一关」，而且它是**好消息**，所以不压暗那么狠。
+## Built from the same parts as the death screen (`UiKit` + `MenuList`), and it freezes the whole tree too;
+## the difference is that this one has "next stage", and it is **good news**, so it does not darken as heavily.
 
-## 打开了。
+## Opened.
 signal opened
-## 选了第几项（选完才发，测试用）。
+## Which item was chosen (emitted after choosing, for tests).
 signal chosen(index: int)
 
-## 开着的时候在这个组里。暂停菜单据此让路——两边都在改 `tree.paused`。
+## In this group while open. The pause menu gives way because of it — both change `tree.paused`.
 const GROUP := &"clear_screen"
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
-## 菜单上那几项。**按名字认，不按下标**：有没有「下一关」是看打完的是不是最后一关。
+## The menu items. **Identified by name, not index**: whether there is "next stage" depends on whether the stage just cleared was the last one.
 const NEXT_STAGE := "NEXT STAGE"
 const SHOP := "SHOP"
 const MAIN_MENU := "MAIN MENU"
 
-## 一栏多宽（双人时两栏并排）。
+## Width of a column (two side by side in co-op).
 const COLUMN := 280.0
 const GAP := 16.0
 
@@ -32,7 +32,7 @@ var _root: Control
 var _menu: MenuList
 var _title: Label
 var _panels: Control
-## 开着的商店（**这里是关卡之间唯一的另一个入口**，另一个在人物设置界面）。
+## The open shop (**this is the only other entry point between stages**; the other is in character setup).
 var _shop: ShopScreen
 
 
@@ -64,13 +64,13 @@ func is_open() -> bool:
 	return _root.visible
 
 
-## 菜单那一列（测试用）。
+## The menu column (for tests).
 func menu_list() -> MenuList:
 	return _menu
 
 
-## 摆出成绩单。`results` 一人一份：`{"name", "level", "levels_gained", "xp", "money"}`。
-## `has_next` 决定菜单上有没有「下一关」。
+## Show the results. `results` has one entry per player: `{"name", "level", "levels_gained", "xp", "money"}`.
+## `has_next` decides whether the menu has "next stage".
 func open(results: Array, has_next: bool) -> void:
 	if is_open():
 		return
@@ -84,7 +84,7 @@ func open(results: Array, has_next: bool) -> void:
 	var items: Array[String] = []
 	if has_next:
 		items.append(NEXT_STAGE)
-	# **打完一关就是逛商店的时候**：刚赚的钱正好花出去，下一关之前还能换装备
+	# **Right after clearing a stage is the time to go shopping**: spend what you just earned and change gear before the next stage
 	items.append(SHOP)
 	items.append(MAIN_MENU)
 	_menu.build(items, screen_x)
@@ -94,7 +94,7 @@ func open(results: Array, has_next: bool) -> void:
 	opened.emit()
 
 
-## 一个人的成绩：名字、等级（升了几级）、这一关赚的经验和金钱。
+## One player's results: name, level (how many levels gained), the XP and money earned this stage.
 func _panel(result: Dictionary, x: float) -> Control:
 	var box := UiKit.window(Rect2(x, 74.0, COLUMN, 150.0))
 	var left := 24.0
@@ -117,12 +117,12 @@ func _panel(result: Dictionary, x: float) -> Control:
 	return box
 
 
-## 开着的商店，没开就是 null（测试用）。
+## The open shop, null if it is not open (for tests).
 func shop() -> ShopScreen:
 	return _shop if is_instance_valid(_shop) else null
 
 
-## 进商店：结算页先藏起来（不然两层菜单一起收键），逛完再回来。
+## Entering the shop: hide the results first (otherwise two menus would take input together), and come back after shopping.
 func _open_shop() -> void:
 	if is_instance_valid(_shop):
 		return
@@ -145,7 +145,7 @@ func _close_shop() -> void:
 		_shop.queue_free()
 	_shop = null
 	_root.show()
-	_menu.ignore_this_frame()   # 商店就是用这一下 B 退出来的
+	_menu.ignore_this_frame()   # The shop was closed with this press of B
 
 
 func _on_chosen(index: int) -> void:
@@ -166,6 +166,6 @@ func _on_chosen(index: int) -> void:
 	var at := Catalog.index_of(Stage.current)
 	if at >= 0 and at + 1 < next.size():
 		Stage.use(next[at + 1])
-		# 测试里关卡是手动实例化的，没有 current_scene，那就只是收起来
+		# In tests the stage is instantiated by hand and there is no current_scene, so just close it
 		if tree.current_scene != null:
 			tree.change_scene_to_file(next[at + 1].scene_path)

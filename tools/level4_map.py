@@ -1,24 +1,24 @@
-"""第四关（地下室，**纵向往上爬**）的格子地图版（2026-10 用户：「第四关也要按之前的要求重新设计——
-不同的路线、复杂的结构、更多细节贴图」）。
+"""The grid map version of stage 4 (basement, **climbed vertically**) (2026-10, the user: "redesign stage 4 by the earlier requirements too —
+different routes, complex structures, more detailed art").
 
-一整根竖井：**40 格宽（一屏）、450 格高（20 屏）**，两侧各 2 格实心岩墙，里面是第 2~37 列。
-十段，每段 45 格（两屏），**从下往上**数：第 1 段是出生那一段，第 10 段最上面是 Boss 区（地板在第 20 行 = y 320）。
-每段函数拿到 `top`（这一段最上面那一行在整张图里是第几行），段里用「段内行号」0~44 画（44 是这一段最底下）。
+One whole shaft: **40 cells wide (one screen), 450 cells tall (20 screens)**, with 2 cells of solid rock wall on each side and columns 2~37 inside.
+Ten segments of 45 cells (two screens) each, counted **from the bottom up**: segment 1 is the spawn segment, and the top of segment 10 is the boss area (floor on row 20 = y 320).
+Each segment function gets `top` (which row of the whole map is the top row of this segment), and draws with "rows within the segment" 0~44 (44 is the bottom of the segment).
 
-**段与段怎么接**：每段的出口是段内第 1 行的一块台子，下一段的入口是它段内第 42 行的一条单向台子——
-两者正好隔 4 行，一跳上得去。一段 45 行、一跳最多 4 行，所以段里往上那一串台子**快到顶时要有几步是 3 行**
-（…→10→7→4→1），不然最后一步是 5 行、跳不上去（第一版就这么卡在了第二段顶上）。
+**How segments connect**: each segment's exit is a platform on its row 1, and the next segment's entrance is a one-way platform on its row 42 —
+exactly 4 rows apart, reachable in one jump. A segment is 45 rows and a jump at most 4, so the string of platforms going up in a segment **has to take a few 3-row steps near the top**
+(…→10→7→4→1), or the last step would be 5 rows and unjumpable (the first version got stuck at the top of segment 2 exactly like that).
 
-和前三关同一套原则：
-- 十段里七段**必须绕路**（标 [绕]），三段**两条路随便挑**（标 [选]），只有一个出口（Boss）。
-- 往上爬的关，「绕路」是**横着绕**：实心楼板只在一头留口子 / 架梯子，得走到另一头才上得去；
-  画面只往上卷（`only_up`），往下走最多十来格，所以每段都往上走、不往回走。
-- 敌人多、摆得合理：会斜射的西装男 4-C、蜘蛛炮台 4-E 守在楼层上，无人机 4-D **贴着两侧的墙**
-  （它横向不动，摆在中间挡路），从下面追上来的 4-A 放在每一段的下半截。
-- 画面要满：砖墙房间、竖着的管道、霓虹招牌、集装箱、蒸汽，油桶和可打爆的箱子。
+The same principles as the first three stages:
+- Seven of the ten segments **force a detour** (marked [detour]), three let you **pick either of two routes** (marked [choice]), with only one exit (the boss).
+- In a climbing stage, a "detour" goes **sideways**: solid floors only leave a gap / ladder at one end, so you have to walk to the other end to get up;
+  the view only scrolls up (`only_up`) and you can go down a dozen cells at most, so every segment goes up and never back.
+- Lots of enemies, placed sensibly: the diagonal-shooting suit man 4-C and spider turret 4-E guard the floors, drones 4-D **hug the walls on both sides**
+  (they do not move sideways and would block the way in the middle), and 4-As chasing up from below go in the lower half of each segment.
+- A full picture: brick-walled rooms, vertical pipes, neon signs, containers, steam, barrels and breakable crates.
 
-字母表：a 4-A（打手，从下面追上来）、b 4-B（猫耳女，平台守卫）、c 4-C（西装男，三向枪手）、
-d 4-D（无人机，贴着你的高度飞，飞的）、e 4-E（蜘蛛炮台，矮）、f 4-F（骷髅衫，把人抡下平台）、B 骷髅头 Boss。
+Letters: a 4-A (thug, chases up from below), b 4-B (cat-ear girl, platform guard), c 4-C (man in a suit, three-way gunner),
+d 4-D (drone, flies at your height, a flyer), e 4-E (spider turret, short), f 4-F (skull shirt, knocks people off platforms), B the skull boss.
 """
 
 from map_canvas import Canvas
@@ -28,19 +28,19 @@ FLOATING = {"4_d", "4_boss"}
 HANGING = set()
 CHASERS = {"4_a"}
 MIN_ENEMIES = 4
-## 骷髅头摆在格子里的高度：第 17 行再往下 16 = y 288（激光出口在它下面 16，正对站在第 20 行地板上的人的身体中心）
+## The skull's height within its cell: row 17 plus 16 = y 288 (the laser exit is 16 below it, level with the body centre of a person standing on the row 20 floor)
 FLOAT_AT = {"4_boss": 16.0}
 
 WIDTH = 40
 SEG = 45
 SEGMENTS_N = 10
 HEIGHT = SEG * SEGMENTS_N
-## 一整段都是一路单向台子时用的那串行号：从入口（42）往上每次 4 行，快到顶换成 3 行，最后到出口（1）的下面 3 行
+## The rows used when a whole segment is a string of one-way platforms: from the entrance (42) up 4 rows each time, switching to 3 near the top, ending 3 rows below the exit (1)
 CLIMB = [38, 34, 30, 26, 22, 18, 14, 10, 7, 4]
 
 
 class Seg:
-	"""一段：把「段内行号」换成整张图的行号，其余照 `Canvas` 的用法。"""
+	"""A segment: converts "rows within the segment" to rows of the whole map, otherwise used like `Canvas`."""
 
 	def __init__(self, cv, top):
 		self.cv, self.top = cv, top
@@ -70,13 +70,13 @@ class Seg:
 		self.cv.prop(name, c, self.top + row)
 
 	def entry(self):
-		"""入口：段内第 42 行一条整宽的单向台子（下一段的出口台子在它下面 4 行）。"""
+		"""Entrance: a full-width one-way platform on row 42 of the segment (the previous segment's exit platform is 4 rows below it)."""
 		self.ledge(2, 37, 42)
 
 
 def sump(s):
-	"""[绕] 第 1 段「集水坑」（出生）。第一屏不放敌人：几级台子教你往上跳。
-	头顶一整块实心楼板，**只在右头架了一架梯子**——第一次爬梯子。楼板上面那一屏开始有敌人。"""
+	"""[detour] Segment 1 "Sump" (spawn). No enemies on the first screen: a few platforms teach jumping up.
+	Overhead is a whole solid floor **with only one ladder at the right end** — the first ladder climb. Enemies start on the screen above the floor."""
 	s.cv.ground(2, 37)
 	s.put(4, 41, "@")
 	s.ledge(8, 15, 38)
@@ -103,11 +103,11 @@ def sump(s):
 
 
 def twin_shafts(s):
-	"""[选] 第 2 段「双井」。中间一道墙把竖井分成两半：**左边**是一层层的实心台子，梯子一架接一架
-	（台子上站着守卫和抡人的）；**右边**是一路单向台子，枪手和无人机守着。两边在顶上会合。"""
+	"""[choice] Segment 2 "Twin shafts". A wall in the middle splits the shaft in two: **on the left** are layers of solid platforms with ladder after ladder
+	(guards and knockers standing on them); **on the right** is a string of one-way platforms guarded by gunners and drones. The two sides meet at the top."""
 	s.entry()
-	s.fill(19, 20, 4, 37)                # 中间那道墙（底下留 4 行：两边都走得进去）
-	# 左井：实心台子 + 梯子
+	s.fill(19, 20, 4, 37)                # The wall in the middle (4 rows left open at the bottom: both sides can be entered)
+	# Left shaft: solid platforms + ladders
 	s.slab(6, 17, 34)
 	s.slab(2, 14, 26)
 	s.slab(6, 17, 18)
@@ -118,7 +118,7 @@ def twin_shafts(s):
 	s.ladder(15, 10, 18)
 	s.ledge(8, 18, 7)
 	s.ledge(6, 14, 4)
-	# 右井：单向台子之字形往上
+	# Right shaft: one-way platforms zigzagging up
 	for row, (c0, c1) in zip(CLIMB, [(22, 30), (28, 36)] * 5):
 		s.ledge(c0, c1, row)
 	s.ledge(2, 37, 1)
@@ -139,14 +139,14 @@ def twin_shafts(s):
 
 
 def boiler_room(s):
-	"""[绕] 第 3 段「锅炉房」。一间矮屋子：从左边楼板的口子钻进去，屋里打手、守卫、蜘蛛炮台，
-	**右头的梯子前面一整摞箱子堵着**，打烂了才爬得出去。屋顶上面一路之字形往上。"""
+	"""[detour] Segment 3 "Boiler room". A low room: get in through the gap in the floor on the left, with thugs, guards and a spider turret inside,
+	**and a whole stack of crates blocking the ladder at the right end**, so you only climb out after breaking them. Above the roof it zigzags all the way up."""
 	s.entry()
-	s.ledge(2, 5, 39)                    # 只在楼板的口子底下，不伸进楼板底下（那儿只剩 32 高的缝）
-	s.slab(6, 37, 36)                    # 屋子的地板（左头 2~5 列是口子）
-	s.fill(2, 37, 26, 28)                # 屋顶
+	s.ledge(2, 5, 39)                    # Only under the gap in the floor, not reaching under the floor (only a 32-tall gap is left there)
+	s.slab(6, 37, 36)                    # The room's floor (columns 2~5 at the left end are the gap)
+	s.fill(2, 37, 26, 28)                # Roof
 	s.ladder(34, 26, 36)
-	s.crates(30, 36, 4)                  # 梯子前面那一摞
+	s.crates(30, 36, 4)                  # The stack in front of the ladder
 	s.put(20, 41, "c")
 	s.put(12, 35, "a")
 	s.put(20, 35, "b")
@@ -170,8 +170,8 @@ def boiler_room(s):
 
 
 def vents(s):
-	"""[绕] 第 4 段「通风井」。四层实心楼板，**梯子一层在右、一层在左**，只能之字形往上爬；
-	每一层楼板上都站着人，身边堆着油桶和箱子。"""
+	"""[detour] Segment 4 "Ventilation shaft". Four solid floors, **the ladders alternating right and left**, so you can only zigzag up;
+	every floor has people standing on it with barrels and crates piled beside them."""
 	s.entry()
 	s.slab(2, 37, 36)
 	s.slab(2, 37, 28)
@@ -183,7 +183,7 @@ def vents(s):
 	s.ladder(4, 12, 20)
 	s.ledge(18, 28, 8)
 	s.ledge(8, 18, 4)
-	s.ledge(2, 12, 1)                    # 出口在左边：上面那段（货梯井）只有左边那条缝通着
+	s.ledge(2, 12, 1)                    # The exit is on the left: the segment above (the freight lift shaft) only has the gap on the left open
 	s.put(16, 35, "b")
 	s.put(24, 35, "e")
 	s.barrel(18, 36)
@@ -203,11 +203,11 @@ def vents(s):
 
 
 def lift_shaft(s):
-	"""[绕] 第 5 段「货梯井」。竖井正中码着一大垛集装箱，**右边那条缝底下是封死的**：
-	只能顺左边一路跳上去、翻过集装箱垛顶，再从右边的缝往上爬。右边缝里的炮台和枪手隔着缝打你。"""
+	"""[detour] Segment 5 "Freight lift shaft". A big stack of containers sits in the middle of the shaft, **and the gap on the right is sealed at the bottom**:
+	the only way is to jump up along the left, over the top of the container stack, then climb up the gap on the right. The turret and gunner in the right gap shoot at you across it."""
 	s.entry()
-	s.fill(12, 27, 10, 41, "X")          # 中间那一垛
-	s.fill(28, 37, 30, 41)               # 右边缝的底下封死
+	s.fill(12, 27, 10, 41, "X")          # The stack in the middle
+	s.fill(28, 37, 30, 41)               # The bottom of the right gap sealed
 	for row, (c0, c1) in zip(range(38, 9, -4), [(2, 7), (6, 11)] * 4):
 		s.ledge(c0, c1, row)
 	s.ledge(28, 33, 26)
@@ -234,10 +234,10 @@ def lift_shaft(s):
 
 
 def casino(s):
-	"""[绕] 第 6 段「赌场后门」。一进来是一条又低又长的走廊，**一整摞箱子把走廊拦腰堵住**，
-	打烂了才走得到右头的梯子；上面是挂着霓虹招牌的大厅，平台上守卫站岗。"""
-	s.ledge(2, 37, 42)                   # 走廊的地板（从下面跳得上来）
-	s.fill(2, 37, 34, 36)                # 走廊顶
+	"""[detour] Segment 6 "Casino back door". You come into a long, low corridor, **with a whole stack of crates blocking it halfway**,
+	and you only reach the ladder at the right end after breaking them; above is a hall hung with neon signs, with guards posted on the platforms."""
+	s.ledge(2, 37, 42)                   # The corridor floor (can be jumped onto from below)
+	s.fill(2, 37, 34, 36)                # Corridor roof
 	s.ladder(34, 34, 42)
 	s.crates(20, 42, 3)
 	s.put(8, 41, "e")
@@ -266,8 +266,8 @@ def casino(s):
 
 
 def subway(s):
-	"""[选] 第 7 段「地铁检修道」。**左边**贴着墙两架长梯子，一口气爬上去（爬梯子时不能开枪）；
-	**右边**一路单向台子，枪手、守卫和两架无人机。两条路在顶上会合。"""
+	"""[choice] Segment 7 "Subway maintenance way". **On the left**, two long ladders against the wall, climbed in one go (no shooting while climbing);
+	**on the right**, a string of one-way platforms with gunners, guards and two drones. The two routes meet at the top."""
 	s.entry()
 	s.slab(4, 12, 22)
 	s.ladder(2, 22, 42)
@@ -290,14 +290,14 @@ def subway(s):
 
 
 def sewer(s):
-	"""[绕] 第 8 段「下水道」。一整块实心的岩层，**只有正中一架梯子**；爬上去是一条低矮的暗渠，
-	左边一摞箱子堵着往上的那架梯子，右边是死路（守卫和油桶）。暗渠顶上再一路往上。"""
+	"""[detour] Segment 8 "Sewer". A whole solid layer of rock **with only one ladder in the middle**; at the top is a low culvert,
+	where a stack of crates blocks the ladder going up on the left, and the right is a dead end (guards and barrels). Above the culvert it goes up again."""
 	s.entry()
 	s.ledge(2, 10, 38)
 	s.ledge(6, 16, 34)
 	s.ledge(14, 26, 30)
-	s.fill(2, 37, 24, 26)                # 岩层
-	s.fill(2, 37, 16, 18)                # 暗渠顶
+	s.fill(2, 37, 24, 26)                # Rock layer
+	s.fill(2, 37, 16, 18)                # Culvert roof
 	s.ladder(19, 24, 30)
 	s.ladder(3, 16, 24)
 	s.crates(12, 24, 3)
@@ -322,8 +322,8 @@ def sewer(s):
 
 
 def last_climb(s):
-	"""[绕] 第 9 段「最后的爬升」。两层楼板，梯子一右一左；下面的打手一路追上来，
-	每层都有枪手和炮台，最后几层台子直通 Boss 区底下。"""
+	"""[detour] Segment 9 "The last climb". Two floors with the ladders one right, one left; thugs chase up from below,
+	every floor has gunners and turrets, and the last few platforms lead straight under the boss area."""
 	s.entry()
 	s.slab(2, 37, 32)
 	s.slab(2, 37, 18)
@@ -353,15 +353,15 @@ def last_climb(s):
 
 
 def boss_room(s):
-	"""[选] 第 10 段：下半截是 Boss 区底下那几层台子，上半截是 Boss 区——地板在第 20 行（y 320），
-	地板上方两块高台、一块更高的（躲激光：换一层）。骷髅头飘在右侧。"""
+	"""[choice] Segment 10: the lower half is the few platforms under the boss area, the upper half is the boss area — the floor on row 20 (y 320),
+	with two high platforms above it and an even higher one (to dodge the laser: change layers). The skull floats on the right side."""
 	s.entry()
 	s.ledge(4, 14, 38)
 	s.ledge(12, 22, 34)
 	s.ledge(20, 30, 30)
 	s.ledge(26, 36, 26)
 	s.ledge(14, 24, 24)
-	s.slab(2, 37, 20, ":")               # Boss 区的地板（单向：从下面跳得上来）
+	s.slab(2, 37, 20, ":")               # The boss area floor (one-way: can be jumped onto from below)
 	s.ledge(4, 13, 16)
 	s.ledge(26, 35, 16)
 	s.ledge(14, 25, 12)
@@ -378,7 +378,7 @@ SEGMENTS = [sump, twin_shafts, boiler_room, vents, lift_shaft, casino, subway, s
 
 
 def assemble():
-	"""从下往上画：第 1 段在最底下。两侧的岩墙一直通到顶。"""
+	"""Drawn from the bottom up: segment 1 is at the very bottom. The rock walls on both sides go all the way to the top."""
 	cv = Canvas(WIDTH, HEIGHT)
 	cv.fill(0, 1, 0, HEIGHT - 1)
 	cv.fill(38, 39, 0, HEIGHT - 1)

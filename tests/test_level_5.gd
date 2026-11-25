@@ -1,7 +1,7 @@
 extends "res://tests/layered_checks.gd"
-## 正式第五关（`scenes/level_5.tscn`，实验室）——分层的格子地图（`tools/level5_map.py`，砖用 `THEMES["lab"]`）。
-## 分层关共用的检查在 `layered_checks.gd`；这里只写**这一关独有的**：
-## 倒挂在天花板上的发射器、中段小 Boss 的房间（门）、生化舱那片空地，以及拿真规则跑几处必须绕的路。
+## The fifth real stage (`scenes/level_5.tscn`, lab) — a layered grid map (`tools/level5_map.py`, with the tiles `THEMES["lab"]`).
+## Checks shared by layered stages are in `layered_checks.gd`; this only covers **what is unique to this stage**:
+## the emitters hanging upside down from ceilings, the mid-level boss room (doors), the biopod's open ground, and running a few forced detours with the real rules.
 
 const LEVEL_INFO := "res://levels/level_5.tres"
 
@@ -18,7 +18,7 @@ func zone() -> String:
 	return "lab"
 
 
-## 关底 Boss（打死了才通关的那个）。中段的小 Boss 也是 `Boss`，但它的 `ends_level` 关着。
+## The stage boss (the one whose death clears the stage). The mid-level boss is a `Boss` too, but its `ends_level` is off.
 func the_boss() -> Boss:
 	for node in main.get_node("Enemies").get_children():
 		if node is Boss and (node as Boss).ends_level:
@@ -41,7 +41,7 @@ func doors() -> Array[ArenaDoor]:
 	return out
 
 
-## 这一关两道跳不过去的坑（沉降池、地刺阵后面那道），别的地方是墙和毒气罐在逼人绕路。
+## This stage has two pits that cannot be jumped (the settling pit, the one after the spike field); elsewhere walls and gas capsules force the detours.
 func min_pits() -> int:
 	return 2
 
@@ -72,7 +72,7 @@ func test_this_stage_brings_its_own_cast() -> void:
 		str(kinds))
 
 
-## 基类那条认「最后一个 Boss」；这一关中段还有个小 Boss，得认打死了才通关的那个。
+## The base class version picks "the last boss"; this stage has a mid-level boss too, so pick the one whose death clears the stage.
 func test_the_boss_waits_at_the_far_end() -> void:
 	await open_level()
 	var boss := the_boss()
@@ -86,7 +86,7 @@ func test_the_boss_waits_at_the_far_end() -> void:
 
 
 func test_the_ceiling_emitters_hang_right_under_a_ceiling() -> void:
-	# 5-F 一动不动地倒挂着：吊架顶边（原点往上 MOUNT）正好贴着一块实心的底边
+	# 5-F hangs upside down without moving: the top of its mount (MOUNT above the origin) touches the bottom of something solid exactly
 	await open_level()
 	var solids := solid_rects()
 	var count := 0
@@ -108,7 +108,7 @@ func test_the_ceiling_emitters_hang_right_under_a_ceiling() -> void:
 
 
 func test_the_emitters_hang_high_enough_to_walk_under() -> void:
-	# 人从底下走过去不能撞上它：它的身子底边离下面那层地面至少一个站着的人高
+	# Walking underneath you must not run into it: its body's bottom must be at least a standing person's height above the floor below
 	await open_level()
 	var faces := surfaces()
 	for enemy in enemies():
@@ -123,7 +123,7 @@ func test_the_emitters_hang_high_enough_to_walk_under() -> void:
 			"%.0f" % (floor_y - bottom))
 
 
-# ---------------------------------------------------------------- 小 Boss 的房间
+# ---------------------------------------------------------------- The mid-level boss room
 
 func test_the_mid_boss_is_locked_in_a_room() -> void:
 	await open_level()
@@ -141,7 +141,7 @@ func test_the_mid_boss_is_locked_in_a_room() -> void:
 	check("and its whole roaming range fits in the room", gunner != null
 		and gunner.position.x - gunner.roam_range > entry.position.x + ArenaDoor.SIZE.x
 		and gunner.position.x + gunner.roam_range < exit.position.x)
-	# 两边的墙一直通到画面顶：从房顶上绕不过去
+	# The walls on both sides go all the way up to the top of the view: there is no way around over the roof
 	for door in [entry, exit]:
 		var covered := 0.0
 		for rect in solid_rects():
@@ -173,7 +173,7 @@ func test_walking_in_locks_you_in_and_killing_it_lets_you_out() -> void:
 	check("it has shown up by now", gunner.has_appeared)
 	check("once you are in, the door shuts behind you", not entry.is_open)
 	check("with you inside", player.global_position.x > entry.position.x + 32.0, "%.0f" % player.global_position.x)
-	# 往回走：出不去
+	# Walking back: no way out
 	Input.action_press(&"move_left")
 	Input.action_press(&"jump")
 	await frames(90)
@@ -194,10 +194,10 @@ func test_walking_in_locks_you_in_and_killing_it_lets_you_out() -> void:
 		"%.0f" % player.global_position.x)
 
 
-# ---------------------------------------------------------------- 生化舱那片空地
+# ---------------------------------------------------------------- The biopod's open ground
 
 func test_the_pod_has_open_ground_to_sweep() -> void:
-	# 横扫激光一路压到地面上站着的人胸口：墙会挡住它（也挡视线），地上有坑扫完人也没处站
+	# The sweeping laser presses all the way down to a standing player's chest: walls would block it (and its sight), and with pits on the floor there would be nowhere to stand once it has swept
 	await open_level()
 	var boss := the_boss() as BossPod
 	check("the stage boss is the pod", boss != null)
@@ -213,7 +213,7 @@ func test_the_pod_has_open_ground_to_sweep() -> void:
 	check("it floats over the ground", boss.position.y < GROUND_Y - 100.0, "%.0f" % boss.position.y)
 
 
-# ---------------------------------------------------------------- 必须绕的路，拿真规则跑一遍
+# ---------------------------------------------------------------- Forced detours, run with the real rules
 
 func push_right(frames_held := 150, jumping := true) -> void:
 	Input.action_press(&"move_right")
@@ -224,7 +224,7 @@ func push_right(frames_held := 150, jumping := true) -> void:
 
 
 func test_the_first_building_is_a_dead_end_downstairs() -> void:
-	# 第 1 段：实验楼一楼走到头是墙（墙后是毒气罐的仓库），顺梯子上二楼
+	# Segment 1: the lab building's ground floor ends at a wall (the gas capsule store is behind it); take the ladder to the first floor
 	await open_empty()
 	player.global_position = Vector2(col_x(1, 60), GROUND_Y - 16.0)
 	await frames(3)
@@ -234,7 +234,7 @@ func test_the_first_building_is_a_dead_end_downstairs() -> void:
 
 
 func test_the_settling_pit_cannot_be_jumped_from_the_ground() -> void:
-	# 第 4 段：地面断开 32 格，助跑跳过不去，只能爬上去踩悬着的台子
+	# Segment 4: the ground breaks for 32 cells, a running jump does not get across; the only way is to climb up and step across the floating platforms
 	await open_empty()
 	player.global_position = Vector2(col_x(4, 12), GROUND_Y - 16.0)
 	await frames(3)
@@ -251,7 +251,7 @@ func test_the_settling_pit_cannot_be_jumped_from_the_ground() -> void:
 
 
 func test_the_isolation_corridor_is_sealed_by_capsules() -> void:
-	# 第 9 段：3 格高的通道里一只毒气罐就把路堵满了，打碎才过得去
+	# Segment 9: in the corridor 3 cells tall a single gas capsule fills the way; you only get through by breaking it
 	await open_empty()
 	player.global_position = Vector2(col_x(9, 20), GROUND_Y - 16.0)
 	await frames(3)
@@ -267,7 +267,7 @@ func test_the_isolation_corridor_is_sealed_by_capsules() -> void:
 
 
 func test_in_co_op_the_door_waits_for_both_players() -> void:
-	# 双人时一个人进去了、另一个还在门外：门得等两个人都进来才关，不然把队友关在外面
+	# In co-op one player went in and the other is still outside: the door has to wait until both are in, or it would lock the partner out
 	var stage := level_stage()
 	await reset_scene(true, true, stage.skin if stage != null else null, 2, level_path(), stage)
 	var gunner := the_gunner()

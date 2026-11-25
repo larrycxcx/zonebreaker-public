@@ -1,9 +1,9 @@
 extends GameTest
-## 赛博朋克皮肤包的 HUD（SpriteHud，贴图由 tools/hud_build.py 从 GUI 素材包生成）。
+## The cyberpunk skin pack's HUD (SpriteHud, sprites generated from the GUI art pack by tools/hud_build.py).
 ##
-## HUD 自己（hud.gd）照常算出要显示什么，素材包的外观只管画：这里守的是「外观收到的状态和玩法一致」——
-## 血量一格一点、体力按比例且跑不动时换色、武器槽显示手里那把枪、终极武器次数、Boss 血条按比例从右往左扣，
-## 以及拼血条的切法、纯显示（不挡鼠标）、默认包还是占位方块、占位方块照常更新只是不画。
+## The HUD itself (hud.gd) works out what to show as usual and the pack's appearance only draws: this guards "the state the appearance gets matches gameplay" —
+## one cell per point of health, stamina proportional with a colour change when too tired to run, the weapon slot showing the gun in hand, ultimate charges, the boss bar proportional shrinking right to left,
+## plus how the bars are cut, display only (never takes the mouse), the default pack still on placeholder blocks, and the placeholder blocks updating but not drawn.
 
 const SKIN := "res://skins/cyberpunk/cyberpunk_skin.tres"
 
@@ -16,7 +16,7 @@ func look() -> SpriteHud:
 	return main.get_node("HUD").look() as SpriteHud
 
 
-# ---------------------------------------------------------------- 切法
+# ---------------------------------------------------------------- How it is cut
 
 func test_bar_pieces_are_end_middle_end() -> void:
 	check("one segment uses the rounded single piece", SpriteHud.piece(0, 1) == 3)
@@ -34,7 +34,7 @@ func test_filled_cuts_the_bar_where_the_fill_ends() -> void:
 		str(SpriteHud.filled(4, 32, 80, 128)))
 
 
-# ---------------------------------------------------------------- 接上去以后
+# ---------------------------------------------------------------- Once plugged in
 
 func test_the_skin_draws_the_hud_and_the_default_does_not() -> void:
 	if needs_art(): return
@@ -45,7 +45,7 @@ func test_the_skin_draws_the_hud_and_the_default_does_not() -> void:
 	check("the skin puts its HUD look in", look() != null)
 	for path in ["HUD/HealthBar", "HUD/StaminaBar", "HUD/WeaponIcon", "HUD/UltimateRow", "HUD/BossBar"]:
 		check("%s is no longer drawn" % path, (main.get_node(path) as CanvasItem).modulate.a == 0.0)
-	# 占位方块照常更新：逻辑和老测试都读它们
+	# The placeholder blocks keep updating: logic and old tests read them
 	check("but the placeholders still update", (main.get_node("HUD/HealthBar/Fill") as ColorRect).size.x > 0.0)
 
 
@@ -68,7 +68,7 @@ func test_stamina_follows_the_player_and_turns_orange_when_spent() -> void:
 	check("half stamina, half the bar", absf(look().stamina_ratio - 0.5) < 0.02, str(look().stamina_ratio))
 	check("half the bar in pixels", look().stamina_fill() == 32, str(look().stamina_fill()))
 	check("not tired yet", not look().tired)
-	# 真的跑光：体力先调低，按住奔跑往右跑到「耗尽」，回到门槛之前一直是橙色
+	# Really run out: lower the stamina first, hold run going right until "exhausted", and it stays orange until back at the threshold
 	player._set_stamina(8.0)
 	Input.action_press("move_right")
 	Input.action_press("sprint")

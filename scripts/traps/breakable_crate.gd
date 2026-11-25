@@ -1,21 +1,21 @@
 class_name BreakableCrate
 extends StaticBody2D
-## 可打爆的箱子（2026-10）：堵在路上，**开几枪打烂才过得去**。一块 32×24（素材 `Chest.png` 那只箱子的大小）、实心（world 层）——
-## 挡人、挡敌人、挡子弹，和墙一样；敌人可以躲在后面。被打 `toughness` 下就散架，碰撞撤掉、路就通了。
-## 敌人的子弹打在上面也算数（躲在后面的人朝你开枪，可能自己把掩体打烂）。
-## 节点原点在左上角。一只 24 高、跳得过去；地图里一竖条 `K` 会摞成一堆（`map_build.py`），摞到顶才真堵死。
+## Breakable crate (2026-10): blocks the way, **a few shots break it open**. 32×24 (the size of the crate in `Chest.png`), solid (world layer) —
+## it blocks players, enemies and bullets like a wall, and enemies can hide behind it. After `toughness` hits it falls apart, its collision goes and the way is open.
+## Enemy bullets hitting it count too (someone hiding behind it shooting at you may break their own cover).
+## Node origin at the top-left corner. One is 24 tall and can be jumped over; a vertical column of `K` in the map becomes a stack (`map_build.py`), and only a stack up to the ceiling truly blocks the way.
 
 @export var skin_key := &"trap_crate"
-## 几下打烂（不按伤害算，按次数：换了把伤害高的枪，箱子不会一碰就碎，谜题的节奏才稳）。
+## Hits to break it (counted in hits, not damage: with a stronger gun the crate still does not break at a touch, so the puzzle keeps its pace).
 @export var toughness := 4
-## 判定框多大（左上角在原点）。箱子是 `SIZE`；第五关的毒气罐 32×48（场景里配，碰撞形状要跟着配）。
+## Size of the hitbox (top-left corner at the origin). Crates are `SIZE`; stage 5's gas capsules are 32×48 (set in the scene, along with a matching collision shape).
 @export var size := SIZE
-## 打烂之后留着碎片（不删节点、只撤碰撞）：毒气罐碎了地上还有一圈玻璃碴，人照常走过去。
-## 箱子是散架动画走完就整个删掉。
+## Keep the debris once broken (the node stays, only the collision goes): a shattered gas capsule leaves a ring of glass on the floor that you walk over as usual.
+## A crate is deleted entirely once its falling-apart animation has played.
 @export var keep_debris := false
 
 const SIZE := Vector2(32, 24)
-## 碎片多高（占位色块画一条这么高的，素材包的外观画最破的那张图）。
+## Height of the debris (the placeholder draws a strip this tall; the pack's look draws the most broken image).
 const DEBRIS_H := 8.0
 
 var hits := 0
@@ -42,12 +42,12 @@ func take_damage(_amount: int, _source_position := Vector2.INF, _from: Node = nu
 		GameEvents.report(&"bullet_impact", self)
 	_show()
 	if broken and not keep_debris:
-		# 散架动画走完再撤掉（外观自己播；占位色块就直接没了）
+		# Removed once the falling-apart animation has played (the look plays it itself; the placeholder block just vanishes)
 		var timer := get_tree().create_timer(0.5)
 		timer.timeout.connect(queue_free)
 
 
-## 外观看的是「打到第几下了」：0 = 完好，越打越烂，`broken` 之后播散架。
+## The look goes by "how many hits so far": 0 = intact, more broken with each hit, falling apart after `broken`.
 func damage_stage() -> float:
 	return clampf(float(hits) / float(toughness), 0.0, 1.0)
 

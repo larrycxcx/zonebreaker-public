@@ -1,13 +1,13 @@
 class_name TrapTimeline
 extends RefCounted
-## 机关（液压机、闸门）的时间轴：8 帧，每帧停多久写在一张表里，循环播。
+## Timeline for traps (hydraulic press, blast gate): 8 frames, with how long each holds in a table, looping.
 ##
-## **规则和画面用的是同一个帧号**：判定按这一帧的形状（从贴图量出来的表）算，外观只管把这一帧画出来，
-## 所以换皮肤（占位色块 ↔ 素材贴图）规则一点不变。
-## `phase` 让并排的几台错开节奏——一排液压机同时砸下来就只是一堵墙，错开了才是「看准空当冲过去」。
+## **The rules and the picture use the same frame number**: the hit check uses this frame's shape (a table measured from the art), and the look only draws this frame,
+## so switching skins (placeholder blocks ↔ art sprites) does not change the rules at all.
+## `phase` staggers several side by side — a row of presses slamming down together would just be a wall; staggered, it becomes "time it and dash through the gap".
 
 
-## 第 `time` 秒（加上错开的 `phase`）是第几帧。
+## Which frame it is at `time` seconds (plus the stagger `phase`).
 static func frame_at(time: float, durations: Array[float], phase: float) -> int:
 	var total := 0.0
 	for d in durations:

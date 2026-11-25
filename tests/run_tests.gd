@@ -1,10 +1,10 @@
 extends SceneTree
-## 测试入口。用法（$godot 见 CLAUDE.md）：
+## Test entry point. Usage ($godot: see CLAUDE.md):
 ##
 ##   & $godot --headless --path . --script res://tests/run_tests.gd
 ##   & $godot --headless --path . --script res://tests/run_tests.gd -- crouch
 ##
-## 加 `-- <名字>`（player / enemies / enemy_types / enemy_aim / chaser / flyer / crouch / sprint / walls / gamepad / aiming / weapons / grenade / audio）只跑指定的一组，不加就全跑。全部通过退出码为 0，有失败为 1。
+## Add `-- <name>` (player / enemies / enemy_types / enemy_aim / chaser / flyer / crouch / sprint / walls / gamepad / aiming / weapons / grenade / audio) to run only that suite; without it everything runs. Exit code 0 when everything passes, 1 on failures.
 
 const SUITES := {
 	"player": "res://tests/test_player.gd",
@@ -66,15 +66,15 @@ const SUITES := {
 }
 
 
-## 单条用例最多跑多久。防的是用例在等一个永远不会来的信号，
-## runner 的 await 会一直等下去；看门狗到点就报出是哪条用例卡住，并以失败退出。
+## The longest one case may run. It guards against a case waiting for a signal that never comes,
+## where the runner's await would wait forever; when the watchdog fires it reports which case is stuck and exits with a failure.
 const TEST_TIMEOUT_SEC := 60.0
 
 
-## 收集用例运行期间的 SCRIPT ERROR。
-## Godot 里协程中途出运行时错误时，那条用例直接中止，但 runner 的 await 照常返回，
-## 而它一条断言都没记——不拦下来的话，出错的用例会被当成「通过」。
-## Logger 可能在别的线程被调用，所以加锁。
+## Collect the SCRIPT ERRORs during a case.
+## In Godot, a runtime error in the middle of a coroutine aborts that case, but the runner's await returns as usual,
+## and the case has recorded no assertions — without catching them, failing cases would be counted as "passed".
+## The Logger may be called from another thread, hence the lock.
 class ScriptErrorCollector extends Logger:
 	var _mutex := Mutex.new()
 	var _errors: Array[String] = []
@@ -113,23 +113,23 @@ func _arm_watchdog(label: String) -> void:
 
 
 func _run() -> void:
-	# 这个入口脚本比 autoload 单例（GameEvents、Skins、Sfx）更早编译，那时它们的名字还不存在。
-	# 所以这里不能静态引用任何会连带加载游戏脚本的类型（比如 `var suite: GameTest`——
-	# 它会立刻编译 GameTest → Player → player.gd 里的 GameEvents 报「找不到标识符」，整场测试都跑在坏掉的玩家上），
-	# 并且先等一帧，单例注册好之后再去加载各组测试。
+	# This entry script is compiled earlier than the autoload singletons (GameEvents, Skins, Sfx), when their names do not exist yet.
+	# So it must not statically reference any type that drags in game scripts (e.g. `var suite: GameTest` —
+	# that would compile GameTest → Player → player.gd at once, where GameEvents is "identifier not found", and the whole run would use a broken player),
+	# and it waits one frame first, loading the suites once the singletons are registered.
 	await process_frame
 	var wanted := OS.get_cmdline_user_args()
 	var total := 0
 	var failed := 0
 	var failed_labels: Array[String] = []
-	# 素材不在（公开版）时，测素材本身的用例自己跳过（`GameTest.needs_art()`），这里只是数一数
+	# When the art is missing (public build) the cases testing the art skip themselves (`GameTest.needs_art()`); this only counts them
 	var skipped := 0
 
 	for suite_name in SUITES:
 		if wanted.size() > 0 and not wanted.has(suite_name):
 			continue
 		print("\n=== ", suite_name, " ===")
-		# 测试脚本本身有语法错误时 load 会失败：记为一条失败、继续跑别的组，而不是整个 runner 崩掉卡死。
+		# If a test script itself has a syntax error, load fails: record one failure and carry on with the other suites, instead of the whole runner crashing or hanging.
 		var script := load(SUITES[suite_name]) as GDScript
 		if script == null or not script.can_instantiate():
 			total += 1
@@ -147,10 +147,10 @@ func _run() -> void:
 			print("  ", test_name)
 			suite.results.clear()
 			suite.skipped = false
-			_script_errors.take() # 丢掉上一条用例收尾阶段可能产生的错误，只算这条自己的
+			_script_errors.take() # Drop errors that may come from the previous case's teardown; only count this case's own
 			_arm_watchdog("%s / %s" % [suite_name, test_name])
 			await suite.call(test_name)
-			# 每条用例跑完就把场景释放掉，用例之间互不影响，退出时也不会报资源泄漏。
+			# Free the scene after every case, so cases do not affect each other and nothing leaks on exit.
 			suite.free_scene()
 			await physics_frame
 			for error in _script_errors.take():
@@ -170,7 +170,7 @@ func _run() -> void:
 					failed_labels.append(label)
 					print("    FAIL  ", result["label"], ("  " + detail) if detail != "" else "")
 
-	_test_serial += 1 # 解除最后一条用例的看门狗
+	_test_serial += 1 # Disarm the last case's watchdog
 	print("\n", "-".repeat(50))
 	if skipped > 0:
 		print("%d tests skipped: they check the third-party art, which this build leaves out" % skipped)

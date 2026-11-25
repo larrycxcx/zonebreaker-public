@@ -1,27 +1,27 @@
 class_name Fx
 extends Node2D
-## 特效层：听 `GameEvents`，在对应位置生成短命的占位特效。
+## Effects layer: listens to `GameEvents` and spawns short-lived placeholder effects at the right spots.
 ##
-## 玩法代码一行都不用改——它只管报告「发生了什么」（开枪、打中、撞墙），
-## 由这里决定画什么、画在哪。特效场景在关卡里用导出属性指定，第 4 步换素材包时整套替换。
-## 特效都是纯显示的 Node2D，没有碰撞，挂在自己下面，关卡一卸载就跟着没了。
+## Gameplay code does not change by a line — it only reports "what happened" (a shot, a hit, a bullet hitting a wall),
+## and this decides what to draw and where. The effect scenes are set by exported properties in the level; step 4 replaces the whole set with a skin pack.
+## Effects are display-only Node2Ds without collision, hung under this node, so they disappear when the level unloads.
 
-## 下面这些是**默认**特效：当前素材包里有同名的特效就用包里的（见 `SkinPack.EFFECT_KEYS`）。
-## 开枪时在枪口闪一下。
+## These are the **default** effects: if the current skin pack has an effect with the same key it is used instead (see `SkinPack.EFFECT_KEYS`).
+## A flash at the muzzle when firing.
 @export var muzzle_flash_scene: PackedScene
-## 子弹打中角色（玩家或敌人）时的火花。
+## Sparks when a bullet hits a character (player or enemy).
 @export var hit_spark_scene: PackedScene
-## 子弹打在墙、地面这种实心物体上时的火花。
+## Sparks when a bullet hits something solid like a wall or the ground.
 @export var impact_spark_scene: PackedScene
-## 手雷爆炸（大小按爆炸半径缩放）。
+## Grenade explosion (scaled to the blast radius).
 @export var explosion_scene: PackedScene
 
-## 哪些事件算「开了一枪」。各角色开枪报告的事件名在场景里设置（`Enemy.shoot_event`），
-## 加新敌人时这里要一起加；`test_fx.gd` 会检查关卡里每个敌人的 shoot_event 都在这张表里。
-## 特效层所在的分组。倒地的敌人要找个地方播完死亡动画（本体已经删了），就挂到这里来。
+## Which events count as "a shot was fired". The event each character reports when firing is set in its scene (`Enemy.shoot_event`);
+## add it here when adding a new enemy; `test_fx.gd` checks that every enemy's shoot_event in the level is in this list.
+## Group of the effects layer. A fallen enemy needs somewhere to finish its death animation (its body is already deleted), so it hangs itself here.
 const GROUP := &"fx"
 const SHOOT_EVENTS: Array[StringName] = [&"player_shoot", &"enemy_shoot", &"turret_shoot", &"flyer_shoot"]
-## 这些事件表示「有人挨打了」，在被打的那个身上画火花。
+## These events mean "someone got hit"; sparks are drawn on whoever got hit.
 const HIT_EVENTS: Array[StringName] = [&"enemy_hit", &"player_hurt"]
 
 
@@ -38,26 +38,26 @@ func _on_event(event: StringName, source: Node) -> void:
 	elif HIT_EVENTS.has(event):
 		_spawn(&"hit_spark", hit_spark_scene, _body_center(source))
 	elif event == &"bullet_impact":
-		# 子弹撞到实心物体时报告，它自己的位置就是命中点；火星朝子弹飞来的方向溅回去。
+		# Reported when a bullet hits something solid; its own position is the impact point. The sparks splash back the way the bullet came.
 		var spark := _spawn(&"impact_spark", impact_spark_scene, (source as Node2D).global_position)
 		var flew: Variant = source.get(&"direction")
 		if spark != null and spark.has_method(&"point") and flew is Vector2:
 			spark.call(&"point", -(flew as Vector2))
 	elif event == &"explosion":
-		# 手雷炸的时候报告，大小照它的爆炸半径来。
-		# 有 body_center 的（油桶：原点在桶底）炸在身子正中，手雷这种原点就是中心的照旧
+		# Reported when a grenade explodes; sized by its blast radius.
+		# Things with body_center (barrels: origin at the bottom) explode at the middle of their body; things like grenades whose origin is the centre stay as they are
 		var blast := _spawn(&"explosion", explosion_scene, _body_center(source))
 		if blast != null:
 			blast.set(&"radius", source.get(&"blast_radius"))
 	elif event == &"acid_splash":
-		# 酸液瓶摔碎（第五关的科学家扔的）：规则就是手雷那套，画面换成一团酸液溅开，
-		# 素材包没有这个特效时退回手雷的爆炸
+		# An acid flask shattering (thrown by stage 5's scientists): the rules are the grenade's, the visual is a splash of acid instead;
+		# if the pack has no such effect, fall back to the grenade explosion
 		var splash := _spawn(&"acid_splash", explosion_scene, (source as Node2D).global_position)
 		if splash != null:
 			splash.set(&"radius", source.get(&"blast_radius"))
 	elif event == &"ultimate_blast":
-		# 终极武器定格结束：在它这一下打的每个敌人身上各炸一团（报告时敌人还没被消灭，读得到位置）。
-		# 只有终极武器本身带着 targets；别处（比如测音效时）拿别的对象报告这个事件，就没有要画的
+		# The ultimate's freeze has ended: an explosion on each enemy it hit (when this is reported the enemies are not destroyed yet, so their positions can be read).
+		# Only the ultimate itself carries targets; when something else reports this event (e.g. while testing sounds) there is nothing to draw
 		var targets: Variant = source.get(&"targets")
 		if not targets is Array:
 			return
@@ -70,28 +70,28 @@ func _on_event(event: StringName, source: Node) -> void:
 				blast.set(&"radius", source.get(&"blast_radius"))
 
 
-## 枪口闪光：开枪的人自己记着这一枪从哪出膛、朝哪打（last_muzzle_position / last_shot_direction）。
+## Muzzle flash: the shooter remembers where this shot left the muzzle and which way it went (last_muzzle_position / last_shot_direction).
 func _flash_muzzle(source: Node) -> void:
 	var position_: Vector2 = source.get(&"last_muzzle_position")
 	var direction: Vector2 = source.get(&"last_shot_direction")
 	var flash := _spawn(&"muzzle_flash", muzzle_flash_scene, position_)
 	if flash == null or direction == Vector2.ZERO:
 		return
-	# 素材包的像素图不能转 45°，有 point() 就让它挑那个方向画好的图；占位方块照旧整个转过去
+	# The pack's pixel art cannot be rotated 45°, so if it has point() let it pick the image drawn for that direction; the placeholder block still rotates as a whole
 	if flash.has_method(&"point"):
 		flash.call(&"point", direction)
 	else:
 		flash.rotation = direction.angle()
 
 
-## 身体中心：玩家趴下时中心更低，有这个方法就用它。
+## Body centre: lower when the player is prone; use the method if it exists.
 func _body_center(source: Node) -> Vector2:
 	if source.has_method("body_center"):
 		return source.call("body_center")
 	return (source as Node2D).global_position
 
 
-## 生成一个特效：当前素材包里有这个键就用包里的，没有就用节点上配的默认场景。
+## Spawn an effect: use the current skin pack's if it has this key, otherwise the default scene set on the node.
 func _spawn(key: StringName, fallback: PackedScene, position_: Vector2) -> Node2D:
 	var scene := Skins.effect(key, fallback)
 	if scene == null:

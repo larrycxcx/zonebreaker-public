@@ -1,9 +1,9 @@
 extends GameTest
-## 地下室素材包（第四关那一套，`tools/terrain_build.py basement` 从 Basement Tileset 生成）。
+## The basement skin pack (stage 4's set, generated from the Basement Tileset by `tools/terrain_build.py basement`).
 ##
-## 和工业区、酒吧街守的是同一批：一个区只装自己独有的、其余顺着 fallback 拿，地砖别挑成半格的。
-## 这一关独有的：**关卡是纵向往上爬的**，所以背景不是横着视差滚动，而是一面拼出来的内墙
-## **竖着无缝平铺**；以及「像拾取物的东西不要」（Card / Money、墙上那些小灯）。
+## It guards the same things as the industrial zone and bar street: a zone only holds what is unique to it and takes the rest through the fallback, tiles not picked as half cells.
+## Unique to this stage: **the stage climbs upward**, so the backdrop is not a horizontal parallax but an assembled inner wall
+## **tiled seamlessly vertically**; plus "nothing that looks like a pickup" (Card / Money, the little lights on the walls).
 
 const PACK := "res://skins/basement/basement_skin.tres"
 const ART := "res://skins/basement"
@@ -18,7 +18,7 @@ func zone_art(rel: String) -> Image:
 	return (load("%s/%s" % [ART, rel]) as Texture2D).get_image()
 
 
-# ---------------------------------------------------------------- 只装自己独有的
+# ---------------------------------------------------------------- Only what is unique to it
 
 func test_the_pack_brings_terrain_a_backdrop_light_and_its_own_track() -> void:
 	if needs_art(): return
@@ -67,7 +67,7 @@ func test_each_zone_plays_its_own_track() -> void:
 	check("four zones, four different tracks", heard.size() == 4, str(heard.keys()))
 
 
-# ---------------------------------------------------------------- 地砖
+# ---------------------------------------------------------------- Tiles
 
 func test_the_terrain_art_is_this_zone_and_not_another() -> void:
 	if needs_art(): return
@@ -80,7 +80,7 @@ func test_the_terrain_art_is_this_zone_and_not_another() -> void:
 
 func test_no_terrain_tile_is_half_empty() -> void:
 	if needs_art(): return
-	# 41~44 那排薄条只画了上半格，生成时裁到 16 行；裁漏了九宫格会把空白也当成边
+	# The thin strips 41~44 only draw the top half of a cell and are cropped to 16 rows by the build; without the crop the nine-slice would take the blank part as an edge
 	for name: String in ["ground", "ledge", "stone"]:
 		var img := zone_art("terrain/%s.png" % name)
 		var empty := 0
@@ -92,13 +92,13 @@ func test_no_terrain_tile_is_half_empty() -> void:
 					break
 			if blank:
 				empty += 1
-		check("%s has no blank rows" % name, empty == 0, "%d 行是空的（%dx%d）"
+		check("%s has no blank rows" % name, empty == 0, "%d rows are empty (%dx%d)"
 			% [empty, img.get_width(), img.get_height()])
 
 
 func test_walls_are_a_full_nine_slice() -> void:
 	if needs_art(): return
-	# 竖井两侧的墙和堵块都是大块头，要四角、四边、中间齐全才拼得出一整块岩体
+	# The walls and blockers on both sides of the shaft are big pieces; all four corners, four edges and the middle are needed to assemble a whole block of rock
 	var stone := zone_art("terrain/stone.png")
 	check("the stone source is three tiles each way", stone.get_size() == Vector2i(96, 96),
 		str(stone.get_size()))
@@ -106,7 +106,7 @@ func test_walls_are_a_full_nine_slice() -> void:
 	check("the ledge is one thin strip", ledge.get_size() == Vector2i(96, 16), str(ledge.get_size()))
 
 
-# ---------------------------------------------------------------- 背景：竖着铺的内墙
+# ---------------------------------------------------------------- Backdrop: an inner wall tiled vertically
 
 func backdrop_layers() -> Array[Parallax2D]:
 	var out: Array[Parallax2D] = []
@@ -120,7 +120,7 @@ func backdrop_layers() -> Array[Parallax2D]:
 
 func test_the_backdrop_repeats_upwards_without_end() -> void:
 	if needs_art(): return
-	# 关卡有 20 屏高：背景得竖着重复，而且一层的高度就是重复的间距，否则会露缝或者重叠
+	# The stage is 20 screens tall: the backdrop must repeat vertically, with each layer's height as the repeat interval, or it shows gaps or overlaps
 	var layers := backdrop_layers()
 	check("setup: there are layers", layers.size() >= 2, str(layers.size()))
 	for layer in layers:
@@ -135,7 +135,7 @@ func test_the_backdrop_repeats_upwards_without_end() -> void:
 
 func test_the_back_wall_is_solid() -> void:
 	if needs_art(): return
-	# 最后面那层是整面墙：哪怕一个像素透了，竖井里就会露出清屏色
+	# The rearmost layer is a whole wall: if even one pixel were transparent, the clear colour would show in the shaft
 	var wall := zone_art("backdrop/wall.png")
 	var holes := 0
 	for y in wall.get_height():
@@ -147,9 +147,9 @@ func test_the_back_wall_is_solid() -> void:
 
 func test_the_back_wall_sits_behind_the_terrain() -> void:
 	if needs_art(): return
-	# 墙是往后压暗过的：亮的那一截不到地形的一半，不然平台糊进墙里（不压暗时是 0.27 对 0.41，压了是 0.15）。
-	# **比亮的那一截，不比平均**：岩块中间是一大片深紫填充，平均下来本来就暗；
-	# 让平台和墙从背景里跳出来的是它那圈浅色描边。
+	# The wall is pushed back and darkened: its bright part is less than half of the terrain's, or the platforms blur into the wall (0.27 vs 0.41 without darkening, 0.15 with).
+	# **Compare the bright part, not the average**: the middle of the rock blocks is a big area of dark purple fill, so the average is dark anyway;
+	# what makes platforms and walls stand out from the backdrop is their ring of light outline.
 	var wall := _bright_end(zone_art("backdrop/wall.png"))
 	for name: String in ["stone", "ledge", "ground"]:
 		var rock := _bright_end(zone_art("terrain/%s.png" % name))
@@ -157,7 +157,7 @@ func test_the_back_wall_sits_behind_the_terrain() -> void:
 			"%.3f vs %.3f" % [wall, rock])
 
 
-## 第 90 百分位的亮度：图里「亮的那部分」有多亮。
+## Brightness at the 90th percentile: how bright "the bright part" of the image is.
 func _bright_end(img: Image) -> float:
 	var values: Array[float] = []
 	for y in img.get_height():
@@ -169,7 +169,7 @@ func _bright_end(img: Image) -> float:
 	return values[int(values.size() * 0.9)] if not values.is_empty() else 0.0
 
 
-# ---------------------------------------------------------------- 光照、装饰
+# ---------------------------------------------------------------- Lighting, scenery
 
 func test_the_light_is_the_neon_overlay_of_this_zone() -> void:
 	if needs_art(): return
@@ -181,7 +181,7 @@ func test_the_light_is_the_neon_overlay_of_this_zone() -> void:
 	light.free()
 
 
-## 第三关的教训：小小一个、亮晶晶地摆在地上的，看着就是能捡的东西。
+## The lesson of stage 3: small, shiny things lying on the floor look like things to pick up.
 const PICKUP_LOOKALIKES := ["card", "money", "lamp", "bottle", "glass", "coin"]
 
 
@@ -200,13 +200,13 @@ func test_no_prop_looks_like_a_pickup() -> void:
 
 func test_the_steam_is_the_one_thing_that_moves() -> void:
 	if needs_art(): return
-	# 会动的只要蒸汽：288×48 = 6 帧
+	# Only the steam moves: 288×48 = 6 frames
 	var smoke := zone_art("props/smoke.png")
 	check("six square frames of steam", smoke.get_width() == smoke.get_height() * 6,
 		str(smoke.get_size()))
 
 
-# ---------------------------------------------------------------- 接上去以后
+# ---------------------------------------------------------------- Once plugged in
 
 func test_every_platform_wears_this_zone_terrain() -> void:
 	if needs_art(): return
@@ -224,7 +224,7 @@ func test_every_platform_wears_this_zone_terrain() -> void:
 
 func test_the_level_is_lit_and_the_rules_do_not_change() -> void:
 	if needs_art(): return
-	# 换上这套包，测试关照常跑：玩家站得住、光照层夹在地形和人中间
+	# With this pack on, the test level runs as usual: the player stands firm, the lighting layer sits between terrain and characters
 	await reset_scene(true, true, pack())
 	await frames(30)
 	check("the player stands", player.is_on_floor() and player.is_alive(), str(player.global_position))

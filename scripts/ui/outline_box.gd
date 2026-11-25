@@ -1,15 +1,15 @@
 class_name OutlineBox
 extends Control
-## 一个空心的方框，用来框住「现在选中的是哪一项」。
+## A hollow box used to frame "which item is selected now".
 ##
-## 界面上不用小箭头当光标了，一律用这个黄框圈住选中的东西——
-## 框住的是整块内容（那一行字、那个头像、那一格装备），一眼看得出选的是什么。
+## The UI no longer uses little arrows as cursors; selected things are always framed by this yellow box —
+## it frames the whole piece of content (that line of text, that portrait, that gear box), so you can see at a glance what is selected.
 
 @export var colour := Color(0.961, 0.784, 0.353):
 	set(value):
 		colour = value
 		queue_redraw()
-## 线宽（像素）。
+## Line width (pixels).
 @export var thickness := 1.0:
 	set(value):
 		thickness = value
@@ -20,7 +20,7 @@ func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-## 框到这一块上。
+## Frame this rectangle.
 func frame(box: Rect2) -> void:
 	position = box.position
 	size = box.size

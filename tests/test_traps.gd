@@ -1,9 +1,9 @@
 extends GameTest
-## 第二关的两种机关：液压机（`HydraulicPress`）和闸门（`BlastGate`）。2026-10 用户要求加的，
-## 素材里一直有、我们没用上。都只伤玩家，都得躲着穿过去。
+## The two traps of stage 2: the hydraulic press (`HydraulicPress`) and the blast gate (`BlastGate`). Added at the user's request in 2026-10;
+## they had always been in the art and we had not used them. Both only hurt the player, and both have to be dodged to get past.
 ##
-## 规则按贴图每一帧量出来的表算（锤头压到哪、门开多大），外观只画那一帧——
-## 所以最后一条用例拿默认皮肤和素材包各跑一遍，比判定是不是一模一样。
+## The rules follow tables measured from every frame of the art (how far the hammer presses, how wide the gate opens), and the visual only draws that frame —
+## so the last case runs once with the default skin and once with the pack and checks the hit detection is identical.
 
 const GROUND_Y := 320.0
 const STAND_Y := 304.0
@@ -18,7 +18,7 @@ func place(scene: String, x: float) -> Node2D:
 	return trap
 
 
-## 推进到机关的某一帧（最多 n 帧物理帧）。
+## Advance the trap to a given frame (at most n physics frames).
 func until_frame(trap: Node, wanted: Array, n := 300) -> bool:
 	for i in n:
 		if wanted.has(trap.get("frame")):
@@ -27,7 +27,7 @@ func until_frame(trap: Node, wanted: Array, n := 300) -> bool:
 	return wanted.has(trap.get("frame"))
 
 
-# ---------------------------------------------------------------- 液压机
+# ---------------------------------------------------------------- Hydraulic press
 
 func test_a_raised_press_leaves_room_to_walk_under() -> void:
 	await reset_scene()
@@ -59,14 +59,14 @@ func test_a_slamming_press_hits_standing_and_lying_alike() -> void:
 
 
 func test_a_press_blocks_nothing() -> void:
-	# 碰不得，但不是墙：没有碰撞体，人和子弹都不会被它挡住（挡住的是天花板，那是关卡的事）
+	# Not to be touched, but not a wall: no collider, neither people nor bullets are stopped by it (the ceiling stops them, which is the stage's business)
 	var press := (load("res://scenes/trap_press.tscn") as PackedScene).instantiate()
 	var bodies := press.find_children("*", "CollisionObject2D", true, false)
 	check("no collision bodies", bodies.is_empty() and not press is CollisionObject2D, str(bodies))
 	press.free()
 
 
-# ---------------------------------------------------------------- 闸门
+# ---------------------------------------------------------------- Blast gate
 
 func test_a_shut_gate_is_a_wall() -> void:
 	await reset_scene()
@@ -119,9 +119,9 @@ func test_a_closing_gate_bites_and_throws_you_out() -> void:
 
 
 func test_a_gate_never_shuts_on_someone_who_cannot_move() -> void:
-	# 关门那一下的击退一般就把人推出去了；但倒地的人（双人）不吃击退、被定住的也动不了——
-	# 合死那一刻还在门里的要直接挪出去，否则人就嵌在实心的门里了。
-	# 只靠击退的话上一条用例照样绿（故障注入时发现的），所以这条把人定住单独测
+	# The knockback when the gate shuts usually pushes people out; but a downed player (co-op) takes no knockback, and someone held in place cannot move —
+	# anyone still in the gate when it slams shut has to be moved out directly, or they would be stuck inside the solid gate.
+	# Relying only on knockback, the previous case stays green anyway (found during fault injection), so this one holds the player in place and tests it separately
 	await reset_scene()
 	var gate := place("res://scenes/trap_gate.tscn", 400) as BlastGate
 	await until_frame(gate, [4])
@@ -135,7 +135,7 @@ func test_a_gate_never_shuts_on_someone_who_cannot_move() -> void:
 		"%s vs %s" % [player.hit_box(), gate.column()])
 
 
-# ---------------------------------------------------------------- 第二关里的摆法
+# ---------------------------------------------------------------- How they are placed in stage 2
 
 func open_level_2(skin: SkinPack = null) -> void:
 	await reset_scene(true, true, skin, 1, LEVEL_2)
@@ -155,7 +155,7 @@ func solids_of_level() -> Array[Rect2]:
 
 
 func test_stage_2_has_presses_and_a_gate() -> void:
-	# 第二关是分层的格子地图：液压机挂在各层楼板的天花板下，闸门是厂房二楼的出口
+	# Stage 2 is a layered grid map: presses hang under the ceilings of each floor, and the gate is the exit of the factory's first floor
 	await open_level_2()
 	var presses := traps_of(HydraulicPress)
 	var gates := traps_of(BlastGate)
@@ -174,8 +174,8 @@ func test_stage_2_has_presses_and_a_gate() -> void:
 
 
 func test_you_cannot_jump_over_a_gate_or_round_a_press() -> void:
-	# 门和压机都只有 64 高、一跳有 87——头顶要有实心的盖着，留下的缝最多一个人高（32）：
-	# 那截缝在压机的杆子旁边、半空里，人站不进去
+	# Gates and presses are only 64 tall and a jump is 87 — there has to be something solid overhead, and the gap left is at most a person's height (32):
+	# that gap is beside the press's rod, in mid-air, and nobody can stand in it
 	await open_level_2()
 	var solids := solids_of_level()
 	for trap: Node2D in traps_of(HydraulicPress) + traps_of(BlastGate):
@@ -195,7 +195,7 @@ func test_no_enemy_waits_inside_a_trap() -> void:
 			var e := enemy as Enemy
 			if e.global_position.y < 0.0:
 				continue
-			# 只看同一层的：楼上楼下的隔着楼板，撞不上
+			# Only the same floor counts: those upstairs and downstairs are separated by the floor and cannot collide
 			if absf(e.global_position.y - (trap.global_position.y + 48.0)) > 48.0:
 				continue
 			check("%s is clear of %s" % [e.name, trap.name],
@@ -218,9 +218,9 @@ func test_the_pack_draws_the_traps_and_the_rules_do_not_change() -> void:
 	check("same danger zones in both skins", rects[0] == rects[1], str(rects))
 
 
-# ---------------------------------------------------------------- 油桶、可打爆的箱子、传送带
-# 2026-10 用户要的三样：「红色的桶当汽油桶放在敌人旁边，打一枪就炸（手雷那种爆炸）」、
-# 「传送带」、「可打爆的箱子」。
+# ---------------------------------------------------------------- Barrels, breakable crates, conveyors
+# The three things the user asked for in 2026-10: "a red barrel as a fuel barrel next to enemies that explodes with one shot (grenade-style explosion)",
+# "conveyor belts", "breakable crates".
 
 const BARREL := "res://scenes/trap_barrel.tscn"
 const CRATE := "res://scenes/trap_crate.tscn"
@@ -240,7 +240,7 @@ func crate_at(x: float, bottom := GROUND_Y) -> BreakableCrate:
 	return crate
 
 
-## 一个站着不动、不还手的炮台（60 血，挨得住一桶），摆在 x 上。
+## A turret that stands still and does not fight back (60 health, enough to survive a barrel), placed at x.
 func dummy_at(x: float) -> Enemy:
 	await reset_scene(true)
 	keep_only_enemies(["Turret1"])
@@ -250,7 +250,7 @@ func dummy_at(x: float) -> Enemy:
 	return turret
 
 
-## 玩家站在 x 上朝右开一枪，等子弹飞一会儿。
+## The player stands at x and fires once to the right, then waits for the bullet to fly a while.
 func shoot_right_from(x: float, wait := 40) -> void:
 	player.global_position = Vector2(x, STAND_Y)
 	await frames(2)
@@ -311,7 +311,7 @@ func test_barrels_go_off_in_a_chain() -> void:
 	var third := barrel_at(380)
 	var far := barrel_at(560)
 	player.global_position = Vector2(100, STAND_Y)
-	await frames(2)   # 刚加进来的桶要等物理那边登记上，爆炸才查得到它们
+	await frames(2)   # Barrels just added have to be registered on the physics side before the explosion can find them
 	first.take_damage(SHOT, Vector2.INF, player)
 	await frames(6)
 	check("the one next to it goes too", not is_instance_valid(second))
@@ -331,7 +331,7 @@ func test_a_barrel_does_not_block_the_way() -> void:
 
 
 func test_enemy_bullets_fly_through_a_barrel() -> void:
-	# 敌人不会自己把身边的桶打爆：它们的子弹不找 enemy 层
+	# Enemies do not blow up the barrels next to them: their bullets do not look for the enemy layer
 	var shot := (load("res://scenes/enemy_bullet.tscn") as PackedScene).instantiate() as Area2D
 	check("enemy bullets ignore the barrel's layer", shot.collision_mask & ExplosiveBarrel.ENEMY_LAYER == 0,
 		str(shot.collision_mask))
@@ -396,13 +396,13 @@ func test_a_conveyor_carries_whoever_stands_on_it() -> void:
 			and absf(moved) > 40.0, "%.1f" % moved)
 
 
-# ---------------------------------------------------------------- 第五关（实验室）：地刺、毒气罐
+# ---------------------------------------------------------------- Stage 5 (lab): spikes, gas capsules
 
 const SPIKES := "res://scenes/trap_spikes.tscn"
 const CAPSULE := "res://scenes/trap_capsule.tscn"
 
 
-## 地刺摆在地面上（帧底边 = 地面 + 底座嵌进去的 4 行），玩家站在它正上方。
+## The spikes are placed on the ground (frame bottom = ground + the 4 rows of the base sunk in), with the player standing right above them.
 func spikes_at(x: float) -> SpikeTrap:
 	var trap := (load(SPIKES) as PackedScene).instantiate() as SpikeTrap
 	main.add_child(trap)
@@ -421,7 +421,7 @@ func test_resting_spikes_show_but_are_safe_to_stand_on() -> void:
 	await reset_scene()
 	var trap := spikes_at(400)
 	check("setup: it starts at rest", trap.frame == SpikeTrap.REST and not trap.is_armed())
-	# 平时露出一小截：远远就看得见这儿有地刺（用户定的：默认就要看得到，不另加警示）
+	# Normally a small part sticks out: you can see from afar that there are spikes here (the user decided: visible by default, no extra warning)
 	check("at rest the tips stick out of the floor where you can see them", trap.height() >= 4.0,
 		"%.0f px" % trap.height())
 	player.global_position = Vector2(416, STAND_Y)
@@ -435,7 +435,7 @@ func test_resting_spikes_show_but_are_safe_to_stand_on() -> void:
 func test_spikes_warn_before_they_strike() -> void:
 	await reset_scene()
 	var trap := spikes_at(400)
-	# 预警是「先缩回去」：全缩进地面那一步就排在「弹出」前面，而且留够反应时间
+	# The warning is "retract first": the step fully sunk into the ground comes right before "pop out", leaving enough time to react
 	var warn := SpikeTrap.ORDER.find(SpikeTrap.WARN)
 	var strike := SpikeTrap.ORDER.find(2)
 	check("the spikes duck right before they strike", strike == warn + 1, "%d -> %d" % [warn, strike])
@@ -500,7 +500,7 @@ func test_a_capsule_blocks_until_it_is_shattered() -> void:
 	await frames(2)
 	check("one hit short it still stands", not capsule.broken)
 	capsule.take_damage(SHOT, Vector2.INF, player)
-	# 等过箱子那种「散架动画走完就删掉」的时间（0.5 秒）再看：碎片得还在
+	# Wait out the time a crate takes to "finish its break-apart animation and be deleted" (0.5 seconds) before looking: the debris has to still be there
 	await frames(60)
 	check("the shards stay on the floor (the node is kept)", is_instance_valid(capsule))
 	check("the last hit shattered it", is_instance_valid(capsule) and capsule.broken)
@@ -511,7 +511,7 @@ func test_a_capsule_blocks_until_it_is_shattered() -> void:
 
 
 func test_one_capsule_can_be_jumped_but_two_cannot() -> void:
-	# 单个 48 高，一跳翻得过去（不打也行，跳过去）；两个摞起来 96，比一跳高——非打不可
+	# A single one is 48 tall and can be jumped (no need to shoot it, jump over); two stacked are 96, higher than a jump — you must shoot them
 	await reset_scene()
 	var capsule := capsule_at(300)
 	check("setup: a capsule is 48 tall", is_equal_approx(capsule.size.y, 48.0), str(capsule.size))

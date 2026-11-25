@@ -1,7 +1,7 @@
 extends GameTest
-## 奔跑与体力：加速、消耗、耗尽后的恢复门槛、停下后自动回复、HUD 体力条。
+## Sprinting and stamina: speeding up, the drain, the recovery threshold after running dry, automatic recovery after stopping, the HUD stamina bar.
 
-## 矮通道右边到右墙之间有 560px 的空地，够跑一段测速度。
+## There is 560px of open ground between the right of the crawl tunnel and the right wall, enough to run a stretch and test speed.
 const RUNWAY_X := 740.0
 
 
@@ -46,13 +46,13 @@ func test_sprinting_is_faster() -> void:
 
 func test_sprint_drains_stamina_only_while_moving() -> void:
 	await start_on_runway()
-	# 原地按住奔跑键：不算奔跑，不耗体力。
+	# Holding the sprint key standing still: not sprinting, no stamina used.
 	Input.action_press("sprint")
 	await frames(30)
 	check("holding sprint while standing still costs nothing", player.stamina == player.max_stamina and not player.is_sprinting, "%.1f" % player.stamina)
 
 	Input.action_press("move_right")
-	await frames(30) # 0.5 秒 × 35/秒 ≈ 17.5
+	await frames(30) # 0.5 seconds × 35/second ≈ 17.5
 	var spent := player.max_stamina - player.stamina
 	check("sprinting drains stamina at ~35/s", absf(spent - 17.5) < 1.5, "spent %.1f" % spent)
 	var expected_width := roundf(bar_width() * player.stamina / player.max_stamina)
@@ -76,7 +76,7 @@ func test_running_out_of_stamina() -> void:
 	player.stamina = 5.0
 	Input.action_press("sprint")
 	Input.action_press("move_right")
-	await frames(20) # 5 点体力大约 0.14 秒就跑光
+	await frames(20) # 5 stamina runs out in about 0.14 seconds
 	check("stamina runs out", player.stamina == 0.0, "%.2f" % player.stamina)
 	check("player is exhausted", player.is_exhausted() and not player.is_sprinting)
 	await frames(10)
@@ -89,24 +89,24 @@ func test_exhausted_player_must_recover_before_sprinting_again() -> void:
 	player.stamina = 3.0
 	Input.action_press("sprint")
 	Input.action_press("move_right")
-	# 一直按着奔跑键：先耗尽，然后在体力回到 25% 之前都不能再跑。
+	# Keep holding sprint: first run dry, then no sprinting until stamina is back to 25%.
 	var was_exhausted := false
 	var sprinted_while_exhausted := false
 	var resumed_at := -1.0
 	for i in 240:
 		await tree.physics_frame
-		# 别撞上右墙：贴墙时速度为 0，看不出是不是真的在跑。
+		# Do not run into the right wall: against a wall the speed is 0 and you cannot tell whether it is really sprinting.
 		if player.global_position.x > 1200.0:
 			player.global_position.x = RUNWAY_X
 		if player.is_exhausted():
-			# 跑光的那一帧本身是在奔跑中用掉最后一点体力，is_sprinting 仍为真，属于正常交接；
-			# 从下一帧起还在跑才是 bug。
+			# The frame it runs dry is itself spent using the last stamina while sprinting, so is_sprinting is still true, which is a normal handover;
+			# still sprinting from the next frame on is the bug.
 			if was_exhausted and player.is_sprinting:
 				sprinted_while_exhausted = true
 			was_exhausted = true
 			continue
 		if was_exhausted and player.is_sprinting:
-			# 恢复奔跑后 25 点体力很快又会跑光，再观察下去就是第二轮了，到此为止。
+			# After sprinting resumes, 25 stamina runs out quickly again, and watching further would be the second round, so stop here.
 			resumed_at = player.stamina
 			break
 	check("stamina ran out first", was_exhausted)
@@ -124,10 +124,10 @@ func test_stamina_regenerates_after_stopping() -> void:
 	var after_sprint := player.stamina
 	check("some stamina was spent", after_sprint < player.max_stamina - 10.0, "%.1f" % after_sprint)
 
-	await frames(20) # 0.33 秒，还在 0.5 秒的恢复延迟内
+	await frames(20) # 0.33 seconds, still inside the 0.5-second recovery delay
 	check("no regen during the short delay", player.stamina == after_sprint, "%.2f -> %.2f" % [after_sprint, player.stamina])
 
-	await frames(30) # 过了延迟，再回复约 0.33 秒 × 25/秒
+	await frames(30) # Past the delay, plus about 0.33 seconds × 25/second of recovery
 	check("stamina regenerates after the delay", player.stamina > after_sprint + 5.0, "%.2f -> %.2f" % [after_sprint, player.stamina])
 
 	await frames(180)

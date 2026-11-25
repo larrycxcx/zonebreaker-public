@@ -1,14 +1,14 @@
 class_name ShopScreen
 extends Control
-## 商店：**每个玩家一栏、左右并排、各按各的手柄**，两个人都逛完了才离开。
+## Shop: **one column per player, side by side, each driven by its own pad**; it only closes once both players are done.
 ##
-## 这里只管摆栏、压暗背景和收尾，一栏自己的事全在 `ShopColumn` 里
-## （和人物设置界面 `SetupScreen` / `SetupColumn` 是同一个分法）。
+## This only lays out the columns, darkens the background and wraps up; a column's own business is all in `ShopColumn`
+## (the same split as character setup's `SetupScreen` / `SetupColumn`).
 ##
-## 两个入口：关卡开始前（人物设置那一栏的 SHOP）和打完一关的结算页。
-## 两处都是**关卡之外**——这是有意的：打着打着不能换装备，要换就在两关之间。
+## Two entry points: before a stage (SHOP in the character setup column) and the results screen after clearing a stage.
+## Both are **outside the stages** — on purpose: gear cannot change in the middle of fighting, only between stages.
 
-## 都逛完了，可以走了。
+## Everyone is done; time to leave.
 signal finished
 
 const PROMPT := "A CHOOSE   LB RB TAB   X SELL   B LEAVE"
@@ -23,8 +23,8 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-## 给这几个玩家各摆一栏。`players` 可以是关卡里真的玩家，也可以是人物设置界面那种替身
-## （商店只用到 `player_index` 和 `progress`）。
+## Lay out a column for each of these players. `players` can be the real players of a stage or stand-ins like those of character setup
+## (the shop only uses `player_index` and `progress`).
 func build(players: Array) -> void:
 	for child in get_children():
 		child.queue_free()
@@ -55,8 +55,8 @@ func _screen() -> Vector2:
 		ProjectSettings.get_setting("display/window/size/viewport_height", 360))
 
 
-## **所有人**都逛完了才走。一个人先逛完的那一栏自己会变成「等另一个人」，
-## 上面留着 BACK TO SHOP，所以不会干等着没事干。
+## It only leaves once **everyone** is done. A column that finishes first turns into "waiting for the other player" by itself,
+## with BACK TO SHOP left on it, so nobody is stuck with nothing to do.
 func _on_readiness_changed(_done: bool) -> void:
 	if _columns.all(func(column: ShopColumn) -> bool: return column.done):
 		Progress.save_game()

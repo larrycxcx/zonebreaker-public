@@ -1,10 +1,10 @@
 extends GameTest
-## 商店：标签页、买、卖、穿、等级门槛，以及双人各按各的。
+## The shop: tabs, buying, selling, equipping, level requirements, and each player using their own controls in co-op.
 ##
-## **不进关卡**：商店是关卡之外的界面，这里直接把 `ShopScreen` 挂到 root 上、
-## 配一个只带 `player_index` 和 `progress` 的替身玩家（和人物设置界面那边一个做法）。
-## 走完记得 `free()` 掉——手动挂上去的节点 `free_scene()` 收不走，留着会在后面的组里继续收键
-## （CLAUDE.md 「踩过的坑」里那条跨组污染就是这么来的）。
+## **Not in a stage**: the shop is a screen outside stages, so `ShopScreen` is hung straight on root here,
+## with a stand-in player that only has `player_index` and `progress` (the same approach as the character setup screen).
+## Remember to `free()` it at the end — `free_scene()` does not collect nodes hung on by hand, and left there they keep taking keys in later suites
+## (that is where the cross-suite pollution in the CLAUDE.md pitfalls came from).
 
 var shop: ShopScreen
 var stand_ins: Array[Player] = []
@@ -50,7 +50,7 @@ func press(action: StringName) -> void:
 	await tap(action)
 
 
-## 走到货架上第 index 件（按下走，走不到就算了，别把用例卡死）。
+## Walk to item index on the shelf (pressing down; if it cannot get there, give up rather than hang the case).
 func go_to(at: int, index := 0) -> void:
 	for i in 20:
 		if column(index).menu_list().index == at:
@@ -58,7 +58,7 @@ func go_to(at: int, index := 0) -> void:
 		await press(&"aim_down")
 
 
-## 翻到叫这个名字的那一页。
+## Turn to the tab with this name.
 func open_tab(name: String, index := 0) -> void:
 	for i in ShopColumn.TABS.size():
 		if ShopColumn.TABS[column(index).tab]["name"] == name:
@@ -66,7 +66,7 @@ func open_tab(name: String, index := 0) -> void:
 		await press(&"switch_weapon" if index == 0 else &"p2_switch_weapon")
 
 
-## 货架上叫这个名字的是第几件（没有就是 -1）。
+## Which item on the shelf has this name (-1 if none).
 func find_item(name: String, index := 0) -> int:
 	var shelf := column(index).shelf()
 	for i in shelf.size():
@@ -75,7 +75,7 @@ func find_item(name: String, index := 0) -> int:
 	return -1
 
 
-# ---------------------------------------------------------------- 标签页
+# ---------------------------------------------------------------- Tabs
 
 func test_it_opens_on_your_bag() -> void:
 	await open_shop()
@@ -108,7 +108,7 @@ func test_each_tab_only_stocks_its_own_slot() -> void:
 	await close_shop()
 
 
-# ---------------------------------------------------------------- 买
+# ---------------------------------------------------------------- Buying
 
 func test_buying_asks_first() -> void:
 	await open_shop()
@@ -162,7 +162,7 @@ func test_a_bought_item_shows_as_owned_and_cannot_be_bought_twice() -> void:
 	await close_shop()
 
 
-# ---------------------------------------------------------------- 等级门槛
+# ---------------------------------------------------------------- Level requirements
 
 func test_high_level_gear_is_on_the_shelf_but_cannot_be_worn() -> void:
 	await open_shop()
@@ -194,7 +194,7 @@ func test_high_level_gear_is_on_the_shelf_but_cannot_be_worn() -> void:
 	await close_shop()
 
 
-# ---------------------------------------------------------------- 穿和卖
+# ---------------------------------------------------------------- Equipping and selling
 
 func test_equipping_from_the_bag_needs_no_confirmation() -> void:
 	await open_shop()
@@ -229,7 +229,7 @@ func test_selling_pays_half_and_takes_it_off_you() -> void:
 	await press(&"jump")
 	await open_tab("BAG")
 	await go_to(column().shelf().find(vest))
-	await press(&"jump")                      # 穿上
+	await press(&"jump")                      # Equip it
 	check("wearing it first", progress.gear(vest.slot) == vest)
 	var purse := progress.money
 	await press(&"menu_delete")               # X
@@ -242,8 +242,8 @@ func test_selling_pays_half_and_takes_it_off_you() -> void:
 	await close_shop()
 
 
-## 白给的东西（初始的步枪和手雷没标价）卖不掉——卖价是 0，让它卖得掉等于送玩家一个坑：
-## 一按 X 就把自己唯一一把枪换成零块钱。
+## Free things (the starting rifle and grenade have no price) cannot be sold — the price would be 0, and letting them sell would set a trap for the player:
+## one press of X turns their only gun into zero cash.
 func test_the_free_starting_gear_cannot_be_sold() -> void:
 	await open_shop()
 	var progress := Progress.of(0)
@@ -258,7 +258,7 @@ func test_the_free_starting_gear_cannot_be_sold() -> void:
 	await close_shop()
 
 
-## 确认框里的 YES / NO 得落在它自己的窗口里（随手写个高度的话 NO 会掉到框外面）。
+## YES / NO in the confirm box have to fall inside its own window (with an arbitrary height NO drops out of the box).
 func test_the_question_fits_in_its_box() -> void:
 	await open_shop()
 	Progress.of(0).money = 100000
@@ -292,7 +292,7 @@ func test_x_does_nothing_on_the_shop_shelves() -> void:
 	await close_shop()
 
 
-## 详情框里那行「现在 → 之后」：挑这件装备会让哪个属性变成多少。
+## The "now → after" line in the details box: what each stat becomes when picking this piece of gear.
 func test_the_card_compares_now_with_after() -> void:
 	await open_shop()
 	var progress := Progress.of(0)
@@ -320,7 +320,7 @@ func _texts(node: Node) -> Array[String]:
 	return found
 
 
-# ---------------------------------------------------------------- 逛完了
+# ---------------------------------------------------------------- Done browsing
 
 func test_one_player_leaves_straight_away() -> void:
 	await open_shop()
@@ -344,7 +344,7 @@ func test_two_players_wait_for_each_other() -> void:
 	await press(&"cancel")
 	await press(&"jump")
 	check("and BACK TO SHOP brings it back", not column(0).done)
-	# 回来那一下 A **不该**顺手在货架上买一件（盖在上面的那层就是用它关掉的）
+	# The A pressed on coming back **must not** also buy something off the shelf (it is the press that closed the layer on top)
 	check("without buying anything on the way", Progress.of(0).owned.size() == 2,
 		str(Progress.of(0).owned.size()))
 	await press(&"cancel")
@@ -380,7 +380,7 @@ func test_the_two_purses_are_separate() -> void:
 	await close_shop()
 
 
-# ---------------------------------------------------------------- 排版
+# ---------------------------------------------------------------- Layout
 
 func test_the_rows_stay_inside_the_window() -> void:
 	await open_shop()
@@ -392,8 +392,8 @@ func test_the_rows_stay_inside_the_window() -> void:
 		column().show_tab(tab)
 		await frames(1)
 		for label in _labels(column()):
-			# **量的是相对这一栏的位置**：字被塞在好几层容器里（窗口、货架、详情框），
-			# 光看 `position` 量的是相对它爹的，全是小数字，什么也守不住
+			# **It measures the position relative to this column**: the text is packed in several layers of containers (window, shelf, details box),
+			# and `position` alone is relative to its parent — all small numbers that guard nothing
 			var left: float = label.global_position.x - column().global_position.x
 			var right := left + label.size.x
 			if label.horizontal_alignment == HORIZONTAL_ALIGNMENT_LEFT:
@@ -402,9 +402,9 @@ func test_the_rows_stay_inside_the_window() -> void:
 			if right > worst:
 				worst = right
 				culprit = label.text
-	# 窗口 300 宽、九宫格边框 32，字（连标签页那一排）都得落在边框**里面**
+	# The window is 300 wide with a 32 nine-slice frame; text (including the row of tabs) has to fall **inside** the frame
 	check("nothing pokes out of the frame", worst <= ShopColumn.WIDTH - UiKit.PANEL_MARGIN,
-		"%s 到 %.1f" % [culprit, worst])
+		"%s reaches %.1f" % [culprit, worst])
 	await close_shop()
 
 
@@ -417,17 +417,17 @@ func _labels(node: Node) -> Array[Label]:
 	return found
 
 
-# ---------------------------------------------------------------- 武器属性
+# ---------------------------------------------------------------- Weapon numbers
 
 func test_a_weapon_reads_out_what_it_actually_does() -> void:
-	# 武器的强弱全在 `power` 和 `cooldown` 里，界面上不写的话，
-	# 商店里两把枪看着只差一个名字和一个价钱（试玩反馈）。
+	# A weapon's strength is all in `power` and `cooldown`; if the screen did not show them,
+	# two guns in the shop would differ only in name and price (playtest feedback).
 	var me := Progress.of(0)
 	var rifle := load("res://weapons/rifle.tres") as Weapon
 	var numbers := me.weapon_numbers(rifle)
 	check("it says what one shot does", numbers.has(&"damage"), str(numbers))
 	check("and how fast it goes off", numbers.has(&"rate"), str(numbers))
-	# 照着武器槽真正发射时那一套算：发射物的伤害 × power × 攻击倍率
+	# Calculated the same way the weapon slot really fires: projectile damage × power × attack multiplier
 	var shot := rifle.projectile.instantiate()
 	var base := float(shot.get(&"damage"))
 	shot.free()
@@ -440,7 +440,7 @@ func test_a_weapon_reads_out_what_it_actually_does() -> void:
 
 
 func test_the_numbers_follow_the_character_not_the_gun() -> void:
-	# 同一把枪在不同角色手里是不一样的：攻击力算进伤害、速度算进射速
+	# The same gun differs in different characters' hands: attack goes into damage, speed into fire rate
 	var me := Progress.of(0)
 	var rifle := load("res://weapons/rifle.tres") as Weapon
 	var weak := me.weapon_numbers(rifle)
@@ -455,7 +455,7 @@ func test_the_numbers_follow_the_character_not_the_gun() -> void:
 
 
 func test_a_grenade_reads_out_its_centre_hit() -> void:
-	# 手雷的伤害是中心 max、边缘 min 两个数。写的是**一次打满能打多少**，和子弹那一列对得上
+	# A grenade's damage is two numbers, max at the centre and min at the edge. It shows **the most one hit can do**, matching the bullet column
 	var me := Progress.of(0)
 	var grenade := load("res://weapons/grenade.tres") as Weapon
 	var numbers := me.weapon_numbers(grenade)
@@ -468,8 +468,8 @@ func test_a_grenade_reads_out_its_centre_hit() -> void:
 
 
 func test_reading_a_weapon_does_not_leave_anything_behind() -> void:
-	# 读伤害是**现造一个发射物出来读完就扔**。`instantiate()` 不跑 `_ready`，
-	# 所以它不会挂进 `grenades` 分组、不会去问皮肤包要外观——漏一个在树外面就是个泄漏。
+	# Damage is read by **making a projectile, reading it and throwing it away**. `instantiate()` does not run `_ready`,
+	# so it does not join the `grenades` group or ask the skin pack for a visual — and one left outside the tree would be a leak.
 	var me := Progress.of(0)
 	var before := tree.get_nodes_in_group(Grenade.GROUP).size()
 	for i in 20:
@@ -480,8 +480,8 @@ func test_reading_a_weapon_does_not_leave_anything_behind() -> void:
 
 
 func test_unlimited_ammo_is_left_off_the_list() -> void:
-	# `max_ammo` 是 -1，照抄出来界面上就是一行「AMMO -1」（截图才看出来的）。
-	# 步枪和手雷都是无限的，这一行只该给终极武器那种有限弹药的留着。
+	# `max_ammo` is -1, and copied as is the screen shows a line "AMMO -1" (only noticed in a screenshot).
+	# The rifle and grenade are both unlimited; this line should be kept for limited ammo like the ultimate.
 	var me := Progress.of(0)
 	for path: String in ["res://weapons/rifle.tres", "res://weapons/grenade.tres"]:
 		var weapon := load(path) as Weapon
@@ -495,9 +495,9 @@ func test_unlimited_ammo_is_left_off_the_list() -> void:
 		str(me.weapon_numbers(ultimate)))
 
 
-# ---------------------------------------------------------------- 防具的数字
+# ---------------------------------------------------------------- Armour numbers
 
-## 走到货架上第一件**不是武器**的东西（防具那几页）。
+## Walk to the first item on the shelf that **is not a weapon** (the armour pages).
 func open_armour_tab() -> Equipment:
 	for tab in range(2, ShopColumn.TABS.size()):
 		column().show_tab(tab)
@@ -522,12 +522,12 @@ func test_armour_says_what_it_gives() -> void:
 
 
 func test_a_maxed_out_character_still_sees_what_the_armour_gives() -> void:
-	# 属性有上限。满级玩家换一顶头盔四行全都「没变」，
-	# 「没变就不画」的话详情框整个空着，看着像这件装备什么用都没有（2026-09 试玩反馈）。
+	# Stats have caps. A max-level player switching helmets sees all four lines "unchanged",
+	# and with "do not draw what did not change" the details box would be completely empty, looking as if the gear does nothing (2026-09 playtest feedback).
 	await open_shop()
 	var me := Progress.of(0)
 	for stat: StringName in Balance.STATS:
-		me.allocated[stat] = 999       # 顶到上限
+		me.allocated[stat] = 999       # At the cap
 	var item := await open_armour_tab()
 	check("setup: there is armour on the shelves", item != null)
 	if item == null:
@@ -547,7 +547,7 @@ func test_a_maxed_out_character_still_sees_what_the_armour_gives() -> void:
 	close_shop()
 
 
-## 详情框里现在写着哪些字（一行一个 Label）。
+## What text the details box shows now (one Label per line).
 func _card_labels() -> Array[String]:
 	var out: Array[String] = []
 	for node in column()._card.find_children("*", "Label", true, false):

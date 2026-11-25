@@ -1,5 +1,5 @@
 extends GameTest
-## 敌人行为、伤害判定、玩家血量与无敌帧。这组用例要保留敌人，所以都用 `reset_scene(true)`。
+## Enemy behaviour, damage checks, player health and invincibility frames. This suite needs the enemies, so every case uses `reset_scene(true)`.
 
 
 func test_level_setup() -> void:
@@ -20,8 +20,8 @@ func test_enemies_stand_where_placed() -> void:
 	check("turret stands on the ground", turret.is_on_floor(), str(turret.global_position))
 
 
-## 巡逻兵**打起来就不走了**，所以测巡逻本身的用例要先把玩家支开：
-## 离得远、又在画面外，它才没有还击的对象。
+## A patroller **stops walking once a fight starts**, so cases testing the patrol itself have to send the player away first:
+## far away and off screen, so it has nobody to fire back at.
 func _send_player_away() -> void:
 	player.global_position = Vector2(1200, 304)
 	player.velocity = Vector2.ZERO
@@ -41,7 +41,7 @@ func test_walker_patrols() -> void:
 
 
 func test_a_walker_stands_and_fights_instead_of_walking_on() -> void:
-	# 交上火就站定打，玩家离开视野才接着巡逻。
+	# Once engaged it stands and fires; only when the player leaves its sight does it resume patrolling.
 	await reset_scene(true)
 	keep_only_enemies(["WalkerA"])
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
@@ -51,7 +51,7 @@ func test_a_walker_stands_and_fights_instead_of_walking_on() -> void:
 	await frames(40)
 	check("setup: it really is patrolling", absf(walker.global_position.x - roaming) > 20.0,
 		"%.1f -> %.1f" % [roaming, walker.global_position.x])
-	# 挡到它正前方去
+	# Get right in front of it
 	player.global_position = Vector2(walker.global_position.x + 160.0 * walker.facing, 304)
 	player.velocity = Vector2.ZERO
 	player.health = 999
@@ -74,7 +74,7 @@ func test_a_walker_stands_and_fights_instead_of_walking_on() -> void:
 func test_walker_turns_at_ledges() -> void:
 	await reset_scene(true)
 	await frames(40)
-	# Platform4：x 640..384。巡逻兵必须在边缘掉头，不能走下去。
+	# Platform4: x 640..384. The patroller must turn around at the edge, not walk off.
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerB")
 	var fell := false
 	for i in 300:
@@ -88,7 +88,7 @@ func test_walker_turns_at_ledges() -> void:
 
 func test_walker_turns_at_the_crawl_block() -> void:
 	await reset_scene(true)
-	# 矮通道（x 592..704，净空 30px）比巡逻兵（32px 高）矮，它得掉头而不是卡在那里推墙。
+	# The crawl passage (x 592..704, 30px of clearance) is lower than a patroller (32px tall); it has to turn around instead of getting stuck pushing against it.
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	walker.global_position = Vector2(540, 304)
 	walker.facing = 1
@@ -113,7 +113,7 @@ func test_bullets_kill_the_walker() -> void:
 	check("one shot does not kill a walker", is_instance_valid(walker) and walker.health == SHOT, str(walker.health))
 	await frames(2)
 
-	# GDScript 的 lambda 按值捕获局部变量，所以用数组这种引用类型来收信号。
+	# GDScript lambdas capture local variables by value, so a reference type like an array collects the signals.
 	var death_signals := []
 	walker.died.connect(func(): death_signals.append(true))
 
@@ -149,7 +149,7 @@ func test_turret_only_fires_in_range() -> void:
 	await frames(30)
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
 
-	player.global_position = Vector2(64, 304) # 远离炮台
+	player.global_position = Vector2(64, 304) # Away from the turret
 	var seen_while_far := 0
 	for i in 90:
 		await tree.physics_frame
@@ -186,7 +186,7 @@ func test_walker_shoots_at_the_player() -> void:
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	await frames(20)
 
-	# 站到巡逻兵正前方、同高度，射程之内。
+	# Stand right in front of the patroller at the same height, within range.
 	walker.global_position = Vector2(400, 304)
 	walker.facing = -1
 	walker._apply_facing()
@@ -209,7 +209,7 @@ func test_walker_does_not_shoot_backwards() -> void:
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	await frames(20)
 
-	# 玩家在身后：巡逻兵不该回头瞄准，转向只由巡逻决定。
+	# The player behind it: a patroller must not turn back to aim; turning is decided by the patrol alone.
 	walker.global_position = Vector2(400, 304)
 	walker.facing = -1
 	walker._apply_facing()
@@ -219,7 +219,7 @@ func test_walker_does_not_shoot_backwards() -> void:
 	var shots := 0
 	for i in 100:
 		await tree.physics_frame
-		# 让它一直朝左走，避免中途掉头把玩家转到正面来。
+		# Keep it walking left, so it does not turn around midway and bring the player in front of it.
 		walker.facing = -1
 		shots += bullets(16).size()
 	check("walker holds fire when the player is behind it", shots == 0, str(shots))
@@ -233,14 +233,14 @@ func test_walker_and_turret_level_shots_hit_standing_and_miss_prone() -> void:
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
 	await frames(30)
 
-	# 两种敌人站在同一块地上：世界坐标只要求亚像素级一致——巡逻兵在移动，CharacterBody2D 的碰撞安全边距（默认 0.08）
-	# 会让它悬在地面上方约 0.07px，而站着不动的炮台贴得严丝合缝。
+	# Two kinds of enemy standing on the same ground: world positions only have to agree to a sub-pixel — the patroller is moving, and CharacterBody2D's safe margin (0.08 by default)
+	# makes it hover about 0.07px above the ground, while the stationary turret sits flush.
 	var body_gap := absf(walker.global_position.y - turret.global_position.y)
 	check("both rest on the ground within a sub-pixel", body_gap < 0.5, "%.3f px" % body_gap)
 
-	# 两者的枪口高度不必相同（巡逻兵的枪举在胸口，炮台的炮管按素材低 4px），
-	# 但站着平射的子弹都必须落在同一个区间里：打得中站着的玩家，从趴着的玩家头顶飞过。
-	# 光看 Marker 不够，要看真打出来的子弹。
+	# Their muzzle heights need not be the same (the patroller holds its gun at the chest, the turret's barrel is 4px lower per the art),
+	# but the level shots fired standing must all fall in the same band: hitting a standing player, flying over a prone one.
+	# Looking at the markers is not enough; it has to look at bullets really fired.
 	walker.facing = -1
 	turret.facing = -1
 	walker.try_shoot(1998.0, player)
@@ -264,7 +264,7 @@ func test_enemy_bullets_do_not_hurt_other_enemies() -> void:
 	var victim: EnemyWalker = main.get_node("Enemies/WalkerB")
 	await frames(20)
 
-	# 把另一只巡逻兵直接摆在枪口前面，玩家挪到远处不干扰。
+	# Put another patroller right in front of the muzzle and move the player far away so it does not interfere.
 	player.global_position = Vector2(1200, 304)
 	shooter.global_position = Vector2(480, 304)
 	shooter.facing = -1
@@ -283,13 +283,13 @@ func test_enemy_bullets_do_not_hurt_other_enemies() -> void:
 	await frames(2)
 	check("a bullet is in the air", bullets(16).size() == 1, str(bullets(16).size()))
 
-	# 子弹飞过同伴身上所需的帧数：80px / (300px/s / 60) = 16 帧，留足余量。
+	# Frames for the bullet to pass the ally: 80px / (300px/s / 60) = 16 frames, with plenty of margin.
 	await frames(40)
 	check("the other enemy takes no damage", victim.health == victim_health and deaths.is_empty(), str(victim.health))
 	check("it is still alive", is_instance_valid(victim) and not victim.is_queued_for_deletion())
 
 
-## 把一个敌人摆好位置：朝左站在 pos，巡逻兵不再走动。
+## Set up an enemy: standing at pos facing left, patrollers no longer walking.
 func _place_enemy(enemy: Enemy, pos: Vector2) -> void:
 	enemy.global_position = pos
 	enemy.facing = -1
@@ -298,7 +298,7 @@ func _place_enemy(enemy: Enemy, pos: Vector2) -> void:
 		(enemy as EnemyWalker)._apply_facing()
 
 
-## 把 C 摆在 x=1000 朝左站定（不巡逻），玩家在它正前方 140px。
+## Put C at x=1000 standing still facing left (not patrolling), with the player 140px in front of it.
 func _setup_c_facing_player() -> EnemyWalker:
 	await reset_scene(true)
 	keep_only_enemies(["WalkerC"])
@@ -317,14 +317,14 @@ func test_c_goes_prone_when_the_player_does() -> void:
 	check("C stands while the player stands", not c.is_prone)
 
 	Input.action_press("crouch")
-	await frames(15) # 0.25 秒，还在 0.4 秒的反应时间内
+	await frames(15) # 0.25 seconds, still within the 0.4-second reaction time
 	check("C waits a moment before going prone", not c.is_prone)
 	await frames(15)
 	check("C goes prone after the reaction time", c.is_prone)
 	var shape_height := (c._shape.shape as RectangleShape2D).size.y
 	check("prone C is as low as a prone player", shape_height == Enemy.PRONE_HEIGHT, str(shape_height))
 	check("prone C keeps its feet on the ground", c.is_on_floor(), str(c.global_position))
-	# 出膛点按碰撞体中心算，所以趴下压低碰撞体时它自己就跟着贴地了（不再依赖占位方块被压扁）
+	# The muzzle is computed from the collision shape centre, so lowering the shape when prone brings it down to the floor by itself (no longer relying on the placeholder being squashed)
 	var prone_muzzle := c.level_muzzle_position().y
 	check("prone muzzle drops to skim the ground", prone_muzzle > 312.0 and prone_muzzle < 318.0, "y=%.1f" % prone_muzzle)
 
@@ -350,7 +350,7 @@ func test_turret_never_lies_down() -> void:
 		await tree.physics_frame
 		ever_prone = ever_prone or turret.is_prone
 	check("a turret stays upright when the player lies down", not ever_prone)
-	# 于是在同一高度趴下能完全躲开炮台：它站着水平开的枪从趴着的玩家头顶飞过。
+	# So lying prone at the same height dodges the turret completely: its level shots fired standing fly over the prone player.
 	check("the turret keeps firing", shots[0] >= 2, str(shots[0]))
 	check("and every shot flies over the prone player", player.health == player.max_health, str(player.health))
 
@@ -358,7 +358,7 @@ func test_turret_never_lies_down() -> void:
 func test_prone_enemy_hits_a_prone_player() -> void:
 	var c := await _setup_c_facing_player()
 	Input.action_press("crouch")
-	# 第一发在 C 趴下之前打出，从头顶飞过；之后 C 趴下，下一发贴地打过来。
+	# The first shot is fired before C goes prone and flies overhead; then C lies down and the next shot comes along the floor.
 	for i in 180:
 		await tree.physics_frame
 		if player.health < player.max_health:
@@ -373,7 +373,7 @@ func test_type_c_stops_and_lies_down_to_shoot() -> void:
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerC")
 	await frames(10)
 	_place_enemy(walker, Vector2(500, 304))
-	player.global_position = Vector2(360, 304) # 在巡逻兵正前方（左边）
+	player.global_position = Vector2(360, 304) # In front of the patroller (to the left)
 	player.velocity = Vector2.ZERO
 	Input.action_press("crouch")
 	await frames(40)
@@ -385,7 +385,7 @@ func test_type_c_stops_and_lies_down_to_shoot() -> void:
 	Input.action_release("crouch")
 	await frames(30)
 	check("walker gets up when the player does", not walker.is_prone)
-	# 站起来了，但玩家还杵在正前方，所以它**照样站定开火**，不会接着巡逻
+	# It stood up, but the player is still right in front of it, so it **stands and keeps firing** instead of patrolling on
 	var x_up := walker.global_position.x
 	await frames(30)
 	check("but it holds its ground while the player is still in front",
@@ -404,20 +404,20 @@ func test_type_c_ignores_a_prone_player_behind_it() -> void:
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerC")
 	await frames(10)
 	_place_enemy(walker, Vector2(400, 304))
-	player.global_position = Vector2(500, 304) # 在背后（右边）
+	player.global_position = Vector2(500, 304) # Behind it (to the right)
 	player.velocity = Vector2.ZERO
 	Input.action_press("crouch")
 	var ever_prone := false
 	for i in 40:
 		await tree.physics_frame
 		ever_prone = ever_prone or walker.is_prone
-		walker.facing = -1 # 别让它中途掉头把玩家转到正面
+		walker.facing = -1 # Do not let it turn around midway and bring the player in front
 	check("walker does not lie down for a player behind it", not ever_prone)
 
 
 func test_standing_shots_fly_over_a_prone_enemy() -> void:
 	var c := await _setup_c_facing_player()
-	# 玩家站着时敌人不会主动趴下，这里直接让它趴下并冻结 AI，只验证高度关系。
+	# Enemies do not lie down on their own while the player stands, so make it lie down directly and freeze the AI, testing only the height relationship.
 	c.set_prone(true)
 	c.set_physics_process(false)
 	player.global_position = Vector2(880, 304)
@@ -430,8 +430,8 @@ func test_standing_shots_fly_over_a_prone_enemy() -> void:
 	await frames(40)
 	check("a standing shot flies over a prone enemy", c.health == c.max_health, str(c.health))
 
-	# 对照组：同一枪在敌人站起来后就打得中，证明刚才是被高度躲掉的，不是根本没打出去。
-	# （玩家趴下不能开枪，所以对照组换成让敌人站起来。）
+	# Control group: the same shot hits once the enemy stands up, proving it was dodged by height and not that nothing was fired.
+	# (The player cannot fire while prone, so the control group has the enemy stand up instead.)
 	c.set_prone(false)
 	await frames(3)
 	player.current_slot().cooldown_left = 0.0
@@ -441,7 +441,7 @@ func test_standing_shots_fly_over_a_prone_enemy() -> void:
 
 
 func test_player_invincibility_frames() -> void:
-	# 这条只关心玩家和 HUD，清掉敌人免得中途被冷不丁打一枪。
+	# This one only cares about the player and the HUD; clear the enemies so nobody takes a sudden shot midway.
 	await reset_scene()
 	await frames(30)
 	var health_events := []
@@ -458,7 +458,7 @@ func test_player_invincibility_frames() -> void:
 	player.take_damage(HIT, player.global_position)
 	check("further damage is blocked while invincible", player.health == 2 * HIT, str(player.health))
 
-	await frames(70) # 无敌 1 秒 = 60 帧
+	await frames(70) # 1 second of invincibility = 60 frames
 	check("blinking stops afterwards", is_equal_approx(player._visual.modulate.a, 1.0), str(player._visual.modulate.a))
 	player.take_damage(HIT, player.global_position)
 	check("damage lands again once invincibility ends", player.health == HIT, str(player.health))
@@ -486,7 +486,7 @@ func test_player_death() -> void:
 		player.take_damage(HIT, player.global_position + Vector2(40, 0))
 		await frames(2)
 	check("player dies at zero health", death_signals.size() == 1 and player.health == 0, str(player.health))
-	# 「GAME OVER」和「再来一次 / 回主菜单」那一页归 `DeathScreen` 管，测试在 test_menus.gd
+	# The "GAME OVER" and "retry / main menu" screen belongs to `DeathScreen`; its tests are in test_menus.gd
 
 	var x_before := player.global_position.x
 	Input.action_press("move_right")
@@ -500,9 +500,9 @@ func test_player_death() -> void:
 	check("a dead player cannot shoot", bullets(4).size() == 0, str(bullets(4).size()))
 
 
-# ---------------------------------------------------------------- 视野对等：玩家看得见的敌人，也得看得见玩家
+# ---------------------------------------------------------------- Vision parity: enemies the player can see must see the player
 
-## 玩家贴着关卡左边（摄像机停在左边界上，画面 = x 0..640），敌人摆在 x 处面朝左，冷却清零。
+## The player hugs the left of the stage (the camera rests on the left limit, view = x 0..640), the enemy is at x facing left, with its cooldown reset.
 func _face_off(enemy_name: String, x: float) -> Enemy:
 	await reset_scene(true)
 	keep_only_enemies([enemy_name])
@@ -537,7 +537,7 @@ func _face_off(enemy_name: String, x: float) -> Enemy:
 	return enemy
 
 
-## 这个敌人在 frame_count 帧里有没有对玩家起反应（开火、扔雷、冲锋、跟随）。
+## Did this enemy react to the player within frame_count frames (firing, throwing, charging, following)?
 func _reacts(enemy: Enemy, frame_count := 90) -> bool:
 	var fired := [false]
 	enemy.shot_fired.connect(func() -> void: fired[0] = true)
@@ -556,8 +556,8 @@ func _reacts(enemy: Enemy, frame_count := 90) -> bool:
 
 
 func test_every_enemy_on_screen_reacts_to_the_player() -> void:
-	# 480px：比 A/B（220）、C 和炮台（400）、D（240）、F（300）的发现距离都远，但还在屏幕里——
-	# 以前玩家能在屏幕里先把它们打死，它们没反应
+	# 480px: further than the detection range of A/B (220), C and the turret (400), D (240) and F (300), but still on screen —
+	# the player used to be able to kill them from the screen before they reacted
 	for enemy_name in ["WalkerA", "WalkerB", "WalkerC", "Turret1", "ChaserD", "FlyerE", "WalkerF"]:
 		var enemy := await _face_off(enemy_name, 580.0)
 		check("setup: %s is on screen, beyond its detect range" % enemy_name,
@@ -566,7 +566,7 @@ func test_every_enemy_on_screen_reacts_to_the_player() -> void:
 
 
 func test_enemies_off_screen_and_out_of_range_stay_unaware() -> void:
-	# 对照：在屏幕外、又在发现距离外，照旧发现不了（不然它们隔着整个关卡就开始打）
+	# Control: off screen and beyond the detection range they still cannot spot you (or they would start firing from across the whole stage)
 	for enemy_name in ["WalkerA", "WalkerB", "WalkerC", "Turret1", "ChaserD", "FlyerE", "WalkerF"]:
 		var enemy := await _face_off(enemy_name, 1000.0)
 		check("setup: %s is off screen and out of range" % enemy_name, not enemy.is_partly_on_screen() and 900.0 > enemy.detect_range)

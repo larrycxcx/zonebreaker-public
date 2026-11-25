@@ -1,14 +1,14 @@
 class_name ScreenLight
 extends ColorRect
-## 素材包的**光照层**（`SkinPack.lighting`）：一整块盖住画面的方块，着色器把一张彩色光斑
-## 按 overlay 方式混到它**底下已经画好的东西**上（酒吧街宣传图那种粉 / 青霓虹就是这么来的）。
+## The skin pack's **lighting layer** (`SkinPack.lighting`): a block covering the whole view whose shader blends a coloured light map
+## in overlay mode onto **what is already drawn beneath it** (that is where the pink / cyan neon of the bar street promo art comes from).
 ##
-## **纯显示**：没有碰撞、不接鼠标。关卡把它插在 `Level` 后面、`Enemies` 前面
-## （`main.gd._add_lighting()`），所以背景、楼面、装饰、地形被染色，
-## **敌人、玩家、子弹、特效画在它上面、保持原色**——染了色的人在霓虹里就看不清了。
+## **Display only**: no collision, no mouse input. The level inserts it after `Level` and before `Enemies`
+## (`main.gd._add_lighting()`), so the backdrop, facades, scenery and terrain get tinted,
+## while **enemies, players, bullets and effects are drawn on top in their own colours** — tinted characters would get lost in the neon.
 ##
-## 它是世界里的一个节点，每帧挪到摄像机看着的那块上；四边多留 `MARGIN`，
-## 摄像机移动和屏幕抖动时边上不会漏出一条没染色的。
+## It is a node in the world, moved every frame onto what the camera sees, with `MARGIN` to spare on each side
+## so no untinted strip shows at the edges when the camera moves or the screen shakes.
 
 const MARGIN := 64.0
 

@@ -1,29 +1,29 @@
 class_name BlastGate
 extends StaticBody2D
-## 第二关的机关「闸门」：一扇 64 高的门，**关着是墙、开着能过，关门那一下夹到人就扣血**。
+## Stage 2's trap, the "blast gate": a 64-tall door that **is a wall when shut, passable when open, and hurts anyone caught as it closes**.
 ##
-## 节点原点是这一帧画面（32×64）的左上角，底边落在地面上；门上面由关卡摆一截通到画面顶的实心墙
-## （`level_build.py` 的 `gates`）——门才 64 高、跳一下有 87，不封顶的话直接跳过去，这门就没意义了。
+## The node origin is the top-left corner of the frame (32×64), with the bottom edge on the ground; the level puts a stretch of solid wall above the door up to the top of the view
+## (`gates` in `level_build.py`) — the door is only 64 tall and a jump reaches 87, so without sealing it above you would just jump over and the door would be pointless.
 ##
-## - **关着**（第 0、1、7 帧）：碰撞体打开，挡人、挡敌人、挡子弹（world 层，和墙一样）。
-## - **开着**（第 2~6 帧）：碰撞体关掉。开到最大时只剩顶上底下几像素的边，那是画面，不碰人。
-## - **关门**（第 6、7 帧）：这时人还在门里就挨一下，并且被推出门外——
-##   关上那一刻还在里面的直接挪到最近的一边，**不会卡在墙里**。
-## 只伤玩家。节奏错开用 `phase`。
+## - **Shut** (frames 0, 1, 7): the collision shape is on and blocks players, enemies and bullets (world layer, like a wall).
+## - **Open** (frames 2~6): the collision shape is off. Fully open only a few pixels of edge remain at the top and bottom; that is picture, it touches nobody.
+## - **Closing** (frames 6, 7): anyone still in the doorway takes a hit and is pushed out —
+## anyone still inside the moment it shuts is moved straight to the nearest side and **never stuck inside the wall**.
+## Only hurts players. Use `phase` to stagger the rhythm.
 
 @export var skin_key := &"trap_gate"
 @export var phase := 0.0
 @export var damage := 50
-## 关着歇多久 → 开 → 开着多久 → 关。
+## Rest shut → open → stay open → close.
 @export var durations: Array[float] = [1.6, 0.08, 0.08, 0.08, 1.4, 0.08, 0.08, 0.08]
-## 夹到人时往外推多猛。
+## How hard it pushes out anyone caught.
 @export var push := Vector2(220, -160)
 
 const SIZE := Vector2(32, 64)
-## 哪几帧是关着的（实心）、哪几帧在关门（夹人）。
+## Which frames are shut (solid) and which are closing (catching people).
 const SHUT := [0, 1, 7]
 const CLOSING := [6, 7]
-## 每一帧门板占了哪几段（帧内的行），量自 `Entry.png`：开的时候上下两半往两头缩。
+## Which stretches of rows the door panel covers in each frame, measured from `Entry.png`: when opening, the top and bottom halves retract toward the ends.
 const PANELS := [[Vector2i(0, 63)], [Vector2i(0, 63)], [Vector2i(0, 25), Vector2i(37, 63)],
 	[Vector2i(0, 6), Vector2i(57, 63)], [Vector2i(0, 3), Vector2i(60, 63)],
 	[Vector2i(0, 6), Vector2i(57, 63)], [Vector2i(0, 25), Vector2i(37, 63)], [Vector2i(0, 63)]]
@@ -58,19 +58,19 @@ func is_shut() -> bool:
 	return frame in SHUT
 
 
-## 门所在的那一条（世界坐标）。
+## The strip the door occupies (world coordinates).
 func column() -> Rect2:
 	return Rect2(global_position, SIZE)
 
 
 func _apply() -> void:
-	# 改碰撞体要等物理这一步走完（不然在物理回调里改会报错）
+	# Changing the collision shape has to wait until the physics step is done (changing it inside a physics callback is an error)
 	_shape.set_deferred(&"disabled", not is_shut())
 	if _visual != null and _visual.has_method(&"show_frame"):
 		_visual.call(&"show_frame", frame)
 
 
-## 门正在合上：还在门里的人挨一下、被推出去。合死那一刻还在里面的直接挪到最近的一边。
+## The door is closing: anyone still in the doorway takes a hit and is pushed out. Anyone still inside the moment it shuts is moved straight to the nearest side.
 func _squeeze() -> void:
 	for node in get_tree().get_nodes_in_group(&"player"):
 		var player := node as Player
@@ -89,7 +89,7 @@ func _squeeze() -> void:
 			player.global_position.x = global_position.x - half if side < 0.0 else global_position.x + SIZE.x + half
 
 
-## 占位色块画什么（本地坐标）。
+## What the placeholder colour blocks draw (local coordinates).
 func art_rects(at_frame: int) -> Array[Rect2]:
 	var out: Array[Rect2] = []
 	for span: Vector2i in PANELS[at_frame]:

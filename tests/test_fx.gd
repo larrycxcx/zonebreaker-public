@@ -1,6 +1,6 @@
 extends GameTest
-## 特效层（`Fx`）：听事件总线，在开枪、命中、撞墙的位置生成短命的占位特效。
-## 特效只管显示——不能有碰撞、不能影响任何判定，而且要自己消失掉。
+## The effects layer (`Fx`): listens to the event bus and spawns short-lived placeholder effects where shots, hits and wall impacts happen.
+## Effects are display only — no collision, no effect on any check, and they must go away by themselves.
 
 func fx() -> Fx:
 	return main.get_node("Fx")
@@ -10,7 +10,7 @@ func effects() -> Array:
 	return fx().get_children()
 
 
-## 等出现一个特效，返回它；超时返回 null。
+## Wait for an effect to appear and return it; null on timeout.
 func wait_for_effect(limit := 120) -> Node2D:
 	for i in limit:
 		await frames(1)
@@ -26,15 +26,15 @@ func test_level_has_an_fx_layer() -> void:
 	check("hit spark assigned", fx().hit_spark_scene != null)
 	check("impact spark assigned", fx().impact_spark_scene != null)
 	check("starts empty", effects().is_empty())
-	# 特效是纯显示的：整棵树里不许有碰撞体，否则会挡子弹、挡人
-	# 循环变量要标类型：不标的话是 Variant，下面 := 推不出类型，整个脚本都编译不过（CLAUDE.md 里记过这个坑）
+	# Effects are display only: no colliders anywhere in the tree, or they would block bullets and people
+	# The loop variable needs a type: untyped it is a Variant, := below cannot infer a type and the whole script fails to compile (a pitfall noted in CLAUDE.md)
 	for scene: PackedScene in [fx().muzzle_flash_scene, fx().hit_spark_scene, fx().impact_spark_scene]:
 		var effect := scene.instantiate()
 		check("%s is purely visual (no collision anywhere)" % scene.resource_path.get_file(), not has_collision(effect))
 		effect.free()
 
 
-## 这棵树里有没有碰撞体。
+## Does this tree contain any colliders?
 func has_collision(node: Node) -> bool:
 	if node is CollisionObject2D:
 		return true
@@ -42,11 +42,11 @@ func has_collision(node: Node) -> bool:
 
 
 func test_every_enemy_shoot_event_makes_a_flash() -> void:
-	# 加了新敌人却忘了把它的 shoot_event 登记到 Fx.SHOOT_EVENTS 里，它开枪就不会有枪口闪光
+	# If a new enemy is added and its shoot_event is not registered in Fx.SHOOT_EVENTS, its shots get no muzzle flash
 	await reset_scene(true)
 	for enemy in enemies():
 		if enemy.bullet_scene == null:
-			continue # 不开枪的敌人（D、F）
+			continue # Enemies that do not shoot (D, F)
 		check("%s's shoot event (%s) is listed in Fx" % [enemy.name, enemy.shoot_event],
 			Fx.SHOOT_EVENTS.has(enemy.shoot_event), str(Fx.SHOOT_EVENTS))
 
@@ -93,7 +93,7 @@ func test_impact_spark_where_a_bullet_hits_a_wall() -> void:
 	var hit: Node2D = null
 	for i in 40:
 		await frames(1)
-		# 枪口闪光在玩家身上，命中火花在墙那边：按 x 挑出后者
+		# The muzzle flash is at the player, the hit sparks at the wall: pick the latter by x
 		for effect in effects():
 			if effect.global_position.x > wall.position.x - 12.0:
 				hit = effect
@@ -119,7 +119,7 @@ func test_hit_spark_on_the_enemy_that_was_shot() -> void:
 	player.facing = 1
 	await frames(10)
 	for effect in effects():
-		effect.free() # 清掉准备阶段的闪光
+		effect.free() # Clear the flashes from setup
 	player._shoot(Vector2.RIGHT)
 	var spark: Node2D = null
 	for i in 60:
@@ -140,7 +140,7 @@ func test_effects_clean_themselves_up() -> void:
 	player.velocity = Vector2.ZERO
 	await frames(10)
 	Input.action_press("shoot")
-	# 闪光只活 0.06 秒（约 4 帧），射速 0.15 秒一发，所以要边打边看，不能打完再数
+	# A flash lives only 0.06 seconds (about 4 frames) and the gun fires every 0.15 seconds, so look while firing, not by counting afterwards
 	var seen := false
 	for i in 30:
 		await frames(1)
@@ -155,7 +155,7 @@ func test_effects_clean_themselves_up() -> void:
 
 
 func test_effects_do_not_touch_gameplay() -> void:
-	# 特效层只是听众：把它摘掉，玩法（子弹、伤害）一模一样
+	# The effects layer is only a listener: take it out and gameplay (bullets, damage) is exactly the same
 	await reset_scene(true)
 	keep_only_enemies(["WalkerC"])
 	var c: Enemy = main.get_node("Enemies/WalkerC")

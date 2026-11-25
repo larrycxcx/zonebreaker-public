@@ -1,25 +1,25 @@
 extends GameTest
-## **所有正式关卡共用的检查**（基类，不单独跑）。原来是第一关那一组，2026-10 第一关改成分层的格子地图以后
-## 挪成了基类：横向关（第三关）和纵向关（第四关）直接继承，分层关（第一、二关）经 `layered_checks.gd` 继承。
+## **Checks shared by all real stages** (a base class, not run on its own). It used to be stage 1's set; when stage 1 became a layered grid map in 2026-10
+## it moved into a base class: the horizontal stage (stage 3) and the vertical stage (stage 4) inherit it directly, the layered stages (1, 2) through `layered_checks.gd`.
 ##
-## 这一组读的是**生成出来的场景**，不是生成脚本里那张表——脚本自己也会自检，
-## 但谁手改了 `.tscn`、或者哪天玩家的跳跃改了，只有从场景这边量才看得出来。
+## This set reads **the generated scene**, not the table in the build script — the script checks itself too,
+## but if someone edits a `.tscn` by hand, or the player's jump changes one day, only measuring the scene shows it.
 ##
-## 跳得过去的距离是**实测**的：在测试关的平地上按住跳跃 + 右走，量离地到落地之间走了多远。
-## 不用公式算，这样玩家的重力、跳跃力、走路速度哪个变了，这里都会说话。
+## The jumpable distance is **measured**: on the test level's flat ground, hold jump + right and measure how far you travel from take-off to landing.
+## No formula, so whichever of the player's gravity, jump strength or walking speed changes, this speaks up.
 
 const GROUND_Y := 320.0
-## 站着 32 高过不去、站姿子弹离地 21~25 过得去，矮通道净空就卡在这中间（见 CLAUDE.md）。
+## Standing at 32 tall you cannot get through, standing shots at 21~25 above the floor do: the crawl passage clearance sits in between (see CLAUDE.md).
 const CRAWL_CLEAR := 30.0
 
 
-## 哪一关。**子类覆盖这两个方法**，下面那一整套几何检查（坑跳得过去、墙翻得过去、堵块有高路、
-## 矮通道净空、敌人没悬空、装饰没有碰撞、没有重名……）就整套捡过去了——每加一关都重写一遍才是真的会漏。
+## Which stage. **Subclasses override these two methods** and pick up the whole set of geometry checks below (pits jumpable, walls climbable, blockers with a high route,
+## crawl clearance, no enemy floating, scenery without collision, no duplicate names...) — rewriting them for every stage is how things really get missed.
 func level_path() -> String:
 	return ""
 
 
-## 这一关配的那套素材（`levels/*.tres`）。返回 null 就用默认包跑（几何检查和皮肤无关）。
+## The art set for this stage (`levels/*.tres`). Returning null runs with the default pack (the geometry checks do not depend on the skin).
 func level_stage() -> LevelInfo:
 	return null
 
@@ -29,13 +29,13 @@ func open_level() -> void:
 	await reset_scene(true, true, stage.skin if stage != null else null, 1, level_path(), stage)
 
 
-## 这个敌人是不是**有意**摆在半空里的：会飞的、飘着的 Boss、
-## 以及吊在画面顶边以上等着掉下来的（第二关的 2-A）。这几种「脚下没有面」是对的。
+## Whether this enemy is **deliberately** placed in mid-air: flyers, floating bosses,
+## and ones hanging above the top of the view waiting to drop (stage 2's 2-A). For these, "nothing under the feet" is correct.
 func hangs_in_the_air(enemy: Enemy) -> bool:
 	return enemy is EnemyFlyer 		or enemy.motion_mode == CharacterBody2D.MOTION_MODE_FLOATING 		or enemy.position.y < 0.0
 
 
-## 关卡里所有的地形块（`Level` 底下的，含 `Level/Walls` 里的竖墙）。
+## Every terrain block in the level (under `Level`, including the upright walls in `Level/Walls`).
 func terrain() -> Array:
 	var found := []
 	for child in main.get_node("Level").get_children():
@@ -48,7 +48,7 @@ func terrain() -> Array:
 	return found
 
 
-## 地面那几段，按左端排好：(左, 右)。
+## The stretches of ground, sorted by their left end: (left, right).
 func ground_runs() -> Array[Vector2]:
 	var runs: Array[Vector2] = []
 	for node in terrain():
@@ -59,7 +59,7 @@ func ground_runs() -> Array[Vector2]:
 	return runs
 
 
-## 地面断开的那几处：(左岸右端, 右岸左端)。
+## Where the ground breaks: (right end of the left bank, left end of the right bank).
 func pits() -> Array[Vector2]:
 	var found: Array[Vector2] = []
 	var runs := ground_runs()
@@ -68,22 +68,22 @@ func pits() -> Array[Vector2]:
 	return found
 
 
-## 悬在半空的实心块 = **矮通道顶块**：底边够不着地面，底下留出一条缝。
-## 竖墙和堵块是站在地上的（底边落到地面线），不算。
+## A solid block hanging in mid-air = **a crawl passage roof**: its bottom does not reach the ground, leaving a gap underneath.
+## Upright walls and blockers stand on the ground (their bottom reaches the ground line) and do not count.
 func crawl_passages() -> Array:
 	var found := []
 	for node in terrain():
 		var slab := node as Platform
 		if slab.one_way or slab.position.y <= 0.0:
 			continue
-		if absf(slab.position.y - GROUND_Y) < 1.0:           # 地面自己
+		if absf(slab.position.y - GROUND_Y) < 1.0:           # The ground itself
 			continue
-		if slab.position.y + slab.size.y < GROUND_Y - 1.0:   # 底下还有缝
+		if slab.position.y + slab.size.y < GROUND_Y - 1.0:   # There is still a gap underneath
 			found.append(slab)
 	return found
 
 
-## 站在地上的实心块：竖墙（16 宽，跳得过去）和**堵块**（比一跳还高，下面那条路走不通）。
+## Solid blocks standing on the ground: upright walls (16 wide, jumpable) and **blockers** (higher than a jump, the path underneath is closed).
 func standing_solids() -> Array:
 	var found := []
 	for node in terrain():
@@ -97,7 +97,7 @@ func standing_solids() -> Array:
 	return found
 
 
-## 能站人的面：(左, 右, 顶边)。地面按段算，单向浮台各算一块。
+## Surfaces to stand on: (left, right, top). The ground counts by stretch, each one-way platform separately.
 func surfaces() -> Array:
 	var found := []
 	for node in terrain():
@@ -107,7 +107,7 @@ func surfaces() -> Array:
 	return found
 
 
-## 一个坑要跳几次：坑里架了浮台的话，从左岸跳上去、再跳到右岸。返回每一跳多远。
+## How many jumps a pit takes: with platforms in the pit, jump onto them from the left bank, then on to the right bank. Returns how far each jump is.
 func hops_across(pit: Vector2) -> Array[float]:
 	var edges: Array[float] = [pit.x]
 	for node in terrain():
@@ -123,14 +123,14 @@ func hops_across(pit: Vector2) -> Array[float]:
 	return hops
 
 
-## 在平地上按住跳跃往前跳，实测离地到落地走了多远 —— 也就是能跨多宽的坑。
+## Hold jump on flat ground and jump forward, measuring how far you travel from take-off to landing — i.e. how wide a pit you can clear.
 func jump_distance() -> float:
 	await reset_scene()
 	player.global_position = Vector2(200, 304)
 	await frames(5)
 	Input.action_press("move_right")
-	await frames(20)                      # 先加速到全速
-	Input.action_press("jump")            # **按住**：提前松开是低跳，只有一半高
+	await frames(20)                      # Speed up to full speed first
+	Input.action_press("jump")            # **Hold it**: releasing early is a short jump, only half as high
 	var start := 0.0
 	var airborne := false
 	for i in 120:
@@ -144,7 +144,7 @@ func jump_distance() -> float:
 	return player.global_position.x - start
 
 
-# ---------------------------------------------------------------- 关卡的形状
+# ---------------------------------------------------------------- The shape of the stage
 
 func test_the_level_is_ten_times_the_test_one() -> void:
 	await open_level()
@@ -160,7 +160,7 @@ func test_the_level_is_ten_times_the_test_one() -> void:
 
 
 func test_it_really_has_pits() -> void:
-	# 不先确认有坑的话，下面那条「每个坑都跳得过去」比的是空气
+	# Without first confirming there are pits, the "every pit can be jumped" check below would compare thin air
 	await open_level()
 	check("the ground is broken up", pits().size() >= 4, str(pits().size()))
 
@@ -178,8 +178,8 @@ func test_every_pit_can_be_jumped() -> void:
 func test_nothing_is_higher_than_a_jump() -> void:
 	var reach := await jump_distance()
 	await open_level()
-	# 竖墙：CLAUDE.md 的规矩是比跳跃高度至少低 12。跳跃高度这里按实测的横向距离折算不合适，
-	# 所以直接量一次纵向的。
+	# Upright walls: the rule in CLAUDE.md is at least 12 below the jump height. Deriving the jump height from the measured horizontal distance is not right,
+	# so measure a vertical jump directly.
 	var top := await jump_height()
 	check("setup: the jump has some height", top > 60.0, "%.0f" % top)
 	await open_level()
@@ -187,7 +187,7 @@ func test_nothing_is_higher_than_a_jump() -> void:
 		var wall := node as Platform
 		check("%s can be jumped" % wall.name, wall.size.y <= top - 12.0,
 			"%.0f tall, the jump reaches %.0f" % [wall.size.y, top])
-	# 浮台：每一块底下 120px 以内要有个够得着的面，否则那块就是上不去的
+	# Floating platforms: each needs a reachable surface within 120px below it, otherwise it cannot be climbed
 	for node in terrain():
 		var slab := node as Platform
 		if not slab.one_way:
@@ -204,7 +204,7 @@ func test_nothing_is_higher_than_a_jump() -> void:
 			"%.0f up, the jump reaches %.0f" % [best, top])
 
 
-## 在平地上按住跳跃，实测跳多高。
+## Hold jump on flat ground and measure how high you get.
 func jump_height() -> float:
 	await reset_scene()
 	player.global_position = Vector2(200, 304)
@@ -233,8 +233,8 @@ func test_the_crawl_passages_still_need_crouching() -> void:
 
 
 func test_the_blocked_routes_really_block_and_really_have_a_way_over() -> void:
-	# 「底下堵死、必须走上面」是这一关的骨架之一：块本身要高过一次跳，
-	# 上面还得有一整块盖过去的浮台，否则那儿就是死路。
+	# "Blocked below, you have to go over the top" is one of the stage's backbones: the block itself must be higher than a jump,
+	# and there must be a floating platform reaching right over it, otherwise it is a dead end.
 	var top := await jump_height()
 	await open_level()
 	var blocks := []
@@ -254,13 +254,13 @@ func test_the_blocked_routes_really_block_and_really_have_a_way_over() -> void:
 				slab.position.y])
 
 
-## 敌人脚底的 y：判定框中心往下半个框高（Boss 的框比普通敌人高，所以按各自的形状算）。
+## y of an enemy's feet: half a hitbox height below the hitbox centre (bosses have taller boxes than ordinary enemies, so each by its own shape).
 func enemy_feet(enemy: Enemy) -> float:
 	var box: CollisionShape2D = enemy.get_node("CollisionShape2D")
 	return enemy.position.y + (box.shape as RectangleShape2D).size.y / 2.0 + box.position.y
 
 
-# ---------------------------------------------------------------- 摆在里面的东西
+# ---------------------------------------------------------------- What is placed in it
 
 func test_every_enemy_stands_on_something() -> void:
 	await open_level()
@@ -282,9 +282,9 @@ func test_every_enemy_stands_on_something() -> void:
 
 
 func test_the_player_gets_a_moment_before_the_first_enemy() -> void:
-	# **人一进来就在挨打的话，连看清楚周围都来不及**（试玩发现）。
-	# 摄像机一开始夹在关卡左边，画面就是 x 0..640，而敌人**只要有一部分在画面里就算够得着**
-	# （「视野对等」，见 CLAUDE.md），所以头一屏必须空着。
+	# **If the player is being hit the moment they arrive, they do not even get to look around** (found in playtesting).
+	# The camera starts clamped to the left of the stage, so the view is x 0..640, and an enemy **counts as in reach as soon as part of it is on screen**
+	# ("vision parity", see CLAUDE.md), so the first screen has to be empty.
 	await open_level()
 	var camera: Camera2D = main.get_node("Camera2D")
 	var first_screen := float(ProjectSettings.get_setting("display/window/size/viewport_width", 640))
@@ -300,7 +300,7 @@ func test_the_player_gets_a_moment_before_the_first_enemy() -> void:
 
 
 func test_nothing_shoots_the_player_on_arrival() -> void:
-	# 上一条量的是位置，这一条是真跑：放着不动两秒，不该掉一滴血
+	# The previous check measured positions; this one really runs: standing still for two seconds should not lose a drop of health
 	await open_level()
 	await frames(2)
 	var health := player.health
@@ -311,7 +311,7 @@ func test_nothing_shoots_the_player_on_arrival() -> void:
 
 
 func test_no_enemy_is_stuck_in_a_crawl_passage() -> void:
-	# 敌人 32 高、矮通道净空 30，摆进去就卡死不动（CLAUDE.md 里记过这条坑）
+	# Enemies are 32 tall and crawl passages have 30 of clearance; placed inside one they are stuck forever (a pitfall noted in CLAUDE.md)
 	await open_level()
 	for node in main.get_node("Enemies").get_children():
 		var enemy := node as Enemy
@@ -340,11 +340,11 @@ func test_the_boss_waits_at_the_far_end() -> void:
 
 
 func test_nobody_walks_off_a_ledge_on_their_own() -> void:
-	# 浮台上摆了一半的敌人，要是有谁一开场就自己走下去摔死，关卡会悄悄变空。
-	# 巡逻兵在边缘会掉头，但摆错地方（半个身子悬空）照样会掉，所以放着跑两秒看看。
+	# Half the enemies are placed on floating platforms; if any walked off and fell to its death at the start, the stage would quietly empty.
+	# Patrollers turn around at edges, but one placed wrong (half its body over the edge) still falls, so let it run for two seconds and see.
 	await open_level()
-	# **数敌人，不数子节点**：敌人的子弹和手雷也挂在 `Enemies` 下（见 CLAUDE.md），
-	# 数子节点的话开几枪就多几个，过一会儿子弹没了又少几个
+	# **Count enemies, not children**: enemy bullets and grenades also hang under `Enemies` (see CLAUDE.md),
+	# so counting children goes up with every shot and down again a moment later when the bullets are gone
 	var before := enemies().size()
 	check("setup: the level is full of enemies", before >= 80, str(before))
 	await frames(120)
@@ -352,7 +352,7 @@ func test_nobody_walks_off_a_ledge_on_their_own() -> void:
 	check("they are all still there", after >= before, "%d -> %d" % [before, after])
 
 
-# ---------------------------------------------------------------- 装饰
+# ---------------------------------------------------------------- Scenery
 
 func props() -> Array:
 	var found := []
@@ -362,7 +362,7 @@ func props() -> Array:
 
 
 func test_the_scenery_is_pure_decoration() -> void:
-	# 和特效同一条规矩：装饰里**不许有碰撞体**，不然一棵树就能把人挡住、把子弹吃掉。
+	# The same rule as effects: **no colliders in scenery**, or one tree could block a person and swallow bullets.
 	await open_level()
 	check("setup: the level is dressed up", props().size() >= 100, str(props().size()))
 	var bodies := 0
@@ -381,8 +381,8 @@ func test_the_scenery_is_pure_decoration() -> void:
 
 
 func test_the_scenery_is_drawn_behind_everything() -> void:
-	# 画的顺序就是子节点的顺序：装饰要排在地形、敌人、玩家前面（= 画在它们后面），
-	# 否则一棵树会盖住正在朝你开枪的敌人。
+	# Drawing order is child order: scenery must come before terrain, enemies and players (= drawn behind them),
+	# otherwise a tree would cover an enemy shooting at you.
 	await open_level()
 	var order := {}
 	for child in main.get_children():
@@ -394,7 +394,7 @@ func test_the_scenery_is_drawn_behind_everything() -> void:
 
 
 func test_the_level_plays_the_same_without_any_scenery() -> void:
-	# 纯装饰的意思就是：整个删掉，关卡照常跑
+	# Purely decorative means: delete it all and the stage still runs
 	await open_level()
 	main.get_node("Props").free()
 	await frames(60)
@@ -422,9 +422,9 @@ func test_the_fountain_actually_runs() -> void:
 
 
 func test_nothing_in_the_level_shares_a_name() -> void:
-	# 同名节点会让引擎的子节点名字表对不上——free 一批敌人时刷一屏
-	# 「Children name does not match parent name in hashtable, this is a bug」。
-	# 生成脚本给每个敌人编号就是为了这个。
+	# Duplicate node names throw off the engine's child name table — freeing a batch of enemies prints a screenful of
+	# "Children name does not match parent name in hashtable, this is a bug".
+	# That is why the build script numbers every enemy.
 	await open_level()
 	for group in ["Enemies", "Level", "Props"]:
 		var seen := {}
@@ -434,7 +434,7 @@ func test_nothing_in_the_level_shares_a_name() -> void:
 
 
 func test_the_level_runs_on_its_own() -> void:
-	# 一整关加载起来跑两秒：出生点没卡在地形里、没有脚本报错（runner 会把 SCRIPT ERROR 记成失败）
+	# Load a whole stage and run it for two seconds: the spawn point is not stuck in terrain, and there are no script errors (the runner counts SCRIPT ERROR as a failure)
 	await open_level()
 	await frames(120)
 	check("the player is still standing", player.is_alive(), str(player.health))

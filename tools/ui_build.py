@@ -1,19 +1,19 @@
-"""从 gui 素材包生成界面用的资源，输出到 skins/cyberpunk/ui/。
+"""Generates the UI resources from the gui art pack, output to skins/cyberpunk/ui/.
 
     python tools/ui_build.py
 
-生成四样东西：
+It generates four things:
 
-1. **位图字体**（`font.png` + `font.fnt` 标题用、`font_small.*` 正文用）：素材包的字模是一个字一张 14×14 的 png
-   （`10 Font/images/1_01..1_63`，白底 + 黑色笔画），这里把**笔画**抠出来拼成一张图集，
-   再写一个 AngelCode BMFont 的 `.fnt`，Godot 直接当 FontFile 导入，界面上就能照常用 Label 了。
-   抠出来的字是白的，界面里用 `modulate` 染色。
-2. **窗口九宫格**（`panel.png`）：`1 Frames` 左上角那 3×3 块拼成一张 96×96，
-   NinePatchRect 的 patch margin 全填 32。
-3. **属性图标**（`stat_life.png` 等四张）：`9 Other/3 Skill icons` 里挑的四个，白色剪影，界面里染色。
-4. **小配件**：加点的 `plus.png`、菜单光标 `cursor.png`。
+1. **Bitmap fonts** (`font.png` + `font.fnt` for titles, `font_small.*` for body text): the art pack's glyphs are one 14×14 png per character
+   (`10 Font/images/1_01..1_63`, white background + black strokes); here the **strokes** are cut out and assembled into one atlas,
+   then an AngelCode BMFont `.fnt` is written, which Godot imports directly as a FontFile, so the UI can use Labels as usual.
+   The cut-out glyphs are white and tinted in the UI with `modulate`.
+2. **Window nine-slice** (`panel.png`): the 3×3 pieces at the top left of `1 Frames` assembled into one 96×96,
+   with every NinePatchRect patch margin set to 32.
+3. **Stat icons** (the four like `stat_life.png`): four picked from `9 Other/3 Skill icons`, white silhouettes tinted in the UI.
+4. **Small parts**: `plus.png` for spending points, the menu cursor `cursor.png`.
 
-界面一律英文大写：字模只有 A–Z、0–9 和一些符号，没有汉字（见 CLAUDE.md）。
+The UI is always in English capitals: the glyphs only have A–Z, 0–9 and some symbols, no Chinese characters (see CLAUDE.md).
 """
 import os
 import sys
@@ -25,27 +25,27 @@ import skin_build as sb
 GUI = os.path.join(HERE, "..", "art_in", "default", "gui")
 OUT = os.path.join(HERE, "..", "skins", "cyberpunk", "ui")
 
-# 字模文件的顺序：1_01..1_26 是 A..Z，1_27..1_36 是 0..9，后面是符号。
-# 符号那一段是照着图一个个认出来的（`tools/ui_build.py --glyphs` 可以再印一遍对照）。
+# The order of the glyph files: 1_01..1_26 are A..Z, 1_27..1_36 are 0..9, and symbols follow.
+# The symbols were identified one by one from the images (`tools/ui_build.py --glyphs` prints them again for comparison).
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 SYMBOLS = ".,'+-=:\"#|\/()[]{}!<>?"
 CELL = 14
-## 正文那套小一号的：14 高的字模在 640×360 上太占地方（一行字比角色的脑袋还高），
-## 按最近邻缩到 10 高再拼一张。**不让引擎去缩**——位图字体只有做出来的那个尺寸是清楚的，
-## 非整数倍缩放会糊。标题照旧用 14 那套放大整数倍。
+## A smaller set for body text: 14-tall glyphs take too much room at 640×360 (a line of text is taller than a character's head),
+## so they are shrunk to 10 tall by nearest neighbour and assembled into another atlas. **The engine is not left to scale them** — a bitmap font is only sharp at the size it was made,
+## and non-integer scaling blurs. Titles still use the 14 set scaled up by whole numbers.
 SMALL = 10
-## 字与字之间留几像素。
+## How many pixels between characters.
 TRACKING = 1
-## 空格多宽。
+## How wide a space is.
 SPACE = 5
-## 一行多高（字模 14 高，上下各留一点）。
+## How tall a line is (the glyphs are 14 tall, with a little room above and below).
 LINE_HEIGHT = 16
-## 基线：字模底边往上几像素。Label 按基线排版，所有字等高所以就是字模高度。
+## Baseline: how many pixels above the glyph's bottom edge. Labels lay out by baseline, and all glyphs are the same height, so it is the glyph height.
 BASE = 14
 
 
 def glyph_files():
-    """字符 → 字模文件名。"""
+    """Character → glyph file name."""
     table = {}
     for i, ch in enumerate(LETTERS):
         table[ch] = "1_%02d.png" % (i + 1)
@@ -55,7 +55,7 @@ def glyph_files():
 
 
 def ink_of(path):
-    """抠出笔画：字模是白底黑字，留下黑的、涂成白色，白底扔掉。返回 (像素, 左, 右)。"""
+    """Cut out the strokes: the glyphs are black on white, so keep the black, paint it white and throw away the white background. Returns (pixels, left, right)."""
     width, height, pixels = sb.read_png(path)
     out = sb.blank(width, height)
     xs = []
@@ -71,8 +71,8 @@ def ink_of(path):
 
 
 def shrink(art, left, wide, cell):
-    """把一个字模按最近邻缩到 cell 高（横向同比例）。取每个目标像素中心对应的源像素，
-    所以 3px 粗的笔画缩完是 2px，不会断。"""
+    """Shrink a glyph by nearest neighbour to cell tall (width in proportion). It takes the source pixel at each target pixel's centre,
+    so 3px thick strokes become 2px after shrinking and do not break."""
     if cell == CELL:
         return [[art[y][left + x] for x in range(wide)] for y in range(CELL)], wide
     out_wide = max(1, round(wide * cell / float(CELL)))
@@ -85,8 +85,8 @@ def shrink(art, left, wide, cell):
 
 
 def build_font(write, cell=CELL, name="font"):
-    """拼一张字模图集 + 一个 AngelCode `.fnt`。`cell` 是字高，14 是素材原尺寸，
-    小一号的那套按最近邻缩过（见 `SMALL`）。"""
+    """Assemble a glyph atlas + an AngelCode `.fnt`. `cell` is the glyph height; 14 is the art's original size,
+    and the smaller set is shrunk by nearest neighbour (see `SMALL`)."""
     table = glyph_files()
     glyphs = []
     for ch in sorted(table):
@@ -118,13 +118,13 @@ def build_font(write, cell=CELL, name="font"):
         sb.write_png(os.path.join(OUT, "%s.png" % name), atlas)
         with open(os.path.join(OUT, "%s.fnt" % name), "w", newline="\n") as f:
             f.write("\n".join(header + lines) + "\n")
-    print("  %s.png  %d×%d，%d 个字" % (name, total, cell, len(lines)))
+    print("  %s.png  %d×%d, %d glyphs" % (name, total, cell, len(lines)))
 
 
 def build_panel(write):
-    """`1 Frames` 左上角 3×3（Frame_01..03 / 10..12 / 19..21）拼成一张 96×96 的九宫格，
-    另外把正中间那一格单独存一份（`panel_fill.png`）——窗口要先用它铺满整块、再把边框盖上去，
-    不然边框图的内沿和中间那格之间会露出一圈缝。"""
+    """The 3×3 at the top left of `1 Frames` (Frame_01..03 / 10..12 / 19..21) assembled into one 96×96 nine-slice,
+    and the middle cell saved separately (`panel_fill.png`) — windows first tile it over the whole area, then lay the frame on top,
+    or a gap would show between the inner edge of the frame image and the middle cell."""
     TILE = 32
     out = sb.blank(TILE * 3, TILE * 3)
     for row in range(3):
@@ -136,26 +136,26 @@ def build_panel(write):
     if write:
         sb.write_png(os.path.join(OUT, "panel.png"), out)
         sb.write_png(os.path.join(OUT, "panel_fill.png"), middle)
-    print("  panel.png  96×96（九宫格边 32）")
-    print("  panel_fill.png  32×32（中间那格，铺底用）")
+    print("  panel.png  96×96 (nine-slice edge 32)")
+    print("  panel_fill.png  32×32 (the middle cell, used as backing)")
 
 
-## 四个属性用哪个图标（`9 Other/3 Skill icons` 里的编号）。都是白色剪影，界面里染色。
+## Which icon each of the four stats uses (the numbers in `9 Other/3 Skill icons`). All white silhouettes, tinted in the UI.
 STAT_ICONS = {"life": 16, "attack": 15, "defense": 18, "speed": 2}
 
 
-## 标题牌加宽多少、从哪一列加：素材 285 宽，里面那格装不下 28px 的「ZONE BREAKER」（约 295 宽，2026-11 定名后）。
-## 第 126..169 列上下每一行都一模一样（牌子上那一段没有花纹），把其中一列重复插进去，牌子就变宽了、花纹不动。
-## 字是位图字体，只有 14 / 28 两档是清楚的，所以改牌子不改字。
+## How much to widen the title plate and from which column: the art is 285 wide, and its inner panel cannot hold "ZONE BREAKER" at 28px (about 295 wide, after the 2026-11 naming).
+## Columns 126..169 are identical in every row (that stretch of the plate has no ornament), so repeating one of them makes the plate wider without moving the ornament.
+## The text is a bitmap font, only sharp at the two sizes 14 / 28, so the plate changes, not the text.
 TITLE_WIDEN = 56
 TITLE_PLAIN_COLUMN = 147
 
 
 def build_title(write):
-    """主菜单上那块标题牌（`5 Logo/Logo1`，285×115，游戏名写在里面那格），中间加宽 `TITLE_WIDEN`。"""
+    """The title plate on the main menu (`5 Logo/Logo1`, 285×115, the game's name written in the inner panel), widened in the middle by `TITLE_WIDEN`."""
     _, _, art = sb.read_png(os.path.join(GUI, "5 Logo", "Logo1.png"))
     for row in art:
-        assert row[126:170] == [row[126]] * 44, "标题牌第 126..169 列不再是同一列了，换素材了？"
+        assert row[126:170] == [row[126]] * 44, "Columns 126..169 of the title plate are no longer one repeated column; did the art change?"
     art = [row[:TITLE_PLAIN_COLUMN] + [row[TITLE_PLAIN_COLUMN]] * TITLE_WIDEN + row[TITLE_PLAIN_COLUMN:]
            for row in art]
     if write:
@@ -163,18 +163,18 @@ def build_title(write):
     print("  title_plate.png  %d×%d" % (len(art[0]), len(art)))
 
 
-## 装备图标：键就是装备资源的文件名（`weapons/rifle.tres` → `rifle`），
-## 值是素材里哪一张（`2 Guns/Icon15_NN` 是枪，`armor/Icon24_NN` 是防具）。
+## Gear icons: the key is the gear resource's file name (`weapons/rifle.tres` → `rifle`),
+## the value is which image in the art (`2 Guns/Icon15_NN` are guns, `armor/Icon24_NN` armour).
 GEAR_ICONS = {
     "rifle": "2 Guns/Icon15_01.png",
     "grenade": "2 Guns/Icon15_26.png",
-    # 商店里卖的枪（`tools/gear_build.py` 的 WEAPONS 表按名字引用这些）
+    # Guns sold in the shop (the WEAPONS table in `tools/gear_build.py` refers to these by name)
     "rifle_mk2": "2 Guns/Icon15_07.png",
     "plasma_rifle": "2 Guns/Icon15_19.png",
     "cluster_bomb": "2 Guns/Icon15_31.png",
 }
-## 防具图标：`armor/Icon24_NN.png` **每套 5 件，头/身/腿/脚/手**，一套一个配色。
-## 键要和 `gear_build.py` 里 `gear_<档位>_<部位>` 的拼法对上。
+## Armour icons: `armor/Icon24_NN.png` **5 pieces per set, head/body/legs/feet/hands**, one colour scheme per set.
+## The keys have to match how `gear_<tier>_<slot>` is spelled in `gear_build.py`.
 ARMOR_SETS = [("scrap", 1), ("combat", 2), ("titan", 3)]
 ARMOR_PARTS = ["head", "body", "legs", "feet", "hands"]
 for _name, _set in ARMOR_SETS:
@@ -200,7 +200,7 @@ def build_bits(write):
     if write:
         sb.write_png(os.path.join(OUT, "plus.png"), plus)
     print("  plus.png")
-    # 菜单光标：自己画一个朝右的小三角，7×7
+    # Menu cursor: a small right-pointing triangle drawn by us, 7×7
     cursor = sb.blank(7, 7)
     for i in range(4):
         for j in range(2 * (4 - i) - 1):
@@ -213,17 +213,17 @@ def build_bits(write):
 def main():
     write = "--check" not in sys.argv
     if not os.path.isdir(GUI):
-        sys.exit("找不到 gui 素材包 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(GUI))
+        sys.exit("Cannot find the gui art pack %s (it is not in the repo, unpack it in yourself)" % os.path.normpath(GUI))
     if write and not os.path.isdir(OUT):
         os.makedirs(OUT)
-    print("界面素材：")
+    print("UI assets:")
     build_font(write)
     build_font(write, SMALL, "font_small")
     build_panel(write)
     build_title(write)
     build_gear(write)
     build_bits(write)
-    print("\n好了。" + ("" if write else "（--check：没有写文件）"))
+    print("\nDone." + ("" if write else " (--check: no files written)"))
 
 
 if __name__ == "__main__":

@@ -1,31 +1,31 @@
 class_name UiKit
 extends RefCounted
-## 界面的共用零件：字体、窗口九宫格、颜色，以及几个「照这个样子做一个控件」的小工厂。
+## Shared UI parts: fonts, the window nine-slice, colours, and a few small factories that "make a control like this".
 ##
-## 素材由 `tools/ui_build.py` 从 gui 素材包生成到 `skins/cyberpunk/ui/`：
-## 字体是位图字体（`.fnt`，Godot 直接当 FontFile 导入），字模抠出来是白的，用 `modulate` 染色。
-## **界面一律英文大写**——素材包的字模只有 A–Z、0–9 和一些符号，没有汉字（见 CLAUDE.md）。
+## The art is generated from the gui art pack into `skins/cyberpunk/ui/` by `tools/ui_build.py`:
+## the fonts are bitmap fonts (`.fnt`, imported by Godot directly as FontFile), with white glyphs tinted through `modulate`.
+## **The UI is always English upper case** — the pack's font only has A–Z, 0–9 and some symbols, no Chinese (see CLAUDE.md).
 ##
-## 界面用的美术目前直接引用这个目录，还没进 `SkinPack`。以后要让素材包也能换界面皮肤时再收进去，
-## 那时只要把下面这几个常量改成问 `Skins` 要。
+## The UI art is referenced from this folder directly for now and is not in `SkinPack` yet. When skin packs should be able to reskin the UI it moves in,
+## and then only these constants need to ask `Skins` instead.
 ##
-## **这个目录可能不在**：它是第三方素材，公开版里去掉了。那时字体退回引擎自带的
-## （`ThemeDB.fallback_font`）、窗口画成描边方框、图标空着——界面照样能用，只是不是像素风。
+## **This folder may be missing**: it is third-party art, stripped from the public build. Then the font falls back to the engine's own
+## (`ThemeDB.fallback_font`), windows are drawn as outlined boxes and icons are blank — the UI still works, just not in pixel style.
 
 const DIR := "res://skins/cyberpunk/ui"
 const FONT := DIR + "/font.fnt"
-## 正文那套小一号的字模（10px）。**位图字体只有做出来的那一个尺寸是清楚的**，
-## 所以正文和标题各用各的图集，不让引擎去缩（非整数倍缩放会糊）。
+## The smaller font for body text (10px). **A bitmap font is only sharp at the one size it was made at**,
+## so body text and titles each use their own atlas instead of letting the engine scale (non-integer scaling blurs).
 const FONT_SMALL := DIR + "/font_small.fnt"
 const PANEL := DIR + "/panel.png"
 const PANEL_FILL := DIR + "/panel_fill.png"
 const CURSOR := DIR + "/cursor.png"
 const PLUS := DIR + "/plus.png"
-## 九宫格四条边各占几像素（`panel.png` 是 3×3 块 32px 拼的）。
+## Pixels taken by each of the nine-slice's four edges (`panel.png` is made of 3×3 blocks of 32px).
 const PANEL_MARGIN := 32
-## 正文字号 = 小那套字模的原尺寸。14 那套在 640×360 上太占地方，一行字比角色的脑袋还高。
+## Body text size = the native size of the small font. The 14 one takes too much room on 640×360; a line of text was taller than a character's head.
 const TEXT_SIZE := 10
-## 标题字号 = 大那套字模（14）的整数倍。
+## Title size = an integer multiple of the big font (14).
 const TITLE_SIZE := 28
 
 const WHITE := Color(0.925, 0.941, 0.973)
@@ -33,7 +33,7 @@ const DIM := Color(0.471, 0.518, 0.659)
 const CYAN := Color(0.471, 0.863, 0.922)
 const GOLD := Color(0.961, 0.784, 0.353)
 const GREEN := Color(0.549, 0.902, 0.627)
-## 四个属性各自的颜色，和加点界面里的图标一致。
+## Each stat's colour, matching the icons on the skill screen.
 const STAT_COLORS := {
 	&"life": Color(0.941, 0.431, 0.471),
 	&"attack": Color(0.961, 0.667, 0.353),
@@ -42,10 +42,10 @@ const STAT_COLORS := {
 }
 
 
-## 这个字号该用哪张图集：标题用 14 那套，正文用 10 那套。两套都只按整数倍放大。
-## 界面上的数字：**过千就写成 K**。经验和金钱到后面都是五六位数（一周目总收入九万），
-## 原样写会把一行字撑爆，读起来也累。
-## 1000 以下原样；一万以下留一位小数（`1.2K`，整数的不留 `.0`）；再往上取整（`13K`、`154K`）。
+## Which atlas this size uses: titles the 14 one, body text the 10 one. Both are only ever scaled by integers.
+## Numbers in the UI: **past a thousand, write K**. XP and money reach five or six digits later on (a full run earns ninety thousand),
+## and written out they burst the line and are tiring to read.
+## Below 1000 as is; below ten thousand with one decimal (`1.2K`, no `.0` for whole numbers); above that rounded (`13K`, `154K`).
 static func number(value: int) -> String:
 	if value < 1000:
 		return str(value)
@@ -67,14 +67,14 @@ static func font(size := TEXT_SIZE) -> Font:
 	return ThemeDB.fallback_font
 
 
-## 素材包里有这张图就加载，没有就是 null（公开版去掉了第三方素材）。
+## Load the image if the skin pack has it, otherwise null (the public build strips third-party art).
 static func texture(path: String) -> Texture2D:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return null
 	return load(path) as Texture2D
 
 
-## 一个不挡鼠标的文字控件。`box` 是它在父节点里占的矩形。
+## A text control that never takes the mouse. `box` is the rectangle it takes in its parent.
 static func label(text: String, box: Rect2, tint := WHITE, size := TEXT_SIZE,
 		align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	var node := Label.new()
@@ -90,11 +90,11 @@ static func label(text: String, box: Rect2, tint := WHITE, size := TEXT_SIZE,
 	return node
 
 
-## 一个窗口：**先用中间那格铺满整块，再把九宫格边框盖上去**。
-## 只画九宫格的话，边框图的内沿和中间那格之间会露出一圈缝（窗口越小越明显）。
+## A window: **first fill the whole area with the middle tile, then put the nine-slice frame on top**.
+## Drawing only the nine-slice leaves a ring of gap between the inner edge of the frame image and the middle tile (more visible the smaller the window).
 static func window(box: Rect2) -> Control:
 	if not ResourceLoader.exists(PANEL):
-		# 没有九宫格素材：画成描边方框，大小位置和九宫格那个一样
+		# No nine-slice art: draw an outlined box, the same size and position as the nine-slice one
 		var plain := UiKit.box(box, Color(0.35, 0.45, 0.7), Color(0.08, 0.1, 0.2, 0.94))
 		return plain
 	var root := Control.new()
@@ -123,8 +123,8 @@ static func window(box: Rect2) -> Control:
 	return root
 
 
-## 一张小图（属性图标、加号、光标）。白色剪影用 tint 染色。
-## `path` 留空就是一个先空着的框（贴图之后再填，比如装备格）。
+## A small image (stat icons, the plus sign, the cursor). White silhouettes are tinted with tint.
+## An empty `path` is a box left blank for now (to be filled with an image later, e.g. gear boxes).
 static func picture(path: String, at: Vector2, tint := WHITE) -> TextureRect:
 	var node := TextureRect.new()
 	node.texture = texture(path)
@@ -134,8 +134,8 @@ static func picture(path: String, at: Vector2, tint := WHITE) -> TextureRect:
 	return node
 
 
-## 一个小方框（描边 + 填充）。**小格子别用 `window()`**：九宫格那张图是 96×96、四边 32，
-## 撑不到 64×64 以下，头像格、装备格那种 30~40px 的框会被撑爆、糊成一片。
+## A small box (outline + fill). **Do not use `window()` for small boxes**: the nine-slice image is 96×96 with edges of 32,
+## it cannot shrink below 64×64, and 30~40px boxes like portraits and gear would be blown apart into a mess.
 static func box(rect: Rect2, edge := Color(0.27, 0.35, 0.55), fill := Color(0.12, 0.15, 0.28)) -> Control:
 	var frame := ColorRect.new()
 	frame.color = edge
@@ -151,28 +151,28 @@ static func box(rect: Rect2, edge := Color(0.27, 0.35, 0.55), fill := Color(0.12
 	return frame
 
 
-## 人物选择界面上的头像：**素材包里现成的一张图**（`skins/<包>/<角色>/portrait.png`，
-## 由 `tools/skin_build.py` 的 `build_portrait()` 从素材原本的待机第一帧裁出来）。
+## The portrait in character select: **an image ready-made in the skin pack** (`skins/<pack>/<character>/portrait.png`,
+## cut by `build_portrait()` in `tools/skin_build.py` from the first idle frame of the original art).
 ##
-## **不能拿游戏里那张身体贴图来画**：那是脱过胳膊的（胳膊按瞄准方向单独烘，见 `strip_arms()`），
-## 头像上的人会空着两只袖子（2026-09 试玩看出来的）。也不要把瞄准手臂贴回去——
-## 那会带出一根伸到框外的枪管，而且 `strip_arms()` 只脱得干净 biker，
-## punk 和 cyborg 的胳膊是袖子和护甲的颜色、和躯干同色又连在一起，脱不掉，
-## 贴上去就成了三条胳膊。选人的时候要看的是这个人长什么样，用素材原画最省事也最像。
+## **The in-game body sprite cannot be used**: its arms have been stripped (the arms are baked separately per aim direction, see `strip_arms()`),
+## so the portrait would have two empty sleeves (seen in a 2026-09 playtest). Do not put the aiming arms back either —
+## that brings along a gun barrel sticking out of the box, and `strip_arms()` only strips biker cleanly;
+## punk's and cyborg's arms are sleeve and armour coloured, the same colour as the torso and joined to it, so they cannot be stripped,
+## and pasting arms on would give three arms. When picking a character you want to see what they look like, and the original art is the simplest and truest.
 ##
-## **按当前皮肤包的目录找**，不写死哪个包：DLC 角色的贴图可能在另一个包里。
-## 包里没有这张图就返回 null（界面上那一格空着，不崩）。
+## **Looked up in the current skin pack's folder**, without hard-coding a pack: a DLC character's sprites may live in another pack.
+## Returns null if the pack does not have the image (that box in the UI stays empty, no crash).
 static func portrait(look: StringName) -> Texture2D:
-	# **要顺着 fallback 找**，不能只看当前包的目录：每关的包只装这一关独有的东西，
-	# 角色是 23 关共用的、只在最底下那个包里有一份。只看当前包的话，
-	# 打完第二关回主菜单时三个头像会全空（试玩发现）。
+	# **It has to follow the fallback chain**, not just look in the current pack's folder: each stage's pack only holds what is unique to that stage,
+	# and the characters are shared by all 23 stages and only exist once, in the pack at the bottom. Looking only in the current pack,
+	# all three portraits were blank on returning to the main menu after clearing stage 2 (found in playtesting).
 	var path := Skins.file("%s/portrait.png" % look)
 	if path.is_empty():
 		path = "res://skins/cyberpunk/%s/portrait.png" % look
 	return load(path) as Texture2D if ResourceLoader.exists(path) else null
 
 
-## 把整个画面盖暗一层（暂停时后面的关卡还看得见，但不抢眼）。
+## Cover the whole screen with a darker layer (when paused, the stage behind is still visible but not distracting).
 static func shade(alpha := 0.62) -> ColorRect:
 	var node := ColorRect.new()
 	node.color = Color(0.04, 0.05, 0.11, alpha)

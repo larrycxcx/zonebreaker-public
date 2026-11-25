@@ -1,41 +1,41 @@
 class_name MenuList
 extends Control
-## 一列可以上下选的菜单项。自己画光标、自己收键，选中了就发 `chosen`。
+## A column of menu items to pick from up and down. It draws its own cursor and handles its own keys, emitting `chosen` on a selection.
 ##
-## 用的是**游戏里那套输入**，不是 Godot 的 `ui_*`：上下用 `aim_up` / `aim_down`（十字键上下）、
-## 确认用 `jump`（A）、返回用 `cancel`（B）。这样手柄上的手不用换位置，两个玩家也各按各的
-## （`player_index` 决定听谁的，见 `Player.act()` 那套前缀规则）。
+## It uses **the game's own inputs**, not Godot's `ui_*`: up / down with `aim_up` / `aim_down` (d-pad up / down),
+## confirm with `jump` (A), back with `cancel` (B). So hands on the pad never have to move, and two players each press their own
+## (`player_index` decides whose to listen to, see the prefix rule of `Player.act()`).
 
-## 选中了第几项。
+## Which item was chosen.
 signal chosen(index: int)
-## 按了返回。
+## Back was pressed.
 signal cancelled
-## 在这一项上按了左 / 右（`direction` 是 -1 / 1）。菜单自己不管这是什么意思，交给用它的界面
-## （人物设置界面就靠它换角色、在装备格之间挪）。
+## Left / right was pressed on this item (`direction` is -1 / 1). The menu does not care what it means; that is up to the screen using it
+## (character setup uses it to switch characters and move between gear boxes).
 signal nudged(index: int, direction: int)
-## 光标移到了第几项（放音效用）。
+## The cursor moved to an item (for sound effects).
 signal moved(index: int)
 
 const ROW_HEIGHT := 24.0
-## 选中框比里面那几个字宽出多少。
+## How much wider than the text inside the selection box is.
 const PADDING := 6.0
 
-## 听第几号玩家的输入。-1 = 谁按都算（单人的暂停菜单就用这个）。
+## Which player's input to listen to. -1 = anyone's press counts (the single-player pause menu uses this).
 var listens_to := -1
-## 一屏最多显示几行（0 = 有几项显示几项）。项数超过这个数时上下走会**滚动**：
-## 行数不变，换的是行里显示的是第几项（存档列表那种会越攒越多的清单用它）。
+## Most rows shown at once (0 = as many as there are items). With more items than this, moving up and down **scrolls**:
+## the number of rows stays the same and what changes is which item each row shows (used for lists that keep growing, like the save list).
 var window_rows := 0
-## 选中框画多宽：整行（加点界面、存档列表那样）还是只框住那几个字（菜单那样）。
+## How wide the selection box is drawn: the whole row (like the skill screen and save list) or just around the text (like menus).
 var wide_highlight := false
-## 每一行的选中框画在哪（这个菜单自己的坐标系）。留空就按行高自己算。
-## 人物设置界面那种「一行一块内容、每块大小位置都不一样」的界面才需要填它。
-## **是个 setter**：`build()` 里已经摆过一次框了，后填的框得让它重画一遍。
+## Where each row's selection box goes (in this menu's own coordinates). Empty works it out from the row height.
+## Only screens like character setup — "one block of content per row, each a different size and position" — need to fill this in.
+## **It is a setter**: `build()` has already placed the box once, and boxes filled in later need it redrawn.
 var row_boxes: Array[Rect2] = []:
 	set(value):
 		row_boxes = value
 		_refresh()
-## 现在选中第几项。**是个 setter**：直接赋值（`SetupColumn.go_to_row()`、测试里跳行）也要把选中框挪过去，
-## 不然框会留在上一行上——按键走的那条路是 `_step()`，赋值这条路以前没人管。
+## The item selected now. **It is a setter**: assigning it directly (`SetupColumn.go_to_row()`, jumping rows in tests) must also move the selection box,
+## otherwise the box stays on the previous row — key presses go through `_step()`, and nobody used to handle this assignment path.
 var index := 0:
 	set(value):
 		index = value
@@ -44,21 +44,21 @@ var index := 0:
 var _items: Array[String] = []
 var _labels: Array[Label] = []
 var _cursor: OutlineBox
-## 第一行现在显示的是第几项（滚动到哪儿了）。
+## Which item the first row shows now (how far it has scrolled).
 var _top := 0
-## 换上这批项是第几个物理帧。**摆好的那一帧不收键**：上一页就是用这一下按键退出来的，
-## 同一帧这一页不该再吃一次（一下 B 连退两页、一下 A 连选两层）。
+## The physics frame on which this set of items was put in. **No keys are taken on the frame it is built**: the previous page was left with this very key press,
+## and this page should not take it again on the same frame (one B going back two pages, one A choosing two levels deep).
 var _built_frame := -1
 
 
-## 摆出这几项。`width` 是这一列多宽（文字居中）。
+## Lay out these items. `width` is how wide this column is (text centred).
 func build(items: Array[String], width: float) -> void:
 	_items = items
 	_built_frame = Engine.get_physics_frames()
 	for child in get_children():
 		child.queue_free()
 	_labels.clear()
-	# 换了一批项就从头选起：不清的话从标题页的第 2 项过来，下一页也停在第 2 项上
+	# A new set of items starts from the top: without clearing, coming from item 2 on the title page would leave the next page on item 2 as well
 	_top = 0
 	index = 0
 	var shown := rows_shown()
@@ -73,12 +73,12 @@ func build(items: Array[String], width: float) -> void:
 	_refresh()
 
 
-## 哪几项是灰的（选不动）。`disabled` 里是下标。
+## Which items are grey (cannot be chosen). `disabled` holds indexes.
 var greyed: Array[int] = []:
 	set(value):
 		greyed = value
-		# 光标正停在一个选不动的项上就挪开：不挪的话框会整个藏起来，
-		# 界面上看不出光标在哪，像是「上下根本选不动」。
+		# If the cursor rests on an item that cannot be chosen, move it off: otherwise the box would hide entirely,
+		# and with no visible cursor it would look like "up and down do not work at all".
 		if greyed.has(index):
 			for i in _items.size():
 				if not greyed.has(i):
@@ -88,14 +88,14 @@ var greyed: Array[int] = []:
 
 
 func _ready() -> void:
-	# 暂停时整棵树停了，菜单自己得继续跑，不然按键没人收
+	# When paused the whole tree stops; the menu has to keep running itself, or nobody would take the keys
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
 func _physics_process(_delta: float) -> void:
-	# **要看 is_visible_in_tree()，不是 visible**：`visible` 只说自己这个节点的开关，
-	# 父节点被藏起来时它照样是 true。暂停菜单没打开时整棵界面是藏着的，
-	# 光看 visible 的话这里还在收键——游戏里随手按「下下 A」就会选中 QUIT 把游戏关掉。
+	# **It has to check is_visible_in_tree(), not visible**: `visible` only says whether this node itself is switched on,
+	# and it stays true when a parent is hidden. When the pause menu is not open its whole UI is hidden,
+	# and looking only at visible this would still take keys — pressing "down down A" in the game would pick QUIT and close the game.
 	if _items.is_empty() or not is_visible_in_tree():
 		return
 	if Engine.get_physics_frames() == _built_frame:
@@ -117,34 +117,34 @@ func _physics_process(_delta: float) -> void:
 		nudged.emit(index, 1)
 
 
-## **这一帧别收键**。盖在上面的面板（商店的确认框、改名字的字母格）就是用这一下按键关掉的，
-## 同一帧露出来的这一层不该再吃一次——`build()` 自带这个保护，只是重新 `show()` 走不到那儿。
+## **Take no keys this frame**. The panel on top (the shop's confirm box, the name letter grid) was closed with this very press,
+## and the layer revealed on the same frame should not take it again — `build()` has this protection built in, but showing it again with `show()` never gets there.
 func ignore_this_frame() -> void:
 	_built_frame = Engine.get_physics_frames()
 
 
-## 这一项在哪一行（别的控件想跟着光标走时用）。
+## Which row this item is on (for other controls that want to follow the cursor).
 func row_top(row: int) -> float:
 	return row * ROW_HEIGHT
 
 
-## 一屏摆几行。
+## How many rows fit on one screen.
 func rows_shown() -> int:
 	return _items.size() if window_rows <= 0 else mini(_items.size(), window_rows)
 
 
-## 第一行现在显示的是第几项（滚动到哪儿了）。列表自己画内容时要按它取数据。
+## Which item the first row shows now (how far it has scrolled). Lists that draw their own content take their data by this.
 func first_row() -> int:
 	return _top
 
 
-## 第几项的选中框画在哪。
+## Where the selection box of an item goes.
 func highlight_box(index: int) -> Rect2:
 	if index < row_boxes.size():
 		return row_boxes[index]
 	if _labels.is_empty():
 		return Rect2()
-	# 滚动时这一项画在第几行；夹一下是因为 `_step()` 会先挪 index、再滚动，中间那一瞬会越界
+	# Which row this item is drawn on while scrolling; clamped because `_step()` moves index first and scrolls after, so for an instant it is out of range
 	var row := clampi(index - _top, 0, _labels.size() - 1)
 	var top := row_top(row) + 2.0
 	if wide_highlight:
@@ -167,7 +167,7 @@ func _step(by: int) -> void:
 		moved.emit(index)
 
 
-## 把选中那一项滚进画面里。项数没超过一屏就永远不滚。
+## Scroll the selected item into view. Never scrolls when the items fit on one screen.
 func _scroll_into_view() -> void:
 	var shown := _labels.size()
 	if shown <= 0 or shown >= _items.size():
@@ -193,7 +193,7 @@ func _refresh() -> void:
 		_cursor.visible = not greyed.has(index)
 
 
-## 按了自己这一份的某个动作。`listens_to` 是 -1 就谁按都算，**单人时也一样**——
-## 规则在 `Session.just_pressed()` 那儿，那边有为什么。
+## One of this player's own actions was pressed. With `listens_to` at -1 anyone's press counts, **and so it does when playing alone** —
+## the rule lives in `Session.just_pressed()`, which explains why.
 func _pressed(action: StringName) -> bool:
 	return Session.just_pressed(action, listens_to)

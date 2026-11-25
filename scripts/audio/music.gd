@@ -1,25 +1,25 @@
 extends Node
-## 背景音乐（autoload 单例 Music）：从当前素材包里按「用途」（`SkinPack.MUSIC_KEYS`）找曲子，走 Music 总线循环播放。
-## 播放器挂在这个单例下，所以关卡重载（玩家死了重开）时音乐不会断，也不会从头再放一遍。
+## Background music (the autoload singleton Music): finds a track in the current skin pack by "purpose" (`SkinPack.MUSIC_KEYS`) and loops it on the Music bus.
+## The player hangs under this singleton, so reloading a stage (restarting after dying) does not cut the music or start it over.
 ##
-## 什么时候换曲：关卡加载时 `main.gd` 调 `play(&"level")`；Boss 出场（`boss_appear` 事件）切到 `boss`；
-## 死了重开又回到 `level`。已经在放同一首就什么都不做。当前包没有这首就静音（默认包没有音乐）。
+## When the track changes: on stage load `main.gd` calls `play(&"level")`; a boss appearing (`boss_appear` event) switches to `boss`;
+## restarting after dying goes back to `level`. If the same track is already playing nothing happens. If the current pack lacks the track it goes silent (the default pack has no music).
 
-## 换曲（或停下）时发出。测试用它确认换到了哪首。
+## Emitted on changing (or stopping) the track. Tests use it to confirm which track it switched to.
 signal track_changed(key: StringName)
 
 const BUS := &"Music"
-## 音乐比音效轻一点，别盖过枪声。
+## Music a little quieter than the sound effects, so it does not drown out the gunfire.
 const VOLUME_DB := -8.0
 
-## 现在该放的是哪一首（用途名）；空表示没在放。
+## Which track should be playing now (purpose name); empty means nothing is playing.
 var current := &""
 
 var _player: AudioStreamPlayer
 
 
 func _ready() -> void:
-	# 终极武器定格时整棵树暂停，音乐照放。
+	# When the ultimate freezes things the whole tree pauses, but the music keeps playing.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_player = AudioStreamPlayer.new()
 	_player.bus = BUS
@@ -37,7 +37,7 @@ func play(key: StringName) -> void:
 	_player.stop()
 	_player.stream = stream
 	if stream != null:
-		# 背景音乐一律循环（MP3 / OGG 的 loop 属性）
+		# Background music always loops (the loop property of MP3 / OGG)
 		if &"loop" in stream:
 			stream.set(&"loop", true)
 		_player.play()
@@ -50,7 +50,7 @@ func stop() -> void:
 	_player.stream = null
 
 
-## 正在放的曲子（测试用），没在放返回 null。
+## The track playing now (for tests), null if nothing is playing.
 func playing_stream() -> AudioStream:
 	return _player.stream if _player.playing else null
 
@@ -60,7 +60,7 @@ func _on_event(event: StringName, _source: Node) -> void:
 		play(&"boss")
 
 
-## 换了素材包：同一个用途重新从新包里找；曲子没变（同一个包、或者新包回落到同一首）就接着放。
+## The skin pack changed: look the same purpose up again in the new pack; if the track is the same (same pack, or the new pack falls back to the same track) it keeps playing.
 func _restart() -> void:
 	if current != &"":
 		play(current)

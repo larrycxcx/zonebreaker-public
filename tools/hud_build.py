@@ -1,18 +1,18 @@
-"""从 GUI 素材包和枪械素材生成赛博朋克皮肤包的 HUD 贴图，输出到 skins/cyberpunk/hud/。
+"""Generates the cyberpunk skin pack's HUD art from the GUI art pack and gun art, output to skins/cyberpunk/hud/.
 
-    python tools/hud_build.py            # 全部重新生成
-    python tools/hud_build.py --check    # 只检查，不写文件
+    python tools/hud_build.py            # regenerate everything
+    python tools/hud_build.py --check    # only check, without writing files
 
-素材来源：CraftPix 的 GUI 包（art_in/default/gui/，不进仓库）和角色包里的枪（art_in/default/2 Guns/）。
+Art sources: CraftPix's GUI pack (art_in/default/gui/, not in the repo) and the guns in the character pack (art_in/default/2 Guns/).
 
-- 血条：`2 Bars/HealthBar1~8`，每块 32×14。1~4 是满的（红）：左端、中段、右端、单独一格；5~8 是同样形状的空槽（灰）。
-  玩家一点血一格；Boss 血条用同一套拼一长条，按比例裁。输出 `health.png`：一排 8 块，顺序和素材一样。
-- 体力条：`2 Bars/EnergyBar1~8`，每块 16×5，规律同上（1~4 蓝、5~8 空）。另外换色做一套「跑不动」的橙色
-  （体力跌到能重新起跑的门槛以下时，原来的占位条也是变橙）。输出 `energy.png`：满 4 块 + 空 4 块 + 橙 4 块。
-- 框：`1 Frames/FrameMap.png` 里第 8 行那个 32×32 的方框，武器槽和 Boss 头像框都用它（场景里用 NinePatchRect 拉大小）。
-- 武器图标：直接用玩家手里那两把枪的原图——步枪 4 号、榴弹枪 5 号，和 skin_build.py 的 `GUNS` 同一对。
-- 终极武器图标：爆炸包（art_in/default/explosions/1 Bombs/）18 号红色航弹，裁掉四周空白（10×21）。
-  蓝色那颗（20 号）本体 23×40，放进 HUD 那一排太高。
+- Health bar: `2 Bars/HealthBar1~8`, 32×14 each. 1~4 are full (red): left end, middle, right end, single cell; 5~8 are empty slots of the same shapes (grey).
+  One cell per point of player health; the boss bar strings the same set into a long bar, cropped by ratio. Output `health.png`: a row of 8 pieces in the art's order.
+- Stamina bar: `2 Bars/EnergyBar1~8`, 16×5 each, the same pattern (1~4 blue, 5~8 empty). Plus a recoloured orange set for "too tired to run"
+  (the old placeholder bar also turned orange when stamina fell below the threshold for sprinting again). Output `energy.png`: 4 full + 4 empty + 4 orange.
+- Frame: the 32×32 box in row 8 of `1 Frames/FrameMap.png`, used for both the weapon slot and the boss portrait frame (stretched with NinePatchRect in the scene).
+- Weapon icons: the original images of the two guns in the player's hands — rifle number 4, grenade launcher number 5, the same pair as `GUNS` in skin_build.py.
+- Ultimate icon: the red aerial bomb number 18 from the explosion pack (art_in/default/explosions/1 Bombs/), with the blank border cropped (10×21).
+  The blue one (number 20) is 23×40, too tall for that row on the HUD.
 """
 import os
 import sys
@@ -24,15 +24,15 @@ GUI = os.path.join(HERE, "..", "art_in", "default", "gui")
 GUNS_DIR = os.path.join(HERE, "..", "art_in", "default", "2 Guns")
 OUT = os.path.join(HERE, "..", "skins", "cyberpunk", "hud")
 
-FRAME_AT = (224, 256)  # FrameMap 里那个方框的左上角
-# 体力条换色：蓝 → 橙（跑不动）
+FRAME_AT = (224, 256)  # The top-left corner of that box in FrameMap
+# Stamina bar recolour: blue → orange (too tired to run)
 TIRED = {(51, 104, 220): (210, 47, 30), (61, 171, 234): (255, 129, 66), (91, 236, 241): (255, 218, 69)}
 GUNS = {"rifle": 4, "launcher": 5}
 BOMB = os.path.join(HERE, "..", "art_in", "default", "explosions", "1 Bombs", "18.png")
 
 
 def trim(p):
-	"""裁掉四周全透明的行列。"""
+	"""Crop away fully transparent rows and columns around the edges."""
 	rows = [y for y, row in enumerate(p) if any(c[3] > 8 for c in row)]
 	cols = [x for x in range(len(p[0])) if any(row[x][3] > 8 for row in p)]
 	return sb.cut(p, cols[0], rows[0], cols[-1] - cols[0] + 1, rows[-1] - rows[0] + 1)
@@ -65,7 +65,7 @@ def save(name, pixels, write):
 def main():
 	write = "--check" not in sys.argv
 	if not os.path.isdir(GUI):
-		sys.exit("找不到 GUI 素材 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(GUI))
+		sys.exit("Cannot find the GUI art %s (it is not in the repo, unpack it in yourself)" % os.path.normpath(GUI))
 	health = [load(GUI, "2 Bars", "HealthBar%d.png" % i) for i in range(1, 9)]
 	save("health.png", strip(health), write)
 	energy = [load(GUI, "2 Bars", "EnergyBar%d.png" % i) for i in range(1, 9)]

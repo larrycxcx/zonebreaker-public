@@ -1,15 +1,15 @@
 extends GameTest
-## 赛博朋克皮肤包的子弹和手雷（贴图由 tools/projectile_build.py 从素材包的 5 Bullets 生成）。
+## The cyberpunk skin pack's bullets and grenades (sprites generated from the pack's 5 Bullets by tools/projectile_build.py).
 ##
-## 和角色贴图守的是同一类东西：贴图齐全、8 个方向之间严格是翻转 / 旋转关系、谁打出什么子弹对得上，
-## 以及**换皮肤不改变规则**——子弹本体照样按飞行方向转（碰撞体是横着的细条，那是判定），
-## 飞到哪、手雷落在哪，方块和精灵图一模一样；贴图自己把转角抵消掉，靠换图表示方向。
+## It guards the same kind of things as the character sprites: complete sprites, the 8 directions strictly related by flips / rotations, who fires what matching up,
+## and **switching skins does not change the rules** — the bullet body still rotates to its flight direction (the collision shape is a thin horizontal strip, which is the hit check),
+## and where bullets fly and grenades land is exactly the same with blocks and sprites; the sprite cancels out the rotation itself and shows direction by swapping images.
 
 const SKIN := "res://skins/cyberpunk/cyberpunk_skin.tres"
 const ART := "res://skins/cyberpunk/projectiles"
 const BULLETS := [&"player_bullet", &"enemy_bullet", &"turret_bullet", &"flyer_bullet"]
 const GRENADES := [&"player_grenade", &"enemy_grenade"]
-## 圆的、不分方向的发射物（只有一张 ball.png）。
+## Round, direction-less projectiles (only one ball.png).
 const BALLS := [&"boss_bullet"]
 const DIRECTIONS := {
 	&"right": Vector2(1, 0), &"left": Vector2(-1, 0), &"up": Vector2(0, -1), &"down": Vector2(0, 1),
@@ -26,7 +26,7 @@ func drawing(who: StringName, name: StringName) -> Image:
 	return texture.get_image() if texture != null else null
 
 
-## 两张图是不是按 transform（原图坐标 → 新图坐标）逐像素对应。
+## Whether two images correspond pixel by pixel through transform (original coordinates → new coordinates).
 func same_after(a: Image, b: Image, transform: Callable) -> bool:
 	if a == null or b == null:
 		return false
@@ -42,7 +42,7 @@ func same_after(a: Image, b: Image, transform: Callable) -> bool:
 	return true
 
 
-# ---------------------------------------------------------------- 贴图本身
+# ---------------------------------------------------------------- The sprites themselves
 
 func test_every_texture_is_there() -> void:
 	if needs_art(): return
@@ -59,7 +59,7 @@ func test_every_texture_is_there() -> void:
 
 func test_the_eight_directions_are_flips_of_two_drawings() -> void:
 	if needs_art(): return
-	# 素材只画了朝右、朝右下两张，其余都是翻转 / 旋转出来的——任何一张单独改坏了都会对不上
+	# The art only draws two images, facing right and facing down-right; the rest are flipped / rotated — breaking any single one would make it disagree
 	var mirror_x := func(x: int, y: int, w: int, _h: int) -> Vector2i: return Vector2i(w - 1 - x, y)
 	var mirror_y := func(x: int, y: int, _w: int, h: int) -> Vector2i: return Vector2i(x, h - 1 - y)
 	var turn_cw := func(x: int, y: int, _w: int, h: int) -> Vector2i: return Vector2i(h - 1 - y, x)
@@ -88,10 +88,10 @@ func test_the_two_grenades_differ_only_in_colour() -> void:
 				elif a.a > 0.03 and not a.is_equal_approx(b):
 					recoloured += 1
 	check("F's grenade has the same outline as the player's", same_shape)
-	check("but another colour", recoloured > 4, "%d 个像素换了色" % recoloured)
+	check("but another colour", recoloured > 4, "%d pixels recoloured" % recoloured)
 
 
-# ---------------------------------------------------------------- 谁打出什么
+# ---------------------------------------------------------------- Who fires what
 
 func test_each_shooter_fires_its_own_projectile() -> void:
 	var rifle := (load("res://weapons/rifle.tres") as Weapon).projectile.instantiate()
@@ -114,8 +114,8 @@ func test_each_shooter_fires_its_own_projectile() -> void:
 
 
 func test_turret_and_flyer_shots_are_enemy_bullets_in_another_look() -> void:
-	# 炮台、E、Boss 各有自己的子弹场景，只是为了换个样子：规则必须和敌人子弹完全一样
-	# （尤其要在 enemy_bullets 组里，终极武器靠它清弹）
+	# The turret, E and the boss each have their own bullet scene only for a different look: the rules must be exactly those of enemy bullets
+	# (above all they have to be in the enemy_bullets group, which the ultimate uses to clear bullets)
 	var base := (load("res://scenes/enemy_bullet.tscn") as PackedScene).instantiate() as Bullet
 	for path in ["res://scenes/turret_bullet.tscn", "res://scenes/flyer_bullet.tscn", "res://scenes/boss_bullet.tscn"]:
 		var shot := (load(path) as PackedScene).instantiate() as Bullet
@@ -129,9 +129,9 @@ func test_turret_and_flyer_shots_are_enemy_bullets_in_another_look() -> void:
 	base.free()
 
 
-# ---------------------------------------------------------------- 接上去以后
+# ---------------------------------------------------------------- Once plugged in
 
-## 在关卡里朝 direction 放一颗 scene 的子弹，返回它。
+## Put a bullet of scene in the level heading in direction and return it.
 func fire(scene: String, direction: Vector2) -> Bullet:
 	var shot := (load(scene) as PackedScene).instantiate() as Bullet
 	shot.launch(direction.normalized())
@@ -152,7 +152,7 @@ func test_bullets_pick_the_drawing_for_their_direction() -> void:
 			check("%s: picks the %s drawing" % [name, name], look.texture_name() == name, str(look.texture_name()))
 			check("%s: the drawing is not turned (the art already points that way)" % name,
 				is_zero_approx(look.global_rotation), "%.3f" % look.global_rotation)
-		# 规则不变：本体照样按飞行方向转（碰撞体是横着的细条）
+		# The rules are unchanged: the body still rotates to its flight direction (the collision shape is a thin horizontal strip)
 		check("%s: the bullet itself still turns to fly" % name,
 			is_equal_approx(shot.rotation, (DIRECTIONS[name] as Vector2).angle()), "%.3f" % shot.rotation)
 		shot.free()
@@ -173,7 +173,7 @@ func test_projectile_art_is_pure_display() -> void:
 
 
 func test_placeholder_bullets_still_turn_with_the_shot() -> void:
-	# 默认包没有子弹贴图：用场景自带的细条，跟着本体一起转（向上打时是竖条）
+	# The default pack has no bullet sprites: the scene's own strip is used, rotating with the body (a vertical strip when firing up)
 	await reset_scene()
 	var shot := fire("res://scenes/bullet.tscn", Vector2.UP)
 	var visual := shot.get_node("Visual")
@@ -197,7 +197,7 @@ func test_grenades_wear_their_ball() -> void:
 			var look := visual as ProjectileAppearance
 			check("%s: its own tumbling grenade" % pair[0].get_file(), look.art_dir.ends_with(pair[1]) and look.texture_name() == &"spin",
 				"%s / %s" % [look.art_dir, look.texture_name()])
-			# 飞行中翻滚：一会儿之后帧号变了
+			# Tumbling in flight: after a while the frame number has changed
 			var sprite: Sprite2D = look.get_node("Sprite")
 			var seen := {}
 			for i in 20:
@@ -217,7 +217,7 @@ func measure(pack: SkinPack) -> Dictionary:
 	var start := shot.global_position
 	await frames(10)
 	out["bullet_travel"] = (shot.global_position - start).snappedf(0.01) if is_instance_valid(shot) else Vector2.INF
-	# 手雷：玩家朝前扔一颗，记下它 20 帧后在哪
+	# Grenade: the player throws one forward; record where it is 20 frames later
 	player.global_position = Vector2(300, 304)
 	await frames(5)
 	player.current_weapon = 1
@@ -237,12 +237,12 @@ func test_the_projectile_skin_changes_nothing_about_the_rules() -> void:
 		and blocks["grenade_at"] != Vector2.INF, str(blocks))
 	for key: String in blocks:
 		check("%s is the same with either skin" % key, blocks[key] == sprites[key],
-			"方块 %s，精灵图 %s" % [blocks[key], sprites[key]])
+			"blocks %s, sprites %s" % [blocks[key], sprites[key]])
 
 
-# ---------------------------------------------------------------- 爆炸（爆炸包 3 Effects 的 2 号，红 + 深蓝）
+# ---------------------------------------------------------------- Explosions (explosion pack 3 Effects art 2, red + dark blue)
 
-## 在 pos 放一颗手雷、马上炸掉，返回特效层里新出现的爆炸。
+## Put a grenade at pos and blow it up at once, returning the explosion that newly appears in the effects layer.
 func blow_up(pos: Vector2) -> Node:
 	var grenade: Grenade = (load("res://scenes/grenade.tscn") as PackedScene).instantiate()
 	grenade.launch(Vector2.RIGHT)
@@ -283,7 +283,7 @@ func test_a_grenade_blast_plays_the_pack_art_once() -> void:
 		if not is_instance_valid(sprite):
 			gone = i
 			break
-	check("plays once and removes itself", gone > 10 and gone < 60, "第 %d 帧消失" % gone)
+	check("plays once and removes itself", gone > 10 and gone < 60, "gone on frame %d" % gone)
 
 
 func blast_damage(pack: SkinPack) -> int:
@@ -300,4 +300,4 @@ func test_the_explosion_art_changes_nothing_about_the_damage() -> void:
 	var blocks := await blast_damage(Skins.default_skin())
 	var sprites := await blast_damage(skin())
 	check("the blast really hurts in this test", blocks > 0, str(blocks))
-	check("same damage with either skin", blocks == sprites, "方块 %d，精灵图 %d" % [blocks, sprites])
+	check("same damage with either skin", blocks == sprites, "blocks %d, sprites %d" % [blocks, sprites])

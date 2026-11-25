@@ -1,27 +1,27 @@
 extends GameTest
-## 成长系统：Progress（等级、经验、金钱、技能点、装备、存档）、四个属性（生命、攻击、防御、射速）怎么作用到玩家身上、
-## 杀敌奖励、死了重开全部保留。
+## Progression: Progress (level, XP, money, skill points, gear, saves), how the four stats (life, attack, defence, fire rate) act on the player,
+## kill rewards, and everything kept after dying and restarting.
 ##
-## 最要紧的一条：**1 级、没装备的玩家和改造前手感一模一样**（120 血挨 3 下死、子弹一发 SHOT、冷却原样），
-## 这样老测试才能继续守着手感，升级和装备都是在这之上加。
+## The most important one: **a level 1 player with no gear feels exactly as before the rework** (120 health dies in 3 hits, one bullet does SHOT, cooldowns unchanged),
+## so the old tests can keep guarding the feel, and levels and gear are added on top of that.
 
 
 const SAVE_FOR_TEST := "user://test_progress.json"
 
 
-## 收尾：关掉存档、把路径还原、删掉测试用的那个文件。
+## Teardown: turn saving off, restore the path, delete the file the test used.
 func drop_test_save() -> void:
 	Progress.persist = false
 	Progress.save_path = Progress.DEFAULT_SAVE
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_FOR_TEST))
 
 
-## 1 号玩家那一份成长进度。双人时每人一份（`Progress.of(index)`），这一组测的是 1 号。
+## Player 1's progress. In co-op each player has one (`Progress.of(index)`); this suite tests player 1.
 func me() -> PlayerProgress:
 	return Progress.of(0)
 
 
-## 模拟「死了重开本关」：关卡整个重建，但不动 Progress（reset_scene 会把它清成新开一局）。
+## Simulate "die and restart the stage": rebuild the whole stage but leave Progress alone (reset_scene would wipe it to a new game).
 func restart_level() -> void:
 	free_scene()
 	main = load("res://scenes/main.tscn").instantiate()
@@ -32,7 +32,7 @@ func restart_level() -> void:
 	await frames(2)
 
 
-## 让玩家朝右开一枪，返回那颗子弹。
+## Have the player fire once to the right and return that bullet.
 func fire_one() -> Bullet:
 	player.global_position = Vector2(200, 200)
 	player.facing = 1
@@ -41,16 +41,16 @@ func fire_one() -> Bullet:
 	return shots[-1] if not shots.is_empty() else null
 
 
-# ---------------------------------------------------------------- 1 级 = 原来的手感
+# ---------------------------------------------------------------- Level 1 = the old feel
 
-# ---------------------------------------------------------------- 23 关的数值规划
+# ---------------------------------------------------------------- The numbers planned for 23 stages
 #
-# 这几条把「为 23 关定下来的那套数字」钉住。它们看着像在测常量，但那正是要守的东西：
-# 曲线、上限、每级给几点是一起算出来的，谁单独动一个，整条成长线就塌了。
+# These pin down "the set of numbers chosen for 23 stages". They look like tests of constants, but that is exactly what needs guarding:
+# the curve, the caps and the points per level were worked out together; change any one alone and the whole progression falls apart.
 
 func test_the_level_curve_is_a_power_not_an_exponential() -> void:
-	# 原来是 `100 × 1.5^(L-1)`，到 23 级升一级要 74 万经验——那是给十来级的游戏用的曲线。
-	# 次方曲线每翻一倍等级只贵三倍左右，23 关才跑得完。
+	# It used to be `100 × 1.5^(L-1)`, needing 740,000 XP for one level at level 23 — a curve for a game of ten-odd levels.
+	# With a power curve each doubling of level is only about three times dearer, so 23 stages can be finished.
 	var balance := Progress.balance
 	var ten := balance.xp_to_next(10)
 	var twenty := balance.xp_to_next(20)
@@ -60,8 +60,8 @@ func test_the_level_curve_is_a_power_not_an_exponential() -> void:
 
 
 func test_one_run_through_the_game_is_worth_about_one_level_per_stage() -> void:
-	# 规划：一周目 23 关打完大约 23 级，23 → 30 要靠刷。
-	# 累计经验对不上的话，要么关数变了、要么曲线动了——两边得一起算。
+	# The plan: a first playthrough of 23 stages ends around level 23, and 23 → 30 takes grinding.
+	# If the total XP does not add up, either the number of stages changed or the curve moved — the two have to be worked out together.
 	var balance := Progress.balance
 	var total := 0
 	for level in range(1, 23):
@@ -71,13 +71,13 @@ func test_one_run_through_the_game_is_worth_about_one_level_per_stage() -> void:
 
 
 func test_how_far_you_got_is_saved_too() -> void:
-	# 只存角色不存进度的话，每次都得从第一关重来——练强了之后前几关就只剩无聊
+	# Saving only the character and not the progress would mean starting from stage 1 every time — once strong, the first few stages are just boring
 	var me := Progress.of(0)
 	me.reached = 7
 	var copy := PlayerProgress.new(Progress.balance)
 	copy.from_dict(me.to_dict())
 	check("the save remembers how far you got", copy.reached == 7, str(copy.reached))
-	# 老存档没有这一项：读进来就是「只解锁了第一关」，不能崩也不能变成 0
+	# Old saves do not have this field: loaded, it means "only stage 1 unlocked", without crashing or becoming 0
 	var old_save := me.to_dict()
 	old_save.erase("reached")
 	var fresh := PlayerProgress.new(Progress.balance)
@@ -97,13 +97,13 @@ func test_levelling_stops_at_the_cap() -> void:
 
 
 func test_every_stat_has_a_ceiling() -> void:
-	# 四个都要有上限，否则装备加成做多少都没意义——防御能堆到 400（伤害除以 5）
+	# All four need caps, or gear bonuses mean nothing however big — defence could stack to 400 (damage divided by 5)
 	for stat: StringName in Balance.STATS:
 		check("%s is capped" % stat, Progress.balance.cap.has(stat), str(Progress.balance.cap))
 
 
 func test_points_are_refused_once_a_stat_is_maxed() -> void:
-	# 到顶了还收的话，点数扣了、allocated 加了，stat() 却夹在上限不动——玩家看不出自己在白扔
+	# Still accepting points at the cap would take the point and add to allocated while stat() stays clamped — the player cannot see they are throwing it away
 	var me := Progress.of(0)
 	me.points = 999
 	var stat := Balance.SPEED
@@ -118,7 +118,7 @@ func test_points_are_refused_once_a_stat_is_maxed() -> void:
 
 
 func test_points_come_two_at_a_time() -> void:
-	# 每级 2 点：30 级满级手上 63 点，点满四个属性要 88 点 —— 必须取舍
+	# 2 points per level: 63 points in hand at max level 30, and maxing all four stats takes 88 — you have to choose
 	check("two per level", Progress.balance.points_per_level == 2,
 		str(Progress.balance.points_per_level))
 	var need := 0
@@ -144,7 +144,7 @@ func test_a_new_game_feels_like_before() -> void:
 	check("a hit takes a full hit (no defense)", player.health == 2 * HIT, str(player.health))
 
 
-# ---------------------------------------------------------------- 杀敌奖励、升级
+# ---------------------------------------------------------------- Kill rewards, levelling up
 
 func test_kills_pay_xp_and_money() -> void:
 	await reset_scene(true)
@@ -155,7 +155,7 @@ func test_kills_pay_xp_and_money() -> void:
 	var money := walker.money_reward + turret.money_reward
 	var tougher := turret.xp_reward > walker.xp_reward and turret.money_reward > walker.money_reward
 	walker.take_damage(walker.health)
-	turret.hit_by_ultimate() # 终极武器消灭的也算
+	turret.hit_by_ultimate() # Kills by the ultimate count too
 	await frames(1)
 	check("xp from both kills", me().xp == xp, "%d vs %d" % [me().xp, xp])
 	check("money from both kills", me().money == money, "%d vs %d" % [me().money, money])
@@ -187,7 +187,7 @@ func test_levelling_up_gives_skill_points() -> void:
 	check("a big pile of xp can climb several levels", me().level == 4 and levels == [2, 3, 4], str(levels))
 
 
-# ---------------------------------------------------------------- 四个属性
+# ---------------------------------------------------------------- The four stats
 
 func test_life_raises_max_health_and_heals_the_gain() -> void:
 	await reset_scene()
@@ -208,7 +208,7 @@ func test_attack_raises_damage() -> void:
 	for i in 5:
 		me().spend_point(Balance.ATTACK)
 	var shot := fire_one()
-	# 攻击 10 → 15：伤害 × 1.5
+	# Attack 10 → 15: damage × 1.5
 	check("+5 attack: 50% more damage", shot != null and shot.damage == roundi(SHOT * 1.5), str(shot.damage) if shot != null else "no shot")
 	player.switch_weapon()
 	player.current_slot().cooldown_left = 0.0
@@ -251,7 +251,7 @@ func test_speed_shortens_cooldowns_up_to_a_cap() -> void:
 	check("the ultimate is not sped up", player._ultimate.cooldown_scale == 1.0)
 
 
-# ---------------------------------------------------------------- 商店、装备
+# ---------------------------------------------------------------- Shop, gear
 
 func test_buying_and_wearing_gear() -> void:
 	await reset_scene()
@@ -280,7 +280,7 @@ func test_a_stronger_gun_changes_what_you_fire() -> void:
 	me().owned.append(heavy)
 	me().equip(heavy)
 	check("the gun slot holds it", me().gear(Equipment.Slot.GUN) == heavy)
-	await restart_level() # 武器在出生时装上
+	await restart_level() # Weapons are equipped at spawn
 	check("the player spawns with it", player.weapons[0] == heavy)
 	var shot := fire_one()
 	check("its power doubles the damage", shot != null and shot.damage == 2 * SHOT, str(shot.damage) if shot != null else "no shot")
@@ -289,7 +289,7 @@ func test_a_stronger_gun_changes_what_you_fire() -> void:
 	check("the grenade slot is untouched", player.weapons[1].resource_path == "res://weapons/grenade.tres")
 
 
-# ---------------------------------------------------------------- 死了全部保留、存档
+# ---------------------------------------------------------------- Everything kept after dying, saves
 
 func test_dying_keeps_everything() -> void:
 	await reset_scene()
@@ -306,7 +306,7 @@ func test_dying_keeps_everything() -> void:
 		player.max_health == 3 * HIT + int(Progress.balance.per_point[Balance.LIFE]) and player.health == player.max_health, str(player.max_health))
 
 
-# ---------------------------------------------------------------- 角色名册
+# ---------------------------------------------------------------- Character roster
 
 func test_every_seat_sits_on_a_character_from_the_roster() -> void:
 	await reset_scene(false, false, null, 2)
@@ -341,20 +341,20 @@ func test_a_character_can_only_sit_in_one_seat() -> void:
 	Progress.take_seat(0, mine)
 	check("the first seat takes them", Progress.of(0) == mine and Progress.seat_of(mine) == 0)
 	var was := Progress.of(1)
-	# **时长要自己定**：关卡一加载就开始记时（`main.gd` 每帧 `tick_playtime()`），
-	# 跑得慢的时候这几帧能记上一秒多，这条用例问的是「刚建好还没玩」，不该看机器快慢。
+	# **Set the play time yourself**: timing starts as soon as the stage loads (`main.gd` calls `tick_playtime()` every frame),
+	# and on a slow run those few frames can add up to over a second; this case asks about "just created, not played yet" and should not depend on machine speed.
 	was.played_seconds = 0.0
 	Progress.take_seat(1, mine)
 	check("moving them over empties the old seat", Progress.of(1) == mine and Progress.of(0) != mine)
 	check("and the first seat gets somebody else", Progress.of(0) != null and Progress.of(0) != mine)
-	# 被挤走的那个**一分钟都没玩过**，不留在名册里占一行（菜单里按 NEW 又改主意就是这条）
+	# The one pushed out **has not played a single minute** and does not take up a row in the roster (that is pressing NEW in the menu and changing your mind)
 	check("the empty character who was there is dropped", not Progress.roster.has(was))
 
 
 func test_a_character_you_actually_played_is_never_dropped() -> void:
 	await reset_scene(false, false, null, 2)
 	var theirs := Progress.of(1)
-	theirs.played_seconds = 30.0    # 真玩过的（超过 `UNPLAYED_GRACE`）
+	theirs.played_seconds = 30.0    # Really played (over `UNPLAYED_GRACE`)
 	var mine := Progress.create("RYU")
 	Progress.take_seat(1, mine)
 	check("somebody who has played stays in the roster", Progress.roster.has(theirs))
@@ -415,7 +415,7 @@ func test_the_roster_round_trips() -> void:
 
 
 func test_saves_from_before_the_roster_still_load() -> void:
-	# 两种老格式：双人那版是 players 里两份，更早那版是一份进度摊在最外层。
+	# Two old formats: the co-op version had two entries in players, the even older one had a single progress spread over the top level.
 	await reset_scene(false, false, null, 2)
 	var file := FileAccess.open(SAVE_FOR_TEST, FileAccess.WRITE)
 	file.store_string(JSON.stringify({"players": [{"level": 3, "money": 99}, {"level": 5, "money": 12}]}))
@@ -434,20 +434,20 @@ func test_saves_from_before_the_roster_still_load() -> void:
 	file.close()
 	Progress.load_game()
 	check("the oldest format becomes one character", Progress.roster.size() == 1 and Progress.of(0).level == 4,
-		"%d 个，Lv%d" % [Progress.roster.size(), Progress.of(0).level])
+		"%d characters, Lv%d" % [Progress.roster.size(), Progress.of(0).level])
 	check("and playing solo does not invent a second one", Progress.roster.size() == 1, str(Progress.roster.size()))
 	drop_test_save()
 
 
-## 自动起的名字**不许重**。名字上限 10 个字符，`_free_name` 原先是「拼上数字再截断」——
-## `PLAYER 1` + ` 10` 截回 `PLAYER 1 1`，从 11 往后每一个都截成已经占着的那几串，
-## 数完 99 个就把重复的那个原样交了出去。玩家的存档里因此攒出六个一模一样的 `PLAYER 1`：
-## 存档列表整页同名，座位按名字找回来也会认错人（2026-09 实际踩到）。
+## Auto-generated names **must not repeat**. Names are capped at 10 characters, and `_free_name` used to "append a number, then truncate" —
+## `PLAYER 1` + ` 10` truncated back to `PLAYER 1 1`, and from 11 on every one truncated to one of the strings already taken,
+## so after counting through 99 it handed back the duplicate as it was. The player's save thus piled up six identical `PLAYER 1`s:
+## the save list was a page of the same name, and seats looked up by name picked the wrong person (actually hit in 2026-09).
 func test_auto_names_stay_unique_past_the_length_limit() -> void:
 	await reset_scene()
 	var names: Array[String] = []
 	var too_long: Array[String] = []
-	# 十几个就会走到两位数的后缀，那正是原先塌掉的地方
+	# A dozen or so already reaches two-digit suffixes, which is exactly where it used to fall apart
 	for i in 20:
 		var made := Progress.fresh(0)
 		names.append(made.character_name)
@@ -461,16 +461,16 @@ func test_auto_names_stay_unique_past_the_length_limit() -> void:
 	check("and every one of them fits the name limit", too_long.is_empty(), str(too_long))
 
 
-## 存档里已经攒着同名的（上面那个 bug 留下的），读进来要当场改掉，
-## 不然列表上全是一模一样的行、座位也认错人。
+## A save that already has duplicate names (left behind by the bug above) has to be fixed on load,
+## or the list would be full of identical rows and seats would pick the wrong person.
 func test_a_save_full_of_duplicates_heals_itself() -> void:
 	await reset_scene()
 	var doubles := []
 	for i in 4:
 		doubles.append({"name": "PLAYER 1", "level": i + 1})
 	var file := FileAccess.open(SAVE_FOR_TEST, FileAccess.WRITE)
-	# 坐着的是第 3 个（等级 3）。**按名字是找不回他的**——四个人都叫 PLAYER 1，
-	# 按名字找只会拿到第一个，玩家读档进来就是另一个角色了。
+	# The one seated is the 3rd (level 3). **Looking up by name cannot find them** — all four are called PLAYER 1,
+	# looking up by name only gets the first one, and the player loading the save would end up as another character.
 	file.store_string(JSON.stringify({"characters": doubles, "seats": [2, -1]}))
 	file.close()
 	Progress.save_path = SAVE_FOR_TEST
@@ -487,7 +487,7 @@ func test_a_save_full_of_duplicates_heals_itself() -> void:
 	drop_test_save()
 
 
-## 座位在存档里记的是**名册下标**，不是名字：名字是玩家改的，改完还得坐回原来那个人。
+## The save records seats as **roster indices**, not names: names are changed by the player, and after a rename the same person has to sit back down.
 func test_a_seat_survives_its_character_being_renamed() -> void:
 	await reset_scene()
 	Progress.save_path = SAVE_FOR_TEST
@@ -502,7 +502,7 @@ func test_a_seat_survives_its_character_being_renamed() -> void:
 	check("both characters came back", Progress.roster.size() == 2, str(Progress.roster.size()))
 	check("and the renamed one is still in the seat", Progress.of(0).character_name == "OMEGA",
 		Progress.of(0).character_name)
-	# 存的是下标不是名字：名字重了（上一条用例那种存档）按名字就会认错人
+	# Indices are stored, not names: with duplicate names (a save like the previous case) looking up by name picks the wrong person
 	var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(SAVE_FOR_TEST))
 	var seats: Array = (saved as Dictionary).get("seats", [])
 	check("and the file records the seat by roster index",
@@ -521,7 +521,7 @@ func test_the_save_round_trips() -> void:
 	await reset_scene()
 	Progress.save_path = SAVE_FOR_TEST
 	Progress.persist = true
-	var armor := load("res://weapons/grenade.tres") as Equipment # 随便一件有资源路径的装备
+	var armor := load("res://weapons/grenade.tres") as Equipment # Any piece of gear that has a resource path
 	me().add_xp(Progress.balance.xp_to_next(1) + 5)
 	me().add_money(77)
 	me().spend_point(Balance.ATTACK)
@@ -552,7 +552,7 @@ func test_a_broken_save_starts_fresh() -> void:
 
 
 func test_speed_makes_sprints_last_longer() -> void:
-	# 速度同时管冲刺：体力消耗 × 100 / 速度。速度 150 = 同样跑一段只耗 2/3 的体力
+	# Speed governs sprinting too: stamina cost × 100 / speed. Speed 150 = only 2/3 of the stamina for the same run
 	var drains := []
 	for points in [0, 10]:
 		await reset_scene()
@@ -572,8 +572,8 @@ func test_speed_makes_sprints_last_longer() -> void:
 
 
 func test_a_save_from_before_the_rename_is_carried_over() -> void:
-	# 2026-11 项目从 FirstGame 改名 ZONE BREAKER，`user://` 跟着换了目录。旧目录里有存档、新的没有，就拷过来；
-	# 新的已经有了就不动（不能拿旧档盖掉新进度）。全在临时目录里做，不碰真存档。
+	# In 2026-11 the project was renamed from FirstGame to ZONE BREAKER, and `user://` moved to another directory. If the old directory has a save and the new one does not, copy it over;
+	# if the new one already has one, leave it alone (an old save must not overwrite new progress). All done in a temporary directory, never touching the real save.
 	var root := ProjectSettings.globalize_path("user://rename_test")
 	var target := root.path_join("ZONE BREAKER/save.json")
 	DirAccess.make_dir_recursive_absolute(root.path_join("FirstGame"))

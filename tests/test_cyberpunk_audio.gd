@@ -1,17 +1,17 @@
 extends GameTest
-## 赛博朋克皮肤包的音效和音乐（tools/sound_build.py 从 CraftPix 音效包生成）。
+## The cyberpunk skin pack's sounds and music (generated from a CraftPix sound pack by tools/sound_build.py).
 ##
-## 守的东西：对得上的事件用包里的声音、对不上的回落到默认包；连发的声音够短（不然一串子弹糊成一片）、
-## 终极武器定格的声音不超过定格时长；包里没有写错的事件名；音乐按用途换曲、关卡重开不从头放、
-## Boss 出场切歌、默认包没有音乐、音乐会循环。
+## What it guards: events with a match use the pack's sounds, those without fall back to the default pack; rapid-fire sounds are short enough (otherwise a burst blurs together),
+## the ultimate's freeze sound is no longer than the freeze; the pack has no misspelled event names; music changes by purpose, a stage restart does not start it over,
+## a boss appearing switches tracks, the default pack has no music, and music loops.
 
 const SKIN := "res://skins/cyberpunk/cyberpunk_skin.tres"
-## 包里对不上、回落到默认包 8-bit 音效的事件。
-## 赛博朋克音效包里没有对得上的，回落到默认包的 8-bit 音效（风格会有点混，以后找到合适的再补）。
-## 赛博朋克包里没有、回落到默认包 8-bit 音效的那几个（风格会有点混，以后找到合适的再补）。
-## 这几个赛博朋克包里没有、回落到默认包的 8-bit 占位音。
-## **后两个是第二关的**（抡锤、Boss 换挡）：那套音效包里没有对得上的，
-## 而且第二关用的是工业区包（它的 `fallback` 一路串到默认包），不是这个包。
+## Events with no match in the pack that fall back to the default pack's 8-bit sounds.
+## Nothing in the cyberpunk sound pack matches these, so they fall back to the default pack's 8-bit sounds (the styles mix a little; to be filled in when something suitable turns up).
+## The ones missing from the cyberpunk pack that fall back to the default pack's 8-bit sounds (the styles mix a little; to be filled in when something suitable turns up).
+## These are missing from the cyberpunk pack and fall back to the default pack's 8-bit placeholder sounds.
+## **The last two belong to stage 2** (the hammer swing, the boss switching gear): nothing in that sound pack matches them,
+## and stage 2 uses the industrial pack (whose `fallback` chains all the way to the default pack), not this one.
 const FROM_DEFAULT := [&"jump", &"stamina_exhausted", &"enemy_prone", &"chaser_alert",
 	&"player_down", &"player_revive", &"menu_move", &"menu_select", &"menu_back",
 	&"level_clear", &"hammer_smash", &"boss_enrage"]
@@ -43,7 +43,7 @@ func test_the_pack_only_names_real_events() -> void:
 
 func test_rapid_sounds_are_short() -> void:
 	if needs_art(): return
-	# 每秒响好几下的声音得短：原素材的激光声 0.88 秒，连射起来会糊成一片
+	# Sounds that play several times a second have to be short: the original laser sound is 0.88 seconds and would blur together in rapid fire
 	var pack := skin()
 	for pair in [[&"player_shoot", 0.25], [&"enemy_shoot", 0.3], [&"turret_shoot", 0.45], [&"flyer_shoot", 0.4],
 			[&"bullet_impact", 0.25], [&"grenade_bounce", 0.25], [&"enemy_hit", 0.35]]:
@@ -56,7 +56,7 @@ func test_rapid_sounds_are_short() -> void:
 
 func test_enemies_sound_different_from_the_player() -> void:
 	if needs_art(): return
-	# 同一个激光声，靠降调分开：敌人比玩家低、炮台更低
+	# The same laser sound, told apart by lowering the pitch: enemies lower than the player, the turret lower still
 	var pack := skin()
 	var mine := pack.find_sound(&"player_shoot") as AudioStreamWAV
 	var theirs := pack.find_sound(&"enemy_shoot") as AudioStreamWAV
@@ -81,13 +81,13 @@ func test_the_level_plays_its_music_and_keeps_it_across_restarts() -> void:
 
 func test_the_level_track_is_ours_and_loops_without_a_seam() -> void:
 	if needs_art(): return
-	# 关卡那首是自己做的，**必须是 OGG**：MP3 的编码器会在开头结尾各补一小段静音，
-	# 循环转一圈能听见接缝，而关卡音乐是一直循环放的。
-	# 跑一遍 tools/sound_build.py 会把素材包里的 MP3 拷回来盖掉它，这条守着别被盖。
+	# The stage track is our own and **must be OGG**: MP3 encoders add a little silence at the start and end,
+	# and the seam is audible on every loop, while stage music loops all the time.
+	# Running tools/sound_build.py would copy the pack's MP3 back over it; this guards against that.
 	var track := skin().find_music(&"level")
 	check("the level track is there", track != null)
 	check("and it is an ogg, which loops seamlessly", track is AudioStreamOggVorbis, track.get_class() if track != null else "null")
-	check("about as long as a level loop should be", track != null and track.get_length() > 30.0, "%.0f 秒" % (track.get_length() if track != null else 0.0))
+	check("about as long as a level loop should be", track != null and track.get_length() > 30.0, "%.0f seconds" % (track.get_length() if track != null else 0.0))
 
 
 func test_the_boss_brings_its_own_track() -> void:

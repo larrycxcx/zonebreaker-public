@@ -1,5 +1,5 @@
 extends Node2D
-## 爆炸的占位特效：一个橙色方块，放大淡出后消失。只管显示，伤害由 Grenade 算。
+## Placeholder explosion effect: an orange square that grows and fades out. Display only; damage is worked out by Grenade.
 
 @export var radius := 56.0
 @export var duration := 0.25

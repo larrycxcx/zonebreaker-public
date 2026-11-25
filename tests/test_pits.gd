@@ -1,11 +1,11 @@
 extends GameTest
-## 坑：掉出关卡就死。
+## Pits: fall out of the stage and you die.
 ##
-## 关卡的地面在 y=320、画面底边 360，`Main.fall_y`（400）再往下 40px 才算掉出去——
-## 贴着地面跑不会误判，掉进坑里立刻就死。测试关（`main.tscn`）的地面是一整条、没有坑，
-## 所以这里一律把人直接放到坑底下的高度来测这条规则本身。
+## The stage ground is at y=320 and the bottom of the view at 360; `Main.fall_y` (400) is another 40px further down before it counts as falling out —
+## running along the ground never trips it, and dropping into a pit kills at once. The test level's (`main.tscn`) ground is one unbroken strip with no pits,
+## so these cases always put the player straight at pit-bottom height to test the rule itself.
 
-## 坑底下（关卡判定线以下）。
+## At the bottom of a pit (below the stage's fall line).
 func below_the_level() -> float:
 	return (main.fall_y as float) + 40.0
 
@@ -43,7 +43,7 @@ func test_a_fall_puts_you_back_where_you_last_stood() -> void:
 
 
 func test_enough_falls_still_finish_you_off() -> void:
-	# 扣到没血就照常走死亡那条路（单人直接死，双人是倒地）
+	# Losing the last health goes down the usual death path (alone you die, in co-op you go down)
 	await reset_scene()
 	player.global_position = Vector2(200, 304)
 	await frames(5)
@@ -58,7 +58,7 @@ func test_enough_falls_still_finish_you_off() -> void:
 
 
 func test_a_pit_does_not_care_about_the_invincible_frames() -> void:
-	# 刚挨完打的那一秒无敌不该让你在坑里飘着
+	# The invincibility right after a hit should not let you float in the pit
 	await reset_scene()
 	player.global_position = Vector2(200, 304)
 	await frames(5)
@@ -72,8 +72,8 @@ func test_a_pit_does_not_care_about_the_invincible_frames() -> void:
 
 
 func test_the_last_fall_puts_you_down_not_out_when_a_mate_is_around() -> void:
-	# 掉进坑里扣完最后一点血：**单人直接死，双人是倒地**——而且因为倒地的人掉坑里也会被捞，
-	# 他会落在最后站稳的地方，队友走过来还救得起来。不是「没办法救所以直接死」。
+	# Losing the last bit of health in a pit: **alone you die, in co-op you go down** — and since downed players in a pit get brought back too,
+	# they land on the last spot they stood on firmly and a partner can still walk over and revive them. Not "cannot be saved so just dead".
 	await reset_scene(false, false, null, 2)
 	player.global_position = Vector2(200, 304)
 	player2.global_position = Vector2(700, 304)
@@ -93,14 +93,14 @@ func test_the_last_fall_puts_you_down_not_out_when_a_mate_is_around() -> void:
 		str(player2.global_position))
 	check("back where they last stood", player2.global_position.distance_to(stood) < 24.0,
 		"%s vs %s" % [player2.global_position, stood])
-	# 队友走过去还救得起来
+	# A partner walking over can still revive them
 	player.global_position = player2.global_position + Vector2(16, 0)
 	await frames(4)
 	check("so the mate can still pick them up", player2.is_alive() and not player2.is_downed())
 
 
 func test_alone_in_a_pit_there_is_no_getting_up() -> void:
-	# 单人没人救，所以扣完最后一点血就是死
+	# Alone nobody can revive you, so losing the last bit of health means death
 	await reset_scene()
 	player.global_position = Vector2(200, 304)
 	await frames(5)
@@ -113,7 +113,7 @@ func test_alone_in_a_pit_there_is_no_getting_up() -> void:
 
 
 func test_in_co_op_a_downed_player_is_fished_out_too() -> void:
-	# 倒地的人已经没血可扣，但扔在坑底下队友永远够不着，所以也要捞回来
+	# A downed player has no health left to lose, but left at the bottom of a pit a partner could never reach them, so they are brought back too
 	await reset_scene(false, false, null, 2)
 	player.global_position = Vector2(200, 304)
 	player2.global_position = Vector2(600, 304)
@@ -129,7 +129,7 @@ func test_in_co_op_a_downed_player_is_fished_out_too() -> void:
 
 
 func test_an_enemy_that_falls_in_is_cleaned_up() -> void:
-	# 把追着你的 D 引到坑边推下去是玩家该有的手段，掉下去就算它死了
+	# Luring the D chasing you to the edge of a pit and pushing it in is a tool the player should have; falling in counts as its death
 	await reset_scene(true)
 	keep_only_enemies(["ChaserD"])
 	var d: Enemy = main.get_node("Enemies/ChaserD")

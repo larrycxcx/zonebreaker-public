@@ -1,36 +1,36 @@
 class_name EnemyBomber
 extends EnemyChaser
-## 2-F Alarmobot：小履带机器人，发现玩家就拉响警报冲过来，贴身**自爆**。
+## 2-F Alarmobot: a small tracked robot that sounds an alarm when it spots the player, charges in and **blows itself up** up close.
 ##
-## 冲的那一段全是 D 那套（追击、翻墙、跳崖、记住最后看见的位置），这里只多两件事：
-## 冲得比 D 快，以及贴到跟前之后点火、炸掉自己。
+## The charging part is all D (chasing, climbing walls, jumping off ledges, remembering where it last saw you); this only adds two things:
+## it charges faster than D, and once it is right next to you it lights its fuse and blows itself up.
 ##
-## **点火之后就停住不动了**：一直贴着追的话玩家根本躲不掉，站定引信那零点几秒就是留给玩家跑开的。
-## 引信走完照常爆——人跑开了就白炸一下，这是玩家应得的。爆炸的画面由 `Fx` 按 `explosion` 事件画，
-## 大小取 `blast_radius`（和手雷、终极武器同一套）。
+## **Once lit, it stops moving**: if it kept chasing you could never get away; the fraction of a second on the fuse is the player's window to run.
+## When the fuse runs out it blows up anyway — if the player got away it wastes itself, as they deserve. The explosion is drawn by `Fx` from the `explosion` event,
+## sized by `blast_radius` (the same as grenades and the ultimate).
 
 @export_group("Self destruct")
-## 炸谁那一层（玩家是第 2 层）。和手雷的 `target_layer` 一个意思。
+## The layer it blows up (players are layer 2). Same meaning as a grenade's `target_layer`.
 @export_flags_2d_physics var target_layer := 2
-## 玩家进到这个距离（直线）就点火。
+## It lights the fuse when the player comes within this distance (straight line).
 @export var fuse_range := 36.0
-## 点火到爆炸隔多久。
+## Time from lighting the fuse to the explosion.
 @export var fuse_time := 0.6
-## **爆炸和手雷完全是同一套**（`Blast`）：中心 `blast_max_damage`、边缘 `blast_min_damage` 线性衰减，
-## 中间被实心物体挡住就炸不到。半径也和手雷一样——它本来就是「自己当一颗手雷」。
-## 所以躲的办法是**离远点**，不是硬扛：引信那零点几秒足够跑出半径（玩家走路 180，0.6 秒 108px）。
+## **The explosion is exactly the grenade's** (`Blast`): `blast_max_damage` at the centre, `blast_min_damage` at the edge, linear in between,
+## and nothing gets through solid objects. Same radius as the grenade too — it is "a grenade itself".
+## So the way to dodge is **to get away**, not to tank it: the fuse is long enough to leave the radius (the player walks at 180, 108px in 0.6 seconds).
 @export var blast_radius := 56.0
 @export var blast_max_damage := 126
 @export var blast_min_damage := 42
 
-## 点火了没有，以及还剩多久炸。
+## Whether the fuse is lit, and how long until it blows.
 var _lit := false
 var _fuse_left := 0.0
 
 
 func _physics_process(delta: float) -> void:
 	if _lit:
-		# 点火之后站着不动，只受重力——给玩家留出跑开的那零点几秒
+		# Once lit it stands still under gravity only — giving the player that fraction of a second to run
 		velocity.x = 0.0
 		_apply_gravity(delta)
 		move_and_slide()
@@ -60,8 +60,8 @@ func _light_the_fuse() -> void:
 	_visual.fire()
 
 
-## 炸：和手雷走同一套（`Blast`），然后自己没了。
-## **`target_layer` 是玩家那一层**，所以炸不到自己人、也炸不到别的敌人。
+## Blow up: the same as a grenade (`Blast`), then it is gone.
+## **`target_layer` is the player layer**, so it cannot hurt its own side or other enemies.
 func _detonate() -> void:
 	var at := body_center()
 	for victim in Blast.victims(get_world_2d().direct_space_state, at, blast_radius, target_layer):

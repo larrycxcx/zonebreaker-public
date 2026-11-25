@@ -1,19 +1,19 @@
 @tool
 class_name Ladder
 extends Node2D
-## 梯子（2026-10 加的）：连通上下两层。**节点原点是梯子顶的正中**——也就是上面那一层地板的表面，
-## 梯子从这儿往下伸 `height`，底端落在下面那一层的地板上。
+## Ladder (added 2026-10): connects two layers. **The node's origin is the top centre of the ladder** — the surface of the floor above;
+## the ladder extends `height` down from there, its foot resting on the floor of the layer below.
 ##
-## - 玩家在梯子前按「上」（或者站在梯子顶上按「下」）就抓住，上下爬，不受重力、**不能开枪**；
-##   爬到顶就站上去，爬到底落地就松手；按跳跃是跳下来（带左右方向就往那边跳出去）。见 `Player._climb()`。
-## - **梯子顶上自带一小块单向平台**（`cap`）：上面那层地板在梯子这儿留了个洞，
-##   不盖住的话走过去就掉下去了；盖成单向的，站在上面按「下」才顺着梯子下去。
-##   它是看不见的——画面上就是梯子顶，盖子只是规则。
-## - 敌人不爬梯子（它们巡逻时梯子不算墙，直接走过去）。
-## - 纯规则在本体上（`grab_rect()`、`top_y()`、`bottom_y()`），长什么样交给 `Visual`（`LadderAppearance`）。
+## - The player grabs it by pressing "up" in front of it (or "down" standing on top of it) and climbs up and down, with no gravity and **no shooting**;
+## at the top they step off onto the floor, at the bottom they let go on landing; jump drops off (with a direction it jumps off that way). See `Player._climb()`.
+## - **The top of the ladder has its own small one-way platform** (`cap`): the floor above has a hole where the ladder is,
+## and without a cover you would fall in walking past; with a one-way cover you only go down the ladder by pressing "down" on it.
+## It is invisible — on screen it is just the top of the ladder; the cover is only a rule.
+## - Enemies do not climb ladders (to their patrol the ladder is not a wall; they just walk past).
+## - The rules live on the body (`grab_rect()`, `top_y()`, `bottom_y()`); the look is up to `Visual` (`LadderAppearance`).
 
 const GROUP := &"ladders"
-## 盖子多宽（就是上面那层地板留的洞）：比人宽（24）一点，人顺着梯子能穿过去。
+## Width of the cover (the hole left in the floor above): a little wider than a person (24), so you can pass through it along the ladder.
 const CAP_WIDTH := 32.0
 const CAP_THICK := 16.0
 
@@ -21,10 +21,10 @@ const CAP_THICK := 16.0
 	set(value):
 		height = value
 		_apply()
-## 梯子多宽（判定）：人的身体中心离梯子中线这么近才抓得住。
+## Ladder width (hit check): you can only grab it with your body centre this close to the ladder's centre line.
 @export var width := 24.0
 @export var skin_key := &"ladder"
-## 顶上要不要盖子（梯子顶伸出地面、上面不是一层地板的话就不用）。
+## Whether the top needs a cover (not when the ladder top sticks out of the ground and there is no floor above it).
 @export var cap := true
 
 var _visual: Node
@@ -54,7 +54,7 @@ func _apply() -> void:
 		visual.call(&"fit", Vector2(width, height))
 
 
-## 顶上那一块盖子（人顺着梯子穿过它时要临时忽略碰撞）。
+## The cover on top (collision with it is ignored temporarily while climbing through it).
 func cap_body() -> Platform:
 	return _cap
 
@@ -67,6 +67,6 @@ func bottom_y() -> float:
 	return global_position.y + height
 
 
-## 抓得住的范围（世界坐标）：中线左右各一半宽，从顶到底。
+## The area where it can be grabbed (world coordinates): half the width either side of the centre line, from top to bottom.
 func grab_rect() -> Rect2:
 	return Rect2(global_position.x - width / 2.0, top_y(), width, height)

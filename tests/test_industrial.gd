@@ -1,16 +1,16 @@
 extends GameTest
-## 工业区素材包（第二关那一套，`tools/terrain_build.py` 从 Industrial Zone Tileset 生成）。
+## The industrial zone skin pack (stage 2's set, generated from the Industrial Zone Tileset by `tools/terrain_build.py`).
 ##
-## 它是**第二个区**，所以守的重点和赛博朋克那组不同：那组守的是九宫格的算法和「换皮肤不改变规则」，
-## 这组守的是**「一个区只装自己独有的那几样、其余顺着 fallback 拿」这件事真的成立**——
-## 23 关都要这么摆，第一个区搭错了后面 22 个跟着错。
-## 另外两条是这次踩出来的：地砖别挑成半格的（薄条只画了上半格，当地面顶用的话上半截是透明的），
-## 背景每层要一直画到画面底（不然坑里露出清屏色）。
+## It is **the second zone**, so what it guards differs from the cyberpunk suite: that one guards the nine-slice algorithm and "switching skins does not change the rules",
+## this one guards that **"a zone only holds what is unique to it and takes the rest through the fallback" really holds** —
+## all 23 stages are set up this way, and if the first zone gets it wrong the other 22 follow.
+## Two more came out of this round: do not pick half tiles (thin strips only draw the top half and leave the upper part transparent as a ground top),
+## and every backdrop layer must reach the bottom of the view (otherwise the clear colour shows in pits).
 
 const PACK := "res://skins/industrial/industrial_skin.tres"
 const CYBERPUNK := "res://skins/cyberpunk/cyberpunk_skin.tres"
 const ART := "res://skins/industrial"
-## 画面高：背景素材只有 324 高，生成时要往下补到这儿（见 terrain_build.py 的 BACKDROP_HEIGHT）。
+## View height: the backdrop art is only 324 tall and the build extends it down to here (see BACKDROP_HEIGHT in terrain_build.py).
 const SCREEN_HEIGHT := 360
 
 
@@ -29,12 +29,12 @@ func platforms() -> Array[Platform]:
 	return out
 
 
-# ---------------------------------------------------------------- 只装自己独有的
+# ---------------------------------------------------------------- Only what is unique to it
 
 func test_the_pack_brings_its_own_terrain_and_a_backdrop() -> void:
 	if needs_art(): return
-	# 一个区独有的就这几样：三种地形 + 这一关的敌人 + 背景。
-	# **玩家、子弹、特效、HUD 一个都不该在它自己的表里**——那些 23 关共用，配在这儿就等于抄了一份。
+	# What is unique to a zone is just this: three terrains + this stage's enemies + the backdrop.
+	# **Players, bullets, effects and the HUD must not be in its own table at all** — they are shared by all 23 stages, and setting them here would make a copy.
 	var mine := pack()
 	var keys: Array[String] = []
 	for key: StringName in mine.appearances:
@@ -46,13 +46,13 @@ func test_the_pack_brings_its_own_terrain_and_a_backdrop() -> void:
 	check("and a backdrop of its own", mine.backdrop != null
 		and mine.backdrop.resource_path.contains("industrial"), str(mine.backdrop))
 	check("sounds are left to the fallback", mine.sounds.is_empty(), str(mine.sounds.size()))
-	# **关卡那首是这一关独有的**，Boss 那首和音效照旧顺着 fallback 拿
+	# **The stage track is unique to this stage**; the boss track and sound effects still come through the fallback
 	check("but it brings its own level music", mine.music.has(&"level"), str(mine.music.keys()))
 
 
 func test_everything_else_comes_from_the_pack_behind_it() -> void:
 	if needs_art(): return
-	# 角色、子弹、特效、HUD、声音都得照常拿得到——拿不到的话第二关会变成一地占位方块。
+	# Characters, bullets, effects, HUD and sounds all have to be available as usual — otherwise stage 2 would be a floor full of placeholder blocks.
 	Skins.use(pack())
 	for key: StringName in [&"biker", &"player_bullet", &"1_a", &"enemy_bullet", &"1_boss"]:
 		var scene := pack().find_appearance(key)
@@ -65,19 +65,19 @@ func test_everything_else_comes_from_the_pack_behind_it() -> void:
 
 func test_the_terrain_art_is_this_zone_and_not_the_last_one() -> void:
 	if needs_art(): return
-	# 光有一份 `.tres` 不算换了皮肤：贴图得真的不一样
+	# A `.tres` alone does not make a new skin: the sprites have to really differ
 	for name: String in ["ground", "ledge", "stone"]:
 		var mine := zone_art("terrain/%s.png" % name)
 		var theirs := (load("res://skins/cyberpunk/terrain/%s.png" % name) as Texture2D).get_image()
 		check("%s is its own art" % name, mine.get_data() != theirs.get_data())
 
 
-# ---------------------------------------------------------------- 这次踩出来的两条
+# ---------------------------------------------------------------- The two that came out of this round
 
 func test_no_terrain_tile_is_half_empty() -> void:
 	if needs_art(): return
-	# 素材里薄条（16 高）和整砖（32 高）混在一起，编号又挨着。
-	# 拿薄条当地面顶砖的话上半截是透明的，游戏里地面看着像一排护栏——所以每张图都不许有整行空的。
+	# In the art thin strips (16 tall) and full tiles (32 tall) are mixed, with neighbouring numbers.
+	# A thin strip as the ground's top tile leaves its upper half transparent and the ground looks like a row of railings in game — so no image may have a whole empty row.
 	for name: String in ["ground", "ledge", "stone"]:
 		var img := zone_art("terrain/%s.png" % name)
 		var empty := 0
@@ -89,16 +89,16 @@ func test_no_terrain_tile_is_half_empty() -> void:
 					break
 			if blank:
 				empty += 1
-		check("%s has no blank rows" % name, empty == 0, "%d 行是空的（%dx%d）"
+		check("%s has no blank rows" % name, empty == 0, "%d rows are empty (%dx%d)"
 			% [empty, img.get_width(), img.get_height()])
 
 
 func test_the_backdrop_reaches_the_bottom_of_the_screen() -> void:
 	if needs_art(): return
-	# 素材只有 324 高，地面线以下什么都没有。关卡里有坑，坑那一块会露出清屏色、看着像块黑砖，
-	# 所以生成时把最底下那一行往下重复到画面底。
-	# **只有最后面那层要求不透明**：这套素材里 `sky` 画到地平线就没了，底下露出 `base` 那片雾色，
-	# 那是画师的分层，不是漏画——挡住清屏色的是最后面那一层。
+	# The art is only 324 tall, with nothing below the ground line. The stage has pits, where the clear colour would show like a black brick,
+	# so the build repeats the bottom row down to the bottom of the view.
+	# **Only the rearmost layer has to be opaque**: in this set `sky` stops at the horizon and the `base` haze shows underneath,
+	# which is the artist's layering, not a gap — it is the rearmost layer that hides the clear colour.
 	for layer: String in ["base", "sky", "far", "mid", "near"]:
 		var img := zone_art("backdrop/%s.png" % layer)
 		check("%s covers the whole screen" % layer, img.get_height() >= SCREEN_HEIGHT,
@@ -109,10 +109,10 @@ func test_the_backdrop_reaches_the_bottom_of_the_screen() -> void:
 		if back.get_pixel(x, SCREEN_HEIGHT - 1).a < 1.0:
 			gaps += 1
 	check("the backmost layer is solid along the bottom row, so pits never show the clear colour",
-		gaps == 0, "%d 列是透的" % gaps)
+		gaps == 0, "%d columns are see-through" % gaps)
 
 
-# ---------------------------------------------------------------- 接上去以后
+# ---------------------------------------------------------------- Once plugged in
 
 func test_every_platform_wears_this_zone_terrain() -> void:
 	if needs_art(): return
@@ -140,7 +140,7 @@ func test_the_backdrop_goes_in_behind_everything() -> void:
 		and backdrop.find_children("*", "CollisionShape2D", true, false).is_empty())
 
 
-# ---------------------------------------------------------------- 换皮肤不改变规则
+# ---------------------------------------------------------------- Switching skins does not change the rules
 
 func measure(skin: SkinPack) -> Dictionary:
 	await reset_scene(false, true, skin)
@@ -175,21 +175,21 @@ func test_this_zone_changes_nothing_about_the_rules() -> void:
 		str(blocks))
 	for key: String in blocks:
 		check("%s is the same in this zone" % key, blocks[key] == industrial[key],
-			"方块 %s，工业区 %s" % [blocks[key], industrial[key]])
+			"blocks %s, industrial %s" % [blocks[key], industrial[key]])
 
 
-# ---------------------------------------------------------------- 这一关的敌人
+# ---------------------------------------------------------------- This stage's enemies
 
-## 这一关的六种敌人：皮肤键 → [外观帧宽, 帧高, 锚点 x, 锚点 y, 有没有脚（飞的那个没有）]
+## This stage's six enemies: skin key → [appearance frame width, frame height, anchor x, anchor y, has feet (the flying one does not)]
 const ENEMIES := {
-	&"2_a": [80, 56, 40, 40, true],   # Worker：从天而降，落地冲人
-	&"2_b": [80, 56, 40, 40, true],   # Heaver：冲撞
-	&"2_c": [80, 56, 40, 40, true],   # Specialist：巡逻 + 射击 + 斜射
-	&"2_d": [80, 56, 40, 40, true],   # Hammer：走近了抡锤
-	&"2_e": [48, 48, 24, 24, false],  # Copter：飞在头顶投弹
-	&"2_f": [80, 56, 40, 40, true],   # Alarmobot：冲过来自爆
+	&"2_a": [80, 56, 40, 40, true],   # Worker: drops from above, charges on landing
+	&"2_b": [80, 56, 40, 40, true],   # Heaver: charges
+	&"2_c": [80, 56, 40, 40, true],   # Specialist: patrols + shoots + diagonal shots
+	&"2_d": [80, 56, 40, 40, true],   # Hammer: walks up and swings a hammer
+	&"2_e": [48, 48, 24, 24, false],  # Copter: flies overhead dropping bombs
+	&"2_f": [80, 56, 40, 40, true],   # Alarmobot: charges in and blows itself up
 }
-## 脚底落在锚点下方这么多像素（和玩家、第一关的敌人同一条线）。
+## The feet land this many pixels below the anchor (the same line as the player and stage 1's enemies).
 const FOOT_BELOW_ANCHOR := 16
 
 
@@ -203,7 +203,7 @@ func has_clip(key: StringName, clip: String) -> bool:
 
 func test_every_enemy_the_pack_names_really_has_art() -> void:
 	if needs_art(): return
-	# 包里填了键却没贴图的话，游戏里那个敌人是一团看不见的东西——照样会打你
+	# If the pack lists a key without sprites, that enemy is an invisible thing in the game — that still shoots you
 	var mine := pack()
 	for key: StringName in ENEMIES:
 		var scene := mine.appearances.get(key) as PackedScene
@@ -219,7 +219,7 @@ func test_every_enemy_the_pack_names_really_has_art() -> void:
 
 func test_the_art_is_mirrored_left_and_right() -> void:
 	if needs_art(): return
-	# 转身只是换一张贴图（不用 flip_h，更不用负的 scale），所以两张必须是严格的镜像
+	# Turning around only swaps an image (no flip_h, and certainly no negative scale), so the two must be exact mirrors
 	for key: StringName in ENEMIES:
 		var spec: Array = ENEMIES[key]
 		var anchor: int = spec[2]
@@ -235,12 +235,12 @@ func test_the_art_is_mirrored_left_and_right() -> void:
 					continue
 				if right.get_pixel(x, y) != left.get_pixel(sx, y):
 					wrong += 1
-		check("%s mirrors about its anchor" % key, wrong == 0, "%d 个像素对不上" % wrong)
+		check("%s mirrors about its anchor" % key, wrong == 0, "%d pixels do not match" % wrong)
 
 
 func test_the_ones_that_walk_stand_on_the_same_line() -> void:
 	if needs_art(): return
-	# 脚底落在锚点下方 16px：和玩家、和第一关的敌人同一条线，换关不会有人陷进地里或者浮着
+	# Feet 16px below the anchor: the same line as the player and stage 1's enemies, so nobody sinks into the floor or floats when the stage changes
 	for key: StringName in ENEMIES:
 		var spec: Array = ENEMIES[key]
 		if not spec[4]:
@@ -254,13 +254,13 @@ func test_the_ones_that_walk_stand_on_the_same_line() -> void:
 					break
 		check("%s has its feet on the ground line" % key,
 			lowest == int(spec[3]) + FOOT_BELOW_ANCHOR - 1,
-			"最低一行 y=%d，应该是 %d" % [lowest, int(spec[3]) + FOOT_BELOW_ANCHOR - 1])
+			"lowest row y=%d, expected %d" % [lowest, int(spec[3]) + FOOT_BELOW_ANCHOR - 1])
 
 
 func test_the_one_that_flies_is_centred_on_its_anchor() -> void:
 	if needs_art(): return
-	# 走地上的靠脚底那条线对齐，飞的没有脚——它的判定框 28×20 是**以原点为中心**的，
-	# 所以横向要对准锚点那一列。差几像素的话，玩家瞄着机身打却打空。
+	# Ground walkers align on the line of their feet; the flyer has no feet — its 28×20 hitbox is **centred on the origin**,
+	# so horizontally it has to line up with the anchor column. A few pixels off and the player aiming at the hull would miss.
 	var spec: Array = ENEMIES[&"2_e"]
 	var img := sheet(&"2_e", "idle")
 	var left := int(spec[0])
@@ -272,12 +272,12 @@ func test_the_one_that_flies_is_centred_on_its_anchor() -> void:
 				right = maxi(right, x)
 	var middle := (left + right) / 2.0
 	check("2-E's body sits on the anchor column", absf(middle - float(spec[2])) <= 1.0,
-		"机身 x %d..%d，中心 %.1f，锚点 %d" % [left, right, middle, spec[2]])
+		"hull x %d..%d, centre %.1f, anchor %d" % [left, right, middle, spec[2]])
 
 
 func test_the_ones_that_fight_have_the_frames_their_behaviour_needs() -> void:
 	if needs_art(): return
-	# 每种敌人的打法都卡在某一帧上，贴图少一组的话行为就没有画面
+	# Each enemy's attack hinges on a particular frame; with a clip missing from the sprites the behaviour has no picture
 	check("2-C has a firing pose", has_clip(&"2_c", "attack_level"))
 	check("2-D has the full hammer swing", has_clip(&"2_d", "attack_level")
 		and sheet(&"2_d", "attack_level").get_width() / 80 == 8,
@@ -288,7 +288,7 @@ func test_the_ones_that_fight_have_the_frames_their_behaviour_needs() -> void:
 		check("%s has a charging pose" % key, has_clip(key, "run"))
 
 
-# ---------------------------------------------------------------- 接上去的两种
+# ---------------------------------------------------------------- The two plugged in
 
 func spawn(scene_path: String, at: Vector2) -> Enemy:
 	var enemy := (load(scene_path) as PackedScene).instantiate() as Enemy
@@ -322,8 +322,8 @@ func test_the_specialist_shoots_and_can_aim_off_the_level() -> void:
 	await frames(4)
 	check("it never lies down — this pack has no prone art", not spec.can_go_prone)
 	check("but it can aim off the level", spec.can_aim_diagonally)
-	# 斜射判定是纯函数，**当场问它**：让玩家自己飞上去不行，重力会立刻把人拽回地面，
-	# 瞄的就成了水平，这条用例会变成「测了个水平射击」还照样绿。
+	# The diagonal aim check is a pure function, **so ask it directly**: making the player fly up does not work, gravity pulls them straight back to the ground,
+	# the aim becomes level, and this case would turn into "tested a level shot" and still pass.
 	var stood := player.global_position
 	player.global_position = stood + Vector2(0, -104)
 	check("a player up on a ledge is a diagonal target",
@@ -332,7 +332,7 @@ func test_the_specialist_shoots_and_can_aim_off_the_level() -> void:
 	check("and one down in a pit is the other way",
 		spec.aim_for(player) == Enemy.Aim.DIAGONAL_DOWN, str(spec.aim_for(player)))
 	player.global_position = stood
-	# `shot_fired` 不带参数，lambda 的参数多一个就连不上（表现成「一枪都没开」）
+	# `shot_fired` has no argument; a lambda with one extra parameter cannot connect (showing up as "not a single shot fired")
 	var fired: Array[int] = []
 	spec.shot_fired.connect(func() -> void: fired.append(1))
 	await frames(180)
@@ -340,7 +340,7 @@ func test_the_specialist_shoots_and_can_aim_off_the_level() -> void:
 
 
 func test_this_zone_enemies_change_nothing_about_the_rules() -> void:
-	# 贴图换了，判定框、巡逻、出膛点都不该跟着动
+	# With the sprites changed, the hitbox, patrol and muzzle must not move with them
 	var out := []
 	for skin: SkinPack in [Skins.default_skin(), pack()]:
 		await reset_scene(false, true, skin)
@@ -359,30 +359,30 @@ func test_this_zone_enemies_change_nothing_about_the_rules() -> void:
 	check("it really patrolled in this test", out[0]["walked"] > 20.0, str(out[0]))
 	for key: String in out[0]:
 		check("%s is the same with either skin" % key, out[0][key] == out[1][key],
-			"方块 %s，工业区 %s" % [out[0][key], out[1][key]])
+			"blocks %s, industrial %s" % [out[0][key], out[1][key]])
 
 
 
-# ---------------------------------------------------------------- 四种新打法
+# ---------------------------------------------------------------- Four new attacks
 
-## 关卡里的地面顶边，以及站在上面时身体原点的高度。
+## The top of the ground in the level, and the height of the body origin standing on it.
 const GROUND_TOP := 320.0
 const STAND_Y := GROUND_TOP - 16.0
-## 测试关 x 1096..1280 这一段**头顶什么都没有**（最后一块平台在 1000..1096）。
-## 掉落和追击的用例都摆在这儿：摆在平台底下的话，人会落在平台上，
-## 而站在单向平台上的追击兵会按 D 那条「走到边缘下去」的规矩往反方向走，
-## 用例看到的就是「它朝着远离玩家的方向跑」。
+## The test level's stretch x 1096..1280 **has nothing overhead** (the last platform is at 1000..1096).
+## The drop and chase cases are set up here: placed under a platform, a person would land on the platform,
+## and a chaser standing on a one-way platform would follow D's "walk off the edge" rule in the opposite direction,
+## so the case would see "it runs away from the player".
 const OPEN_SKY_X := 1180.0
 
 
-## 敌人没了没有（`is_alive()` 是玩家那边的东西，敌人死了是直接删掉）。
-## **参数不能标类型**：已经释放掉的对象传进一个标了 `Node` 的参数会当场报类型错误。
+## Is the enemy gone (`is_alive()` belongs to the player side; dead enemies are simply deleted).
+## **The parameter must not be typed**: passing an already freed object into a parameter typed `Node` is an immediate type error.
 func gone(enemy: Variant) -> bool:
 	return not is_instance_valid(enemy) or (enemy as Node).is_queued_for_deletion()
 
 
-## 等这一把锤子**从头**抡起来。直接等 `is_swinging()` 不行：它可能正抡在半路上，
-## 那样量出来的「起手到砸中」只剩个尾巴，用例会误报「还没砸就掉血了」。
+## Wait for this hammer to swing **from the start**. Waiting directly for `is_swinging()` does not work: it may be midway through a swing,
+## and the "wind-up to hit" measured would be only the tail end, with the case falsely reporting "health lost before the hammer hit".
 func fresh_swing(hammer: EnemyHammer) -> void:
 	hammer._swing_left = 0.0
 	hammer._smash_timer = 0.0
@@ -391,7 +391,7 @@ func fresh_swing(hammer: EnemyHammer) -> void:
 
 
 func test_the_worker_hangs_until_someone_walks_under_it() -> void:
-	# 2-A 是这一关的伏击：吊在画面顶边以上，玩家一路走过来什么也看不见
+	# 2-A is this stage's ambush: hanging above the top of the view, so the player sees nothing on the way in
 	await reset_scene(false, true, pack())
 	var worker := spawn("res://scenes/enemy_2_a.tscn", Vector2(OPEN_SKY_X, -40)) as EnemyDropper
 	player.global_position = Vector2(200, STAND_Y)
@@ -412,7 +412,7 @@ func test_the_worker_hangs_until_someone_walks_under_it() -> void:
 
 
 func test_the_worker_lets_go_when_you_shoot_it() -> void:
-	# 不然玩家发现了它也只能对着一个永远不还手的靶子打
+	# otherwise a player who spotted it could only shoot a target that never fights back
 	await reset_scene(false, true, pack())
 	var worker := spawn("res://scenes/enemy_2_a.tscn", Vector2(OPEN_SKY_X, -40)) as EnemyDropper
 	player.global_position = Vector2(OPEN_SKY_X - 400.0, STAND_Y)
@@ -425,7 +425,7 @@ func test_the_worker_lets_go_when_you_shoot_it() -> void:
 
 
 func test_the_worker_charges_once_it_lands() -> void:
-	# 落地之后它就是一个普通的冲撞兵（D 那套），没有第二套 AI
+	# Once landed it is an ordinary charger (D's behaviour), with no second AI
 	await reset_scene(false, true, pack())
 	var worker := spawn("res://scenes/enemy_2_a.tscn", Vector2(OPEN_SKY_X, -40)) as EnemyDropper
 	player.global_position = Vector2(OPEN_SKY_X - 80.0, STAND_Y)
@@ -436,12 +436,12 @@ func test_the_worker_charges_once_it_lands() -> void:
 			break
 	check("setup: it landed", worker.is_on_floor(), str(worker.global_position))
 	check("it is a chaser underneath", worker is EnemyChaser)
-	# 落地的时候人就在它脚边，早追到了——把玩家挪开，从头量一遍它追过来的这段
+	# When it lands the player is right at its feet, already caught — move the player away and measure the chase from the start again
 	player.global_position = Vector2(OPEN_SKY_X - 200.0, STAND_Y)
 	snap_camera()
 	await frames(2)
-	# 量的是「有没有把距离拉近」而不是「往哪边走」：贴上之后它会被玩家顶开一段（D 那条规矩），
-	# 正好撞上取样的那一刻的话，看到的就是它在往回走
+	# It measures "did it close the distance", not "which way it walks": once it touches the player it gets pushed back a bit (D's rule),
+	# and if that happens exactly at the moment of sampling it would look like it is walking away
 	var gap: float = absf(worker.global_position.x - player.global_position.x)
 	var closest := gap
 	for i in 60:
@@ -451,10 +451,10 @@ func test_the_worker_charges_once_it_lands() -> void:
 
 
 func test_the_hammer_only_hurts_you_when_it_lands() -> void:
-	# 画面上锤子还举在半空人就掉血的话，玩家没法从动作判断该什么时候躲
+	# If the player lost health while the hammer was still raised in the picture, they could not tell from the motion when to dodge
 	await reset_scene(false, true, pack())
 	var hammer := spawn("res://scenes/enemy_2_d.tscn", Vector2(500, STAND_Y)) as EnemyHammer
-	# 接触伤害是另一套机制（基类那条，另有用例守着），这儿关掉：两种伤害都是 42，混在一起分不清谁打的
+	# Contact damage is a separate mechanism (the base class rule, guarded by other cases), turned off here: both kinds do 42, and mixed together you could not tell which hit
 	hammer.contact_damage = 0
 	hammer.facing = -1
 	player.global_position = Vector2(500 - hammer.smash_range + 8.0, STAND_Y)
@@ -472,10 +472,10 @@ func test_the_hammer_only_hurts_you_when_it_lands() -> void:
 
 
 func test_stepping_back_after_the_windup_dodges_the_hammer() -> void:
-	# 抡的这段时间它站着不动，所以退出锤子够得着的范围就躲掉了
+	# It stands still while swinging, so stepping out of the hammer's reach dodges it
 	await reset_scene(false, true, pack())
 	var hammer := spawn("res://scenes/enemy_2_d.tscn", Vector2(500, STAND_Y)) as EnemyHammer
-	# 接触伤害是另一套机制（基类那条，另有用例守着），这儿关掉：两种伤害都是 42，混在一起分不清谁打的
+	# Contact damage is a separate mechanism (the base class rule, guarded by other cases), turned off here: both kinds do 42, and mixed together you could not tell which hit
 	hammer.contact_damage = 0
 	hammer.facing = -1
 	player.global_position = Vector2(500 - hammer.smash_range + 8.0, STAND_Y)
@@ -503,7 +503,7 @@ func test_the_hammer_never_shoots() -> void:
 
 
 func test_the_alarmobot_stops_and_blows_up_next_to_you() -> void:
-	# 点火之后停住不动：一直贴着追的话玩家根本躲不掉
+	# Once lit it stops moving: if it kept chasing, the player could never get away
 	await reset_scene(false, true, pack())
 	var bot := spawn("res://scenes/enemy_2_f.tscn", Vector2(420, STAND_Y)) as EnemyBomber
 	player.global_position = Vector2(300, STAND_Y)
@@ -535,7 +535,7 @@ func test_running_away_from_a_lit_alarmobot_works() -> void:
 	var fuse := bot.fuse_time
 	var before: int = player.health
 	player.global_position = Vector2(stood - 300.0, STAND_Y)
-	# 引信走完它就没了，所以「它没有追过来」要在还活着的时候量
+	# It is gone once the fuse runs out, so "it did not chase you" has to be measured while it is still alive
 	var moved := 0.0
 	for i in int(fuse * 60.0) - 4:
 		await tree.physics_frame
@@ -569,8 +569,8 @@ func test_the_copter_drops_bombs_on_what_is_under_it() -> void:
 	if dropped.is_empty():
 		return
 	var bomb := dropped[0] as Grenade
-	# **要看速度，不能只看位置**：刚出手那一刻炸弹就在机腹下面，往前扔还是往下丢位置都一样，
-	# 方向只体现在速度上（F 是往前抛的，这一架是直着松手）
+	# **Look at the velocity, not just the position**: at the moment of release the bomb is right under the belly whether it is thrown forward or dropped,
+	# and the direction only shows in the velocity (F throws forward, this one lets go straight down)
 	check("it is released straight down, not thrown forward",
 		absf(bomb.velocity.x) <= 1.0 and bomb.velocity.y > 0.0, str(bomb.velocity))
 	check("out of its belly", absf(bomb.global_position.x - copter.global_position.x) <= 2.0
@@ -580,9 +580,9 @@ func test_the_copter_drops_bombs_on_what_is_under_it() -> void:
 		bomb.target_layer == 2, str(bomb.target_layer))
 
 
-# ---------------------------------------------------------------- 这一关的 Boss
+# ---------------------------------------------------------------- This stage's boss
 
-## Boss 摆在半空的高度（它不受重力，飘在这儿）。
+## The height the boss is placed at in mid-air (it has no gravity and floats there).
 const BOSS_Y := 170.0
 
 
@@ -594,7 +594,7 @@ func spawn_boss() -> BossOperator:
 	return boss
 
 
-## 摆好 Boss 和玩家，等它出场。
+## Set up the boss and the player and wait for it to appear.
 func face_the_operator(player_at: Vector2) -> BossOperator:
 	await reset_scene(false, true, pack())
 	var boss := spawn_boss()
@@ -622,9 +622,9 @@ func test_the_operator_is_a_boss_and_shows_up_on_the_hud() -> void:
 
 
 func test_it_drifts_in_eight_directions() -> void:
-	# 「八个方向飞」这件事**直接问方向选取**，不要靠实跑去撞：
-	# 五秒里它只挑三四次方向，全挑成竖直的概率有百分之一——那样用例会偶发失败，
-	# 而且失败的时候看着像 Boss 坏了。
+	# "Flies in eight directions" **asks the direction picker directly** instead of bumping into it in a real run:
+	# in five seconds it only picks a direction three or four times, and the chance of all of them being vertical is one in a hundred — the case would fail intermittently,
+	# and when it failed it would look like the boss was broken.
 	await reset_scene(false, true, pack())
 	var boss := spawn_boss()
 	var seen := {}
@@ -644,7 +644,7 @@ func test_it_drifts_in_eight_directions() -> void:
 
 
 func test_it_never_leaves_its_own_patch_of_air() -> void:
-	# 它不追人——追击是 D 的定位，它靠居高临下压制，所以不能跟着玩家跑出地盘
+	# It does not chase — chasing is D's job; this one presses from above, so it must not follow the player out of its ground
 	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 500.0, STAND_Y))
 	var home: Vector2 = boss._home
 	var moved := 0.0
@@ -660,16 +660,16 @@ func test_it_never_leaves_its_own_patch_of_air() -> void:
 
 
 func test_the_arm_only_comes_down_on_someone_underneath() -> void:
-	# 缆绳只能往正下方放，站在它侧下方是安全的
+	# The cable only drops straight down, so standing below to the side is safe
 	var boss := await face_the_operator(Vector2(OPEN_SKY_X + 200.0, STAND_Y))
-	# **把飘动钉住**：横向地盘本来就有 200px，它自己飘过去就站到这个玩家头上了，
-	# 那样这条用例测的就不是「侧下方安全」而是「它这几秒有没有飘过来」。
+	# **Pin its drifting**: its horizontal ground is already 200px, and drifting on its own it would end up over this player's head,
+	# so this case would test "did it drift over these few seconds" instead of "below to the side is safe".
 	boss.roam_range = Vector2.ZERO
 	await frames(120)
 	check("nobody underneath, so the arm stays in",
 		boss.arm_state() == BossOperator.Arm.IN and is_zero_approx(boss.arm_length()),
 		"%d / %.0f" % [boss.arm_state(), boss.arm_length()])
-	# 换到正下方；纵向也钉住，免得它飘到缆绳够不着的高度，那是另一回事
+	# Move to right below it; pin it vertically too, so it does not drift to a height the cable cannot reach, which is another matter
 	boss.roam_range = Vector2.ZERO
 	player.global_position = Vector2(boss.global_position.x, STAND_Y)
 	var out := false
@@ -683,10 +683,10 @@ func test_the_arm_only_comes_down_on_someone_underneath() -> void:
 
 
 func test_the_claw_only_bites_when_it_shuts() -> void:
-	# 放缆绳要时间，这段时间玩家看得见也跑得开——和锤子兵同一条道理
+	# Lowering the cable takes time, during which the player can see it and get away — the same idea as the hammer man
 	var boss := await face_the_operator(Vector2(OPEN_SKY_X, STAND_Y))
 	boss.contact_damage = 0
-	# 纵向钉住：飘高了缆绳够不着，它会改打枪，用例就等不到手臂
+	# Pinned vertically: drifting higher the cable cannot reach, it switches to shooting, and the case would never see the arm
 	boss.roam_range.y = 0.0
 	for i in 300:
 		await tree.physics_frame
@@ -701,7 +701,7 @@ func test_the_claw_only_bites_when_it_shuts() -> void:
 		player.global_position = Vector2(boss.global_position.x, STAND_Y)
 		check("no bite while the cable is still paying out", player.health == before)
 		break
-	# 一路跟到底：爪子合上那一刻才该掉血
+	# Follow it all the way down: health should only be lost the moment the claw closes
 	var bitten := false
 	for i in 120:
 		await tree.physics_frame
@@ -716,7 +716,7 @@ func test_the_claw_only_bites_when_it_shuts() -> void:
 func test_stepping_aside_dodges_the_claw() -> void:
 	var boss := await face_the_operator(Vector2(OPEN_SKY_X, STAND_Y))
 	boss.contact_damage = 0
-	# 纵向钉住：飘高了缆绳够不着，它会改打枪，用例就等不到手臂
+	# Pinned vertically: drifting higher the cable cannot reach, it switches to shooting, and the case would never see the arm
 	boss.roam_range.y = 0.0
 	for i in 300:
 		await tree.physics_frame
@@ -735,7 +735,7 @@ func test_stepping_aside_dodges_the_claw() -> void:
 
 
 func test_the_volley_all_goes_one_way() -> void:
-	# 和 Boss A 最大的区别：那个铺一个扇形，这个一串子弹全沿同一条线
+	# The biggest difference from Boss A: that one spreads a fan, this one fires a string of bullets all along one line
 	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
 	var shots: Array[Node] = []
 	for i in 400:
@@ -752,17 +752,17 @@ func test_the_volley_all_goes_one_way() -> void:
 	var first: Vector2 = (shots[0] as Bullet).direction
 	for b in shots:
 		spread = maxf(spread, rad_to_deg(absf(first.angle_to((b as Bullet).direction))))
-	check("every shot in it goes the same way", spread < 1.0, "最大差 %.1f 度" % spread)
+	check("every shot in it goes the same way", spread < 1.0, "largest difference %.1f degrees" % spread)
 	check("and it is aimed at the player, not straight ahead",
 		absf(first.y) > 0.1, str(first))
 
 
 func test_the_two_attacks_take_turns() -> void:
-	# 「两种方式交替」是这个 Boss 的设计，只会一种的话打起来就是一个节奏
+	# "Alternating two attacks" is this boss's design; with only one the fight would have a single rhythm
 	var boss := await face_the_operator(Vector2(OPEN_SKY_X, STAND_Y))
 	boss.contact_damage = 0
-	# **把它钉在够得着的高度上**：让它自己上下飘的话，飘高了缆绳够不着、它会改打枪，
-	# 于是「只会伸手臂」这种毛病也能混过去——看到的那发子弹是够不着逼出来的，不是轮换逼出来的。
+	# **Pin it at a height within reach**: drifting up and down on its own, it would get too high for the cable and switch to shooting,
+	# and a bug like "it can only use its arm" could slip through — the bullet seen would be forced by being out of reach, not by the rotation.
 	boss.roam_range.y = 0.0
 	var seen_arm := false
 	var seen_volley := false
@@ -796,15 +796,15 @@ func test_the_boss_skin_changes_nothing_about_the_rules() -> void:
 		})
 	for key: String in out[0]:
 		check("%s is the same with either skin" % key, out[0][key] == out[1][key],
-			"方块 %s，工业区 %s" % [out[0][key], out[1][key]])
+			"blocks %s, industrial %s" % [out[0][key], out[1][key]])
 
 
 func test_it_holds_still_while_the_arm_is_out() -> void:
-	# 缆绳是吊着的：一边放一边飘的话爪子会落到瞄好的位置以外，
-	# 玩家明明没动也可能被抓不中、或者站着没动反而被抓中。停住也让这一下看得清、躲得掉。
+	# The cable hangs: drifting while lowering would land the claw away from where it aimed,
+	# so a player who never moved might be missed, or one standing still might be grabbed. Holding still also makes the attack readable and dodgeable.
 	var boss := await face_the_operator(Vector2(OPEN_SKY_X, STAND_Y))
 	boss.contact_damage = 0
-	# 纵向钉住：飘高了缆绳够不着，它会改打枪，用例就等不到手臂
+	# Pinned vertically: drifting higher the cable cannot reach, it switches to shooting, and the case would never see the arm
 	boss.roam_range.y = 0.0
 	for i in 300:
 		await tree.physics_frame
@@ -828,10 +828,10 @@ func test_it_holds_still_while_the_arm_is_out() -> void:
 
 func test_aiming_off_the_level_falls_back_to_the_art_this_pack_has() -> void:
 	if needs_art(): return
-	# **这套素材只画了水平开火**（赛博朋克那个巡逻兵自带水平 / 斜上 / 斜下三组）。
-	# 2-C 照样会斜着打——规则不变，只是画面上还是水平端枪的样子。
-	# 没有这条兜底的话，它一斜着瞄就去加载一张不存在的图，刷一屏「Resource file not found」，
-	# 画面上那一帧也没了。**这是截图才发现的**：无头测试一条都没红。
+	# **This art only draws level shots** (the cyberpunk patroller comes with level / up / down).
+	# 2-C still fires diagonally — the rules are unchanged, only the picture still shows the gun held level.
+	# Without this fallback, the moment it aimed diagonally it would load a missing image, print a screenful of "Resource file not found",
+	# and that frame would vanish from the screen. **This was only found in a screenshot**: not one headless test went red.
 	check("setup: this pack really has no diagonal firing art",
 		not has_clip(&"2_c", "attack_up") and not has_clip(&"2_c", "attack_down"))
 	await reset_scene(false, true, pack())
@@ -847,23 +847,23 @@ func test_aiming_off_the_level_falls_back_to_the_art_this_pack_has() -> void:
 
 func test_the_characters_still_have_faces_in_this_zone() -> void:
 	if needs_art(): return
-	# **每关的包只装这一关独有的**，角色是 23 关共用的、只在最底下那个包里有一份。
-	# 头像一开始是直接按当前包的目录拼路径的，打完第二关回主菜单时当前包是工业区、
-	# 那儿一个角色目录都没有，三个头像就全空了（试玩发现）。现在顺着 fallback 找。
+	# **Each stage's pack only holds what is unique to that stage**; the characters are shared by all 23 stages and only exist once, in the pack at the bottom.
+	# Portraits were first built from the current pack's folder directly, and returning to the main menu after clearing stage 2 the current pack was the industrial one,
+	# which has no character folders, so all three portraits were blank (found in playtesting). Now it follows the fallback chain.
 	Skins.use(pack())
 	for look: StringName in [&"biker", &"punk", &"cyborg"]:
 		var face := UiKit.portrait(look)
 		check("%s still has a face here" % look, face != null,
-			"包里找到的是 %s" % Skins.file("%s/portrait.png" % look))
+			"the pack found %s" % Skins.file("%s/portrait.png" % look))
 	check("and the pack itself really has no character art",
 		Skins.file("biker/portrait.png").contains("cyberpunk"),
 		Skins.file("biker/portrait.png"))
 
 
-# ---------------------------------------------------------------- Boss 的第二阶段
+# ---------------------------------------------------------------- The boss's phase 2
 
 func test_the_operator_turns_nasty_below_half_health() -> void:
-	# **第一阶段只会一条线，站开就躲掉了**——血过半之后再不变招，后半场就是站着磨（试玩反馈）
+	# **Phase 1 only fires one line, which you dodge by stepping aside** — if it never changed after half health, the second half would be a slog (playtest feedback)
 	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
 	check("it starts out calm", not boss.is_enraged(), "%d/%d" % [boss.health, boss.max_health])
 	boss.take_damage(boss.max_health / 2, Vector2.INF, player)
@@ -878,7 +878,7 @@ func test_it_flies_faster_once_it_is_hurt() -> void:
 		var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
 		if hurt:
 			boss.take_damage(boss.max_health / 2, Vector2.INF, player)
-		# 方向是随机挑的，所以比的是**速度的长度**，不是跑了多远
+		# The directions are picked at random, so it compares **the length of the velocity**, not the distance covered
 		var fastest := 0.0
 		for i in 240:
 			await tree.physics_frame
@@ -890,7 +890,7 @@ func test_it_flies_faster_once_it_is_hurt() -> void:
 
 
 func test_the_volley_opens_into_a_fan_once_it_is_hurt() -> void:
-	# 第一阶段一条线（横向闪开），第二阶段一把扇形（站进两发之间的空隙）——躲法整个变了
+	# Phase 1 is one line (sidestep), phase 2 a fan (stand in the gap between two shots) — the dodge changes completely
 	var spreads := []
 	for hurt: bool in [false, true]:
 		var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
@@ -911,12 +911,12 @@ func test_the_volley_opens_into_a_fan_once_it_is_hurt() -> void:
 			for b in shots:
 				widest = maxf(widest, rad_to_deg(absf(first.angle_to((b as Bullet).direction))))
 		spreads.append(widest)
-	check("calm, every shot goes the same way", spreads[0] < 1.0, "%.1f 度" % spreads[0])
-	check("hurt, the volley opens up", spreads[1] > 10.0, "%.1f 度" % spreads[1])
+	check("calm, every shot goes the same way", spreads[0] < 1.0, "%.1f degrees" % spreads[0])
+	check("hurt, the volley opens up", spreads[1] > 10.0, "%.1f degrees" % spreads[1])
 
 
 func test_the_fan_is_still_dodgeable() -> void:
-	# 扇形要有缝才叫「躲得掉」：每发之间的夹角要够大，不能糊成一堵墙
+	# A fan is only "dodgeable" with gaps: the angle between shots must be big enough not to blur into a wall
 	await reset_scene(false, true, pack())
 	var boss := spawn_boss()
 	check("the shots are spread wide enough to stand between",
@@ -925,7 +925,7 @@ func test_the_fan_is_still_dodgeable() -> void:
 		and boss.enrage_fan_count >= 2, str(boss.enrage_fan_count))
 
 
-# ---------------------------------------------------------------- 这一关的音乐
+# ---------------------------------------------------------------- This stage's music
 
 func test_the_zone_has_a_track_of_its_own() -> void:
 	if needs_art(): return
@@ -935,7 +935,7 @@ func test_the_zone_has_a_track_of_its_own() -> void:
 	if track == null:
 		return
 	check("it belongs to this zone", track.resource_path.begins_with(ART), track.resource_path)
-	# **循环的曲子必须是 OGG**：MP3 编码器会在开头结尾各补一小段静音，转一圈能听出来接缝
+	# **Looping tracks must be OGG**: MP3 encoders add a little silence at the start and end, and the seam is audible on every loop
 	check("and it is an ogg, so the loop is seamless", track is AudioStreamOggVorbis,
 		track.get_class())
 	check("the boss track still comes from the pack behind it",
@@ -945,7 +945,7 @@ func test_the_zone_has_a_track_of_its_own() -> void:
 
 func test_each_zone_plays_its_own_music() -> void:
 	if needs_art(): return
-	# 两个区的关卡曲子得真的不一样——登记错了的话第二关会放第一关那首
+	# The two zones' stage tracks must really differ — registered wrong, stage 2 would play stage 1's track
 	Skins.use(pack())
 	var mine := Skins.music(&"level")
 	Skins.use(load("res://skins/cyberpunk/cyberpunk_skin.tres") as SkinPack)
@@ -955,10 +955,10 @@ func test_each_zone_plays_its_own_music() -> void:
 		"%s vs %s" % [mine.resource_path if mine else "", theirs.resource_path if theirs else ""])
 
 
-# ---------------------------------------------------------------- 自爆的伤害
+# ---------------------------------------------------------------- Self-destruct damage
 
 func test_the_alarmobot_blast_falls_off_like_a_grenade() -> void:
-	# 「和手雷一样」：中心满伤害，边缘只擦一下——躲的办法是**离远点**，不是硬扛。
+	# "The same as a grenade": full damage at the centre, only a graze at the edge — the way to dodge is **to get away**, not to tank it.
 	await reset_scene(false, true, pack())
 	var bot := spawn("res://scenes/enemy_2_f.tscn", Vector2(500, STAND_Y)) as EnemyBomber
 	check("it uses the same blast rule as a grenade",
@@ -975,20 +975,20 @@ func test_the_alarmobot_blast_falls_off_like_a_grenade() -> void:
 
 
 func test_standing_at_the_edge_of_the_blast_hurts_less_than_hugging_it() -> void:
-	# **两档都要在接触范围（26px）之外**：贴在它身上的话每帧挨一次接触判定，
-	# 无敌帧还没过爆炸就来了，量到的是 0。它点火的距离（36）本来就在接触范围之外，
-	# 所以正常打起来不会出现「贴着反而不疼」。
-	# **而且要先点火再摆玩家**：它冲得很快（220px/s，两帧就贴上来了），
-	# 先摆玩家的话它会自己冲到跟前，两档量出来是同一个距离。
+	# **Both distances must be outside contact range (26px)**: touching it, contact damage is checked every frame,
+	# and the blast arrives before the invincibility frames end, measuring 0. It lights its fuse at 36, which is already outside contact range,
+	# so in normal play "hugging it hurts less" never happens.
+	# **And light the fuse before placing the player**: it charges very fast (220px/s, it closes in within two frames),
+	# and placing the player first it would rush in by itself, so both distances would measure the same.
 	var taken := []
 	for gap: float in [28.0, 54.0]:
 		await reset_scene(false, true, pack())
 		var bot := spawn("res://scenes/enemy_2_f.tscn", Vector2(500, STAND_Y)) as EnemyBomber
 		bot.contact_damage = 0
-		player.global_position = Vector2(-2000, STAND_Y)     # 先支开，免得它冲过来
+		player.global_position = Vector2(-2000, STAND_Y)     # Send the player away first so it does not charge over
 		snap_camera()
 		await frames(2)
-		bot._light_the_fuse()                                # 点了火它就站住不动了
+		bot._light_the_fuse()                                # Once lit it stands still
 		var stood: float = bot.global_position.x
 		player.global_position = Vector2(stood - gap, STAND_Y)
 		player.health = 9999
@@ -1002,11 +1002,11 @@ func test_standing_at_the_edge_of_the_blast_hurts_less_than_hugging_it() -> void
 		taken.append(before - player.health)
 	check("setup: both got hit", taken[0] > 0 and taken[1] > 0, str(taken))
 	check("close in hurts much more than standing at the edge", taken[0] > taken[1] + 20,
-		"近处 %d，边缘 %d" % [taken[0], taken[1]])
+		"near %d, edge %d" % [taken[0], taken[1]])
 
 
 func test_the_blast_cannot_reach_through_a_wall() -> void:
-	# 和手雷同一条：中心到目标之间被实心物体挡住就炸不到
+	# The same as the grenade: shielded by something solid between the centre and the target, it is not hit
 	await reset_scene(false, true, pack())
 	var bot := spawn("res://scenes/enemy_2_f.tscn", Vector2(500, STAND_Y)) as EnemyBomber
 	bot.contact_damage = 0
@@ -1026,13 +1026,13 @@ func test_the_blast_cannot_reach_through_a_wall() -> void:
 	check("but the wall took it", player.health == before, "%d -> %d" % [before, player.health])
 
 
-# ---------------------------------------------------------------- 锤子会冲过来
+# ---------------------------------------------------------------- The hammer charges at you
 
 func test_the_hammer_charges_at_you() -> void:
-	# 原来它只按巡逻速度溜达，玩家站着不动都挨不到——没什么威胁（2026-09 试玩反馈）
+	# It used to just stroll at patrol speed, and a player standing still was never even hit — no threat at all (2026-09 playtest feedback)
 	await reset_scene(false, true, pack())
 	var hammer := spawn("res://scenes/enemy_2_d.tscn", Vector2(500, STAND_Y)) as EnemyHammer
-	hammer.facing = 1                      # 背对玩家：它要**转过来**才算数
+	hammer.facing = 1                      # Its back to the player: it only counts if it **turns around**
 	player.global_position = Vector2(300, STAND_Y)
 	player.health = 9999
 	snap_camera()
@@ -1046,7 +1046,7 @@ func test_the_hammer_charges_at_you() -> void:
 
 
 func test_the_charge_is_slower_than_walking_away() -> void:
-	# 和 D 一个道理：走开追不上，它只能逼你且战且退——不然就成了甩不掉的狗皮膏药
+	# The same idea as D: walking away outpaces it, so it can only push you to fight while backing off — otherwise it would be an impossible-to-shake leech
 	await reset_scene(false, true, pack())
 	var hammer := spawn("res://scenes/enemy_2_d.tscn", Vector2(500, STAND_Y)) as EnemyHammer
 	check("charging is faster than patrolling", hammer.charge_speed > hammer.move_speed,
@@ -1056,7 +1056,7 @@ func test_the_charge_is_slower_than_walking_away() -> void:
 
 
 func test_it_does_not_track_you_mid_swing() -> void:
-	# 抡到一半还跟着人转的话，「起手之后退开就躲掉了」这条就没意义了
+	# If it kept turning to follow you mid-swing, "stepping back after the wind-up dodges it" would be pointless
 	await reset_scene(false, true, pack())
 	var hammer := spawn("res://scenes/enemy_2_d.tscn", Vector2(500, STAND_Y)) as EnemyHammer
 	hammer.contact_damage = 0
@@ -1067,15 +1067,15 @@ func test_it_does_not_track_you_mid_swing() -> void:
 	await frames(6)
 	await fresh_swing(hammer)
 	check("setup: mid swing", hammer.is_swinging())
-	player.global_position = Vector2(700, STAND_Y)     # 绕到背后
+	player.global_position = Vector2(700, STAND_Y)     # Get behind it
 	await frames(4)
 	check("it stops hunting while it swings", not hammer.is_charging())
 	check("it does not spin round to follow", hammer.facing == -1, str(hammer.facing))
 
 
 func test_the_second_phase_announces_itself() -> void:
-	# **不报一声玩家根本不知道它变了**：飞快一点、子弹多两发，都不够显眼
-	# （2026-09 试玩反馈「没出现第二阶段」，其实出现了，只是看不出来）。
+	# **Without announcing it the player never knows it changed**: flying a bit faster and two extra bullets are not visible enough
+	# (the 2026-09 playtest reported "phase 2 never appeared"; it did, it just could not be seen).
 	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
 	events.clear()
 	boss.take_damage(SHOT, Vector2.INF, player)
@@ -1085,7 +1085,7 @@ func test_the_second_phase_announces_itself() -> void:
 	await frames(2)
 	check("crossing half flips it", boss.is_enraged())
 	check("and it says so", events.has(&"boss_enrage"), str(events))
-	# **只报一次**：每挨一下报一次的话，后半场警报会一直响
+	# **Reported only once**: reporting on every hit would keep the alarm going for the whole second half
 	events.clear()
 	boss.take_damage(SHOT, Vector2.INF, player)
 	await frames(2)
@@ -1093,8 +1093,8 @@ func test_the_second_phase_announces_itself() -> void:
 
 
 func test_the_second_phase_shows_up_in_the_arm_too() -> void:
-	# **玩家多半站在它正下方**，那时它一直在用机械臂——只改飞行速度和子弹扇形的话，
-	# 二阶段在最常见的位置上根本看不出来。
+	# **The player usually stands right below it**, where it keeps using the arm — changing only the flying speed and the bullet fan
+	# would make phase 2 invisible from the most common spot.
 	var slow := 0.0
 	var quick := 0.0
 	for hurt: bool in [false, true]:
@@ -1103,7 +1103,7 @@ func test_the_second_phase_shows_up_in_the_arm_too() -> void:
 		boss.roam_range.y = 0.0
 		if hurt:
 			boss.take_damage(boss.max_health / 2, Vector2.INF, player)
-		# 量「缆绳从开始放到放到底要多少帧」
+		# Measure "how many frames the cable takes from starting to drop to the bottom"
 		for i in 400:
 			await tree.physics_frame
 			player.global_position = Vector2(boss.global_position.x, STAND_Y)
@@ -1124,7 +1124,7 @@ func test_the_second_phase_shows_up_in_the_arm_too() -> void:
 			slow = float(frames_out)
 	check("setup: the arm really came down both times", slow > 2.0 and quick > 0.0,
 		"%.0f / %.0f" % [slow, quick])
-	check("hurt, the claw comes down faster", quick < slow, "%.0f -> %.0f 帧" % [slow, quick])
+	check("hurt, the claw comes down faster", quick < slow, "%.0f -> %.0f frames" % [slow, quick])
 
 
 func test_the_hammer_swing_makes_a_noise() -> void:
@@ -1145,16 +1145,16 @@ func test_the_hammer_swing_makes_a_noise() -> void:
 
 
 func test_a_big_hit_that_jumps_past_half_still_flips_it() -> void:
-	# 判断是**小于等于**半血，不是等于：一发大伤害（手雷、终极武器）会从半血以上
-	# 直接打到半血以下，正好踩在那条线上的概率很小。
-	# 写成「等于」的话，绝大多数打法都跨过去了，二阶段永远不出现。
+	# The check is **at or below** half health, not equal: one big hit (grenade, ultimate) can take it from above half
+	# straight to below half, and landing exactly on the line is unlikely.
+	# With "equal to", nearly every way of fighting would skip right past it and phase 2 would never appear.
 	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
 	var half := boss.max_health / 2
-	boss.take_damage(boss.max_health - half - SHOT, Vector2.INF, player)   # 打到半血**以上**
+	boss.take_damage(boss.max_health - half - SHOT, Vector2.INF, player)   # Hit it down to **above** half health
 	await frames(2)
 	check("setup: still above half", boss.health > half and not boss.is_enraged(),
 		"%d / %d" % [boss.health, half])
-	# 一下打过线，而且不是正好落在半血上
+	# Cross the line in one hit, not landing exactly on half health
 	boss.take_damage(boss.health - half + SHOT * 3, Vector2.INF, player)
 	await frames(2)
 	check("setup: it landed well below half, not exactly on it",
@@ -1163,7 +1163,7 @@ func test_a_big_hit_that_jumps_past_half_still_flips_it() -> void:
 
 
 func test_landing_exactly_on_half_counts_as_below() -> void:
-	# 边界本身也要算：正好打到半血那一下就该换挡，不用再挨一下
+	# The boundary itself counts too: the hit that lands exactly on half health switches gear, no extra hit needed
 	var boss := await face_the_operator(Vector2(OPEN_SKY_X - 240.0, STAND_Y))
 	var half := boss.max_health / 2
 	boss.take_damage(boss.max_health - half, Vector2.INF, player)

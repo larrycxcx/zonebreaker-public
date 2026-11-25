@@ -1,15 +1,15 @@
 class_name ArenaDoor
 extends StaticBody2D
-## 第五关**小 Boss 房间的门**（2026-11 和用户定的：变异枪手在一间封住的房间里，打死它前面的门才开）。
-## 节点原点是门的左上角，32×64（地图里 2×4 格，`[` 入口、`]` 出口），底边落在地板上；
-## 门上面得是实心的一直到天花板（和闸门一样，格子地图自检查这条），不然跳过去了。
+## Stage 5's **mid-level boss room door** (agreed with the user in 2026-11: the mutant gunner waits in a sealed room, and the door ahead only opens once it is dead).
+## The node origin is the door's top-left corner, 32×64 (2×4 cells in the map, `[` entry, `]` exit), with its bottom edge on the floor;
+## above the door it has to be solid all the way up to the ceiling (like the blast gate; the grid map self-check checks this), or you could jump over it.
 ##
-## - **入口门**（`exit_door` 关着）：一开始开着。房间里的小 Boss 出场了、**所有活着的玩家都已经进了门**
-##   （在门的右边）就关上——人进去了才关，不会把人关在门里或者关在外面。
-## - **出口门**（`exit_door` 开着）：一开始关着，**小 Boss 死了才开**。入口门也同时打开。
-## 关着是墙（world 层：挡人、挡敌人、挡子弹），开着碰撞体关掉。开关门用 `move_time` 秒往天花板里缩 / 放下来，
-## 规则只看「开没开」：放下来那一刻就是墙（有人站在门下面的话先把他推到房间里那一边）。
-## 「哪个是这个房间的小 Boss」：`ends_level` 关着的 Boss，出场时报 `GameEvents.boss_appeared`。
+## - **Entry door** (`exit_door` off): starts open. Once the room's mid-level boss has appeared and **every living player is through the door**
+## (to its right) it shuts — it only closes once everyone is in, never trapping anyone in the doorway or locking them out.
+## - **Exit door** (`exit_door` on): starts shut, **opens only when the mid-level boss dies**. The entry door opens at the same time.
+## Shut it is a wall (world layer: blocks players, enemies and bullets); open its collision shape is turned off. Opening / closing it retracts into / drops from the ceiling over `move_time` seconds,
+## but the rule only looks at "open or not": the moment it drops it is a wall (anyone standing under it is first pushed to the room's side).
+## "Which boss belongs to this room": a boss with `ends_level` off, which reports `GameEvents.boss_appeared` when it appears.
 
 @export var skin_key := &"arena_door"
 @export var exit_door := false
@@ -31,7 +31,7 @@ func _ready() -> void:
 	_visual = Skins.build_appearance(self, skin_key)
 	is_open = not exit_door
 	_ratio = 1.0 if is_open else 0.0
-	# 一开始就关着的（出口门）不用推人：这时候玩家节点还没准备好，也不会有人站在门下面
+	# One that starts shut (the exit door) pushes nobody: the player nodes are not ready yet at this point, and nobody stands under it anyway
 	_apply(false)
 	GameEvents.boss_appeared.connect(_on_boss_appeared)
 
@@ -58,7 +58,7 @@ func _physics_process(delta: float) -> void:
 		_show()
 
 
-## 所有活着的玩家都在门的右边（整个人过了门）。
+## Every living player is to the right of the door (all the way through it).
 func _everyone_inside() -> bool:
 	var any := false
 	for node in get_tree().get_nodes_in_group(&"player"):
@@ -85,7 +85,7 @@ func box() -> Rect2:
 func _apply(push: bool) -> void:
 	_shape.set_deferred(&"disabled", is_open)
 	if not is_open and push:
-		# 门放下来那一刻还站在门下面的：推到房间里那一边（入口门的右边、出口门的左边）
+		# Anyone still standing under the door the moment it drops: push them to the room's side (right of the entry door, left of the exit door)
 		for node in get_tree().get_nodes_in_group(&"player"):
 			var player := node as Player
 			if player != null and player.hit_box().intersects(box()):

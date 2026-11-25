@@ -1,31 +1,31 @@
 class_name EnemyChaser
 extends EnemyWalker
-## 敌人 D：不开枪、不趴下，只靠碰撞伤人，血量和炮台一样。
-## 平时用普通速度（move_speed）像巡逻兵一样来回走；直线距离 detect_range（120px）内看见玩家，
-## 就用冲锋速度冲过去，能像玩家一样跳过墙、跳上平台。墙会挡住它的视线。
+## Enemy D: does not shoot or go prone, hurts only by contact, has as much health as the turret.
+## Normally it walks back and forth like a patroller at normal speed (move_speed); when it sees the player within detect_range (120px) in a straight line,
+## it charges at charge speed and can jump over walls and onto platforms like the player. Walls block its sight.
 ##
-## 追丢（玩家翻到墙后、跑出视野）时会继续冲向最后看见玩家的位置，挡路就跳过去，
-## memory_time 秒内还没重新看见就放弃，回去巡逻。这样「墙挡视线」和「会翻墙追人」才能同时成立：
-## 一开始就躲在墙后它发现不了你，但被它盯上以后翻墙甩不掉它。
+## When it loses the player (the player went over a wall, out of sight) it keeps charging to where it last saw them, jumping over obstacles,
+## and gives up and goes back to patrolling if it has not seen them again within memory_time seconds. That way "walls block sight" and "it climbs walls to chase you" both hold:
+## hide behind a wall from the start and it never notices you, but once it is on you, climbing a wall will not shake it off.
 
-## 冲锋速度。故意比玩家走路（90）慢：玩家走开时它追不上，奔跑能明显拉开距离，有机会甩掉它。
+## Charge speed. Deliberately slower than the player's walk (90): walking away outpaces it and running opens a clear gap, so it can be shaken off.
 @export var charge_speed := 150.0
-## 跳跃力度和玩家一样，所以翻得过所有的墙（墙都比玩家跳跃高度低）。
+## Jump strength is the same as the player's, so it clears every wall (every wall is lower than the player's jump).
 @export var jump_velocity := -560.0
-## 看丢玩家后，继续往最后看见的位置追多久。
+## After losing the player, how long it keeps chasing toward where it last saw them.
 @export var memory_time := 2.0
-## 两次起跳之间至少隔多久，免得在够不着的平台下原地连跳。
+## Minimum time between two jumps, so it does not jump on the spot under a platform it cannot reach.
 @export var jump_cooldown := 0.5
-## 玩家比自己高出这么多、而且水平距离在 climb_reach 以内时，起跳去够平台。
+## When the player is this much higher and within climb_reach horizontally, it jumps for the platform.
 @export var climb_height := 40.0
 @export var climb_reach := 48.0
-## 撞到玩家之后往后弹多快、弹多久。**不弹开的话它会一直贴在玩家身上**，
-## 无敌帧一过又扣一次血，玩家被顶在墙角就只能站着挨打。
-## 弹开约 60px，它再冲回来差不多正好是无敌帧结束的时候，节奏变成「撞一下、退开、再来」。
+## How fast and for how long it bounces back after bumping into the player. **Without the bounce it would stay glued to the player**,
+## and as soon as the invincibility frames ran out it would hit again; a player pinned in a corner could only stand and take it.
+## It bounces about 60px; by the time it charges back the invincibility frames are just about over, so the rhythm becomes "hit, back off, again".
 @export var bounce_speed := 200.0
 @export var bounce_time := 0.3
-## 撞上人的那一下播一遍攻击动作（地下室 4-A 那个光膀子，撞上去就是一记重拳）。
-## 默认关：D 和 2-B 的素材没画这一组，开了会去找一张不存在的贴图。
+## Play the attack clip once on the bump (the shirtless 4-A in the basement — bumping into you is a heavy punch).
+## Off by default: D and 2-B have no such clip, and turning it on would look for a sprite that does not exist.
 @export var punch_on_contact := false
 
 var is_chasing := false
@@ -33,12 +33,12 @@ var is_chasing := false
 var _last_seen := Vector2.ZERO
 var _memory_left := 0.0
 var _jump_timer := 0.0
-## 正在往哪边走下平台（0 表示没有）。玩家在正下方时要选定一个方向一直走到边缘，
-## 否则每帧重新对准玩家，会在玩家头顶左右抖个不停。
+## Which way it is walking off a platform (0 = not). With the player right below it must pick a direction and walk all the way to the edge,
+## otherwise it would re-aim at the player every frame and jitter left and right above their head.
 var _drop_direction := 0
-## 开始往边缘走时的高度。身体真的降下去了才算开始往下掉，不能只看 is_on_floor()（边缘会闪）。
+## Height when it started walking to the edge. It only counts as falling once its body has actually dropped; is_on_floor() alone is not enough (it flickers at edges).
 var _drop_start_y := 0.0
-## 正在往后弹：还剩多久、往哪边。朝向不变（还是冲着玩家），只是被顶着往后退。
+## Bouncing back: time left and which way. The facing does not change (still toward the player); it is just being pushed back.
 var _bounce_left := 0.0
 var _bounce_facing := 0
 
@@ -59,7 +59,7 @@ func _physics_process(delta: float) -> void:
 		GameEvents.report(&"chaser_alert", self)
 
 	if _bounce_left > 0.0:
-		# 被弹开那几帧不追也不巡逻，就往后退；退完照常接着追
+		# While bouncing it neither chases nor patrols, it just backs off; afterwards it carries on chasing
 		_bounce_left -= delta
 		_drop_direction = 0
 		velocity.x = bounce_speed * _bounce_facing
@@ -71,14 +71,14 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_report_motion(is_chasing)
 
-	# 巡逻时和巡逻兵一样在悬崖、墙前掉头；追击时不掉头，悬崖直接跳下去，墙跳过去。
-	# 弹开的那几帧也不掉头，否则刚被顶开就转身，看着像自己走回去的。
+	# While patrolling it turns around at ledges and walls like a patroller; while chasing it does not — it jumps down ledges and over walls.
+	# It does not turn during the bounce either, or right after being pushed back it would turn around and look like it walked away on its own.
 	if not is_chasing and _bounce_left <= 0.0 and _should_turn_around():
 		facing = -facing
 		_apply_facing()
 
 
-## 撞上玩家了：往玩家的反方向弹开一段。**朝向不动**——它还是冲着玩家的，只是被顶回去了。
+## It bumped into the player: bounce away from them. **The facing stays** — it still faces the player, it was just pushed back.
 func bounced_off(from: Vector2) -> void:
 	if punch_on_contact:
 		_visual.fire()
@@ -88,33 +88,33 @@ func bounced_off(from: Vector2) -> void:
 		_bounce_facing = -facing
 
 
-## 正在被弹开吗（测试用）。
+## Whether it is bouncing back (for tests).
 func is_bouncing() -> bool:
 	return _bounce_left > 0.0
 
 
-## 直线距离以内、并且看得见的玩家。D 会跳，玩家在头顶平台上也要能发现，所以不用水平射程 + 高度差的判断。
+## A player within straight-line distance and in sight. D jumps, so it must also notice a player on a platform overhead; hence no "horizontal range + height difference" check.
 func can_target(player: Player) -> bool:
 	return within_reach(global_position.distance_to(player.global_position)) and has_line_of_sight(player.body_center())
 
 
 func _chase(delta: float, can_see: bool) -> void:
 	var offset := _last_seen - global_position
-	# 自己站在高处、玩家在正下方：选定当前朝向一直走到平台边缘下去。
-	# 单向平台不挡视线，不这样做的话它会停在玩家头顶一直「看得见、够不着」。
-	# 身体真的往下降了（比开始走时低 2px 以上）或已经到了玩家的高度才取消，一旦取消就不再恢复。
-	# 不能按「离地」取消：走到边缘时 is_on_floor() 会闪一帧 false，它会又站回平台、转头走回去，在平台上来回跑。
-	# 落到另一个仍比玩家高的地方（比如墙顶）时，下面的条件会重新选方向。
+	# It stands up high with the player right below: pick the current facing and walk off the edge of the platform.
+	# One-way platforms do not block sight; without this it would stand above the player forever, "can see, cannot reach".
+	# Only cancelled once its body has really dropped (2px or more below where it started walking) or it is at the player's height; once cancelled it never resumes.
+	# It cannot be cancelled on "left the floor": at the edge is_on_floor() flickers false for a frame, it would step back onto the platform, turn and walk back, running back and forth on the platform.
+	# When it lands somewhere still higher than the player (say a wall top), the condition below picks a direction again.
 	if _drop_direction != 0 and (offset.y <= climb_height or global_position.y > _drop_start_y + 4.0):
 		_drop_direction = 0
 	elif _drop_direction == 0 and is_on_floor() and offset.y > climb_height and absf(offset.x) < climb_reach:
 		_drop_direction = facing
 		_drop_start_y = global_position.y
 
-	# 选定的方向只用来走到平台边缘；开始往下掉以后（上面已经取消）就在空中照常朝玩家调整，
-	# 否则会带着冲锋速度一路飞出去，甚至越过矮墙落到另一边。
+	# The chosen direction is only for walking to the edge; once it starts falling (cancelled above) it steers toward the player in the air as usual,
+	# otherwise it would fly off at charge speed, maybe even over a low wall to the other side.
 	if _drop_direction != 0:
-		# 这一边被墙挡住就换另一边下去。
+		# If this side is blocked by a wall, go down the other side.
 		if is_on_wall():
 			_drop_direction = -_drop_direction
 		if facing != _drop_direction:
@@ -123,7 +123,7 @@ func _chase(delta: float, can_see: bool) -> void:
 		velocity.x = charge_speed * _drop_direction
 		return
 
-	# 阈值取这一帧能走的距离：速度快时用固定的小阈值会在目标点前后来回越过。
+	# The threshold is the distance it can cover this frame: a fixed small threshold makes a fast mover overshoot back and forth around the target.
 	if absf(offset.x) > charge_speed * delta:
 		var direction := signi(offset.x)
 		if direction != facing:
@@ -132,7 +132,7 @@ func _chase(delta: float, can_see: bool) -> void:
 		velocity.x = charge_speed * facing
 	else:
 		velocity.x = 0.0
-		# 到了最后看见玩家的地方还是看不见，说明跟丢了。
+		# It reached where it last saw the player and still cannot see them: it has lost them.
 		if not can_see:
 			_memory_left = 0.0
 

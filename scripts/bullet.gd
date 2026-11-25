@@ -1,39 +1,39 @@
 class_name Bullet
 extends Area2D
-## 直线飞行的子弹。撞到任何碰撞体就消失，命中目标时造成伤害。
-## 打谁由场景里的 collision_mask 决定（玩家子弹打 world+enemy，敌人子弹打 world+player）。
-## 单向平台不挡子弹：玩家能从下面穿过去，子弹也一样，否则站在平台上的敌人从下面永远打不到。
+## A bullet flying in a straight line. It disappears on hitting any collider and damages the target it hits.
+## Who it can hit is set by collision_mask in the scene (player bullets hit world+enemy, enemy bullets hit world+player).
+## One-way platforms do not stop bullets: the player can pass through them from below and so can bullets, otherwise enemies on platforms could never be shot from below.
 
 @export var speed := 520.0
 @export var lifetime := 1.2
 @export var damage := 1
-## 打中时顺带挂上的异常状态（留空就没有）。武器带着状态时由武器槽发射时填进来。
+## Status applied on hit (empty for none). When a weapon carries a status, the weapon slot fills it in when firing.
 @export var status: StatusEffect
-## 素材包里用哪一项画它（`SkinPack.APPEARANCE_KEYS`，和角色同一套）。只管长什么样，和规则无关。
+## Which entry of the skin pack draws it (`SkinPack.APPEARANCE_KEYS`, same scheme as characters). Only affects the look, not the rules.
 @export var skin_key := &""
 
 var direction := Vector2.RIGHT
-## 谁打的这一枪（武器槽发射时填）。敌人被打死时奖励记在这个人头上，双人各算各的。
+## Who fired this shot (filled in by the weapon slot). An enemy killed by it rewards this player; in co-op each counts their own.
 var shooter: Node
 
 var _age := 0.0
 
 
-## 武器槽发射时调用（在加入场景树之前）。
+## Called by the weapon slot when firing (before being added to the scene tree).
 func launch(direction_: Vector2) -> void:
 	direction = direction_
 
 
-## 按武器和攻击力放大伤害（武器槽在发射时调，加入场景树之前）。
+## Scale the damage by the weapon and attack stat (the weapon slot calls this when firing, before adding it to the tree).
 func scale_damage(factor: float) -> void:
 	damage = maxi(1, roundi(damage * factor))
 
 
 func _ready() -> void:
-	# 外形是横着的细条，按飞行方向转过去（向上打时变成竖条）。
-	# direction 在 add_child 之前就设好了，所以这里读到的是最终值。
+	# The shape is a thin horizontal strip, rotated to the flight direction (a vertical strip when shooting up).
+	# direction is set before add_child, so the value read here is final.
 	rotation = direction.angle()
-	# 占位的细条跟着本体一起转；素材包的贴图按方向挑一张现成的（见 ProjectileAppearance）
+	# The placeholder strip rotates with the body; the pack's sprite picks a ready-made image per direction (see ProjectileAppearance)
 	var visual := Skins.build_appearance(self, skin_key)
 	if visual != null:
 		visual.aim(direction)
@@ -51,7 +51,7 @@ func _on_body_entered(body: Node2D) -> void:
 	if body is Platform and (body as Platform).one_way:
 		return
 	if body.has_method("take_damage"):
-		# 打中角色的声音由被打的一方报告（enemy_hit / player_hurt 等）。
+		# The sound of hitting a character is reported by whoever got hit (enemy_hit / player_hurt etc.).
 		body.take_damage(damage, global_position, shooter)
 		if status != null and body.has_method(&"apply_status"):
 			body.apply_status(status)

@@ -1,97 +1,97 @@
-# 自己画关卡：按颜色画像素图
+# Drawing your own levels: pixel maps painted by colour
 
-**一个像素 = 游戏里的一格（16×16）**，图**正好 23 像素高**（一屏），宽度随意但要是**偶数**（一屏是 40 像素宽）。
-用任何能画单个像素的工具都行（Aseprite、Photoshop 铅笔工具、Windows 画图），**关掉抗锯齿**，存成 PNG。
+**One pixel = one cell in the game (16×16)**. The image must be **exactly 23 pixels tall** (one screen); the width is up to you but must be **even** (a screen is 40 pixels wide).
+Any tool that can paint single pixels works (Aseprite, the Photoshop pencil, Windows Paint). **Turn anti-aliasing off** and save as PNG.
 
-## 起步
-
-```bash
-python tools/map_paint.py template          # art_src/maps/template.png：两屏宽，地面、出生点、出口都画好了
-python tools/map_paint.py palette           # art_src/maps/palette.png：所有颜色排成一条，用吸管取色
-python tools/map_paint.py export 1 burrow art_src/maps/my_burrow.png   # 或者拿现成的一段来改
-```
-
-现成的段名：第 1 关 `park terraces burrow chasm fortress trench islands crossfire tunnel boss_room`，
-第 2 关 `yard gantry ambush press_hall settling alarm heights crossfire narrow boss_room`，
-第 3 关 `street awnings cellar drains brutes long_street rooftops hotel alley boss_room`。
-`example_burrow.png` 就是第 1 关「地洞」那一段导出来的，可以对着看。
-
-## 画好以后
+## Getting started
 
 ```bash
-python tools/map_paint.py check   art_src/maps/my_part.png --level 1   # 打印成字符画，跑找路自检
-python tools/map_paint.py preview art_src/maps/my_part.png --level 1   # 用那一关的素材截图，每屏一张
+python tools/map_paint.py template          # art_src/maps/template.png: two screens wide, with ground, spawn point and exit already drawn
+python tools/map_paint.py palette           # art_src/maps/palette.png: every colour in one strip, for the eyedropper
+python tools/map_paint.py export 1 burrow art_src/maps/my_burrow.png   # or start from an existing segment
 ```
 
-- `--level` 决定**用哪一关的砖、素材和敌人**（敌人颜色 a~g 在每关代表不同的敌人，见下面）。
-- `check` 和正式关卡用的是**同一套自检**：从出生点走、跳、掉、爬梯子，到不到得了出口 / Boss；
-  梯子两头接没接上地板、液压机上面有没有天花板、闸门封没封顶、敌人有没有站在面上、
-  会冲的敌人跑的那条路尽头是不是坑……没过会一条条列出来。
-- 图里**没画出生点和出口**（比如从中间导出来的一段）时，会自己补在最左边和最右边能站的最低处，
-  这种时候不查「出生那一屏不放敌人」。
-- `preview` 的截图在 `art_src/maps/preview/`（不进仓库，随时重做）。截图之前会先跑 `check`，没过就不截。
+Existing segment names: stage 1 `park terraces burrow chasm fortress trench islands crossfire tunnel boss_room`,
+stage 2 `yard gantry ambush press_hall settling alarm heights crossfire narrow boss_room`,
+stage 3 `street awnings cellar drains brutes long_street rooftops hotel alley boss_room`.
+`example_burrow.png` is the "burrow" segment of stage 1, exported — use it for reference.
 
-## 颜色表
+## When you are done
 
-| 字符 | 颜色 | 是什么 |
+```bash
+python tools/map_paint.py check   art_src/maps/my_part.png --level 1   # prints it as text and runs the path-finding self-check
+python tools/map_paint.py preview art_src/maps/my_part.png --level 1   # screenshots it with that stage's art, one image per screen
+```
+
+- `--level` decides **whose tiles, art and enemies are used** (enemy colours a~g mean different enemies in each stage, see below).
+- `check` runs **the same self-check as the real stages**: from the spawn point, walking, jumping, dropping and climbing ladders — can you reach the exit / boss?
+  Do the ladders connect to floors at both ends, is there a ceiling above each press, is each gate sealed above, does every enemy stand on something,
+  does a charging enemy's path end in a pit... Anything that fails is listed line by line.
+- If the image has **no spawn point or exit** (e.g. a segment exported from the middle of a stage), they are added at the lowest standable spot on the far left and far right,
+  and the "no enemies on the first screen" rule is not checked.
+- `preview` screenshots go to `art_src/maps/preview/` (not in the repo, regenerate any time). `check` runs first; nothing is captured if it fails.
+
+## Colours
+
+| Char | Colour | What it is |
 |---|---|---|
-| `.` | #FFFFFF | 空（透明也算空） |
-| `#` | #000000 | 实心：地面 / 楼板 / 墙（这一区的主材质） |
-| `%` | #808080 | 实心：第二种材质（警示条纹 / 石砖 / 卷帘） |
-| `X` | #804000 | 实心：掩体块（钢架箱 / 石块），按 2×2 画 |
-| `=` | #0000FF | 单向平台：从下面跳得上来、按下+跳穿得下去 |
-| `:` | #0080FF | 单向平台：第二种画法（钢梁 / 石台 / 木楼板） |
-| `H` | #FFFF00 | 梯子：2 格宽，从上面那层地板（含）画到下面那层地板（不含） |
-| `~` | #00FFFF | 传送带，往右带（只有工业区有画面） |
-| `-` | #008080 | 传送带，往左带 |
-| `P` | #FF00FF | 液压机：画满 2×4（吊在天花板下面，底下要有地板） |
-| `G` | #800080 | 闸门：画满 2×4（上面要一直封到天花板） |
-| `K` | #FF8000 | 可打爆的箱子：2 格宽，竖着几格就摞几只 |
-| `O` | #FF0000 | 油桶：一格 |
-| `!` | #C0C0C0 | 背景里竖着的管子 / 石柱（纯装饰，不挡人） |
-| `@` | #00FF00 | 出生点（脚站在下面那一格上） |
-| `>` | #008000 | 出口（脚站在下面那一格上；没有 Boss 的图一定要有） |
+| `.` | #FFFFFF | Empty (transparent counts as empty) |
+| `#` | #000000 | Solid: ground / floor / wall (the zone's main material) |
+| `%` | #808080 | Solid: second material (warning stripes / stone bricks / shutters) |
+| `X` | #804000 | Solid: cover block (steel crate / boulder), draw it 2×2 |
+| `=` | #0000FF | One-way platform: jump up through it from below, down + jump to drop through |
+| `:` | #0080FF | One-way platform, second look (girder / stone ledge / wooden floor) |
+| `H` | #FFFF00 | Ladder: 2 cells wide, from the upper floor (included) down to the lower floor (excluded) |
+| `~` | #00FFFF | Conveyor belt moving right (only the industrial zone has art for it) |
+| `-` | #008080 | Conveyor belt moving left |
+| `P` | #FF00FF | Hydraulic press: fill all 2×4 (hangs from a ceiling, needs a floor under it) |
+| `G` | #800080 | Blast gate: fill all 2×4 (must be sealed all the way up to a ceiling) |
+| `K` | #FF8000 | Breakable crate: 2 cells wide, as many crates as cells stacked |
+| `O` | #FF0000 | Explosive barrel: one cell |
+| `!` | #C0C0C0 | Upright pipe / stone pillar in the background (decoration, does not block) |
+| `@` | #00FF00 | Spawn point (feet on the cell below) |
+| `>` | #008000 | Exit (feet on the cell below; required when there is no boss) |
 | `B` | #FF80C0 | Boss |
-| `a` | #FFA0A0 | 敌人 a |
-| `b` | #A0A0FF | 敌人 b |
-| `c` | #A0FFA0 | 敌人 c |
-| `d` | #FFFFA0 | 敌人 d |
-| `e` | #A0FFFF | 敌人 e |
-| `f` | #FFA0FF | 敌人 f |
-| `g` | #FFC878 | 敌人 g |
+| `a` | #FFA0A0 | Enemy a |
+| `b` | #A0A0FF | Enemy b |
+| `c` | #A0FFA0 | Enemy c |
+| `d` | #FFFFA0 | Enemy d |
+| `e` | #A0FFFF | Enemy e |
+| `f` | #FFA0FF | Enemy f |
+| `g` | #FFC878 | Enemy g |
 
-颜色差一两个数没关系（画图工具存图时偶尔会这样），差太多会报错并列出是哪几个像素。
+Being off by a value or two is fine (paint programs sometimes do that when saving); anything further off is reported with the offending pixels listed.
 
-**敌人 a~g 在每关是谁：**
+**Who enemies a~g are in each stage:**
 
-| | 第 1 关（绿区） | 第 2 关（工业区） | 第 3 关（酒吧街） |
+| | Stage 1 (green zone) | Stage 2 (industrial) | Stage 3 (bar street) |
 |---|---|---|---|
-| a | 巡逻兵（只打水平） | 吊在顶上、砸下来就冲 | 刀客（蓄一下急冲） |
-| b | 连发枪手（会斜射） | 冲撞 | 枪手（会斜射） |
-| c | 远射枪手（会趴下、会斜射） | 枪手（会斜射） | 剑客（跳劈） |
-| d | 滑板手（冲撞） | 锤子兵 | 壮汉（正面减伤） |
-| e | 无人机（往下放电，飞的） | 直升机（投弹，飞的） | 鲨鱼机（贴地开枪） |
-| f | 扔手雷的 | 自爆机 | 炮车（打手雷） |
-| g | 炮台（会斜射） | — | — |
+| a | Patroller (level shots only) | Hangs up top, drops and charges | Knifeman (winds up, then lunges) |
+| b | Burst gunner (shoots diagonally) | Charger | Gunman (shoots diagonally) |
+| c | Long-range gunner (goes prone, shoots diagonally) | Gunman (shoots diagonally) | Swordsman (leaping slash) |
+| d | Skater (charges) | Hammer man | Brute (blocks from the front) |
+| e | Drone (zaps downward, flies) | Helicopter (drops bombs, flies) | Shark bot (shoots along the floor) |
+| f | Grenade thrower | Suicide bot | Cannon cart (lobs grenades) |
+| g | Turret (shoots diagonally) | — | — |
 
-## 画的时候记住的几条尺子
+## Rules of thumb while drawing
 
-- **敌人画在它脚下那一格的上面一格**（站在地上的敌人画在第 19 行，地面是第 20 行）；会飞的画在它飘着的那一格。
-- 常用三层：**上层地板第 7 行、中层第 13 行、地面第 20 行**。两层之间隔 6 行以上就**跳不上去**，只能爬梯子或者从缺口掉下去——这就是「绕路」的骨架。
-- 一次跳**最多往上 4 行、横着 6 列**；坑超过 6 列就跳不过去。
-- 冲过来的敌人（每关的「冲撞 / 急冲 / 跳劈 / 壮汉 / 滑板手 / 自爆机」）跑的那条路两头**不能是坑**，
-  坑边要放的话在坑沿垒一道 2 格高的矮墙。
-- 只画格子就行：**树、吧台、箱子这些装饰会自动撒**。
+- **Draw an enemy one cell above the cell it stands on** (an enemy on the ground goes on row 19, the ground is row 20); flyers go in the cell they hover in.
+- Usual three layers: **upper floor on row 7, middle on row 13, ground on row 20**. Two floors 6 or more rows apart **cannot be jumped between** — only a ladder or a gap to drop through connects them. That is the skeleton of every detour.
+- One jump goes **at most 4 rows up and 6 columns across**; a pit wider than 6 columns cannot be jumped.
+- A charging enemy's path (each stage's "charger / lunger / leaper / brute / skater / suicide bot") **must not end in a pit** at either end;
+  if one has to stand by a pit, build a 2-cell-high lip on the pit's edge.
+- Just draw the cells: **decorations such as trees, bars and crates are scattered automatically**.
 
-## 放进正式关卡
+## Putting it into a real stage
 
-在 `tools/level1_map.py`（或 2、3）里加一段：
+Add a segment in `tools/level1_map.py` (or 2, 3):
 
 ```python
 def my_part():
 	cv = from_png("art_src/maps/my_part.png")
-	cv.prop("tree_big", 10, 20)      # 想点名摆的装饰、管道、栏杆在这儿加（可选）
+	cv.prop("tree_big", 10, 20)      # named decorations, pipes and railings go here (optional)
 	return cv
 ```
 
-再把 `my_part` 加进 `SEGMENTS`，跑 `python tools/level_build.py 1` 生成关卡。
+Then add `my_part` to `SEGMENTS` and run `python tools/level_build.py 1` to build the stage.

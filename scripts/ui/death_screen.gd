@@ -1,24 +1,24 @@
 class_name DeathScreen
 extends CanvasLayer
-## 全灭之后的选择：再来一次，还是回主菜单。
+## The choice after everyone is down: try again, or back to the main menu.
 ##
-## 以前是死了 1.2 秒自动重载本关，玩家没得选，也没法中途收手去换个角色。
-## 现在那 1.2 秒照旧（让死亡动画和音效走完），到点弹出这个，**把整棵树定住**等玩家选。
+## It used to reload the stage automatically 1.2 seconds after dying; the player had no say and could not stop to switch characters.
+## Now those 1.2 seconds remain (letting the death animation and sound finish), then this pops up and **freezes the whole tree** until the player chooses.
 ##
-## 和暂停界面是同一套零件（`UiKit` + `MenuList`），只是没有返回——死都死了，没有「取消」这回事。
-## 双人时谁按都算（`listens_to` 留 -1），因为两个人一起输的。
+## Built from the same parts as the pause menu (`UiKit` + `MenuList`), only without going back — you are dead, there is no "cancel".
+## In co-op anyone's press counts (`listens_to` left at -1), because you lost together.
 
-## 打开了。
+## Opened.
 signal opened
-## 选了第几项（选完才发，测试用）。
+## Which item was chosen (emitted after choosing, for tests).
 signal chosen(index: int)
 
-## 开着的时候在这个组里。暂停菜单据此让路——两边都在改 `tree.paused`，抢起来会互相解掉。
+## In this group while open. The pause menu gives way because of it — both change `tree.paused`, and fighting over it they would undo each other.
 const GROUP := &"death_screen"
 const ITEMS: Array[String] = ["RETRY", "MAIN MENU"]
 const RETRY := 0
 const MAIN_MENU := 1
-## 回主菜单去哪个场景。
+## Which scene "back to the main menu" goes to.
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 
 var _root: Control
@@ -29,7 +29,7 @@ var _menu: MenuList
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	# 比暂停界面高一层：死掉那一刻万一暂停界面还开着，这个要盖在上面
+	# One layer above the pause menu: if the pause menu happens to be open at the moment of death, this has to cover it
 	layer = 11
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -39,8 +39,8 @@ func _ready() -> void:
 	var screen := Vector2(
 		ProjectSettings.get_setting("display/window/size/viewport_width", 640),
 		ProjectSettings.get_setting("display/window/size/viewport_height", 360))
-	# **「GAME OVER」这行字归这里写**，不归 HUD：压暗那层就在这一层上，
-	# HUD 是更低的一层，写在那边会被压暗、灰得看不清。
+	# **The "GAME OVER" line belongs here**, not to the HUD: the darkening layer is on this layer,
+	# and the HUD is a lower layer, so written there it would be darkened into an unreadable grey.
 	_title = UiKit.label("GAME OVER", Rect2(0, 140.0, screen.x, 34.0), UiKit.WHITE,
 		UiKit.TITLE_SIZE, HORIZONTAL_ALIGNMENT_CENTER)
 	_root.add_child(_title)
@@ -59,7 +59,7 @@ func is_open() -> bool:
 	return _root.visible
 
 
-## 菜单那一列（测试用）。
+## The menu column (for tests).
 func menu_list() -> MenuList:
 	return _menu
 
@@ -84,6 +84,6 @@ func _on_chosen(index: int) -> void:
 	if index == MAIN_MENU:
 		tree.change_scene_to_file(MENU_SCENE)
 		return
-	# 测试里关卡是手动实例化的，没有 current_scene，那就只是收起来（不能重载一个不存在的场景）
+	# In tests the stage is instantiated by hand and there is no current_scene, so just close it (a scene that does not exist cannot be reloaded)
 	if tree.current_scene != null:
 		tree.reload_current_scene()

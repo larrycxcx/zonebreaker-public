@@ -1,22 +1,22 @@
 class_name StatusEffect
 extends Resource
-## 一种异常状态（资源文件）：中毒、灼烧、麻痹之类。只有数据；角色身上的计时、扣血由 `StatusEffects` 管。
-## 以后加一种新状态 = 新建一个这样的资源，不用写代码。
+## A status effect (resource file): poison, burn, paralysis and the like. Data only; timing and damage on a character are handled by `StatusEffects`.
+## Adding a new status later = creating another resource like this, no code needed.
 ##
-## 挂到角色身上的途径：武器带着它（`Weapon.status`），发射出去的子弹 / 手雷打中谁就给谁挂上；
-## 敌人的子弹同理（发射物场景上的 `status`）。
-## 抗性：装备的 `Equipment.resist[id]`（玩家）或敌人场景里的 `resist[id]`，0..1——
-## **持续时间 × (1 - 抗性)**，1 = 完全免疫。每跳的伤害不变。
+## How it gets onto a character: a weapon carries it (`Weapon.status`), and the bullets / grenades it fires apply it to whatever they hit;
+## enemy bullets work the same way (`status` on the projectile scene).
+## Resistance: the gear's `Equipment.resist[id]` (players) or `resist[id]` in the enemy scene, 0..1 —
+## **duration × (1 - resistance)**, 1 = fully immune. Damage per tick does not change.
 
-## 状态名（抗性表、HUD、音效按它认），比如 &"poison" / &"burn" / &"paralysis"。
+## Status name (resistance tables, the HUD and sounds identify it by this), e.g. &"poison" / &"burn" / &"paralysis".
 @export var id := &""
-## 持续多久（秒）。
+## Duration (seconds).
 @export var duration := 3.0
-## 每隔多久扣一次血、每次扣多少（0 = 不扣血，比如麻痹）。
-## 持续伤害**不走普通挨打**：不触发无敌时间、不击退、不吃防御（防它靠抗性）。
+## How often damage is dealt and how much each time (0 = no damage, e.g. paralysis).
+## Damage over time **does not go through ordinary hits**: no invincibility frames, no knockback, ignores defence (resistance is the defence against it).
 @export var tick_interval := 0.5
 @export var tick_damage := 0
-## 挂着它时移动速度乘多少（1 = 不减速）。
+## Movement speed multiplier while it is on (1 = no slowdown).
 @export_range(0.0, 1.0) var move_scale := 1.0
-## 挂着它时能不能行动（移动、开火）。麻痹就是 false。
+## Whether the character can act (move, fire) while it is on. Paralysis is false.
 @export var can_act := true

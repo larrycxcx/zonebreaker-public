@@ -1,14 +1,14 @@
 extends GameTest
-## 实验室（第五关）的敌人。打法 2026-11 和用户一起定的：
+## The lab's (stage 5's) enemies. Their attacks were agreed with the user in 2026-11:
 ##
-## | 键 | 素材 | 打法 | 实现 |
+## | Key | Art | Attack | Implementation |
 ## |---|---|---|---|
-## | 5_a | 科学家（黑发） | 巡逻、扔酸液瓶；挨打没死或被贴近就**变身成变异体** | `EnemyScientist`（F 的扔手雷 + 变身） |
-## | 5_b | 科学家（灰发） | 一看见玩家就变身（变身那一下是破绽） | 同上，`transform_on_sight` |
-## | 5_c | 变异体 | 走近、举手、砸地，**震波**弹起同一层地上的人，跳起来躲得掉 | `EnemyMutant`（锤子兵 + 震波） |
-## | 5_e | 爪臂 + 蜘蛛腿 | **埋在地下**（地上一块履带当提醒），人走近就钻出来、追击，贴近原地旋转扫两边 | `EnemyBurrower`（D 的追击 + 埋伏 + 转圈） |
-## | 5_d | 机枪头 + 履带 | **原地不动的炮台**，转身对着人，三连发、能斜射 | 炮台（`EnemyTurret`），纯数据 |
-## | 5_f | 发射器 + 吊架 | **倒挂在天花板上不动**，人走到下方就充能、滴毒液，落地炸成毒雾 | `EnemyCeilingEmitter` + `PoisonDrip` |
+## | 5_a | scientist (black hair) | patrols, throws acid flasks; **turns into a mutant** when hit without dying or approached | `EnemyScientist` (F's grenade throwing + transforming) |
+## | 5_b | scientist (grey hair) | transforms as soon as it sees the player (the transformation is an opening) | as above, `transform_on_sight` |
+## | 5_c | mutant | walks up, raises its fists and slams the ground; the **shockwave** bounces players on the floor of the same layer, jumping dodges it | `EnemyMutant` (hammer man + shockwave) |
+## | 5_e | claw arm + spider legs | **buried underground** (a tread on the floor as the warning), emerges when someone comes near, chases, spins in place up close hitting both sides | `EnemyBurrower` (D's chase + ambush + spin) |
+## | 5_d | machine-gun head + treads | **a stationary turret**, turns to face you, three-round bursts, fires diagonally | turret (`EnemyTurret`), pure data |
+## | 5_f | emitter + mount | **hangs still upside down from the ceiling**, charges when someone walks below, drips poison that bursts into a poison cloud on landing | `EnemyCeilingEmitter` + `PoisonDrip` |
 
 const PACK := "res://skins/lab/lab_skin.tres"
 const ART := "res://skins/lab"
@@ -33,7 +33,7 @@ func spawn(key: StringName, at: Vector2) -> Enemy:
 	return enemy
 
 
-## 只留地面（测试关自己有 6 块单向浮台、两道墙，会挡瓶子、挡视线）。
+## Ground only (the test level has 6 one-way platforms and two walls of its own, which would block flasks and sight).
 func open_floor(skin: SkinPack = null) -> void:
 	await reset_scene(false, false, skin)
 	for node in main.get_node("Level").get_children():
@@ -60,7 +60,7 @@ func mutants() -> Array:
 	return main.get_node("Enemies").get_children().filter(func(n: Node) -> bool: return n is EnemyMutant)
 
 
-# ---------------------------------------------------------------- 科学家：酸液瓶
+# ---------------------------------------------------------------- Scientists: acid flasks
 
 func test_the_scientist_throws_an_acid_flask_at_you() -> void:
 	await open_floor()
@@ -89,7 +89,7 @@ func test_a_flask_splash_hurts_and_is_drawn_as_acid() -> void:
 	player.global_position = Vector2(300, STAND_Y)
 	await frames(2)
 	var full := player.health
-	# 瓶子丢在玩家头顶往下落：碰到人就摔碎（不弹）
+	# A flask dropped from above the player's head: it shatters on hitting them (no bounce)
 	var flask := (load("res://scenes/acid_flask.tscn") as PackedScene).instantiate() as Grenade
 	flask.launch(Vector2.DOWN)
 	main.get_node("Enemies").add_child(flask)
@@ -100,7 +100,7 @@ func test_a_flask_splash_hurts_and_is_drawn_as_acid() -> void:
 		events.has(&"acid_splash") and not events.has(&"explosion"), str(events))
 
 
-# ---------------------------------------------------------------- 科学家：变身
+# ---------------------------------------------------------------- Scientists: transforming
 
 func test_a_wounded_scientist_turns_into_a_mutant() -> void:
 	await open_floor()
@@ -176,7 +176,7 @@ func test_a_changing_scientist_stands_still() -> void:
 		"%.1f -> %.1f" % [x, scientist.global_position.x])
 
 
-# ---------------------------------------------------------------- 变异体：砸地 + 震波
+# ---------------------------------------------------------------- Mutant: ground slam + shockwave
 
 func slam_now(mutant: EnemyMutant) -> void:
 	mutant.set_physics_process(false)
@@ -247,7 +247,7 @@ func test_out_of_range_the_shockwave_does_nothing() -> void:
 	check("beyond its radius you are safe", player.health == full, "%d -> %d" % [full, player.health])
 
 
-# ---------------------------------------------------------------- 素材包
+# ---------------------------------------------------------------- Skin pack
 
 func test_the_pack_draws_the_lab_enemies() -> void:
 	if needs_art(): return
@@ -293,7 +293,7 @@ func test_every_one_runs_in_the_pack_without_errors() -> void:
 	check("four seconds of the lab enemies in the pack ran clean", true)
 
 
-# ---------------------------------------------------------------- 5-D 原地炮台
+# ---------------------------------------------------------------- 5-D stationary turret
 
 func enemy_bullets() -> Array:
 	return main.get_node("Enemies").get_children().filter(func(n: Node) -> bool: return n is Bullet)
@@ -342,9 +342,9 @@ func test_the_lab_turret_shoots_up_at_a_ledge() -> void:
 	check("it fires up at 45 degrees at someone on a ledge", diagonal)
 
 
-# ---------------------------------------------------------------- 5-F 天花板上的毒气发射器
+# ---------------------------------------------------------------- 5-F poison emitter on the ceiling
 
-## 天花板：一块实心板，底边在 y 120；发射器的吊架顶边贴着它。
+## The ceiling: a solid slab with its bottom at y 120; the top of the emitter's mount touches it.
 func ceiling_emitter(x: float) -> EnemyCeilingEmitter:
 	var slab: Platform = load("res://scenes/platform.tscn").instantiate()
 	slab.position = Vector2(x - 80.0, 104.0)
@@ -468,7 +468,7 @@ func test_the_big_mechs_blow_up_instead_of_falling_over() -> void:
 
 
 func test_a_drip_with_nobody_below_bursts_on_the_floor() -> void:
-	# 上面两条底下都站着人，毒液碰到人就炸了——落到地上这一条得单独守着
+	# In the two cases above someone stands underneath, and the drip bursts on them — landing on the floor needs a case of its own
 	await open_floor()
 	player.global_position = Vector2(100, STAND_Y)
 	var drip := (load("res://scenes/poison_drip.tscn") as PackedScene).instantiate() as PoisonDrip
@@ -485,7 +485,7 @@ func test_a_drip_with_nobody_below_bursts_on_the_floor() -> void:
 		str(clouds()[0].global_position) if gassed else "no cloud")
 
 
-# ---------------------------------------------------------------- 5-E 地下钻出来的蜘蛛爪臂
+# ---------------------------------------------------------------- 5-E spider claw arm emerging from the ground
 
 func burrower(x: float) -> EnemyBurrower:
 	return spawn(&"5_e", Vector2(x, STAND_Y)) as EnemyBurrower

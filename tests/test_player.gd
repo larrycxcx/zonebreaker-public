@@ -1,7 +1,7 @@
 extends GameTest
-## 玩家基础操作：移动、跳跃、射击（水平和向上）、单向平台。
+## Basic player controls: moving, jumping, shooting (level and up), one-way platforms.
 
-## 出生点附近头顶完全空旷的一段地面（第一个平台从 x=80 开始），用来测向上开枪。
+## A stretch of ground near the spawn with nothing overhead (the first platform starts at x=80), for testing shooting up.
 const OPEN_SKY_X := 100.0
 
 
@@ -36,7 +36,7 @@ func test_moves_and_turns() -> void:
 	Input.action_press("move_left")
 	await frames(20)
 	check("moves left", player.global_position.x < start_x - 20.0, str(player.global_position.x))
-	# 翻转不用负 scale（会让外观被错误剔除，见 VisualFlip）：枪的方块镜像到身体左边
+	# Flipping does not use a negative scale (that gets the visual wrongly culled, see VisualFlip): the gun block is mirrored to the left of the body
 	var gun: Control = player._visual.get_node("Gun")
 	check("faces left", player.facing == -1 and player._visual.scale.x == 1.0)
 	check("the gun is mirrored to the left", gun.position.x + gun.size.x <= 0.0, str(gun.get_rect()))
@@ -47,7 +47,7 @@ func test_jump_height_and_short_hop() -> void:
 	await frames(20)
 	var ground_y := player.global_position.y
 
-	# 一直按住：完整跳跃高度。
+	# Held all the way: full jump height.
 	var top := ground_y
 	Input.action_press("jump")
 	for i in 60:
@@ -59,7 +59,7 @@ func test_jump_height_and_short_hop() -> void:
 	await frames(60)
 	check("lands again after jumping", player.is_on_floor())
 
-	# 早松手：低跳。
+	# Released early: short hop.
 	top = ground_y
 	Input.action_press("jump")
 	await frames(3)
@@ -78,7 +78,7 @@ func test_no_double_jump() -> void:
 	await frames(20)
 	Input.action_release("jump")
 	await frames(1)
-	# 在空中再按一次，不应该获得新的向上速度。
+	# Pressing again in the air should not give new upward speed.
 	Input.action_press("jump")
 	await frames(1)
 	check("cannot jump again in mid-air", player.velocity.y > -200.0, str(player.velocity.y))
@@ -86,7 +86,7 @@ func test_no_double_jump() -> void:
 
 func test_one_way_platform() -> void:
 	await reset_scene()
-	# Platform1：x 80..128，顶面 y=128。站到它正下方往上跳。
+	# Platform1: x 80..128, top at y=128. Stand right under it and jump.
 	player.global_position = Vector2(200, 304)
 	player.velocity = Vector2.ZERO
 	await frames(5)
@@ -126,7 +126,7 @@ func test_auto_fire_is_rate_limited() -> void:
 
 	player.current_slot().cooldown_left = 0.0
 	Input.action_press("shoot")
-	await frames(30) # 0.5 秒，射速 0.15 秒一发 → 3~4 发
+	await frames(30) # 0.5 seconds at one shot every 0.15 seconds → 3~4 shots
 	Input.action_release("shoot")
 	var shots := bullets(4)
 	check("holding fire is rate limited", shots.size() >= 3 and shots.size() <= 5, str(shots.size()))
@@ -139,10 +139,10 @@ func test_bullets_despawn() -> void:
 	await frames(20)
 	player.current_slot().cooldown_left = 0.0
 	player._shoot(Vector2(player.facing, 0))
-	await frames(90) # 存活时间 1.2 秒 = 72 帧
+	await frames(90) # Lifetime 1.2 seconds = 72 frames
 	check("bullet disappears after its lifetime", bullets(4).size() == 0, str(bullets(4).size()))
 
-	# 贴着左墙开火：应该马上撞墙消失，而不是等超时。
+	# Firing against the left wall: it should hit the wall and vanish at once, not wait for the timeout.
 	player.global_position = Vector2(60, 304)
 	player.velocity = Vector2.ZERO
 	player.facing = -1
@@ -150,7 +150,7 @@ func test_bullets_despawn() -> void:
 	await frames(5)
 	player.current_slot().cooldown_left = 0.0
 	player._shoot(Vector2(player.facing, 0))
-	await frames(20) # 0.33 秒，按速度本该飞 86px，但墙只有 20px 远
+	await frames(20) # 0.33 seconds should cover 86px at that speed, but the wall is only 20px away
 	check("bullet is destroyed by a wall well before its lifetime", bullets(4).size() == 0, str(bullets(4).size()))
 
 
@@ -168,7 +168,7 @@ func test_w_aims_instead_of_jumping() -> void:
 	await frames(2)
 	check("gun goes back down after releasing W", art(player, "Gun").visible and not art(player, "GunUp").visible)
 
-	# 只看键盘绑定；手柄绑定在 test_gamepad.gd 里查。
+	# Only the keyboard bindings; pad bindings are checked in test_gamepad.gd.
 	var jump_keys := keyboard_keys("jump")
 	check("on the keyboard, jump is Space and Up only", jump_keys.size() == 2 and jump_keys.has(KEY_SPACE) and jump_keys.has(KEY_UP), str(jump_keys))
 	var aim_keys := keyboard_keys("aim_up")
@@ -220,7 +220,7 @@ func test_holding_aim_and_fire_auto_fires_upward() -> void:
 
 
 func test_w_while_moving_aims_diagonally_up() -> void:
-	# 魂斗罗式：W + 左右是边走边斜上，不再是边走边正上（正上只在原地按 W）。
+	# Contra style: W + left / right is walking while aiming diagonally up, no longer walking while aiming straight up (straight up only by pressing W standing still).
 	await reset_scene()
 	player.global_position = Vector2(OPEN_SKY_X, 304)
 	await frames(10)
@@ -231,8 +231,8 @@ func test_w_while_moving_aims_diagonally_up() -> void:
 	check("W + move walks and raises the gun diagonally", player.global_position.x > x_before + 30.0 and art(player, "GunDiagonalUp").visible and not art(player, "GunUp").visible, "%.1f -> %.1f" % [x_before, player.global_position.x])
 
 func test_shooting_up_passes_one_way_platforms() -> void:
-	# Turret2 站在 Platform2（x 160..208，y 100..108）上。从正下方往上打，
-	# 子弹要穿过单向平台打中它；高度差太大，炮台不会还击。
+	# Turret2 stands on Platform2 (x 160..208, y 100..108). Shooting up from right below,
+	# the bullets have to pass through the one-way platform and hit it; the height difference is too big for the turret to shoot back.
 	await reset_scene(true)
 	keep_only_enemies(["Turret2"])
 	var turret: EnemyTurret = main.get_node("Enemies/Turret2")
@@ -245,7 +245,7 @@ func test_shooting_up_passes_one_way_platforms() -> void:
 	player.current_slot().cooldown_left = 0.0
 	Input.action_press("aim_up")
 	Input.action_press("shoot")
-	for i in 150: # 炮台 6 血，射速 0.15 秒一发，再加上子弹飞行时间
+	for i in 150: # The turret has 6 health and one shot goes out every 0.15 seconds, plus the bullets' flight time
 		await tree.physics_frame
 		if not deaths.is_empty():
 			break
@@ -255,8 +255,8 @@ func test_shooting_up_passes_one_way_platforms() -> void:
 
 func test_solid_ceiling_still_stops_upward_shots() -> void:
 	await reset_scene()
-	# 单向平台放行，实心方块照样要挡住。CrawlBlock（x 296..352，y 120..148）是实心的，
-	# 直接在它正下方的缝里生成一颗向上的子弹。
+	# One-way platforms let bullets through, solid blocks still have to stop them. CrawlBlock (x 296..352, y 120..148) is solid;
+	# spawn a bullet going up right in the gap below it.
 	var bullet: Bullet = player.weapons[0].projectile.instantiate()
 	bullet.direction = Vector2.UP
 	main.add_child(bullet)

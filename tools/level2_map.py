@@ -1,18 +1,18 @@
-"""第二关（工业区）的分层版：一段一段画，`map_canvas.stitch()` 拼成一整关。
+"""The layered version of stage 2 (industrial zone): drawn segment by segment and joined into a whole stage by `map_canvas.stitch()`.
 
-2026-10 按用户的示意图重做：画面还是连续横向卷动，但每一段都**分层**（上层 / 中层 / 地面，
-层高 96 以上跳不上去，只能走梯子或缺口），有时得**绕路**。
+Redone in 2026-10 from the user's sketch: the view still scrolls continuously sideways, but every segment is **layered** (upper / middle / ground,
+layers 96 or more apart cannot be jumped, only reached by ladders or gaps), and sometimes you have to **take a detour**.
 
-用户看过前两段之后定的几条（2026-10）：
-- **只有一个出口**（最后的 Boss）。十段里七段是**必须绕路**的（标 [绕]），三段是**上下两条路随便挑**的（标 [选]）。
-- **敌人要多、要摆得合理**：会冲的（2-B 冲撞、2-F 自爆、2-A 落地就冲、2-D 看见就冲）只放在两头堵死的路上，
-  **路的尽头不许是坑**（`map_build.check` 的 `chasers` 查这条：之前有冲刺的敌人还没冲到玩家跟前就自己掉坑里了）；
-  上下分层的地方多放会斜射的 2-C。每一屏至少 4 个（`MIN_ENEMIES`）。
-- **画面要满**：多摆小物件、障碍、机关（油桶、可打爆的箱子、传送带、液压机、闸门），不要大片空地。
+A few rules the user set after seeing the first two segments (2026-10):
+- **Only one exit** (the final boss). Seven of the ten segments **force a detour** (marked [detour]), three let you **pick either of the upper and lower routes** (marked [choice]).
+- **Lots of enemies, placed sensibly**: chargers (2-B ramming, 2-F self-destructing, 2-A charging on landing, 2-D charging on sight) only go on paths blocked at both ends,
+  **and a path must not end in a pit** (`chasers` in `map_build.check` checks this: charging enemies used to fall into pits by themselves before reaching the player);
+  where there are upper and lower layers, put more diagonal-shooting 2-Cs. At least 4 per screen (`MIN_ENEMIES`).
+- **A full picture**: plenty of small objects, obstacles and traps (barrels, breakable crates, conveyors, presses, gates); no big empty stretches.
 
-字母表：a 2-A（吊在画面顶上、走到脚下砸下来）、b 2-B（冲撞）、c 2-C（枪手，会斜射）、d 2-D（锤子兵）、
-e 2-E（直升机，飞的）、f 2-F（自爆机）、B Boss。行号：上层地板第 7 行、中层第 13 行、地面第 20 行；
-敌人写在**脚下那一行的上一行**。
+Letters: a 2-A (hangs above the top of the view and drops when you walk under it), b 2-B (rams), c 2-C (gunner, shoots diagonally), d 2-D (hammer guy),
+e 2-E (helicopter, flies), f 2-F (self-destructing bot), B Boss. Rows: the upper floor is row 7, the middle row 13, the ground row 20;
+enemies are written **on the row above the one under their feet**.
 """
 
 from map_canvas import Canvas, from_png, stitch
@@ -20,16 +20,16 @@ from map_canvas import Canvas, from_png, stitch
 LETTERS = {"a": "2_a", "b": "2_b", "c": "2_c", "d": "2_d", "e": "2_e", "f": "2_f", "boss": "2_boss"}
 FLOATING = {"2_e", "2_boss"}
 HANGING = {"2_a"}
-## 会冲过来的：它们脚下那条路两头不许是坑
+## The ones that charge: the path under their feet must not end in a pit at either end
 CHASERS = {"2_a", "2_b", "2_d", "2_f"}
 MIN_ENEMIES = 4
 
 
 def yard():
-	"""[绕] 第 1 段「厂区门口」。
-	第一屏露天、不放敌人：两根烟囱、两层钢梁走道（教你跳上去）。
-	第二屏是两层的厂房 A：一楼从门口进去，**一楼走到头是墙**，得顺梯子爬上二楼；
-	二楼的地板是一条**往回带的传送带**，自爆机顺着它冲过来。"""
+	"""[detour] Segment 1 "Factory gate".
+	The first screen is outdoors with no enemies: two chimneys and two levels of girder walkways (teaching you to jump up).
+	The second screen is two-storey factory A: enter the ground floor through the door, **the ground floor ends at a wall**, so climb the ladder to the first floor;
+	the first floor is a **conveyor running backwards**, with self-destructing bots charging along it."""
 	cv = Canvas(80)
 	cv.ground(0, 39)
 	cv.ground(40, 79, "%")
@@ -42,7 +42,7 @@ def yard():
 	cv.prop("box", 26, 20)
 	cv.prop("sign", 36, 20)
 	cv.prop("flag", 30, 12)
-	# 厂房 A：屋顶第 7 行、二楼第 13 行；左外墙下面那 4 格是门，一楼尽头（78~79 列）是墙
+	# Factory A: roof on row 7, first floor on row 13; the bottom 4 cells of the left outer wall are the door, and the end of the ground floor (columns 78~79) is a wall
 	cv.floor(38, 79, 7)
 	cv.fill(40, 41, 8, 15)
 	cv.floor(42, 79, 13)
@@ -55,11 +55,11 @@ def yard():
 	cv.put(74, 19, "c")
 	cv.barrel(72, 20)
 	cv.put(62, 19, "c")
-	cv.prop("screen", 42, 11)            # 二楼墙上的监控屏（会动）
+	cv.prop("screen", 42, 11)            # The monitor screen on the first floor wall (animated)
 	cv.put(46, 12, "c")
 	cv.put(74, 12, "f")
 	cv.barrel(70, 13)
-	# 屋顶：钢架箱、栏杆
+	# Roof: steel crates, railings
 	cv.fill(56, 59, 5, 6, "X")
 	cv.prop("barrel_rust", 66, 7)
 	cv.rail(62, 76, 7)
@@ -73,13 +73,13 @@ def yard():
 
 
 def gantry():
-	"""[绕] 第 2 段「钢架」。厂房 A 的后半截：二楼出口是**闸门**，一楼被机器堵死。
-	出来是一片沉降池，**底下全是坑**，只能走钢梁；钢梁上方还有一层更高的，枪手站在上面往下斜着打，
-	吊着的 2-A 砸在钢梁上、直升机在旁边扔炸弹。钢梁走到头顺梯子下地面。"""
+	"""[detour] Segment 2 "Girders". The back half of factory A: the first floor exit is a **blast gate**, the ground floor is blocked by machinery.
+	Outside is a settling pond, **all pits underneath**, so you can only walk the girders; above them is a higher level where gunners shoot diagonally down,
+	hanging 2-As drop onto the girders and a helicopter drops bombs alongside. At the end of the girders take the ladder down to the ground."""
 	cv = Canvas(80)
 	cv.floor(0, 25, 7)
 	cv.floor(0, 23, 13)
-	cv.fill(0, 21, 14, 19, "X")         # 一楼被机器堵死
+	cv.fill(0, 21, 14, 19, "X")         # The ground floor blocked by machinery
 	cv.fill(22, 23, 14, 19)
 	cv.ground(0, 23)
 	cv.floor(22, 23, 8)
@@ -87,14 +87,14 @@ def gantry():
 	cv.put(8, 12, "c")
 	cv.put(14, 12, "b")
 	cv.barrel(10, 13)
-	cv.prop("locker", 4, 11)            # 挂在墙上
+	cv.prop("locker", 4, 11)            # Hung on the wall
 	cv.prop("board", 16, 11)
-	# 沉降池：24~55 列底下是坑；池子里立着几根管子
+	# Settling pond: pits under columns 24~55, with a few pipes standing in the pond
 	cv.fill(30, 31, 15, 22, "!")
 	cv.fill(44, 45, 14, 22, "!")
 	cv.fill(52, 53, 16, 22, "!")
 	cv.floor(24, 61, 13, ":")
-	cv.floor(34, 46, 9, ":")            # 更高的一层：枪手站在上面往下打
+	cv.floor(34, 46, 9, ":")            # The higher level: gunners stand on it and shoot down
 	cv.rail(26, 32, 13)
 	cv.put(40, 8, "c")
 	cv.put(36, 0, "a")
@@ -102,7 +102,7 @@ def gantry():
 	cv.put(30, 4, "e")
 	cv.put(54, 5, "e")
 	cv.put(66, 5, "e")
-	# 对岸：池边一道矮沿（冲过来的不会掉进池子），梯子落在沿后面
+	# The far bank: a low lip at the pond's edge (chargers will not fall into the pond), with the ladder landing behind it
 	cv.ground(56, 79)
 	cv.fill(56, 57, 18, 19)
 	cv.ladder(58, 13, 20)
@@ -115,8 +115,8 @@ def gantry():
 
 
 def ambush():
-	"""[选] 第 3 段「伏击」。上面一条断成三截的钢梁（跳得过去），下面是地面，**走哪条都行**：
-	上面有三个枪手往下斜着打，下面有冲撞的、自爆的，钢梁的断口上方吊着两只 2-A，从地面走就会被砸。"""
+	"""[choice] Segment 3 "Ambush". A girder broken into three pieces above (jumpable), the ground below, **either route works**:
+	above, three gunners shoot diagonally down; below, there are rammers and self-destructing bots, and two 2-As hang above the girder gaps, dropping on anyone on the ground."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.floor(2, 24, 13, ":")
@@ -146,23 +146,23 @@ def ambush():
 
 
 def press_hall():
-	"""[绕] 第 4 段「冲压车间」。一楼的左半间走到头是墙，梯子上二楼：二楼一排三台液压机，
-	脚下还是一条**往回带的传送带**——要算好节奏往前挤。过了液压机地板上有个洞，掉进一楼的右半间，
-	那里有一整摞**可打爆的箱子**把路堵死，打烂了才出得去。"""
+	"""[detour] Segment 4 "Press shop". The left half of the ground floor ends at a wall, take the ladder to the first floor: a row of three presses there,
+	and underfoot another **conveyor running backwards** — you have to time your push forward. Past the presses there is a hole in the floor dropping into the right half of the ground floor,
+	where a whole stack of **breakable crates** blocks the way, and you only get out by breaking them."""
 	cv = Canvas(80)
-	cv.floor(0, 79, 6)                  # 车间屋顶
-	cv.fill(0, 1, 7, 15)                # 左外墙，下面那 4 格是门
-	cv.fill(78, 79, 7, 15)              # 右外墙，同样
+	cv.floor(0, 79, 6)                  # Workshop roof
+	cv.fill(0, 1, 7, 15)                # Left outer wall, the bottom 4 cells are the door
+	cv.fill(78, 79, 7, 15)              # Right outer wall, the same
 	cv.floor(0, 79, 13)
 	cv.ground(0, 79)
-	cv.fill(30, 31, 14, 19)             # 一楼左半间到头
+	cv.fill(30, 31, 14, 19)             # The end of the ground floor's left half
 	cv.ladder(24, 13, 20)
 	cv.belt(32, 52, 13, -1)
 	cv.put(34, 9, "P")
 	cv.put(42, 9, "P")
 	cv.put(50, 9, "P")
-	cv.clear(58, 59, 13, 13)            # 二楼地板上的洞
-	cv.crates(70, 20, 4)                # 一楼右半间：一整摞箱子堵死
+	cv.clear(58, 59, 13, 13)            # The hole in the first floor
+	cv.crates(70, 20, 4)                # The right half of the ground floor: blocked by a whole stack of crates
 	cv.put(8, 19, "c")
 	cv.put(16, 19, "b")
 	cv.put(22, 19, "d")
@@ -182,15 +182,15 @@ def press_hall():
 	cv.sign(3, 8, 4)
 	cv.pipe([(17, 8), (34, 8)])
 	cv.sign(4, 26, 8)
-	cv.fill(56, 59, 4, 5, "X")          # 屋顶上的箱子
+	cv.fill(56, 59, 4, 5, "X")          # Crates on the roof
 	cv.rail(4, 20, 6)
 	return cv
 
 
 def settling():
-	"""[绕] 第 5 段「沉降池」。地面断成三截，坑宽 12 格跳不过去，**只能爬上高处的钢梁**，
-	一截一截跳过去。中间那个小岛可以下去（油桶边上站着枪手），再从岛上的梯子爬回来。
-	两边坑沿都有一道矮沿：冲过来的敌人不会自己掉下去。"""
+	"""[detour] Segment 5 "Settling pond". The ground breaks into three pieces with pits 12 cells wide, too far to jump, **so the only way is up onto the high girders**,
+	jumping across piece by piece. You can drop onto the small island in the middle (a gunner stands by the barrels) and climb back up by the island's ladder.
+	Both pit edges have a low lip: charging enemies will not fall in by themselves."""
 	cv = Canvas(80)
 	cv.ground(0, 15)
 	cv.fill(14, 15, 18, 19)
@@ -226,8 +226,8 @@ def settling():
 
 
 def alarm():
-	"""[选] 第 6 段「警报区」。一座长棚：**棚里**是自爆机和冲撞的，身边堆着油桶（打桶连它们一起炸）；
-	**棚顶**是枪手和直升机，顺棚外的梯子上去。两条路在棚子另一头会合。"""
+	"""[choice] Segment 6 "Alarm zone". A long shed: **inside** are self-destructing bots and rammers with barrels piled beside them (shoot a barrel and they go up with it);
+	**on the roof** are gunners and a helicopter, reached by the ladder outside the shed. The two routes meet at the far end of the shed."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.ladder(2, 9, 20)
@@ -259,11 +259,11 @@ def alarm():
 
 
 def heights():
-	"""[绕] 第 7 段「高处」。地面被一座高塔挡死，得**两段梯子**爬上塔顶：先上中间那块平台（上面的枪手往下斜着打），
-	再上塔顶。翻过去顺着两级钢梁下来，直升机在半空守着。"""
+	"""[detour] Segment 7 "Heights". The ground is blocked by a tall tower, so you need **two ladders** to reach the top: first up to the platform in the middle (gunners above shoot diagonally down),
+	then up to the top. Over the other side, come down two levels of girders, with a helicopter guarding in mid-air."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
-	cv.fill(38, 43, 6, 19)              # 塔
+	cv.fill(38, 43, 6, 19)              # Tower
 	cv.floor(20, 46, 6)
 	cv.floor(8, 24, 13)
 	cv.ladder(12, 13, 20)
@@ -289,9 +289,9 @@ def heights():
 
 
 def crossfire():
-	"""[绕] 第 8 段「三层交叉火力」。示意图那一屏的放大版：一楼左半间到头是墙，梯子上二楼；
-	二楼过一台液压机后也被墙挡住，地板上的洞掉回一楼右半间（单向的台子上站着往上下斜射的枪手），
-	再从梯子爬回二楼的右半截。"""
+	"""[detour] Segment 8 "Three-layer crossfire". A bigger version of the sketch screen: the left half of the ground floor ends at a wall, take the ladder to the first floor;
+	the first floor is also blocked by a wall after a press, and a hole in the floor drops back into the right half of the ground floor (gunners on one-way ledges shoot diagonally up and down),
+	then climb the ladder back to the right part of the first floor."""
 	cv = Canvas(80)
 	cv.floor(0, 79, 7)
 	cv.floor(0, 79, 13)
@@ -303,7 +303,7 @@ def crossfire():
 	cv.clear(50, 51, 13, 13)
 	cv.floor(40, 46, 17, "=")
 	cv.ladder(66, 13, 20)
-	cv.fill(78, 79, 14, 19)             # 一楼右半间到头：只能爬回二楼
+	cv.fill(78, 79, 14, 19)             # The end of the ground floor's right half: the only way is back up to the first floor
 	cv.put(14, 19, "b")
 	cv.put(8, 19, "c")
 	cv.prop("screen", 40, 11)
@@ -330,13 +330,13 @@ def crossfire():
 
 
 def narrow():
-	"""[绕] 第 9 段「窄道」。二楼走到头，梯子下到一条又低又长的通道里：一条道走到底，
-	冲撞的、自爆的、锤子兵迎面过来，**两摞箱子堵着路**（打烂才过得去），两台液压机，
-	脚下的传送带有往回带的。"""
+	"""[detour] Segment 9 "Narrow passage". At the end of the first floor a ladder goes down into a long, low passage, one way straight through:
+	rammers, self-destructing bots and hammer guys come head-on, **two stacks of crates block the way** (you only get through by breaking them), there are two presses,
+	and some of the conveyors underfoot run backwards."""
 	cv = Canvas(80)
 	cv.floor(0, 73, 7)
 	cv.floor(0, 9, 13)
-	# 通道顶上是一间进不去的机房（两头封死）：从外面看得见里面的墙、管子、机器，不是一整块平的
+	# Above the passage is a machine room you cannot enter (sealed at both ends): from outside you can see the walls, pipes and machines inside, not one flat block
 	cv.floor(10, 73, 13)
 	cv.floor(10, 73, 14)
 	cv.fill(10, 11, 8, 12)
@@ -375,8 +375,8 @@ def narrow():
 
 
 def boss_room():
-	"""[选] 第 10 段「Boss 区」。一大片空地 + 八块单向台子（两块架到 Boss 的高度——它飘在空中，
-	要跳上去才打得着）。Boss 是终点。"""
+	"""[choice] Segment 10 "Boss area". A big open space + eight one-way platforms (two set at the boss's height — it floats in the air,
+	so you have to jump up to hit it). The boss is the end."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	for c0, c1 in ((6, 13), (26, 33), (46, 53), (66, 73)):

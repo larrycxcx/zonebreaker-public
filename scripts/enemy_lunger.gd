@@ -1,31 +1,31 @@
 class_name EnemyLunger
 extends EnemyWalker
-## 3-A 刀客：巡逻兵的一种，但**不开枪**——看见正前方的玩家就**先定住蓄一下，再急冲一段去刺**。
+## 3-A Knifeman: a kind of patroller that **does not shoot** — when it sees a player straight ahead it **freezes to wind up, then lunges forward to stab**.
 ##
-## 和已有的那几种近身都不一样：
-## - 冲撞（D、2-B）是**匀速贴上来**，你走开就能拉开；
-## - 抡锤（2-D）是**走到跟前站定再抡**，起手之后退开就躲掉了；
-## - 这个是**一次爆发**：冲的时候比玩家走路快得多，跑是跑不掉的，
-##   **躲法是在它蓄力那一下跳开**（`lunge_windup` 就是留给玩家的那段时间）。
+## Unlike the melee enemies so far:
+## - the chargers (D, 2-B) **close in at a steady speed** — walk away and you open a gap;
+## - the hammer (2-D) **walks up, stops and swings** — step back after the wind-up and it misses;
+## - this one is **a single burst**: the lunge is much faster than the player's walk, so running does not work;
+## **the dodge is to jump away during the wind-up** (`lunge_windup` is that window for the player).
 ##
-## 伤害走的是基类那套接触伤害——它冲过来撞到你就是挨刀，不另算一份。
+## Damage goes through the base class contact damage — the lunge hitting you is the stab, nothing extra is added.
 
-## 蓄力和冲刺这两段各自的状态。
+## The two phases, winding up and lunging.
 enum Dash { NONE, WINDUP, GO, REST }
 
 @export_group("Lunge")
-## 正前方这个距离以内就起手。
+## It starts within this distance straight ahead.
 @export var lunge_range := 120.0
-## 高度差超过这么多就够不着（它不会跳）。
+## Beyond this height difference it cannot reach (it does not jump).
 @export var lunge_height := 32.0
-## **定住蓄力多久**。这是留给玩家跳开的时间，调小了就变成没法躲。
+## **How long it freezes to wind up**. This is the player's time to jump away; make it shorter and it becomes undodgeable.
 @export var lunge_windup := 0.45
-## 冲的速度和时长。速度比玩家走路（180）快得多——跑不掉，只能跳。
+## Lunge speed and duration. Much faster than the player's walk (180) — you cannot outrun it, only jump.
 @export var lunge_speed := 300.0
 @export var lunge_time := 0.3
-## 冲完歇多久才会再来一次。
+## How long it rests after a lunge before trying again.
 @export var lunge_rest := 1.2
-## 起手时报一声，和 D 发现玩家共用一个音效（意思一样：它盯上你了）。
+## Reported when it starts; shares D's "spotted the player" sound (same meaning: it is coming for you).
 @export var lunge_event := &"chaser_alert"
 
 var _dash := Dash.NONE
@@ -33,13 +33,13 @@ var _left := 0.0
 
 
 func _physics_process(delta: float) -> void:
-	# **这里不用管朝向**：`lunge_target()` 只认正前方的玩家，所以起手时朝向本来就是对的；
-	# 起手之后它认准那个方向冲出去，转向完全由巡逻决定（和别的巡逻兵一样）。
+	# **No need to handle facing here**: `lunge_target()` only accepts a player straight ahead, so the facing is already right when it starts;
+	# after starting it lunges in that direction, and turning is entirely up to the patrol (like other patrollers).
 	super(delta)
 	_update_dash(delta)
 
 
-## 正在冲（测试和外观都要问）。
+## Lunging right now (asked by tests and the appearance).
 func is_dashing() -> bool:
 	return _dash == Dash.GO
 
@@ -48,7 +48,7 @@ func is_winding_up() -> bool:
 	return _dash == Dash.WINDUP
 
 
-## 蓄力时站定、冲的时候全速、别的时候照常巡逻。
+## Stands still while winding up, full speed while lunging, otherwise patrols as usual.
 func walk_speed() -> float:
 	return lunge_speed if _dash == Dash.GO else move_speed
 
@@ -57,7 +57,7 @@ func patrolling() -> bool:
 	return _dash == Dash.NONE
 
 
-## 蓄力那一下定住不动（基类按这个把速度清零）。
+## It freezes during the wind-up (the base class zeroes the speed on this).
 func is_engaged(_target: Node2D) -> bool:
 	return _dash == Dash.WINDUP or _dash == Dash.REST
 
@@ -76,7 +76,7 @@ func _update_dash(delta: float) -> void:
 		Dash.WINDUP:
 			_dash = Dash.GO
 			_left = lunge_time
-			_visual.fire()      # 刺出去那一下
+			_visual.fire()      # The stab
 		Dash.GO:
 			_dash = Dash.REST
 			_left = lunge_rest
@@ -84,8 +84,8 @@ func _update_dash(delta: float) -> void:
 			_dash = Dash.NONE
 
 
-## 正前方、够得着、高度也差不多、并且看得见的玩家；否则 null。
-## 「够得着」走 `within_reach`，所以在屏幕里的玩家它一定有反应（见 CLAUDE.md 的「视野对等」）。
+## A player straight ahead, in reach, at about the same height and in sight; otherwise null.
+## "In reach" goes through `within_reach`, so it always reacts to a player on screen (see "vision parity" in CLAUDE.md).
 func lunge_target() -> Node2D:
 	for player in players_by_distance():
 		var offset := player.global_position - global_position

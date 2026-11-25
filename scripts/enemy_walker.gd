@@ -1,14 +1,14 @@
 class_name EnemyWalker
 extends Enemy
-## 巡逻敌人：左右走，撞墙或走到平台边缘时掉头，碰到玩家造成伤害，
-## 并且会朝自己正前方开火（不会回头瞄准，转向完全由巡逻决定）。
-## **打起来就不走了**：发现正前方的玩家、开始还击之后就站定原地打，
-## 直到玩家离开视野（或者绕到它背后）才接着巡逻。
-## 正前方的玩家趴下时，它会停下来趴着开枪，玩家站起来后它也站起来继续巡逻。
-## 能斜射的（B、C）遇到正前方斜上/斜下的玩家时停下来瞄准开火，玩家回到水平方向或离开后继续巡逻。
+## Patrolling enemy: walks left and right, turns around at walls and platform edges, hurts the player on contact,
+## and fires straight ahead (it never turns back to aim; turning is entirely up to the patrol).
+## **Once a fight starts it stops walking**: when it finds a player straight ahead and starts firing back, it stands its ground
+## until the player leaves its sight (or gets behind it), then resumes patrolling.
+## When the player straight ahead lies prone, it stops and fires lying down; when the player stands up it stands up too and keeps patrolling.
+## The ones that can fire diagonally (B, C) stop to aim and fire at a player diagonally up/down ahead, and resume patrolling once the player is level again or gone.
 
 @export var move_speed := 60.0
-@export_enum("左:-1", "右:1") var start_direction := -1
+@export_enum("Left:-1", "Right:1") var start_direction := -1
 
 @onready var _floor_check: RayCast2D = $FloorCheck
 @onready var _wall_check: RayCast2D = $WallCheck
@@ -23,7 +23,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_apply_gravity(delta)
 	var target := _target_in_front()
-	# 趴下、斜向瞄准、以及**正在和玩家交火**时都站在原地打。
+	# It stands still while prone, while aiming diagonally, and **while in a firefight with the player**.
 	var standing_still := is_prone or is_aiming_diagonally() or is_engaged(target)
 	velocity.x = 0.0 if standing_still else walk_speed() * facing
 	move_and_slide()
@@ -34,36 +34,36 @@ func _physics_process(delta: float) -> void:
 		_apply_facing()
 
 	var ready := update_aim(delta, target)
-	# 只在玩家和自己差不多高时才跟着趴下；斜着往下打的时候保持站立。
+	# It only lies down too when the player is at about its height; when firing diagonally downward it stays standing.
 	update_prone(delta, target if not is_aiming_diagonally() else null)
 	try_shoot(delta, ready)
 
 
-## 这一帧朝 `facing` 那边走多快。默认就是巡逻速度；**冲向玩家的子类覆盖它**（2-D 抡锤的那个）。
+## How fast it walks toward `facing` this frame. Patrol speed by default; **subclasses that charge at the player override it** (2-D, the hammer).
 func walk_speed() -> float:
 	return move_speed
 
 
-## 这一帧要不要按巡逻规则在悬崖、墙前掉头。默认要；
-## 冲向玩家的时候不掉头——朝向那会儿是冲着人的，掉头会让它在悬崖边上来回抽。
+## Whether to turn around at ledges and walls by the patrol rules this frame. Yes by default;
+## not while charging the player — at that point it faces the player, and turning would make it twitch back and forth at the cliff edge.
 func patrolling() -> bool:
 	return true
 
 
-## 正在跟玩家交火吗：交上火就站定原地打，不再巡逻，直到玩家离开视野。
-## 「正前方有够得着的玩家」或者「一轮连发还没打完」都算。
-## **手上没枪的不算**（F 的 `bullet_scene` 是空的），它按能不能扔手雷算，自己覆盖了这个。
+## Is it in a firefight with the player: once engaged it stands and fires instead of patrolling, until the player leaves its sight.
+## "A player in reach straight ahead" or "a burst not yet finished" both count.
+## **Ones without a gun do not count** (F's `bullet_scene` is empty); it goes by whether it can throw a grenade and overrides this itself.
 func is_engaged(target: Node2D) -> bool:
 	return bullet_scene != null and (target != null or is_firing_burst())
 
 
-## 巡逻时脚下没路（悬空）或前方被挡住就该掉头。
-## is_on_wall() 是必要的补充：矮天花板挡住的是身体上半部分，WallCheck 那条射线打不到。
+## While patrolling it should turn around when there is no ground underfoot ahead or something blocks the way.
+## is_on_wall() is a necessary extra: a low ceiling blocks the upper body, which the WallCheck ray does not reach.
 func _should_turn_around() -> bool:
 	return is_on_floor() and (not _floor_check.is_colliding() or _wall_ahead() or is_on_wall())
 
 
-## 正前方有没有挡路的东西。单向平台的侧面不算：横着本来就能穿过去（玩家也一样）。
+## Is something blocking the way ahead. The side of a one-way platform does not count: you can pass through sideways (so can the player).
 func _wall_ahead() -> bool:
 	if not _wall_check.is_colliding():
 		return false
@@ -71,7 +71,7 @@ func _wall_ahead() -> bool:
 	return platform == null or not platform.one_way
 
 
-## 只打正前方的玩家：背后的够不着也不回头。
+## It only fires at a player straight ahead: ones behind it are out of reach and it does not turn around.
 func _target_in_front() -> Node2D:
 	var target := find_target()
 	if target == null:
@@ -84,6 +84,6 @@ func _apply_facing() -> void:
 	_apply_visual_facing()
 	_floor_check.position.x = absf(_floor_check.position.x) * facing
 	_wall_check.target_position.x = absf(_wall_check.target_position.x) * facing
-	# 掉头后立刻重算，避免下一帧还用旧结果导致反复抖动。
+	# Recompute right after turning around, so the next frame does not use the old result and jitter back and forth.
 	_floor_check.force_raycast_update()
 	_wall_check.force_raycast_update()

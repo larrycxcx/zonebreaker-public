@@ -1,26 +1,26 @@
 class_name BossArmAppearance
 extends EnemySpriteAppearance
-## 工业区 Boss「机械操作员」的外观：铁球走基类那套贴图，另外画一条**能伸到任意长度**的机械臂。
+## The look of the industrial zone boss, the "machine operator": the iron ball uses the base class sprites, plus a mechanical arm that **can reach any length**.
 ##
-## 素材里 `Up-Down` 那 6 帧只有 6 档缆绳长度，而伸多长是玩法说了算的，
-## 所以拆成「缆绳的一行」竖着平铺 + 「爪子」贴在末端。爪子有张开和合拢两张，抓下去那一刻换成合拢的。
+## The 6 `Up-Down` frames in the art only have 6 cable lengths, but how far it reaches is up to gameplay,
+## so it is split into "one row of cable" tiled vertically + "the claw" at the end. The claw has an open and a closed image, switching to closed the moment it grabs.
 ##
-## 和别的外观一样：**玩法只调 `show_arm()`**，画成什么样、缆绳多粗、爪子长什么样都是这儿的事。
-## 占位方块那套没有这个方法，所以默认皮肤下就是不画——规则一点不变。
+## Like every appearance: **gameplay only calls `show_arm()`**; how it is drawn, how thick the cable is and what the claw looks like are this script's business.
+## The placeholder blocks do not have this method, so with the default skin nothing is drawn — the rules do not change at all.
 
-## 缆绳（一行，竖着平铺）和两张爪子。
+## The cable (one row, tiled vertically) and the two claw images.
 @export var cable: Texture2D
 @export var claw_open: Texture2D
 @export var claw_shut: Texture2D
-## 缆绳从球上的哪儿伸出来（相对身体原点）。
+## Where on the ball the cable comes out (relative to the body origin).
 @export var arm_origin := Vector2(0, 30)
 
-## 现在伸出去多长（<= 0 表示收着、不画），以及爪子合上了没有。
+## How far it reaches now (<= 0 means retracted, not drawn) and whether the claw is closed.
 var _length := 0.0
 var _shut := false
 
 
-## 伸出去 length 像素；length <= 0 表示收回去。
+## Reach out length pixels; length <= 0 means retracted.
 func show_arm(length: float, shut := false) -> void:
 	if is_equal_approx(length, _length) and shut == _shut:
 		return
@@ -34,7 +34,7 @@ func _draw() -> void:
 		return
 	var width := float(cable.get_width())
 	var rows := roundf(_length)
-	# 一行图竖着平铺（tile = true），所以伸多长都不会被拉糊
+	# One row of image tiled vertically (tile = true), so it never blurs however far it reaches
 	draw_texture_rect(cable, Rect2(arm_origin.x - width / 2.0, arm_origin.y, width, rows), true)
 	var head := claw_shut if _shut and claw_shut != null else claw_open
 	if head != null:

@@ -1,18 +1,18 @@
-"""第一关（绿区）的分层版：一段一段画，`map_canvas.stitch()` 拼成一整关。
+"""The layered version of stage 1 (green zone): drawn segment by segment and joined into a whole stage by `map_canvas.stitch()`.
 
-和第二关同一套设计原则（2026-10 用户定的）：
-- **只有一个出口**（最后的 Boss）。十段里七段**必须绕路**（标 [绕]），三段**两条路随便挑**（标 [选]）。
-- **敌人多、摆得合理**：会冲的（1-D 滑板手）只放在两头堵死的路上，路的尽头不许是坑；
-  上下分层的地方多放会斜射的（1-B、1-C、炮台 1-G）。每一屏至少 4 个（`MIN_ENEMIES`）。
-- **画面要满**：多摆树、草、石头、油桶、可打爆的箱子，不要大片空地。
+The same design principles as stage 2 (set by the user in 2026-10):
+- **Only one exit** (the final boss). Seven of the ten segments **force a detour** (marked [detour]), three let you **pick either of two routes** (marked [choice]).
+- **Lots of enemies, placed sensibly**: chargers (1-D skateboarder) only go on paths blocked at both ends, and a path must not end in a pit;
+  where there are upper and lower layers, put more diagonal shooters (1-B, 1-C, turret 1-G). At least 4 per screen (`MIN_ENEMIES`).
+- **A full picture**: plenty of trees, grass, rocks, barrels, breakable crates; no big empty stretches.
 
-绿区的「室内」是**山洞**：头顶有实心岩层的地方铺洞里的墙（见 `map_build.THEMES["green"]`）。
-这是第一关，机关一样一样地教：第 1 段第一次爬梯子，第 3 段第一次钻山洞、第一次碰到要打烂的箱子，
-第 4 段第一次靠钢梁过大坑。
+The green zone's "indoors" is **caves**: where there is solid rock overhead, cave walls are laid (see `map_build.THEMES["green"]`).
+This is stage 1, so the mechanics are taught one at a time: segment 1 is the first ladder climb, segment 3 the first cave and the first crates to break,
+segment 4 the first time crossing a big pit on girders.
 
-字母表：a 1-A（巡逻兵，只打水平）、b 1-B（连发、会斜射）、c 1-C（远射、会趴下、会斜射）、
-d 1-D（滑板手，冲撞）、e 1-E（无人机，往下放电）、f 1-F（扔手雷）、g 1-G（炮台，会斜射）、B Boss A。
-行号：上层地板第 7 行、中层第 13 行、地面第 20 行；敌人写在**脚下那一行的上一行**。
+Letters: a 1-A (patroller, level shots only), b 1-B (bursts, shoots diagonally), c 1-C (long range, lies down, shoots diagonally),
+d 1-D (skateboarder, rams), e 1-E (drone, discharges downward), f 1-F (throws grenades), g 1-G (turret, shoots diagonally), B Boss A.
+Rows: the upper floor is row 7, the middle row 13, the ground row 20; enemies are written **on the row above the one under their feet**.
 """
 
 from map_canvas import Canvas, from_png, stitch
@@ -26,8 +26,8 @@ MIN_ENEMIES = 4
 
 
 def park():
-	"""[绕] 第 1 段「公园入口」。第一屏不放敌人：几级草皮台子教你跳。
-	第二屏地面被一座高过一跳的石山挡死，**第一次爬梯子**：顺梯子上山顶，从另一边的台阶下去。"""
+	"""[detour] Segment 1 "Park entrance". No enemies on the first screen: a few grassy steps teach jumping.
+	On the second screen the ground is blocked by a rock hill taller than a jump, **the first ladder climb**: up the ladder to the hilltop and down the steps on the other side."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.put(3, 19, "@")
@@ -38,7 +38,7 @@ def park():
 	cv.prop("bench", 20, 20)
 	cv.prop("tree_small", 34, 20)
 	cv.prop("fountain", 38, 20)
-	# 石山：48~55 列从第 8 行一直到地面，左边一架梯子
+	# The rock hill: columns 48~55 from row 8 all the way down to the ground, with a ladder on the left
 	cv.fill(48, 55, 8, 19, "%")
 	cv.ladder(46, 8, 20)
 	cv.floor(58, 64, 11, "=")
@@ -54,9 +54,9 @@ def park():
 
 
 def terraces():
-	"""[选] 第 2 段「阶梯」。两级草皮台阶上去是一条长长的石头走道（单向的），走道底下是地面。
-	**走上面**：两个连发的枪手往下斜着打；**走下面**：滑板手冲过来（两头是台阶和石墩，冲不出去），
-	箱子当掩体。两条路在另一头会合。"""
+	"""[choice] Segment 2 "Steps". Two grassy steps lead up to a long stone walkway (one-way), with the ground below it.
+	**Taking the top**: two burst gunners shoot diagonally down; **taking the bottom**: a skateboarder charges (steps and stone blocks at both ends keep it in),
+	with crates as cover. The two routes meet at the other end."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.fill(6, 13, 16, 19)
@@ -83,19 +83,19 @@ def terraces():
 
 
 def burrow():
-	"""[绕] 第 3 段「地洞」。一座平顶的山：洞口在左边被石头封死，得**先顺梯子上山顶**；
-	山顶往右被一道通到天上的石崖挡住，只能从地上的洞口**掉进山洞**，在洞里打烂一整摞箱子、
-	再顺洞里的梯子爬回山顶，从山的另一头下去。"""
+	"""[detour] Segment 3 "Burrow". A flat-topped hill: the cave mouth on the left is sealed with rock, so **first climb the ladder to the hilltop**;
+	to the right the hilltop is blocked by a cliff reaching the sky, so the only way is to **drop into the cave** through a hole in the ground, break a whole stack of crates in the cave,
+	then climb the cave's ladder back to the hilltop and go down the far side of the hill."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
-	cv.fill(3, 75, 13, 14)               # 山体（洞顶）
-	cv.fill(3, 4, 15, 19, "%")           # 洞口封死
-	cv.fill(74, 75, 15, 19, "%")         # 洞的右头
-	cv.fill(48, 51, 0, 12, "%")          # 山顶上的石崖，一直通到画面顶
-	cv.clear(40, 41, 13, 14)             # 掉进山洞的口子
+	cv.fill(3, 75, 13, 14)               # The hill (cave roof)
+	cv.fill(3, 4, 15, 19, "%")           # Cave mouth sealed
+	cv.fill(74, 75, 15, 19, "%")         # The right end of the cave
+	cv.fill(48, 51, 0, 12, "%")          # The cliff on the hilltop, reaching all the way to the top of the view
+	cv.clear(40, 41, 13, 14)             # The hole that drops into the cave
 	cv.ladder(1, 13, 20)
 	cv.ladder(66, 13, 20)
-	cv.crates(58, 20, 3)                 # 洞里一整摞箱子
+	cv.crates(58, 20, 3)                 # A whole stack of crates in the cave
 	cv.put(10, 4, "e")
 	cv.put(20, 12, "a")
 	cv.put(32, 12, "b")
@@ -114,8 +114,8 @@ def burrow():
 
 
 def chasm():
-	"""[绕] 第 4 段「大坑」。地面中间断开 48 格，跳不过去：顺梯子爬上石台，
-	在半空一串台子上跳过去（有高有低），无人机在头顶守着，台子上站着枪手。"""
+	"""[detour] Segment 4 "Big pit". The ground breaks for 48 cells in the middle, too far to jump: climb the ladder up the stone platform,
+	then jump across a string of platforms in mid-air (some high, some low), with drones guarding overhead and gunners on the platforms."""
 	cv = Canvas(80)
 	cv.ground(0, 15)
 	cv.ground(64, 79)
@@ -125,7 +125,7 @@ def chasm():
 	cv.floor(47, 53, 9, "=")
 	cv.floor(58, 66, 9, ":")
 	cv.ladder(8, 9, 20)
-	# 坑里立着几根石柱（背景），再加两块矮一点的石台：坑上面不是一片空
+	# A few stone pillars standing in the pit (background), plus two lower stone platforms: so the space above the pit is not empty
 	cv.fill(22, 23, 14, 22, "!")
 	cv.fill(33, 34, 15, 22, "!")
 	cv.fill(44, 45, 12, 22, "!")
@@ -149,19 +149,19 @@ def chasm():
 
 
 def fortress():
-	"""[绕] 第 5 段「堡垒」。一座石头堡垒，**外墙没有门**：顺外墙的梯子上屋顶，
-	从屋顶的洞掉进二楼，二楼尽头的洞再掉进一楼的后半间，从后门出去。
-	一楼前半间是实心的地基。"""
+	"""[detour] Segment 5 "Fort". A stone fort **with no door in the outer wall**: climb the ladder on the outer wall to the roof,
+	drop through a hole in the roof into the first floor, then through the hole at the end of the first floor into the back half of the ground floor and out the back door.
+	The front half of the ground floor is solid foundation."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
-	cv.floor(5, 74, 7, "%")              # 屋顶
-	cv.fill(6, 7, 8, 19, "%")            # 前墙（没有门）
-	cv.floor(8, 71, 13, "%")             # 二楼地板
-	cv.fill(8, 45, 14, 19, "X")          # 一楼前半间是地基
+	cv.floor(5, 74, 7, "%")              # Roof
+	cv.fill(6, 7, 8, 19, "%")            # Front wall (no door)
+	cv.floor(8, 71, 13, "%")             # First floor
+	cv.fill(8, 45, 14, 19, "X")          # The front half of the ground floor is foundation
 	cv.fill(46, 47, 14, 19, "%")
-	cv.fill(72, 73, 8, 15, "%")          # 后墙，下面 4 格是后门
-	cv.clear(30, 31, 7, 7)               # 屋顶的洞
-	cv.clear(60, 61, 13, 13)             # 二楼的洞
+	cv.fill(72, 73, 8, 15, "%")          # Back wall, the bottom 4 cells are the back door
+	cv.clear(30, 31, 7, 7)               # Hole in the roof
+	cv.clear(60, 61, 13, 13)             # Hole in the first floor
 	cv.ladder(3, 7, 20)
 	cv.fill(12, 13, 5, 6, "X")
 	cv.fill(44, 45, 5, 6, "X")
@@ -182,8 +182,8 @@ def fortress():
 
 
 def trench():
-	"""[选] 第 6 段「掷弹兵」。一道长长的土堤：**堤上**两个掷弹兵往下面扔手雷、一个枪手守着；
-	**堤下**的通道里是连发的枪手和滑板手，身边堆着油桶。顺左头的梯子上堤，或者直接钻下面。"""
+	"""[choice] Segment 6 "Grenadiers". A long earth embankment: **on top**, two grenadiers throw grenades down and a gunner keeps guard;
+	**below**, the passage has burst gunners and skateboarders with barrels piled beside them. Climb the ladder at the left end onto the embankment, or go straight through underneath."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.fill(4, 74, 13, 14)
@@ -211,11 +211,11 @@ def trench():
 
 
 def islands():
-	"""[绕] 第 7 段「空岛」。地面整个断开，只有一串浮在半空的小岛：一跳一跳过去，
-	中间那座要顺梯子爬上更高的一座。无人机最多的一段。"""
+	"""[detour] Segment 7 "Sky islands". The ground is broken entirely, leaving only a string of small islands floating in mid-air: jump across one by one,
+	and the middle one needs a ladder climb to a higher island. The segment with the most drones."""
 	cv = Canvas(80)
 	cv.ground(0, 5)
-	cv.fill(4, 5, 18, 19)                # 坑沿一道矮沿：滑板手冲到这儿就停，不会自己掉下去
+	cv.fill(4, 5, 18, 19)                # A low lip at the pit's edge: a skateboarder charging here stops and does not fall in by itself
 	cv.ground(74, 79)
 	cv.fill(74, 75, 18, 19)
 	cv.fill(8, 13, 16, 17)
@@ -244,19 +244,19 @@ def islands():
 
 
 def crossfire():
-	"""[绕] 第 8 段「三层交叉火力」。一楼前半间到头是墙，梯子上二楼；二楼走到一半被墙挡住，
-	梯子上屋顶、从屋顶的洞掉回二楼后半截，再从二楼的洞掉进一楼后半间出去。
-	二楼前半截有一截是单向的石台：底下的枪手往上斜着打得到你，你也打得到他。"""
+	"""[detour] Segment 8 "Three-layer crossfire". The front half of the ground floor ends at a wall, take the ladder to the first floor; halfway along the first floor a wall blocks the way,
+	so take the ladder to the roof, drop through the roof's hole back into the back half of the first floor, then through the first floor's hole into the back half of the ground floor and out.
+	Part of the front half of the first floor is a one-way stone ledge: the gunner below can shoot diagonally up at you, and you can shoot him too."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
-	cv.floor(10, 79, 7, "%")             # 屋顶
-	cv.fill(0, 79, 13, 14)               # 二楼地板（也是一楼的顶）
-	cv.floor(6, 15, 13, ":")             # 其中一截是单向的
+	cv.floor(10, 79, 7, "%")             # Roof
+	cv.fill(0, 79, 13, 14)               # First floor (also the ground floor's ceiling)
+	cv.floor(6, 15, 13, ":")             # One stretch of it is one-way
 	cv.clear(6, 15, 14, 14)
-	cv.fill(24, 25, 15, 19, "%")         # 一楼前半间到头
-	cv.fill(50, 51, 8, 12, "%")          # 二楼走到一半的墙
-	cv.clear(62, 63, 7, 7)               # 屋顶的洞
-	cv.clear(74, 75, 13, 14)             # 二楼后半截的洞
+	cv.fill(24, 25, 15, 19, "%")         # The end of the ground floor's front half
+	cv.fill(50, 51, 8, 12, "%")          # The wall halfway along the first floor
+	cv.clear(62, 63, 7, 7)               # Hole in the roof
+	cv.clear(74, 75, 13, 14)             # Hole in the back half of the first floor
 	cv.ladder(18, 13, 20)
 	cv.ladder(44, 7, 13)
 	cv.put(8, 19, "a")
@@ -280,12 +280,12 @@ def crossfire():
 
 
 def tunnel():
-	"""[绕] 第 9 段「窄道」。一条又长又低的地道，一条道走到底：滑板手迎面冲过来，
-	**两摞箱子把地道堵死**（打烂才过得去），枪手身边堆着油桶。地道顶上是长满树的山坡，上不去。"""
+	"""[detour] Segment 9 "Narrow passage". A long, low tunnel, one way straight through: skateboarders charge head-on,
+	**two stacks of crates block the tunnel** (you only get through by breaking them), and gunners have barrels piled beside them. The tunnel's roof is a tree-covered slope you cannot get onto."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.fill(4, 75, 13, 14)
-	cv.fill(4, 7, 0, 12, "%")            # 山坡左头一道石崖：地道顶上的山坡上不去
+	cv.fill(4, 7, 0, 12, "%")            # A cliff at the left end of the slope: the slope over the tunnel cannot be climbed
 	cv.crates(26, 20, 3)
 	cv.crates(52, 20, 3)
 	cv.put(8, 19, "b")
@@ -308,8 +308,8 @@ def tunnel():
 
 
 def boss_room():
-	"""[选] 第 10 段「Boss 区」。一整片平地（Boss A 站在地上，冲撞和跳跃都不能碰到坑），
-	头顶几块单向台子：躲它的导弹扇形、从高处往下打。Boss 是终点。"""
+	"""[choice] Segment 10 "Boss area". One stretch of flat ground (Boss A stands on the ground, and its ram and jumps must not reach a pit),
+	with a few one-way platforms overhead: dodge its missile fans and shoot down from up high. The boss is the end."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	for c0, c1 in ((8, 15), (30, 37), (52, 59), (70, 77)):

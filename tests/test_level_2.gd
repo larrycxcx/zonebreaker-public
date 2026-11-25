@@ -1,7 +1,7 @@
 extends "res://tests/layered_checks.gd"
-## 正式第二关（`scenes/level_2.tscn`，工业区）——2026-10 起是**分层的格子地图**
-## （`tools/level2_map.py` 画、`tools/map_build.py` 查路和写场景）。
-## 分层关共用的检查在 `layered_checks.gd`；这里只写**这一关独有的**，下半截拿真规则把几处必须绕的路跑一遍。
+## The second real stage (`scenes/level_2.tscn`, industrial zone) — **a layered grid map** since 2026-10
+## (drawn in `tools/level2_map.py`, path-checked and written by `tools/map_build.py`).
+## Checks shared by layered stages are in `layered_checks.gd`; this only covers **what is unique to this stage**, and the second half runs the forced detours with the real rules.
 
 const LEVEL_INFO := "res://levels/level_2.tres"
 
@@ -27,7 +27,7 @@ func hanging() -> Array[Enemy]:
 	return out
 
 
-# ---------------------------------------------------------------- 这一关自己的
+# ---------------------------------------------------------------- This stage's own
 
 func test_it_is_a_second_stage_in_the_catalog() -> void:
 	if needs_art(): return
@@ -43,8 +43,8 @@ func test_it_is_a_second_stage_in_the_catalog() -> void:
 
 
 func test_the_workers_hang_above_the_screen_over_something_to_land_on() -> void:
-	# 2-A 是这一关的伏击：摆在画面顶边以上，走到它脚下才砸下来。
-	# 底下得有个面接着它（地面也好、钢梁也好）——吊在坑上面的话它掉下去就摔死了。
+	# 2-A is this stage's ambush: placed above the top of the view, crashing down when you walk under it.
+	# Something has to catch it underneath (ground or girder) — hanging over a pit it would fall to its death.
 	await open_level()
 	var found := hanging()
 	check("there are ambushers", found.size() >= 3, str(found.size()))
@@ -67,7 +67,7 @@ func test_the_ambush_holds_until_you_walk_under_it() -> void:
 
 
 func test_the_boss_has_platforms_to_climb() -> void:
-	# Boss 飘在空中、不追出地盘，**玩家得跳上去才够得着它**
+	# The boss floats in the air and does not leave its ground, **so the player has to jump up to reach it**
 	await open_level()
 	var boss: Boss = null
 	for node in main.get_node("Enemies").get_children():
@@ -104,10 +104,10 @@ func test_this_stage_brings_its_own_cast() -> void:
 	check("and all six types show up", kinds.size() >= 7, str(kinds.keys()))
 
 
-# ---------------------------------------------------------------- 必须绕的路，拿真规则跑一遍
+# ---------------------------------------------------------------- Forced detours, run with the real rules
 
 func test_the_first_hall_is_a_dead_end_on_the_ground_floor() -> void:
-	# 第 1 段：厂房一楼走到头是墙（78 列），得顺 56 列的梯子上二楼
+	# Segment 1: the factory's ground floor ends at a wall (column 78); take the ladder at column 56 up to the first floor
 	await open_empty()
 	player.global_position = Vector2(col_x(1, 64), GROUND_Y - 16.0)
 	await frames(3)
@@ -142,7 +142,7 @@ func test_the_first_floor_belt_pushes_you_back() -> void:
 
 
 func test_the_crates_in_the_press_hall_must_be_shot_away() -> void:
-	# 第 4 段：一楼右半间被一整摞箱子堵死
+	# Segment 4: the right half of the ground floor is blocked by a whole stack of crates
 	await open_empty()
 	var stack: Array = []
 	for node in main.get_node("Traps").get_children():
@@ -170,7 +170,7 @@ func test_the_crates_in_the_press_hall_must_be_shot_away() -> void:
 
 
 func test_the_settling_pits_need_the_walkway() -> void:
-	# 第 5 段：坑 12 格宽，从地面跳不过去，要爬梯子上钢梁
+	# Segment 5: the pit is 12 cells wide and cannot be jumped from the ground; climb the ladder to the girders
 	await open_empty()
 	player.global_position = Vector2(col_x(5, 11), GROUND_Y - 16.0)
 	await frames(3)

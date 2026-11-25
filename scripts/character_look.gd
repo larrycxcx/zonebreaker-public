@@ -1,15 +1,15 @@
 class_name CharacterLook
 extends Resource
-## 一个可选角色的名片：皮肤键、叫什么、排第几。
+## The card of a selectable character: skin key, what it is called, where it sits in the order.
 ##
-## 角色清单是**扫 `characters/` 目录**得来的（见 `Catalog`）。
-## **不扫皮肤包的目录**：包里混着 `backdrop`、`enemies`、`ui` 一堆非角色的文件夹，
-## 而且默认包里一个角色目录都没有（占位方块不需要贴图），扫出来会是空的。
+## The character list comes from **scanning the `characters/` directory** (see `Catalog`).
+## **It does not scan the skin packs**: a pack mixes in `backdrop`, `enemies`, `ui` and other folders that are not characters,
+## and the default pack has no character folders at all (the placeholder blocks need no sprites), so the scan would come back empty.
 
-## 皮肤键：玩家的 `skin_key` 和存档里的 `look` 用的都是它，
-## 素材包按它找外观场景（`SkinPack.appearances`）、贴图按它找目录。
+## Skin key: both the player's `skin_key` and the `look` in the save use it,
+## the pack finds the appearance scene by it (`SkinPack.appearances`) and the sprites find their folder by it.
 @export var key := &""
-## 界面上怎么称呼它。现在还没显示，留给以后的角色选择界面。
+## What the UI calls it. Not shown yet; kept for a future character select screen.
 @export var display_name := ""
-## 排第几：人物设置界面上三个头像从左到右的顺序。
+## Position in the order: left to right among the three portraits in character setup.
 @export var order := 0

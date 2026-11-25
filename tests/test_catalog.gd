@@ -1,14 +1,14 @@
 extends GameTest
-## 三张内容清单（关卡、角色、商店货单）：**扫目录来的，不是代码里点名的**。
+## The three content lists (stages, characters, shop stock): **found by scanning directories, not named in code**.
 ##
-## 这关系到以后能不能做 DLC——Godot 的 DLC 是个 `.pck`，加载时把文件叠加进 `res://`，
-## 所以主程序必须去目录里找内容，写死清单的话主程序根本不知道 DLC 加了什么。
+## This matters for DLC later — a Godot DLC is a `.pck` whose files are overlaid onto `res://` when loaded,
+## so the main program has to look for content in directories; with hard-coded lists it would never know what a DLC added.
 ##
-## 这一组守的就是「真的在扫、而且扫对了」，外加三个当初差点踩进去的坑：
-## 终极武器混进货单、按文件名排序把角色顺序打乱、目录不存在就崩。
+## This suite guards "it really scans, and scans correctly", plus three pitfalls we nearly fell into:
+## the ultimate slipping into the shop stock, sorting by file name scrambling the character order, and crashing when a directory does not exist.
 
 
-# ---------------------------------------------------------------- 关卡
+# ---------------------------------------------------------------- Stages
 
 func test_the_level_list_comes_from_the_folder() -> void:
 	var levels := Catalog.levels()
@@ -25,13 +25,13 @@ func test_the_menu_starts_the_first_level_from_the_list() -> void:
 	check("there is a first level", first != null)
 	check("and the menu starts that one", MainMenu.level_scene() == first.scene_path,
 		"%s vs %s" % [MainMenu.level_scene(), "" if first == null else first.scene_path])
-	# 测试关不在清单里：它是给测试用的，不该出现在正式流程里
+	# The test level is not in the list: it is for tests and must not show up in the real flow
 	for level in Catalog.levels():
 		check("the test level is not in the list", level.scene_path != "res://scenes/main.tscn",
 			level.scene_path)
 
 
-# ---------------------------------------------------------------- 角色
+# ---------------------------------------------------------------- Characters
 
 func test_the_character_list_comes_from_the_folder() -> void:
 	var looks := Catalog.looks()
@@ -44,8 +44,8 @@ func test_the_character_list_comes_from_the_folder() -> void:
 
 
 func test_the_character_order_is_not_alphabetical() -> void:
-	# **这是个真会被看见的坑**：按文件名排是 biker / cyborg / punk，
-	# 人物设置界面上后两个头像就对调了。所以排序看资源里的 `order`。
+	# **This pitfall would really be visible**: sorted by file name it is biker / cyborg / punk,
+	# and the last two portraits in character setup would swap places. So sorting goes by the resource's `order`.
 	var keys: Array[StringName] = SetupColumn.looks()
 	check("the order on screen is the one we set", keys.slice(0, 3) == [&"biker", &"punk", &"cyborg"],
 		str(keys))
@@ -57,7 +57,7 @@ func test_the_character_order_is_not_alphabetical() -> void:
 
 
 func test_new_characters_start_with_different_looks() -> void:
-	# 两个座位默认拿清单里的头两个，所以双人不会撞脸
+	# The two seats get the first two entries of the list by default, so two players never look the same
 	Progress.persist = false
 	Progress.new_game()
 	var one := Progress.fresh(0)
@@ -68,11 +68,11 @@ func test_new_characters_start_with_different_looks() -> void:
 	check("and both come off the list", keys.has(one.look) and keys.has(two.look), str(keys))
 
 
-# ---------------------------------------------------------------- 商店货单
+# ---------------------------------------------------------------- Shop stock
 
 func test_only_priced_things_are_for_sale() -> void:
-	# **终极武器就躺在 weapons/ 里**，而且没配装备位、没标价——天真地扫一遍，
-	# 商店里会白送一把 MEGA BOMB 当枪使。货单只收标了价的。
+	# **The ultimate lies right there in weapons/**, with no gear slot and no price — a naive scan
+	# would have the shop give away a MEGA BOMB to use as a gun. The stock only takes priced items.
 	for item in Catalog.gear_for_sale():
 		check("%s has a price" % item.display_name, item.price > 0, str(item.price))
 	var names := Catalog.gear_for_sale().map(func(e: Equipment) -> String: return e.display_name)
@@ -89,10 +89,10 @@ func test_the_shop_list_is_sorted_by_price() -> void:
 		last = item.price
 
 
-# ---------------------------------------------------------------- 关卡强度
+# ---------------------------------------------------------------- Stage strength
 
 func test_a_level_scales_the_enemies_it_holds() -> void:
-	# 23 关用同一批敌人，靠每关一组倍率拉开强度（`Stage`）。
+	# The 23 stages use the same enemies, with one set of multipliers per stage setting the difficulty (`Stage`).
 	await reset_scene(true)
 	var plain: Enemy = main.get_node("Enemies/WalkerA")
 	var base_health := plain.max_health
@@ -101,7 +101,7 @@ func test_a_level_scales_the_enemies_it_holds() -> void:
 	var tough := LevelInfo.new()
 	tough.enemy_health_scale = 3.0
 	tough.enemy_damage_scale = 2.0
-	# **强度要在加载之前定**：敌人在 `_ready` 里就按它缩放，所以走 `reset_scene` 的参数
+	# **The strength has to be set before loading**: enemies scale by it in `_ready`, so it goes through `reset_scene`'s parameter
 	await reset_scene(true, false, null, 1, "res://scenes/main.tscn", tough)
 	var scaled: Enemy = main.get_node("Enemies/WalkerA")
 	check("its health went up with the level", scaled.max_health == base_health * 3,
@@ -126,7 +126,7 @@ func test_a_level_scales_what_the_enemies_are_worth() -> void:
 
 
 func test_the_shop_only_stocks_what_your_level_allows() -> void:
-	# 没有等级门槛的话，钱一多就能买到过强的东西，23 关的曲线就塌了
+	# Without level requirements, enough money would buy gear far too strong and the curve over 23 stages would collapse
 	for item in Catalog.gear_for_sale(5):
 		check("%s is within reach at level 5" % item.display_name, item.min_level <= 5,
 			str(item.min_level))
@@ -136,8 +136,8 @@ func test_the_shop_only_stocks_what_your_level_allows() -> void:
 
 func test_a_level_brings_its_own_art() -> void:
 	if needs_art(): return
-	# **23 关各有各的场景、敌人、Boss、音乐**，所以「用哪套素材」是**关卡**的属性，
-	# 不是项目设置里那一个全局包——共用一个包的话 23 关只能共用一张背景、一首曲子、一套地砖。
+	# **Each of the 23 stages has its own scenes, enemies, boss and music**, so "which art set" is a property of **the stage**,
+	# not one global pack in the project settings — sharing one pack would mean 23 stages sharing one backdrop, one track and one set of tiles.
 	var zone := load("res://skins/cyberpunk/cyberpunk_skin.tres") as SkinPack
 	var level := LevelInfo.new()
 	level.skin = zone
@@ -145,7 +145,7 @@ func test_a_level_brings_its_own_art() -> void:
 	check("setup: on the default pack", Skins.current != zone)
 	Stage.use(level)
 	check("loading a level switches to its pack", Skins.current == zone, str(Skins.current))
-	# 没配包的关卡不动当前那套（测试关就是这一档，所以老用例一条都没改）
+	# A stage without a pack leaves the current one alone (the test level works like this, so none of the old cases changed)
 	var plain := LevelInfo.new()
 	Stage.use(plain)
 	check("a level without its own pack leaves it alone", Skins.current == zone)
@@ -161,8 +161,8 @@ func test_the_first_level_names_the_pack_it_wants() -> void:
 
 
 func test_the_difficulty_dials_start_neutral() -> void:
-	# 正式关卡的倍率都是 1：每关敌人本来就不一样，血量伤害写在各自的敌人场景里。
-	# 这三个数是留给**难度 DLC** 的——同一关同一批敌人，只把倍率调高。
+	# The multipliers of the real stages are all 1: every stage has its own enemies anyway, with health and damage in each enemy scene.
+	# These three numbers are kept for **difficulty DLC** — same stage, same enemies, just higher multipliers.
 	for level in Catalog.levels():
 		var name := level.resource_path.get_file()
 		check("%s does not scale health" % name, is_equal_approx(level.enemy_health_scale, 1.0),
@@ -171,10 +171,10 @@ func test_the_difficulty_dials_start_neutral() -> void:
 			str(level.enemy_damage_scale))
 
 
-# ---------------------------------------------------------------- 数字怎么写
+# ---------------------------------------------------------------- How numbers are written
 
 func test_big_numbers_are_written_with_k() -> void:
-	# 经验和金钱到后面都是五六位数，原样写会把一行字撑爆
+	# XP and money reach five or six digits later on, and written out they would burst the line
 	check("under a thousand stays as it is", UiKit.number(858) == "858", UiKit.number(858))
 	check("a round thousand loses the decimal", UiKit.number(1000) == "1K", UiKit.number(1000))
 	check("1200 reads as 1.2K", UiKit.number(1200) == "1.2K", UiKit.number(1200))
@@ -195,7 +195,7 @@ func test_the_hud_writes_money_the_short_way() -> void:
 
 
 func test_at_max_level_the_bar_says_so() -> void:
-	# 满级之后经验不再累计，`XP 0/0` 会让人以为是 bug
+	# At max level XP no longer accumulates; `XP 0/0` would look like a bug
 	await reset_scene()
 	await frames(2)
 	player.progress.level = player.progress.balance.max_level
@@ -205,16 +205,16 @@ func test_at_max_level_the_bar_says_so() -> void:
 	check("it says MAX instead of 0/0", label.text.contains("XP MAX"), label.text)
 
 
-# ---------------------------------------------------------------- 目录不在也不能崩
+# ---------------------------------------------------------------- A missing directory must not crash
 
 func test_a_missing_folder_is_just_an_empty_shelf() -> void:
-	# DLC 没装、或者哪个目录还没建：少几样东西是对的，崩掉不是
+	# A DLC not installed, or a directory not created yet: missing a few things is right, crashing is not
 	var missing: Array[Resource] = Catalog._scan("res://there_is_no_such_folder")
 	check("scanning nothing gives nothing", missing.is_empty(), str(missing.size()))
 
 
 func test_the_scan_ignores_things_that_are_not_resources() -> void:
-	# 目录里混着 `.import`、`.uid` 之类的东西，只认 `.tres` / `.res`
+	# The directory mixes in things like `.import` and `.uid`; only `.tres` / `.res` count
 	var looks := Catalog._scan(Catalog.CHARACTERS)
 	check("everything it found is a character", looks.size() == Catalog.looks().size(),
 		"%d vs %d" % [looks.size(), Catalog.looks().size()])

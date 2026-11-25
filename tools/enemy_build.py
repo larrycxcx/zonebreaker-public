@@ -1,20 +1,20 @@
-"""从敌人素材包生成赛博朋克皮肤包的敌人贴图，输出到 skins/cyberpunk/enemies/<敌人>/。
+"""Generates the cyberpunk skin pack's enemy art from the enemy art pack, output to skins/cyberpunk/enemies/<enemy>/.
 
-    python tools/enemy_build.py            # 全部重新生成
-    python tools/enemy_build.py --check    # 只检查有没有内容被画布切掉，不写文件
+    python tools/enemy_build.py            # regenerate everything
+    python tools/enemy_build.py --check    # only check whether anything is cut off by the canvas, without writing files
 
-素材来源是 CraftPix 的一个敌人包，解压在 art_in/default/enemies/（不进仓库，授权禁止再分发源文件）。
-格式和玩家素材一样：每帧 48×48、脚底在帧底边。PNG 读写、镜像、锚点都复用 skin_build.py 那一套，
-所以敌人和玩家站在同一条地面线上：锚点纵向同样让脚底落在身体原点下方 16px。
-**帧比玩家宽**：80×56，锚点 (40, 40)——敌人倒地时整个人扑在身前，56 宽装不下，
-左右各留 40px 才够（`EnemySpriteAppearance` 里的 FRAME_W / FRAME_H / ANCHOR 要和这里一致）。
+The source is a CraftPix enemy pack, unpacked in art_in/default/enemies/ (not in the repo: the licence forbids redistributing the source files).
+The format is the same as the player art: each frame 48×48 with the feet on the bottom edge. PNG reading / writing, mirroring and anchors all reuse skin_build.py,
+so enemies and the player stand on the same ground line: vertically the anchor likewise puts the feet 16px below the body origin.
+**Frames are wider than the player's**: 80×56 with anchor (40, 40) — when an enemy falls it sprawls out in front, which 56 wide cannot hold,
+so it needs 40px on each side (FRAME_W / FRAME_H / ANCHOR in `EnemySpriteAppearance` have to match this).
 
-和玩家不同的几点：
-1. **敌人是一整张图**（枪画在身上），不用拼手臂，所以**不逐帧按躯干对齐**：
-   整个角色只按待机第一帧的躯干定一次位，其余每一帧保留画师原本的摆位（走路的起伏、倒地的位移都在里面）。
-2. **同一个素材出好几种敌人**：巡逻兵 A/B/C 都是 2 号，靠给衣服换色区分（`VARIANTS`）。
-3. **飞行的 E（5 号无人机）不站在地上**：它的判定框（28×20）以原点为中心，所以锚点对的是**机身中心**，
-   不是脚底；帧也用素材原本的 48×48（锚点 24, 24），放得下攻击时往下劈的闪电和坠毁时往下掉的那一段。
+How it differs from the player:
+1. **An enemy is one whole picture** (the gun is drawn on the body), with no arms to assemble, so it is **not aligned to the torso frame by frame**:
+   the whole character is positioned once by the torso of the first idle frame, and every other frame keeps the artist's own placement (the bob of walking, the shift of falling are in it).
+2. **One piece of art makes several enemies**: patrollers A/B/C are all number 2, told apart by recolouring the clothes (`VARIANTS`).
+3. **The flying E (drone number 5) does not stand on the ground**: its hitbox (28×20) is centred on the origin, so the anchor lines up with **the centre of the body**,
+   not the feet; the frame also stays at the art's original 48×48 (anchor 24, 24), enough for the lightning striking down when attacking and the drop when crashing.
 """
 import os
 import sys
@@ -30,9 +30,9 @@ CELL = sb.CELL
 FRAME_W, FRAME_H = 80, 56
 ANCHOR = (40, 40)
 
-# 巡逻兵（2 号，持枪朋克）：动作名 → (文件, 取哪几帧)。
-# 素材的攻击动画是三组各 3 帧：水平、斜下、斜上——正好对上巡逻兵的瞄准方向。
-# 趴下射击素材包里没有，是自己画的（art_src/walker_prone.png，一排 4 帧，第 1 帧不动、第 2 帧带枪口火光）。
+# Patroller (number 2, a punk with a gun): action name → (file, which frames to take).
+# The art's attack animation is three groups of 3 frames each: level, diagonally down, diagonally up — exactly matching the patroller's aim directions.
+# The art pack has no prone shooting; it was drawn by us (art_src/walker_prone.png, a row of 4 frames, frame 1 still, frame 2 with a muzzle flash).
 WALKER_CLIPS = {
 	"idle": ("Idle.png", [0, 1, 2, 3]),
 	"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -43,14 +43,14 @@ WALKER_CLIPS = {
 	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 }
 WALKER_PRONE = "walker_prone.png"
-# 趴下那组按**上衣中心**另外定位，放在原点前方 5px（和玩家趴姿同一个规则）：
-# 自己画的时候是在原来 48 宽的格子里往前躺的，照搬的话一趴下人会往前跳十几像素，
-# 而趴下的判定框还是以原点为中心。四帧共用第一帧量出来的位置，开火那帧的相对动作保留。
+# The prone group is positioned separately by **the centre of the shirt**, 5px in front of the origin (the same rule as the player's prone pose):
+# it was drawn lying forward inside the original 48-wide cell, and copied as is the character would jump forward a dozen pixels when lying down,
+# while the prone hitbox is still centred on the origin. The four frames share the position measured from the first, and the firing frame keeps its relative motion.
 PRONE_TORSO_X = 5
 
-# 同一套素材换色出三种巡逻兵：原图的衣服颜色 → 新颜色（没列的颜色不动）。
-# A 保持原样的紫；B 橙；C 红——C 射程最远、还会趴下，用最醒目的颜色。
-# 不用绿色：F 的素材（1 号）本身就是绿衣服。
+# Three patrollers recoloured from one set of art: the original clothes colour → the new colour (colours not listed stay unchanged).
+# A keeps the original purple; B orange; C red — C has the longest range and lies down too, so it gets the most eye-catching colour.
+# No green: F's art (number 1) already wears green.
 SHIRT = [(0x66, 0x3b, 0x93), (0x8b, 0x72, 0xde)]
 VARIANTS = {
 	"1_a": {},
@@ -59,12 +59,12 @@ VARIANTS = {
 }
 
 
-# 敌人 D（3 号滑板手）和 F（1 号球棒手）：一个素材出一种敌人，动作直接对上，整个角色按一帧的躯干定一次位。
-# 键是输出的动作名（EnemySpriteAppearance 按它挑），值是 (文件, 取哪几帧)；ANCHOR_CLIP 是拿哪个动作的第 1 帧定位。
-# D：平时踩着滑板溜（walk）；冲锋时站在板上冲（run，素材的 Attack）；跳起来也用板上那组第 1 帧（air）；
-#    素材有两组受伤，用踩在板上的 Hurt2——D 几乎总在板上。Idle 是提着滑板站着，只有被卡住不动时才看得到。
-# F：扔手雷 = 用球棒把手雷打出去。素材 Attack 前 3 帧是准备（和待机几乎一样），第 4 帧是挥棒的弧光，
-#    所以开火动作从第 4 帧开始：手雷飞出去的那一刻画面上正好是球棒打中，扔的时机不用改。
+# Enemies D (number 3, the skateboarder) and F (number 1, the bat guy): one piece of art makes one enemy, actions map directly, and the whole character is positioned once by the torso of one frame.
+# The key is the output action name (EnemySpriteAppearance picks by it), the value is (file, which frames to take); ANCHOR_CLIP is whose first frame is used for positioning.
+# D: normally glides on the skateboard (walk); when charging it rides standing on the board (run, the art's Attack); jumps also use the first frame of the on-board group (air);
+# the art has two hurt groups, and Hurt2 is the one standing on the board — D is almost always on it. Idle is standing with the board in hand, only seen when stuck.
+# F: throwing a grenade = batting it out with the bat. The first 3 frames of the art's Attack are wind-up (almost the same as idle), and frame 4 is the arc of the swing,
+# so the fire action starts at frame 4: the moment the grenade flies off is exactly when the bat hits it on screen, so the throw timing needs no change.
 SINGLES = {
 	"1_d": ("3", "walk", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
@@ -84,11 +84,11 @@ SINGLES = {
 }
 
 
-# Boss A：boss 包的 2 号，四条腿的导弹机甲（art_in/default/boss/2/，CraftPix，不进仓库）。每帧 72×72，**不缩放**：
-# 判定框按它改成 56×48（原来 48×64 的瘦高个），脚底在原点下方 24px。输出帧 96×80、锚点 (48, 56)，
-# 放得下喷射跳跃时往上抬的那一截。横向按机身和腿（BOSS_BODY_ROWS 那几行）居中——背上的导弹巢偏后，按它量会偏。
-# 站着开火是 Attack1（导弹巢连发），边走边开火是 Attack2，空中用 Attack4（腿上喷火往上跳）里身体抬起来的两帧。
-# Attack3（车头贴地光束）和 Sneer（嘲讽）暂时没用上。
+# Boss A: number 2 of the boss pack, a four-legged missile mech (art_in/default/boss/2/, CraftPix, not in the repo). Each frame 72×72, **not scaled**:
+# the hitbox was changed to 56×48 to suit it (it used to be a tall thin 48×64), with the feet 24px below the origin. Output frames 96×80 with anchor (48, 56),
+# enough for the part lifted up in the jet jump. Horizontally centred on the body and legs (the BOSS_BODY_ROWS rows) — the missile pod on the back sits further back and would skew it.
+# Firing standing is Attack1 (missile pod bursts), firing while walking is Attack2, and in the air it uses the two frames of Attack4 (jets on the legs, jumping up) where the body is raised.
+# Attack3 (a beam from the front along the ground) and Sneer (taunt) are not used for now.
 BOSS_DIR = os.path.join(HERE, "..", "art_in", "default", "boss", "2")
 BOSS_CELL = 72
 BOSS_FRAME_W, BOSS_FRAME_H = 96, 80
@@ -104,13 +104,13 @@ BOSS_CLIPS = {
 	"hurt": ("Hurt.png", [0, 1]),
 	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 }
-# HUD 头像：从待机第一帧截导弹巢和车头那一块（32×32，HUD 上 1:1 显示）。
+# HUD portrait: the missile pod and front cut from the first idle frame (32×32, shown 1:1 on the HUD).
 BOSS_PORTRAIT = (20, 20, 32, 32)
 
 
-# 炮台（6 号，履带炮塔）。素材只有水平炮管；斜上 / 斜下是在 Idle.png 上手改炮管画的
-# （art_in/extra/turret_diag_*.png，含素材包的像素，所以和素材包一样不进仓库），生成时移植到攻击、受伤帧上。
-# Walk 就是履带在滚，炮台不走，不用。
+# The turret (number 6, a tracked turret). The art only has a level barrel; diagonally up / down are drawn by hand-editing the barrel on Idle.png
+# (art_in/extra/turret_diag_*.png, containing the pack's pixels, so like the pack it is not in the repo), and transplanted onto the attack and hurt frames when generating.
+# Walk is just the tracks rolling; the turret does not walk, so it is unused.
 TURRET_CLIPS = {
 	"idle": ("Idle.png", [0, 1, 2, 3]),
 	"attack_level": ("Attack.png", [0, 1, 2, 3]),
@@ -119,16 +119,16 @@ TURRET_CLIPS = {
 }
 TURRET_DIAG = {"up": "turret_diag_up.png", "down": "turret_diag_down.png"}
 EXTRA = os.path.join(HERE, "..", "art_in", "extra")
-TURRET_BODY_RIGHT = 25        # 机身右边缘（再往右是炮管）；手改只许动这一列往左 2px 以右
-TURRET_BARREL_ROWS = (26, 33)  # 原来水平炮管那几行：斜炮管的颜色贴回这里出现过的那几种
-TURRET_MOUNT_ROWS = (26, 38)   # 炮管装在这一截上：后坐时它整体平移（圆顶挪得更多，是挤压），斜炮管跟着它走
-TURRET_MOUNT_SLACK = 16        # 上面那一截允许差几个像素（后坐时的挤压）
-TURRET_COLUMN_ROWS = (21, 25)  # 圆顶下面的立柱，横向按它居中
-TURRET_OUTLINE_AT = (14, 14)   # 圆顶最上面一个描边像素，取描边色
+TURRET_BODY_RIGHT = 25        # The right edge of the body (the barrel is further right); hand edits may only touch from 2px left of this column rightward
+TURRET_BARREL_ROWS = (26, 33)  # The rows of the original level barrel: the diagonal barrel's colours are snapped back to the few that appear here
+TURRET_MOUNT_ROWS = (26, 38)   # The barrel mounts on this section: it shifts as a whole when recoiling (the dome moves more, which is squash), and the diagonal barrel follows it
+TURRET_MOUNT_SLACK = 16        # The section above may differ by a few pixels (squash during recoil)
+TURRET_COLUMN_ROWS = (21, 25)  # The post under the dome, centred horizontally on it
+TURRET_OUTLINE_AT = (14, 14)   # The topmost outline pixel of the dome, used for the outline colour
 
 
-# 敌人 E（5 号无人机）。Idle 和 Walk 两组画得一模一样（悬停时螺旋桨转），只取 Idle；
-# Attack 是往正下方放电，正好是 E 竖直向下开火。
+# Enemy E (number 5, the drone). Idle and Walk are drawn identically (propellers spinning while hovering), so only Idle is taken;
+# Attack is a discharge straight down, exactly E firing vertically downward.
 FLYER_CLIPS = {
 	"idle": ("Idle.png", [0, 1, 2, 3]),
 	"attack_down": ("Attack.png", [0, 1, 2, 3]),
@@ -139,17 +139,17 @@ FLYER_FRAME = 48
 FLYER_ANCHOR = (24, 24)
 
 
-# ---------------------------------------------------------------- 工业区（第二关）
-# 素材 CraftPix Industrial Zone Enemies（不进仓库）。格式和赛博朋克那套一样（48×48、脚底在帧底边），
-# 所以五个走地上的直接走 `build_singles`、会飞的走 `build_flyer`，一行新代码都不用写。
-# 值是 (素材目录, 拿哪个动作的第 1 帧定位, {输出动作名: (文件, 取哪几帧)})。
+# ---------------------------------------------------------------- Industrial zone (stage 2)
+# Art: CraftPix Industrial Zone Enemies (not in the repo). The format is the same as the cyberpunk set (48×48, feet on the bottom edge),
+# so the five on foot go straight through `build_singles` and the flyer through `build_flyer`, without a single new line of code.
+# The value is (art directory, whose action's first frame positions it, {output action name: (file, which frames to take)}).
 #
-# 这套素材**没有斜射姿势**（赛博朋克那个巡逻兵自带水平 / 斜上 / 斜下三组，这套只有水平一组），
-# 所以 2-C 斜着打时画面上还是水平端枪的样子。要做准就得像炮台那样手改几帧放进 `art_in/extra/`。
+# This set **has no diagonal shooting poses** (the cyberpunk patroller has level / diagonally up / diagonally down groups, this set only a level one),
+# so 2-C still holds its gun level on screen when firing diagonally. Getting it right would mean hand-editing a few frames into `art_in/extra/` like the turret.
 IND_PACK = os.path.join(HERE, "..", "art_in", "default", "industrial-zone-tileset", "industrial-zone-enemies")
 IND_OUT = os.path.join(HERE, "..", "skins", "industrial", "enemies")
 IND_SINGLES = {
-	# 2-A Worker：从天而降，落地后冲向玩家（复用 D 那套追击）。跑和冲用同一组。
+	# 2-A Worker: drops from the sky and charges at the player after landing (reusing D's chase). Running and charging use the same group.
 	"2_a": ("1 Worker", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Run.png", [0, 1, 2, 3, 4, 5]),
@@ -158,7 +158,7 @@ IND_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
-	# 2-B Heaver：光膀子的壮汉，也是冲撞。Attack 是双手举过头顶砸下来，当冲撞时的姿势。
+	# 2-B Heaver: a bare-chested brute, also a charger. Attack is both hands raised overhead and slamming down, used as the charging pose.
 	"2_b": ("3 Heaver", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Run.png", [0, 1, 2, 3, 4, 5]),
@@ -167,8 +167,8 @@ IND_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
-	# 2-C Specialist：巡逻 + 射击。Attack 8 帧是一整轮连发（1~2 帧枪口火光、5~8 帧退壳），
-	# 单发只取前 3 帧，和赛博朋克巡逻兵一组的长度一致。
+	# 2-C Specialist: patrolling + shooting. The 8 Attack frames are a whole burst (frames 1~2 muzzle flash, 5~8 ejecting shells);
+	# a single shot only takes the first 3 frames, the same length as a cyberpunk patroller group.
 	"2_c": ("2 Specialist", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Run.png", [0, 1, 2, 3, 4, 5]),
@@ -176,8 +176,8 @@ IND_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
-	# 2-D Hammer：履带机器人，走近了抡锤砸。Attack 8 帧是完整一抡——抬起、蓄力、砸下，
-	# **第 6 帧锤头正砸在身前地上**，伤害判定要卡在那一帧（见 enemy_hammer.gd 的 HIT_FRAME）。
+	# 2-D Hammer: a tracked robot that walks up and swings a hammer. The 8 Attack frames are one full swing — raise, wind up, slam down,
+	# **in frame 6 the hammer head hits the ground right in front**, and the damage check has to land on that frame (see HIT_FRAME in enemy_hammer.gd).
 	"2_d": ("6 Hammer", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Run.png", [0, 1, 2, 3, 4, 5]),
@@ -185,8 +185,8 @@ IND_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3]),
 	}),
-	# 2-F Alarmobot：小履带机器人，发现玩家就拉警报冲过来贴身自爆。
-	# Alarm 那组（红色声波）就是「拉响了、要炸了」的样子；Death 本身就是爆炸。
+	# 2-F Alarmobot: a small tracked robot that sounds the alarm when it spots the player, charges over and self-destructs up close.
+	# The Alarm group (red sound waves) is the "alarm going off, about to blow" look; Death itself is the explosion.
 	"2_f": ("4 Alarmobot", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3, 4, 5]),
 		"walk": ("Run.png", [0, 1, 2, 3]),
@@ -196,9 +196,9 @@ IND_SINGLES = {
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
 }
-# 2-E Copter：直升机无人机，飞在头顶往下扔炸弹（复用 E 的飞行 + 现成的手雷）。
-# Attack 6 帧里**第 3 帧炸弹脱钩**，所以手雷在那一帧出手（见 enemy_copter.gd）。
-# 机身是哪几行（桅杆和桨叶以下）：这架的机身底边和桨叶一样宽，自动判据认不出来。
+# 2-E Copter: a helicopter drone flying overhead and dropping bombs (reusing E's flying + the existing grenade).
+# In the 6 Attack frames **the bomb is released in frame 3**, so the grenade leaves on that frame (see enemy_copter.gd).
+# Which rows are the body (below the mast and blades): this one's body bottom is as wide as the blades, so the automatic check cannot tell.
 IND_FLYER_BODY = (20, 34)
 IND_FLYER = {
 	"idle": ("Idle.png", [0, 1, 2, 3]),
@@ -209,7 +209,7 @@ IND_FLYER = {
 
 
 def palette_of(folder):
-	"""素材自己的调色板：自己画的帧要贴回这套颜色（有损压缩会带进一堆近似色）。"""
+	"""The art's own palette: frames we draw have to be snapped back to these colours (lossy compression brings in lots of near colours)."""
 	seen = {}
 	for name in os.listdir(folder):
 		if not name.lower().endswith(".png"):
@@ -239,7 +239,7 @@ def frames_of(path, indices):
 
 
 def own_frames(path, colors):
-	"""自己画的那排：一格 48 宽、画布可能比 48 高；按最低那一行对齐到帧底边（和素材的脚底同一条线）。"""
+	"""Our own row: each cell is 48 wide and the canvas may be taller than 48; the lowest row is aligned to the frame's bottom edge (the same line as the art's feet)."""
 	_, _, pixels = sb.read_png(path)
 	pixels = snap(pixels, colors)
 	height, width = len(pixels), len(pixels[0])
@@ -256,14 +256,14 @@ def own_frames(path, colors):
 
 
 def place(content, anchor_x, where):
-	"""把 48×48 的一帧放进 80×56：anchor_x 那一列对准锚点，脚底（帧底边）落在原点下方 16px。"""
+	"""Put a 48×48 frame into 80×56: the anchor_x column lines up with the anchor, and the feet (frame bottom) land 16px below the origin."""
 	out = sb.blank(FRAME_W, FRAME_H)
 	sb.blit(out, content, ANCHOR[0] - int(round(anchor_x)), ANCHOR[1] + 16 - CELL, where)
 	return out
 
 
 def mirror(frame):
-	"""按锚点那一列左右镜像，锚点自己不动（和玩家同一个做法）。"""
+	"""Mirror left and right around the anchor column, with the anchor itself staying put (the same approach as the player)."""
 	return mirror_about(frame, ANCHOR[0])
 
 
@@ -276,7 +276,7 @@ def build_walkers(write):
 	colors = palette_of(folder)
 	clips = {name: frames_of(os.path.join(folder, f), idx) for name, (f, idx) in WALKER_CLIPS.items()}
 	clips["prone"] = own_frames(os.path.join(OWN, WALKER_PRONE), colors)
-	# 整个角色只定一次位：按待机第一帧的躯干中心；趴下那组另按上衣中心定位（见 PRONE_TORSO_X）
+	# The whole character is positioned once: by the torso centre of the first idle frame; the prone group is positioned separately by the shirt centre (see PRONE_TORSO_X)
 	anchor_x = sb.torso_center(clips["idle"][0])
 	shirt = [x for row in clips["prone"][0] for x, c in enumerate(row) if c[3] > 8 and c[:3] in SHIRT]
 	prone_anchor_x = sum(shirt) / len(shirt) - PRONE_TORSO_X
@@ -288,16 +288,16 @@ def build_walkers(write):
 			save(variant, "%s_l.png" % name, [mirror(f) for f in right], write)
 
 
-## 整帧内容的横向中心。**不是人形的那些用它**（趴在地上的鲨鱼机、带轮子的炮车）：
-## `sb.torso_center()` 量的是「头 + 上半身」那条带，矮趴趴的东西在那几行里一个像素都没有。
+## The horizontal centre of the whole frame's content. **Used for those that are not humanoid** (the shark mech lying on the ground, the wheeled cannon cart):
+## `sb.torso_center()` measures the "head + upper body" band, and low flat things have not a single pixel in those rows.
 def box_center(frame):
 	xs = [x for row in frame for x, c in enumerate(row) if c[3] > 8]
 	return (min(xs) + max(xs)) / 2.0
 
 
 def build_singles(write, singles=None, pack=None, out=None):
-	"""一个素材出一种敌人：动作直接对上，整个角色按一帧定一次位。
-	表里第四个值是「按什么定位」：`torso`（默认，人形）或 `box`（按整帧外框，矮趴趴的那些）。"""
+	"""One piece of art makes one enemy: actions map directly and the whole character is positioned once by one frame.
+	The fourth value in the table is "what to position by": `torso` (default, humanoid) or `box` (by the whole frame's bounding box, for the low flat ones)."""
 	for name, entry in (singles if singles else SINGLES).items():
 		number, anchor_clip, table = entry[0], entry[1], entry[2]
 		how = entry[3] if len(entry) > 3 else "torso"
@@ -336,21 +336,21 @@ def build_boss(write):
 
 
 def build_turret(write):
-	"""炮台：水平那几组直接用素材；斜上 / 斜下是把手改的炮管移植到每一帧上（见 TURRET_DIAG）。"""
+	"""The turret: the level groups use the art directly; diagonally up / down transplant the hand-edited barrel onto every frame (see TURRET_DIAG)."""
 	folder = os.path.join(PACK, "6")
 	clips = {name: frames_of(os.path.join(folder, f), idx) for name, (f, idx) in TURRET_CLIPS.items()}
 	idle = clips["idle"]
 	outline = idle[0][TURRET_OUTLINE_AT[1]][TURRET_OUTLINE_AT[0]]
 	for aim, source in TURRET_DIAG.items():
 		drawn = diag_sheet(os.path.join(EXTRA, source), idle)
-		# 攻击帧：炮台后坐时装炮管那一截往后上方平移，斜炮管跟着同样平移
+		# Attack frames: when the turret recoils the barrel mount shifts back and up, and the diagonal barrel shifts the same
 		clips["attack_" + aim] = [graft(f, drawn[0], mount_offset(f, idle[0])) for f in clips["attack_level"]]
 		clips["idle_" + aim] = [d["frame"] for d in drawn]
-		# 受伤：第 1 帧和待机一样；第 2 帧整个炮台闪成一片黄，新炮管也要涂成同一种闪光色
+		# Hurt: frame 1 is the same as idle; in frame 2 the whole turret flashes solid yellow, and the new barrel has to be painted the same flash colour
 		hurt = clips["hurt"]
 		flash_color = most_common(hurt[1], skip=[outline])
 		clips["hurt_" + aim] = [graft(hurt[0], drawn[0], (0, 0)), flashed(hurt[1], drawn[1], outline, flash_color)]
-	# 横向按炮塔立柱（圆顶下面那一截）居中，炮管、履带都不算
+	# Horizontally centred on the turret post (the section under the dome); the barrel and tracks do not count
 	column = [x for y in range(*TURRET_COLUMN_ROWS) for x, c in enumerate(idle[0][y]) if c[3] > 8]
 	anchor_x = (min(column) + max(column)) / 2.0
 	for name, frames in clips.items():
@@ -360,11 +360,11 @@ def build_turret(write):
 
 
 def diag_sheet(path, idle):
-	"""读一张手改的斜炮管图（在 Idle.png 上只改炮管那一块）：返回每一帧的「改了哪些像素」和清理后的整帧。
-	改动必须只在炮管那一侧，机身一个像素都不能动——否则没法移植到攻击 / 受伤帧上，直接报错。"""
+	"""Read a hand-edited diagonal barrel image (only the barrel changed on Idle.png): return each frame's "which pixels changed" and the cleaned whole frame.
+	Changes may only be on the barrel side, not a single pixel of the body may move — otherwise it cannot be transplanted onto the attack / hurt frames, so it errors out."""
 	width, height, pixels = sb.read_png(path)
-	assert width == CELL * len(idle), "%s 应该和 Idle.png 一样宽（%d），实际 %d" % (path, CELL * len(idle), width)
-	assert not any(c[3] > 8 for row in pixels[CELL:] for c in row), "%s 在第 %d 行以下还有内容" % (path, CELL)
+	assert width == CELL * len(idle), "%s should be as wide as Idle.png (%d), actually %d" % (path, CELL * len(idle), width)
+	assert not any(c[3] > 8 for row in pixels[CELL:] for c in row), "%s still has content below row %d" % (path, CELL)
 	barrel_colors = sorted({c[:3] for y in range(*TURRET_BARREL_ROWS) for c in idle[0][y][TURRET_BODY_RIGHT:] if c[3] > 8})
 	out = []
 	for i, original in enumerate(idle):
@@ -373,11 +373,11 @@ def diag_sheet(path, idle):
 			if visible(frame[y][x]) != visible(original[y][x])
 			or (visible(frame[y][x]) and frame[y][x][:3] != original[y][x][:3])]
 		stray = [(x, y) for x, y in changed if x < TURRET_BODY_RIGHT - 2]
-		assert not stray, "%s 第 %d 帧改动了机身：%s" % (path, i + 1, stray[:5])
+		assert not stray, "%s frame %d changes the body: %s" % (path, i + 1, stray[:5])
 		clean = [row[:] for row in original]
 		for x, y in changed:
 			c = frame[y][x]
-			# 编辑器旋转时抗锯齿出来的半透明边和近似色：透明度二值化，颜色贴回炮管原来那几种
+			# The semi-transparent edges and near colours from anti-aliasing when the editor rotated it: binarise the alpha and snap colours back to the barrel's originals
 			clean[y][x] = (0, 0, 0, 0) if c[3] < 128 else \
 				min(barrel_colors, key=lambda p: sum((p[k] - c[k]) ** 2 for k in range(3))) + (255,)
 		out.append({"changed": changed, "frame": clean})
@@ -389,7 +389,7 @@ def visible(c):
 
 
 def mount_offset(frame, idle):
-	"""这一帧装炮管的那一截（炮管以左）相对待机第一帧挪了多少。"""
+	"""How far this frame's barrel mount (left of the barrel) has moved relative to the first idle frame."""
 	best = None
 	for dx in range(-3, 4):
 		for dy in range(-3, 4):
@@ -403,13 +403,13 @@ def mount_offset(frame, idle):
 						miss += 1
 			if best is None or miss < best[0]:
 				best = (miss, dx, dy)
-	# 后坐那帧除了平移还有一点挤压（顶边、炮管根部），允许边上差几个像素；差多了说明素材换了、这套移植不适用
-	assert best[0] <= TURRET_MOUNT_SLACK, "装炮管那一截对不上待机帧（差 %d 个像素），不是单纯平移" % best[0]
+	# The recoil frame has a little squash besides the shift (top edge, barrel root), so a few pixels may differ at the edges; more than that means the art changed and this transplant does not apply
+	assert best[0] <= TURRET_MOUNT_SLACK, "The barrel mount does not match the idle frame (off by %d pixels), it is not a plain shift" % best[0]
 	return best[1], best[2]
 
 
 def graft(frame, drawn, offset):
-	"""把手改的那一块（擦掉的水平炮管 + 新画的斜炮管）按 offset 平移后贴到这一帧上。"""
+	"""Shift the hand-edited block (the erased level barrel + the newly drawn diagonal barrel) by offset and paste it onto this frame."""
 	out = [row[:] for row in frame]
 	for x, y in drawn["changed"]:
 		tx, ty = x + offset[0], y + offset[1]
@@ -419,7 +419,7 @@ def graft(frame, drawn, offset):
 
 
 def flashed(flash, drawn, outline, flash_color):
-	"""闪光帧：改动的那一块里，外轮廓保持黑色，其余涂成闪光色。"""
+	"""Flash frame: within the changed block the outer outline stays black, the rest is painted the flash colour."""
 	out = [row[:] for row in flash]
 	frame = drawn["frame"]
 	for x, y in drawn["changed"]:
@@ -444,16 +444,16 @@ def most_common(frame, skip):
 
 def build_flyer(write, key="1_e", number="5", table=None, pack=None, out_root=None, body_rows=None,
 		faces_left=False):
-	"""会飞的那个：整组按待机第一帧的机身（螺旋桨以下）定一次位，机身中心对准锚点。
-	`faces_left`：素材是**朝左**画的（地下室那架无人机枪管在左边）。读进来先整帧翻过来，
-	后面一律按朝右处理——输出的 `_r` 永远是朝右的，外观层才不用分情况。"""
+	"""The flyer: the whole set is positioned once by the body (below the propellers) of the first idle frame, with the body centre on the anchor.
+	`faces_left`: the art is drawn **facing left** (the basement drone's gun is on the left). It is flipped as a whole frame when read in,
+	and everything after treats it as facing right — the output `_r` always faces right, so the visual layer does not need special cases."""
 	folder = os.path.join(pack if pack else PACK, number)
 	clips = {name: frames_of(os.path.join(folder, f), idx)
 		for name, (f, idx) in (table if table else FLYER_CLIPS).items()}
 	if faces_left:
 		clips = {name: [[list(reversed(row)) for row in f] for f in frames] for name, frames in clips.items()}
 	first = clips["idle"][0]
-	# 机身 = 螺旋桨下面那一截：从最宽的那几行（螺旋桨）往下数，跳过桅杆。
+	# Body = the section below the propellers: count down from the widest rows (the propellers), skipping the mast.
 	rows = [y for y, row in enumerate(first) if any(c[3] > 8 for c in row)]
 	widths = {y: sum(1 for c in first[y] if c[3] > 8) for y in rows}
 	if body_rows is None:
@@ -461,21 +461,21 @@ def build_flyer(write, key="1_e", number="5", table=None, pack=None, out_root=No
 		body = [(x, y) for y in rows if y > rotor_bottom and widths[y] > 6
 			for x, c in enumerate(first[y]) if c[3] > 8]
 	else:
-		# **机身和桨叶一样宽的画法，上面那句认不出来**（工业区那架直升机机身底边和桨叶都是 17 宽，
-		# 「最宽的最后一行」直接取到机身底边、下面一行都不剩）。这种就直接把机身是哪几行写出来。
-		# 不改上面那句的判据：绿区那架已经对好了，为了新素材去动它会把整张图挪掉 1px。
+		# **When the body is as wide as the blades the line above cannot tell** (the industrial helicopter's body bottom and blades are both 17 wide,
+		# so "the last widest row" lands right on the body bottom with no rows left below). For those the body rows are just written out.
+		# The check above is left alone: the green zone drone is already lined up, and changing it for new art would shift that whole image by 1px.
 		body = [(x, y) for y in range(body_rows[0], body_rows[1]) if y in widths
 			for x, c in enumerate(first[y]) if c[3] > 8]
 	xs = [x for x, _ in body]
 	top = min(y for y in rows)
 	bottom = max(y for y in rows)
-	# 横向：机身中心；纵向：整个飞行器（含螺旋桨）的中心——判定框 28×20 就是把螺旋桨算在里面的
+	# Horizontally: the body centre; vertically: the centre of the whole aircraft (propellers included) — the 28×20 hitbox counts the propellers in
 	dx = FLYER_ANCHOR[0] - int(round((min(xs) + max(xs)) / 2.0))
 	dy = FLYER_ANCHOR[1] - int(round((top + bottom) / 2.0))
 	for name, frames in clips.items():
 		right = []
 		for f in frames:
-			# 注意这里不能叫 out：会盖掉参数里那个输出目录
+			# Note this must not be called out: it would shadow the output directory parameter
 			placed = sb.blank(FLYER_FRAME, FLYER_FRAME)
 			sb.blit(placed, f, dx, dy, "flyer %s" % name)
 			right.append(placed)
@@ -493,7 +493,7 @@ def mirror_about(frame, column):
 				if 0 <= sx < len(row):
 					out[y][sx] = c
 				else:
-					sb._clipped.append("镜像后出界：(%d, %d)" % (x, y))
+					sb._clipped.append("out of bounds after mirroring: (%d, %d)" % (x, y))
 	return out
 
 
@@ -503,17 +503,17 @@ def save_frames(folder, name, frames, width, height, write, out=None):
 		sb.blit(strip, frame, index * width, 0, "%s/%s" % (folder, name))
 	if write:
 		sb.write_png(os.path.join(out if out else OUT, folder, name), strip)
-	print("  %s/%s  %d 帧" % (folder, name, len(frames)))
+	print("  %s/%s  %d frames" % (folder, name, len(frames)))
 
 
-# ---------------------------------------------------------------- 工业区的 Boss（机械操作员）
-# 素材是**两样东西**：一个在空中飘的铁球（Idle / Left / Right / Attack1-2 / Hurt / Death），
-# 和一条吊在缆绳上的机械爪（Move / Up-Down / Attack3-4）。
-# 我们把球当本体、爪当它伸下来的手臂——正好对上「铁球八方向飞、从上方伸下手臂打下面的玩家、
-# 不伸手臂就打一串子弹」。
+# ---------------------------------------------------------------- The industrial zone boss (machine operator)
+# The art is **two things**: an iron ball floating in the air (Idle / Left / Right / Attack1-2 / Hurt / Death),
+# and a mechanical claw hanging on a cable (Move / Up-Down / Attack3-4).
+# We treat the ball as the body and the claw as the arm it reaches down with — which fits "the iron ball flies in eight directions, reaches an arm down from above to hit the player below,
+# and fires a string of bullets when not using the arm".
 #
-# 球每帧 96×96、本体约 90×90、**画在格子正中**，所以整组直接原样搬进去，锚点就是格子中心。
-# 判定框 72×72：比画面小一圈，和 Boss A「保留素材尺寸、判定框略小」是同一条。
+# Each ball frame is 96×96 with the body about 90×90 **drawn in the middle of the cell**, so the whole set is carried over as is with the anchor at the cell centre.
+# Hitbox 72×72: a size smaller than the picture, the same rule as Boss A's "keep the art's size, make the hitbox slightly smaller".
 BOSS2_DIR = os.path.join(IND_PACK, "..", "industrial-zone-boss", "3 Machine operator")
 BOSS2_OUT = "2_boss"
 BOSS2_CELL = 96
@@ -525,19 +525,19 @@ BOSS2_CLIPS = {
 	"hurt": ("Hurt.png", [0, 1]),
 	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 }
-# HUD 头像：球正中那 32×32，红环和头冠都在里面。
+# HUD portrait: the 32×32 in the middle of the ball, with the red ring and the crown inside.
 BOSS2_PORTRAIT = (32, 32, 32, 32)
-# 手臂**不按帧用**：素材里那 6 帧只有 6 档缆绳长度，而伸多长是玩法说了算的。
-# 所以拆成「缆绳的一行」和「爪子」两张图，缆绳竖着平铺到要的长度，爪子贴在末端。
-# 取爪子用缆绳最长的那一帧（Up-Down 帧 2），合拢的爪子用 Attack4 最后一帧。
+# The arm is **not used by frame**: the 6 frames in the art only have 6 cable lengths, while how far it reaches is up to gameplay.
+# So it is split into two images, "one row of cable" and "the claw"; the cable is tiled vertically to the needed length and the claw is stuck on the end.
+# The claw comes from the frame with the longest cable (Up-Down frame 2), the closed claw from the last frame of Attack4.
 BOSS2_ARM = {"open": ("Up-Down.png", 2), "shut": ("Attack4.png", 5)}
-# 爪子横向占的那一段（六帧都一样），以及缆绳取第几行（中段，随便哪一行都能无缝平铺）。
+# The horizontal span the claw takes (the same in all six frames), and which row of cable to take (the middle; any row tiles seamlessly).
 BOSS2_CLAW_X = (28, 68)
 BOSS2_CABLE_ROW = 32
 
 
 def build_boss_operator(write):
-	# **不能用 frames_of**：它按 `CELL`（48）切，而 Boss 每帧是 96
+	# **frames_of cannot be used**: it cuts by `CELL` (48), while the boss frames are 96
 	def frames_at(file_name, indices):
 		_, _, pixels = sb.read_png(os.path.join(BOSS2_DIR, file_name))
 		return [sb.cut(pixels, i * BOSS2_CELL, 0, BOSS2_CELL, BOSS2_CELL) for i in indices]
@@ -555,8 +555,8 @@ def build_boss_operator(write):
 		sb.write_png(os.path.join(IND_OUT, BOSS2_OUT, "portrait.png"), portrait)
 	print("  %s/portrait.png  %dx%d" % (BOSS2_OUT, len(portrait[0]), len(portrait)))
 
-	# 手臂：缆绳一行 + 张开的爪 + 合拢的爪。三张都按缆绳中心那一列对齐，
-	# 这样游戏里「从球底往下画缆绳、末端贴爪子」不用再算偏移。
+	# The arm: one row of cable + the open claw + the closed claw. All three are aligned on the cable's centre column,
+	# so in the game "draw the cable down from the bottom of the ball and stick the claw on the end" needs no further offset.
 	left_x, right_x = BOSS2_CLAW_X
 	for key, (file_name, index) in BOSS2_ARM.items():
 		frame = frames_at(file_name, [index])[0]
@@ -568,28 +568,28 @@ def build_boss_operator(write):
 			sb.write_png(os.path.join(IND_OUT, BOSS2_OUT, "arm_claw_%s.png" % key), claw)
 		print("  %s/arm_claw_%s.png  %dx%d" % (BOSS2_OUT, key, len(claw[0]), len(claw)))
 	cable_frame = frames_at(BOSS2_ARM["open"][0], [BOSS2_ARM["open"][1]])[0]
-	# 缆绳只取它自己那几列（4px 宽），不带爪子那一整条：
-	# 游戏里缆绳是**按中心**往下画的，图里留着两边的空白会让它看着往一边偏。
+	# The cable only takes its own columns (4px wide), not the whole strip with the claw:
+	# in the game the cable is drawn down **by its centre**, and blank space left on either side would make it look off to one side.
 	row = cable_frame[BOSS2_CABLE_ROW]
 	columns = [x for x in range(BOSS2_CELL) if row[x][3] > 8]
 	cable = sb.blank(max(columns) - min(columns) + 1, 1)
 	sb.blit(cable, sb.cut(cable_frame, min(columns), BOSS2_CABLE_ROW, len(cable[0]), 1), 0, 0, "cable")
 	if write:
 		sb.write_png(os.path.join(IND_OUT, BOSS2_OUT, "arm_cable.png"), cable)
-	print("  %s/arm_cable.png  %dx1（竖着平铺，按中心画）" % (BOSS2_OUT, len(cable[0])))
+	print("  %s/arm_cable.png  %dx1 (tiled vertically, drawn by centre)" % (BOSS2_OUT, len(cable[0])))
 
 
-# ---------------------------------------------------------------- 酒吧街（第三关）
-# 素材 CraftPix Bar Street Enemies（不进仓库）。格式还是 48×48、脚底在帧底边，
-# 所以六个全部走 `build_singles`——这一关没有会飞的（5 号鲨鱼机**固定在地面**，贴着地面开枪）。
+# ---------------------------------------------------------------- Bar street (stage 3)
+# Art: CraftPix Bar Street Enemies (not in the repo). The format is still 48×48 with the feet on the bottom edge,
+# so all six go through `build_singles` — this stage has no flyers (number 5, the shark mech, is **fixed to the ground** and fires along it).
 #
-# **2 号枪手自带三个瞄准角度**（Attack1 水平 / Attack2 斜上 / Attack3 斜下），
-# 正好对上引擎已有的 `attack_level` / `attack_up` / `attack_down`——
-# 第二关那个 2-C 缺的就是这套，所以它斜着打时画面是水平端枪的（见「工业区素材包」）。
+# **Gunner number 2 comes with three aim angles** (Attack1 level / Attack2 diagonally up / Attack3 diagonally down),
+# exactly matching the engine's existing `attack_level` / `attack_up` / `attack_down` —
+# which is just what stage 2's 2-C lacks, so it holds its gun level on screen when firing diagonally (see "Industrial zone art pack").
 BAR_PACK = os.path.join(HERE, "..", "art_in", "default", "bar-street-tileset", "enemies")
 BAR_OUT = os.path.join(HERE, "..", "skins", "bar_street", "enemies")
 BAR_SINGLES = {
-	# 3-A 刀客：蓄一下然后急冲一段去刺。冲的那一段用走路那组放快（`run` 12fps）。
+	# 3-A Knifeman: winds up, then dashes a stretch to stab. The dash uses the walk group played fast (`run` 12fps).
 	"3_a": ("1", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -598,7 +598,7 @@ BAR_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
-	# 3-B 枪手：巡逻 + 射击 + **真斜射**（三个角度都是素材自带的）。
+	# 3-B Gunner: patrolling + shooting + **real diagonal shots** (all three angles come with the art).
 	"3_b": ("2", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -608,8 +608,8 @@ BAR_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
-	# 3-C 剑客：跳向玩家、落地横扫。**空中用挥剑那组第 1 帧**（举剑的姿势），
-	# 素材没有专门的跳跃帧，拿走路那组当空中会看着像在平地上溜。
+	# 3-C Swordsman: leaps at the player and sweeps on landing. **In the air it uses the first frame of the sword swing** (the raised sword pose);
+	# the art has no jump frames, and using the walk group in the air would look like gliding on flat ground.
 	"3_c": ("3", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -618,7 +618,7 @@ BAR_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3]),
 	}),
-	# 3-D 壮汉：正面扛伤害的那个，走得不快、也不冲锋。
+	# 3-D Brute: the one that tanks damage from the front, walking slowly and never charging.
 	"3_d": ("4", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -626,15 +626,15 @@ BAR_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
-	# 3-E 鲨鱼机：**固定在地面**，贴着地面开枪。不走路，所以 `walk` 不取。
-	# 它只有 11px 高，趴在地上——按「躯干」定位的话那条带里一个像素都没有，所以按外框居中。
+	# 3-E Shark mech: **fixed to the ground**, firing along the ground. It does not walk, so `walk` is not taken.
+	# It is only 11px tall, lying on the ground — positioned by "torso" there would not be a single pixel in that band, so it is centred on its bounding box.
 	"3_e": ("5", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"attack_level": ("Attack.png", [0, 1, 2, 3]),
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}, "box"),
-	# 3-F 炮车：带轮子的炮台，走得很慢，停下来打一串。
+	# 3-F Cannon cart: a wheeled turret that moves very slowly and stops to fire a string.
 	"3_f": ("6", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3]),
@@ -645,34 +645,34 @@ BAR_SINGLES = {
 }
 
 
-# ---------------------------------------------------------------- 酒吧街的 Boss（独轮机甲）
-# 素材 `bosses/3`。每帧 96×96、机体约 53×64、踩在一个独轮上，**脚底在帧底边**。
-# 判定框 48×56（比画面小一圈，和前两个 Boss 一样），输出帧 112×96 留出炮管伸出去的余量。
+# ---------------------------------------------------------------- The bar street boss (unicycle mech)
+# Art `bosses/3`. Each frame 96×96 with the body about 53×64 riding a single wheel, **feet on the bottom edge**.
+# Hitbox 48×56 (a size smaller than the picture, like the first two bosses); output frames 112×96 leave room for the barrel sticking out.
 #
-# 这包的命名和内容对不上，**是看图认出来的**：
-#   `Attack1` 炮击、`Attack3` 把炸弹往上抛（举臂 + 红色弹道）、
-#   `Special` 才是前倾滚动（冲撞那一下）、`Attack4` 其实是**炸弹自己的爆炸动画**（不是 Boss 的动作）。
-# 炸弹用现成的敌人手雷（`enemy_grenade.tscn`）：`Grenade.launch()` 本来就是抛物线、落地弹一下再炸，
-# 正是「抛到空中砸下来」。`Bomb.png` 那张 96×96 对 8px 的判定来说太大了，没用。
+# This pack's names do not match its contents; **they were identified by looking at the pictures**:
+# `Attack1` is the cannon shot, `Attack3` throws a bomb up (arm raised + a red trajectory),
+# `Special` is actually the forward-leaning roll (the ram), and `Attack4` is really **the bomb's own explosion animation** (not a boss move).
+# The bomb uses the existing enemy grenade (`enemy_grenade.tscn`): `Grenade.launch()` already flies in an arc and bounces once on landing before exploding,
+# which is exactly "thrown into the air and crashing down". The 96×96 `Bomb.png` is too big for an 8px hitbox, so it is unused.
 BOSS3_DIR = os.path.join(BAR_PACK, "..", "bosses", "3")
 BOSS3_CELL = 96
-# **帧要比素材高**：举臂抛弹那组的红色弹道伸到素材画面上方去了，
-# 按 96 高输出会把它切掉——那是「要抛炸弹了」的预兆，不能丢。
+# **Frames have to be taller than the art**: the red trajectory in the arm-raised throw group reaches above the art's frame,
+# and output 96 tall it would be cut off — that is the warning that "a bomb is coming", which cannot be lost.
 BOSS3_FRAME_W, BOSS3_FRAME_H = 112, 120
 BOSS3_ANCHOR_Y = 68
 BOSS3_OUT = "3_boss"
-## 脚底落在原点下方多少（= 判定框高的一半）。
+## How far below the origin the feet land (= half the hitbox height).
 BOSS3_FOOT = 28
 BOSS3_CLIPS = {
 	"idle": ("Idle.png", [0, 1, 2, 3, 4, 5]),
 	"walk": ("Walk.png", [0, 1, 2, 3]),
-	"run": ("Special.png", [0, 1, 2, 3, 4, 5]),        # 前倾滚动 = 冲撞
+	"run": ("Special.png", [0, 1, 2, 3, 4, 5]),        # Forward-leaning roll = ram
 	"attack_level": ("Attack1.png", [0, 1, 2, 3, 4, 5]),
-	"attack_up": ("Attack3.png", [0, 1, 2, 3, 4, 5]),  # 举臂往上抛炸弹
+	"attack_up": ("Attack3.png", [0, 1, 2, 3, 4, 5]),  # Arm raised, throwing a bomb up
 	"hurt": ("Hurt.png", [0, 1]),
 	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 }
-## HUD 头像：机体上半部那 32×32（座舱和那根天线）。
+## HUD portrait: the 32×32 of the upper body (the cockpit and that antenna).
 BOSS3_PORTRAIT = (20, 34, 32, 32)
 
 
@@ -682,8 +682,8 @@ def build_boss_wheel(write):
 		return [sb.cut(pixels, i * BOSS3_CELL, 0, BOSS3_CELL, BOSS3_CELL) for i in indices]
 
 	clips = {c: frames_at(f, idx) for c, (f, idx) in BOSS3_CLIPS.items()}
-	# 整组只按待机第一帧定一次位（和前两个 Boss 一样）：横向按机体外框居中，
-	# 纵向让脚底落在原点下方 BOSS3_FOOT。
+	# The whole set is positioned once by the first idle frame (like the first two bosses): horizontally centred on the body's bounding box,
+	# vertically with the feet BOSS3_FOOT below the origin.
 	first = clips["idle"][0]
 	xs = [x for row in first for x, c in enumerate(row) if c[3] > 8]
 	dx = BOSS3_FRAME_W // 2 - int(round((min(xs) + max(xs)) / 2.0))
@@ -704,14 +704,14 @@ def build_boss_wheel(write):
 	print("  %s/portrait.png  %dx%d" % (BOSS3_OUT, w, h))
 
 
-# ---------------------------------------------------------------- 地下室（第四关，纵向往上爬）
-# 素材 CraftPix Basement Enemies（`basement-tileset/enemies/`，不进仓库），格式还是 48×48、脚底在帧底边。
-# 打法 2026-10 和用户一起定的（这一关往上爬，威胁要从上下和侧面来）：
+# ---------------------------------------------------------------- Basement (stage 4, climbed vertically)
+# Art: CraftPix Basement Enemies (`basement-tileset/enemies/`, not in the repo), still 48×48 with the feet on the bottom edge.
+# How they fight was decided with the user in 2026-10 (this stage is climbed upward, so threats come from above, below and the sides):
 BASE_PACK = os.path.join(HERE, "..", "art_in", "default", "basement-tileset", "enemies")
 BASE_OUT = os.path.join(HERE, "..", "skins", "basement", "enemies")
 BASE_SINGLES = {
-	# 4-A 光膀子打手：**从下面追上来的追兵**（D 那套，能一层层跳上平台）。
-	# Walk 那组画的就是冲刺（身子前倾、胳膊甩开），走和冲用同一组；空中取其中一帧。
+	# 4-A Bare-chested thug: **a pursuer coming up from below** (D's approach, able to jump up the platforms layer by layer).
+	# The Walk group is drawn as a sprint (body leaning forward, arms swinging), so walking and charging use the same group; in the air it takes one frame from it.
 	"4_a": ("1", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -721,8 +721,8 @@ BASE_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
-	# 4-B 猫耳女：**平台守卫**。Attack 6 帧 = 甩一下、举过头顶（第 3、4 帧，蓄力）、
-	# **第 5 帧刀光横扫到最远**——伤害卡这一帧。
+	# 4-B Cat-ear girl: **platform guard**. The 6 Attack frames = a flick, raised overhead (frames 3 and 4, the wind-up),
+	# **in frame 5 the blade flash sweeps to its farthest** — the damage lands on this frame.
 	"4_b": ("2", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -730,7 +730,7 @@ BASE_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
-	# 4-C 西装男：三向枪手。素材自带水平 / 斜上 / 斜下三组，和第三关 3-B 一样是真斜射。
+	# 4-C Man in a suit: a three-way gunner. The art comes with level / diagonally up / diagonally down groups, real diagonal shots like stage 3's 3-B.
 	"4_c": ("3", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -740,7 +740,7 @@ BASE_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
-	# 4-E 蜘蛛炮台：守层炮台，慢慢挪、横着打一串。不是人形，按外框居中。
+	# 4-E Spider turret: a floor-guarding turret that creeps along and fires a level string. Not humanoid, centred on its bounding box.
 	"4_e": ("5", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -748,7 +748,7 @@ BASE_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}, "box"),
-	# 4-F 骷髅衫打手：**一拳打下平台**。Attack 6 帧里第 5 帧整条胳膊横甩到最远——击退卡这一帧。
+	# 4-F Skull-shirt thug: **knocks you off the platform with one punch**. In the 6 Attack frames the whole arm swings out farthest in frame 5 — the knockback lands on this frame.
 	"4_f": ("6", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -757,9 +757,9 @@ BASE_SINGLES = {
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
 }
-# 4-D 无人机：**贴着玩家的高度飞**、对齐了就横着开枪。素材是**朝左**画的（枪管在左），
-# 生成时先翻过来。机身是第 19~30 行（上面是天线、下面是喷口）。
-# 它的 Attack 只是底下喷口闪一下、没画枪口火光——开火那团光由特效层（`Fx`）另外画。
+# 4-D Drone: **flies at the player's height** and fires level once lined up. The art is drawn **facing left** (gun on the left),
+# so it is flipped first when generating. The body is rows 19~30 (antenna above, nozzle below).
+# Its Attack is only the nozzle underneath flashing, with no muzzle flash drawn — the flash when firing is drawn separately by the effects layer (`Fx`).
 BASE_FLYER_BODY = (19, 30)
 BASE_FLYER = {
 	"idle": ("Idle.png", [0, 1, 2, 3]),
@@ -769,24 +769,24 @@ BASE_FLYER = {
 }
 
 
-# ---------------------------------------------------------------- 地下室的 Boss（骷髅头）
-# 素材 `bosses/2`。每帧 96×96，一个漂着的大骷髅头 + 一只骨手，身子在帧里的 x 10..53、y 23..77，
-# **中心约在 (32, 50)**。动作是看图认的：
-#   Attack1 / Attack2 两组几乎一样：前两帧蓄力、第 3、4 帧从骨手里射出一道**水平激光**（红黑条纹）；
-#   Attack3：身边冒出红球，第 5 帧手里掉出一个**小骷髅**——召唤；
-#   Idle2 / Walk2 / Hurt2 / Death2 是 48×48 的**小骷髅**本身（召唤出来的小兵）；
-#   Sneer：收起骨手只剩骷髅头——嘲讽，用在血过半换挡那一下。
+# ---------------------------------------------------------------- The basement boss (skull)
+# Art `bosses/2`. Each frame 96×96: a big floating skull + a bony hand, the body at x 10..53, y 23..77 in the frame,
+# **centred around (32, 50)**. The actions were identified by looking at the pictures:
+# Attack1 / Attack2 are almost identical: the first two frames charge up, and frames 3 and 4 fire a **level laser** from the bony hand (red and black stripes);
+# Attack3: red balls appear around it, and in frame 5 a **small skull** drops from its hand — the summon;
+# Idle2 / Walk2 / Hurt2 / Death2 are the 48×48 **small skull** itself (the summoned minion);
+# Sneer: the bony hand tucked away leaving only the skull — the taunt, used at the shift when health drops past half.
 #
-# **输出帧 128×96、锚点 (64, 48)**：素材里激光那一截伸到画面右边缘（x 95），往右挪 32 对准锚点之后
-# 到了 127；左右镜像要绕锚点翻，所以左边也得留出同样的宽度。
-# 激光本身由外观按玩法给的长度另外画（`BossSkullAppearance`），素材里那一截只是开头。
+# **Output frames 128×96, anchor (64, 48)**: in the art the laser reaches the right edge of the frame (x 95), and after shifting right 32 to line up with the anchor
+# it reaches 127; left / right mirroring flips around the anchor, so the left side needs the same width.
+# The laser itself is drawn separately by the visual at the length gameplay gives (`BossSkullAppearance`); the piece in the art is only the start.
 BOSS4_DIR = os.path.join(BASE_PACK, "..", "bosses", "2")
 BOSS4_OUT = "4_boss"
 BOSS4_CELL = 96
 BOSS4_FRAME_W = 128
 BOSS4_FRAME_H = 96
 BOSS4_ANCHOR = (64, 48)
-## 素材里身子的中心（对准锚点的那一点）。
+## The centre of the body in the art (the point lined up with the anchor).
 BOSS4_BODY = (32, 50)
 BOSS4_CLIPS = {
 	"idle": ("Idle.png", [0, 1, 2, 3]),
@@ -798,12 +798,12 @@ BOSS4_CLIPS = {
 	"hurt": ("Hurt.png", [0, 1]),
 	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 }
-## 激光那一条：从 Attack1 的出光帧里取一列（x 90）。粗的那档是第 3 帧（6 行），快收的时候第 4 帧（4 行）。
+## The laser strip: one column (x 90) taken from Attack1's beam frames. The thick one is frame 3 (6 rows), the one as it fades is frame 4 (4 rows).
 BOSS4_BEAM = {"beam_thick": (2, 63, 69), "beam_thin": (3, 64, 68)}
 BOSS4_BEAM_COLUMN = 90
-## HUD 头像：骷髅那一块。
+## HUD portrait: the skull.
 BOSS4_PORTRAIT = (16, 22, 32, 32)
-## 小骷髅（48×48，中心约在 (23, 23)），走会飞的那条路：身子是第 17~30 行。
+## The small skull (48×48, centred around (23, 23)), going down the flyer path: the body is rows 17~30.
 MINION4_OUT = "4_minion"
 MINION4_BODY = (17, 30)
 MINION4 = {
@@ -841,14 +841,14 @@ def build_boss_skull(write):
 	build_flyer(write, MINION4_OUT, ".", MINION4, BOSS4_DIR, BASE_OUT, MINION4_BODY)
 
 
-# ---------------------------------------------------------------- 实验室（第五关）
-# 素材 CraftPix Lab Enemies（`lab-tileset/enemies/`，不进仓库）。1~3 号是 48×48、脚底在帧底边的小个子，走 `build_singles`；
-# 4~6 号是 96×96 的炮塔头、`Mech base/` 是底座，叠起来拼成大型机甲（`build_lab_mechs()`）。
+# ---------------------------------------------------------------- Lab (stage 5)
+# Art: CraftPix Lab Enemies (`lab-tileset/enemies/`, not in the repo). Numbers 1~3 are small 48×48 figures with the feet on the bottom edge, going through `build_singles`;
+# numbers 4~6 are 96×96 turret heads and `Mech base/` holds the bases, stacked together into large mechs (`build_lab_mechs()`).
 LAB_PACK = os.path.join(HERE, "..", "art_in", "default", "lab-tileset", "enemies")
 LAB_OUT = os.path.join(HERE, "..", "skins", "lab", "enemies")
 LAB_SINGLES = {
-	# 5-A 科学家（黑发）：巡逻、往前扔酸液瓶（Attack 第 4 帧胳膊甩到最前——出手卡这一帧）；
-	# 挨打或被逼近时**变身**（Transform 4 帧，最后一帧已经是变异体的样子），变完换成 5-C。
+	# 5-A Scientist (black hair): patrols and throws acid flasks forward (in Attack frame 4 the arm swings furthest forward — the release lands on this frame);
+	# **transforms** when hit or closed in on (Transform 4 frames, the last already looks like the mutant), and becomes a 5-C afterwards.
 	"5_a": ("1", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -857,7 +857,7 @@ LAB_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
-	# 5-B 科学家（灰发）：一看见玩家就变身。
+	# 5-B Scientist (grey hair): transforms as soon as it sees the player.
 	"5_b": ("2", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -866,7 +866,7 @@ LAB_SINGLES = {
 		"hurt": ("Hurt.png", [0, 1]),
 		"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 	}),
-	# 5-C 变异体：走近、举手、砸地。Attack 6 帧里第 4 帧（下标 3）大臂砸到地上——伤害和震波卡这一帧。
+	# 5-C Mutant: walks up, raises its arm, smashes the ground. In the 6 Attack frames the big arm hits the ground in frame 4 (index 3) — damage and shockwave land on this frame.
 	"5_c": ("3", "idle", {
 		"idle": ("Idle.png", [0, 1, 2, 3]),
 		"walk": ("Walk.png", [0, 1, 2, 3, 4, 5]),
@@ -877,12 +877,12 @@ LAB_SINGLES = {
 }
 
 
-## 大型机甲 = 炮塔头（4~6 号）叠在底座（`Mech base/`）上：头的底边在第 62 行、底座从第 61~63 行开始，
-## **同一个 96×96 帧里直接叠起来就接上了**，不用挪。输出帧照旧 96×96，锚点是身体中心（外观场景里配）。
-## 表：键 → (锚点, 上下翻转没有, {动作: (头的文件, 帧, 底座的文件, 底座帧（None = 每帧用第 0 帧）)})。
-## - 5-D 原地炮台：机枪头 + 履带。身子那一列中心在 x 46、脚底在第 72 行 → 锚点 (46, 56)；炮口在 (73, 48)。
-## - 5-F 天花板发射器：发射器头 + 小运输车当吊架，**整个上下翻转**（倒挂在天花板上）。
-##   翻过来之后吊架在上、头在下，头的中心 (45, 45) 是锚点，吊架顶边（天花板）在锚点上面 20。
+## Large mech = a turret head (numbers 4~6) stacked on a base (`Mech base/`): the head's bottom is at row 62 and the bases start at rows 61~63,
+## **stacked straight in the same 96×96 frame they join up**, no shifting needed. Output frames stay 96×96, with the anchor at the body centre (set in the visual scene).
+## Table: key → (anchor, flipped upside down or not, {action: (head file, frames, base file, base frames (None = frame 0 every frame))}).
+## - 5-D Stationary turret: machine-gun head + tracks. The body column's centre is at x 46 and the feet at row 72 → anchor (46, 56); muzzle at (73, 48).
+## - 5-F Ceiling emitter: emitter head + a small transporter as the mount, **flipped upside down as a whole** (hanging from the ceiling).
+## Flipped, the mount is on top and the head below; the head's centre (45, 45) is the anchor, and the top of the mount (the ceiling) is 20 above it.
 LAB_MECHS = {
 	"5_d": ((46, 56), False, {
 		"idle": ("5/Idle.png", [0, 1, 2, 3, 4, 5], "Mech base/Walk2.png", None),
@@ -895,11 +895,11 @@ LAB_MECHS = {
 		"hurt": ("4/Hurt.png", [0, 1], "Mech base/Hurt3.png", [0, 1]),
 	}),
 }
-## 5-E 地下钻出来的蜘蛛爪臂：爪臂头 + 蜘蛛腿。身子那一列中心 x 46、脚底第 76 行 → 锚点 (46, 60)。
-## 走路是腿的 6 帧配头的待机 4 帧（轮着用）；攻击那 6 帧爪臂从右边一路扫到左边（第 5、6 帧胳膊甩到另一侧），
-## 玩法里一边转身一边播，正好是「原地转一圈扫两边」。
-## `emerge`（钻出来）是这里拼出来的：前 4 帧地上那块**履带**往旁边滑开，后 4 帧机甲从地板下面升上来
-## （地板线以下的像素切掉）。埋着的时候停在第 1 帧——地上只有一块履带，那就是给玩家的提醒。
+## 5-E The spider claw arm that digs out of the ground: claw-arm head + spider legs. The body column's centre is x 46, feet at row 76 → anchor (46, 60).
+## Walking is the legs' 6 frames with the head's 4 idle frames (cycling); in the 6 attack frames the claw arm sweeps from the right all the way to the left (the arm swings to the other side in frames 5 and 6),
+## and in gameplay it plays while turning around, which is exactly "spin in place and sweep both sides".
+## `emerge` (digging out) is assembled here: in the first 4 frames the **track** on the ground slides aside, in the last 4 the mech rises from under the floor
+## (pixels below the floor line cut off). While buried it stays on frame 1 — only a track on the ground, which is the player's warning.
 LAB_BURROWER = {
 	"anchor": (46, 60),
 	"floor": 76,
@@ -907,13 +907,13 @@ LAB_BURROWER = {
 	"walk": ("6/Idle.png", [0, 1, 2, 3, 0, 1], "Mech base/Walk1.png", [0, 1, 2, 3, 4, 5]),
 	"attack_level": ("6/Attack.png", [0, 1, 2, 3, 4, 5], "Mech base/Walk1.png", [0]),
 	"hurt": ("6/Hurt.png", [0, 1], "Mech base/Hurt1.png", [0, 1]),
-	# 履带（`Walk2` 第 1 帧，第 63~71 行）往右滑开多远、机甲每帧还埋在地下多深
+	# How far the track (`Walk2` frame 1, rows 63~71) slides right, and how deep the mech is still buried each frame
 	"hatch": ("Mech base/Walk2.png", 0),
 	"hatch_slide": [0, 8, 16, 26, 28, 28, 28, 28],
 	"rise": [None, None, None, None, 40, 28, 16, 6],
 }
 MECH_CELL = 96
-## 5-F 滴下来的那滴毒液：`Acid1` 第 1 帧里那滴（带长尾巴，25×59）只取下面 30 行——一个球带一小截尾巴。
+## The drop of poison 5-F drips: only the bottom 30 rows of the drop in `Acid1` frame 1 (with a long tail, 25×59) — a ball with a short tail.
 POISON_DRIP = ("Acid1.png", (24, 30, 25, 30))
 
 
@@ -964,10 +964,10 @@ def build_lab_burrower(write, frames_of_cell):
 		bases = frames_of_cell(base_rel, base_idx)
 		clips[clip] = [stack(h, bases[i % len(bases)]) for i, h in enumerate(heads)]
 	clips["run"] = clips["walk"]
-	# 钻出来：履带滑开，机甲从地板下升上来
+	# Digging out: the track slides aside and the mech rises from under the floor
 	hatch_rel, hatch_frame = spec["hatch"]
 	hatch = frames_of_cell(hatch_rel, [hatch_frame])[0]
-	# 履带底边在第 71 行，往下挪到正好躺在地板线上
+	# The track's bottom is at row 71; move it down to lie exactly on the floor line
 	hatch_drop = floor - 72
 	mech = clips["idle"][0]
 	emerge = []
@@ -997,13 +997,13 @@ def build_lab_burrower(write, frames_of_cell):
 		save_frames("5_e", "%s_l.png" % clip, left, MECH_CELL, MECH_CELL, write, LAB_OUT)
 
 
-# ---------------------------------------------------------------- 实验室的中段小 Boss（变异枪手，`boss/1`）
-# 每帧 72×72、身子在 x 9..44、脚底在帧底边；身子那一列（腿）中心 x 25。动作是看图认的：
-#   Attack1 站着开激光（第 4 帧粗白光、第 5 帧细绿光，打到帧边）、Attack2 边走边开、Attack3 前踢、
-#   Attack4 往前一顶（枪托冲撞）、Special 枪身微微一抬（蓄力，当预警用）。
-# **输出帧 128×72、锚点 (64, 48)**：激光那一截伸到素材帧边（x 71），往右挪 39 对准锚点后到 110，
-# 左右镜像绕锚点翻，两边都得留这么宽。判定框 32×48（脚底在原点下方 24）。
-# 激光本身由外观按玩法给的长度另外画（和地下室骷髅头一个做法）：取出光那两帧的一列。
+# ---------------------------------------------------------------- The lab's mid-level boss (mutant gunner, `boss/1`)
+# Each frame 72×72, the body at x 9..44 with the feet on the bottom edge; the body column (legs) centre is x 25. The actions were identified by looking at the pictures:
+# Attack1 fires the laser standing (frame 4 a thick white beam, frame 5 a thin green one, reaching the frame edge), Attack2 fires while walking, Attack3 a front kick,
+# Attack4 a forward thrust (the rifle-butt ram), Special the gun lifted slightly (charging, used as the warning).
+# **Output frames 128×72, anchor (64, 48)**: the laser reaches the art's frame edge (x 71), and after shifting right 39 to line up with the anchor it reaches 110;
+# mirroring flips around the anchor, so both sides need that width. Hitbox 32×48 (feet 24 below the origin).
+# The laser itself is drawn separately by the visual at the length gameplay gives (the same approach as the basement skull): one column from the two beam frames.
 LAB_MIDBOSS_DIR = os.path.join(LAB_PACK, "..", "boss", "1")
 LAB_MIDBOSS_OUT = "5_midboss"
 LAB_MIDBOSS_CELL = 72
@@ -1022,10 +1022,10 @@ LAB_MIDBOSS_CLIPS = {
 	"hurt": ("Hurt.png", [0, 1]),
 	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 }
-## 激光那一条：Attack1 出光帧里 x 60 那一列。粗的是第 4 帧（第 41~45 行），细的是第 5 帧。
+## The laser strip: the x 60 column in Attack1's beam frames. The thick one is frame 4 (rows 41~45), the thin one frame 5.
 LAB_MIDBOSS_BEAM = {"beam_thick": (3, 41, 46), "beam_thin": (4, 42, 45)}
 LAB_MIDBOSS_BEAM_COLUMN = 60
-## HUD 头像：头和枪那一块。
+## HUD portrait: the head and gun.
 LAB_MIDBOSS_PORTRAIT = (12, 20, 32, 32)
 
 
@@ -1056,10 +1056,10 @@ def build_lab_midboss(write):
 	print("  %s/portrait.png  %dx%d" % (LAB_MIDBOSS_OUT, w, h))
 
 
-## 关底 Boss「生化舱」（素材 `boss/3`）：飞着的，朝右（推进器在左边）。帧 72×72，机身中心在 (26, 34)。
-## 输出帧 144×96、锚点 (72, 48) 放在机身中心——激光和炮口闪光伸到素材右边缘，镜像时两边都得留出来。
-## 文件名对内容：Attack1/2 一样是眼睛打水平激光，Attack3 缩成圆壳，Attack4_1/2/3 是正下 / 斜下 / 水平三门炮，
-## Special 是叶片转一圈（换位置时播），Death 掉下去摔成两半。
+## The stage boss "biopod" (art `boss/3`): it flies, facing right (thrusters on the left). Frames 72×72 with the body centre at (26, 34).
+## Output frames 144×96 with the anchor (72, 48) on the body centre — the laser and muzzle flashes reach the art's right edge, so mirroring needs room on both sides.
+## Files vs contents: Attack1/2 are the same horizontal eye laser, Attack3 curls up into a round shell, Attack4_1/2/3 are the three cannons straight down / diagonally down / level,
+## Special is the blades spinning once (played when changing position), Death falls and breaks in two.
 LAB_POD_DIR = os.path.join(LAB_PACK, "..", "boss", "3")
 LAB_POD_OUT = "5_boss"
 LAB_POD_CELL = 72
@@ -1079,10 +1079,10 @@ LAB_POD_CLIPS = {
 	"hurt": ("Hurt.png", [0, 1]),
 	"death": ("Death.png", [0, 1, 2, 3, 4, 5]),
 }
-## 激光那一条：Attack1 出光帧里 x 70 那一列。粗的是第 4 帧（第 30~41 行），细的是第 6 帧（第 32~37 行）。
+## The laser strip: the x 70 column in Attack1's beam frames. The thick one is frame 4 (rows 30~41), the thin one frame 6 (rows 32~37).
 LAB_POD_BEAM = {"beam_thick": (3, 30, 42), "beam_thin": (5, 32, 38)}
 LAB_POD_BEAM_COLUMN = 70
-## HUD 头像：眼睛那一块。
+## HUD portrait: the eye.
 LAB_POD_PORTRAIT = (12, 18, 32, 32)
 
 
@@ -1116,7 +1116,7 @@ def build_lab_pod(write):
 
 def build_lab(write):
 	if not os.path.isdir(LAB_PACK):
-		sys.exit("找不到实验室敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(LAB_PACK))
+		sys.exit("Cannot find the lab enemy art %s (it is not in the repo, unpack it in yourself)" % os.path.normpath(LAB_PACK))
 	build_singles(write, LAB_SINGLES, LAB_PACK, LAB_OUT)
 	build_lab_mechs(write)
 	build_lab_midboss(write)
@@ -1125,7 +1125,7 @@ def build_lab(write):
 
 def build_basement(write):
 	if not os.path.isdir(BASE_PACK):
-		sys.exit("找不到地下室敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(BASE_PACK))
+		sys.exit("Cannot find the basement enemy art %s (it is not in the repo, unpack it in yourself)" % os.path.normpath(BASE_PACK))
 	build_singles(write, BASE_SINGLES, BASE_PACK, BASE_OUT)
 	build_flyer(write, "4_d", "4", BASE_FLYER, BASE_PACK, BASE_OUT, BASE_FLYER_BODY, faces_left=True)
 	build_boss_skull(write)
@@ -1133,7 +1133,7 @@ def build_basement(write):
 
 def build_industrial(write):
 	if not os.path.isdir(IND_PACK):
-		sys.exit("找不到工业区敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(IND_PACK))
+		sys.exit("Cannot find the industrial zone enemy art %s (it is not in the repo, unpack it in yourself)" % os.path.normpath(IND_PACK))
 	build_singles(write, IND_SINGLES, IND_PACK, IND_OUT)
 	build_flyer(write, "2_e", "5 Copter", IND_FLYER, IND_PACK, IND_OUT, IND_FLYER_BODY)
 	build_boss_operator(write)
@@ -1141,7 +1141,7 @@ def build_industrial(write):
 
 def build_bar_street(write):
 	if not os.path.isdir(BAR_PACK):
-		sys.exit("找不到酒吧街敌人素材 %s（不在仓库里，要自己解压进去）" % os.path.normpath(BAR_PACK))
+		sys.exit("Cannot find the bar street enemy art %s (it is not in the repo, unpack it in yourself)" % os.path.normpath(BAR_PACK))
 	build_singles(write, BAR_SINGLES, BAR_PACK, BAR_OUT)
 	build_boss_wheel(write)
 
@@ -1150,53 +1150,53 @@ def main():
 	write = "--check" not in sys.argv
 	only = [a for a in sys.argv[1:] if not a.startswith("--")]
 	if only == ["lab"]:
-		print("实验室（第五关）的敌人：")
+		print("Lab (stage 5) enemies:")
 		build_lab(write)
 		_report(write)
 		return
 	if only == ["basement"]:
-		print("地下室（第四关）的六种敌人：")
+		print("The six basement (stage 4) enemies:")
 		build_basement(write)
 		_report(write)
 		return
 	if only == ["bar_street"]:
-		print("酒吧街（第三关）的六种敌人：")
+		print("The six bar street (stage 3) enemies:")
 		build_bar_street(write)
 		_report(write)
 		return
 	if only == ["industrial"]:
-		print("工业区（第二关）的六种敌人：")
+		print("The six industrial zone (stage 2) enemies:")
 		build_industrial(write)
 		_report(write)
 		return
 	if not os.path.isdir(PACK):
-		sys.exit("找不到敌人素材包 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(PACK))
-	print("巡逻兵 A/B/C（2 号）：")
+		sys.exit("Cannot find the enemy art pack %s (it is not in the repo, unpack it in yourself)" % os.path.normpath(PACK))
+	print("Patrollers A/B/C (no. 2):")
 	build_walkers(write)
-	print("D（3 号）和 F（1 号）：")
+	print("D (no. 3) and F (no. 1):")
 	build_singles(write)
-	print("Boss A（boss 包 2 号）：")
+	print("Boss A (boss pack no. 2):")
 	build_boss(write)
-	print("炮台（6 号）：")
+	print("Turret (no. 6):")
 	build_turret(write)
-	print("飞行的 E（5 号）：")
+	print("Flying E (no. 5):")
 	build_flyer(write)
-	print("工业区（第二关）的六种敌人：")
+	print("The six industrial zone (stage 2) enemies:")
 	build_industrial(write)
-	print("酒吧街（第三关）的六种敌人：")
+	print("The six bar street (stage 3) enemies:")
 	build_bar_street(write)
-	print("地下室（第四关）的六种敌人：")
+	print("The six basement (stage 4) enemies:")
 	build_basement(write)
 	_report(write)
 
 
 def _report(write):
 	if sb._clipped:
-		print("\n有内容被画布切掉了：")
+		print("\nContent was cut off by the canvas:")
 		for line in sb._clipped[:20]:
 			print("  " + line)
 		sys.exit(1)
-	print("\n没有内容被切掉。" + ("" if write else "（--check：没有写文件）"))
+	print("\nNothing was cut off." + ("" if write else " (--check: no files written)"))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 extends GameTest
-## 竖墙：高度不超过跳跃高度（能翻过去）、挡路、挡子弹、挡敌人视线，巡逻兵碰到会掉头。
-## 这组用例要保留墙，所以都用 reset_scene(…, true)。
+## Vertical walls: no taller than the jump height (can be jumped over), they block the way, block bullets, block enemy sight, and patrollers turn around at them.
+## These cases need the walls kept, so they all use reset_scene(…, true).
 
 const GROUND_Y := 320.0
 
@@ -16,7 +16,7 @@ func wall(wall_name: String) -> Platform:
 	return main.get_node("Level/Walls/" + wall_name) as Platform
 
 
-## 实测玩家在平地上一次完整跳跃能把脚抬多高。
+## Measure how high the player can lift their feet with one full jump on flat ground.
 func measure_jump_height() -> float:
 	await reset_scene()
 	await frames(20)
@@ -44,17 +44,17 @@ func test_walls_are_lower_than_the_jump() -> void:
 	var jump_height := await measure_jump_height()
 	await reset_scene(false, true)
 	for w in walls():
-		# 至少留 6px 余量，正常起跳就能翻过去，不需要卡极限。
+		# Leave at least 6px of margin, so a normal jump gets over without pushing the limit.
 		check("%s (%dpx) is at least 6px lower than the %.0fpx jump" % [w.name, int(w.size.y), jump_height], w.size.y <= jump_height - 6.0)
 
 
 func test_player_can_jump_over_every_wall() -> void:
-	# 关卡里的两堵墙，外加一堵临时搭的 72px 高墙（原来的 Wall3，接近允许的最高高度）。
+	# The two walls in the stage, plus a temporary 72px wall (the old Wall3, close to the highest allowed).
 	for wall_name in ["Wall1", "Wall2", "TallWall"]:
 		await reset_scene(false, true)
 		var w := add_wall(1080, 72, wall_name) if wall_name == "TallWall" else wall(wall_name)
-		# 从墙左边 80px 处往右跑，离墙 44px 时起跳并按住跳跃键。
-		# Wall1 左边上方有 Platform1，改从右边往左翻，免得跳到平台上去。
+		# Run right from 80px left of the wall, take off 44px from it and hold jump.
+		# Platform1 is above the left of Wall1, so go over it from right to left instead, to avoid landing on the platform.
 		var from_left: bool = wall_name != "Wall1"
 		var direction := 1 if from_left else -1
 		var face_x := w.position.x if from_left else w.position.x + w.size.x
@@ -108,7 +108,7 @@ func test_walls_stop_player_bullets() -> void:
 func test_walls_stop_enemy_bullets() -> void:
 	await reset_scene(false, true)
 	var w := wall("Wall2")
-	# 直接在墙右边生成一颗往左飞的敌人子弹，玩家站在墙左边。
+	# Spawn an enemy bullet flying left right next to the wall's right side, with the player standing left of the wall.
 	player.global_position = Vector2(w.position.x - 60.0, 304)
 	var bullet: Bullet = load("res://scenes/enemy_bullet.tscn").instantiate()
 	bullet.direction = Vector2.LEFT
@@ -123,10 +123,10 @@ func test_turret_cannot_see_through_a_wall() -> void:
 	await reset_scene(true, true)
 	keep_only_enemies(["Turret1"])
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
-	var w := add_wall(1080, 72) # 72px 高，挡在炮台（x=1160）前面
+	var w := add_wall(1080, 72) # 72px tall, in front of the turret (x=1160)
 	var shots := [0]
 	turret.shot_fired.connect(func(): shots[0] += 1)
-	# 玩家站在墙左边，炮台射程内（400px）。
+	# The player stands left of the wall, within the turret's range (400px).
 	player.global_position = Vector2(w.position.x - 80.0, 304)
 	player.velocity = Vector2.ZERO
 	for i in 120:
@@ -140,7 +140,7 @@ func test_turret_cannot_see_through_a_wall() -> void:
 	check("turret does not go prone for a player it cannot see", not turret.is_prone)
 	Input.action_release("crouch")
 
-	# 对照组：拆掉墙，同一位置马上就会被打。
+	# Control group: with the wall removed, the same spot gets shot at once.
 	w.free()
 	await frames(2)
 	for i in 30:
@@ -154,7 +154,7 @@ func test_walker_cannot_see_through_a_wall() -> void:
 	keep_only_enemies(["WalkerC"])
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerC")
 	var w := wall("Wall2")
-	# C 的射程 400px。它站在墙右边朝左，玩家在墙左边。
+	# C's range is 400px. It stands right of the wall facing left, the player left of the wall.
 	walker.global_position = Vector2(w.position.x + w.size.x + 80.0, 306)
 	walker.move_speed = 0.0
 	walker.facing = -1
@@ -175,13 +175,13 @@ func test_line_of_sight_passes_one_way_platforms() -> void:
 	await reset_scene(true, false)
 	keep_only_enemies(["Turret1"])
 	var turret: EnemyTurret = main.get_node("Enemies/Turret1")
-	# 只测射线本身：停掉炮台的物理，免得挪到矮通道下面时和顶板重叠被推开。
+	# Only the ray itself is tested: stop the turret's physics so that when moved under the crawl tunnel it does not overlap the ceiling and get pushed away.
 	turret.set_physics_process(false)
-	# 从炮台枪口看 Platform1（单向，x 160..256，y 256..272）正上方的一个点：视线要穿过平台。
+	# From the turret's muzzle look at a point right above Platform1 (one-way, x 160..256, y 256..272): the sight line has to pass through the platform.
 	turret.global_position = Vector2(208, 304)
 	await frames(3)
 	check("one-way platforms do not block line of sight", turret.has_line_of_sight(Vector2(208, 220)))
-	# 同样的方式看 CrawlBlock（实心，x 296..352，y 120..148）上方：会被挡住。
+	# Look the same way above CrawlBlock (solid, x 296..352, y 120..148): it gets blocked.
 	turret.global_position = Vector2(648, 304)
 	await frames(3)
 	check("solid blocks do block line of sight", not turret.has_line_of_sight(Vector2(648, 220)))
@@ -195,7 +195,7 @@ func test_walker_turns_around_at_a_wall() -> void:
 	walker.global_position = Vector2(w.position.x + w.size.x + 60.0, 306)
 	walker.facing = -1
 	walker._apply_facing()
-	# 巡逻兵打起来就不走了，所以要把玩家支开（离得远、又在画面外）
+	# Patrollers stop walking once they start fighting, so the player has to be sent away (far off and out of view)
 	player.global_position = Vector2(1200, 304)
 	player.velocity = Vector2.ZERO
 	await frames(2)

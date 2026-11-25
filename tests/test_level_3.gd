@@ -1,8 +1,8 @@
 extends "res://tests/layered_checks.gd"
-## 正式第三关（`scenes/level_3.tscn`，酒吧街）——2026-10 起是**分层的格子地图**
-## （`tools/level3_map.py` 画、`tools/map_build.py` 查路和写场景，砖用 `THEMES["bar"]`）。
-## 分层关共用的检查在 `layered_checks.gd`；这里只写**这一关独有的**：夜景（楼面、光照层）、
-## 贴地开枪的鲨鱼机、独轮机甲那片空地，以及拿真规则跑几处必须绕的路。
+## The third real stage (`scenes/level_3.tscn`, bar street) — **a layered grid map** since 2026-10
+## (drawn in `tools/level3_map.py`, path-checked and written by `tools/map_build.py`, with the tiles `THEMES["bar"]`).
+## Checks shared by layered stages are in `layered_checks.gd`; this only covers **what is unique to this stage**: the night scene (facades, lighting layer),
+## the shark bot shooting along the floor, the open ground for the wheel mech, and running a few forced detours with the real rules.
 
 const LEVEL_INFO := "res://levels/level_3.tres"
 
@@ -52,8 +52,8 @@ func test_this_stage_brings_its_own_cast() -> void:
 
 
 func test_the_low_shooters_sit_on_the_ground_not_in_it() -> void:
-	# 3-E 只有 12 高，脚底在原点下方 6（别人是 16）。按别人的高度摆会陷进地里 10px，
-	# 「脚下有面」那条只看得出悬空，看不出陷进去——所以这里真跑一下，它不该被地面顶动
+	# 3-E is only 12 tall with its feet 6 below the origin (others: 16). Placed at the others' height it would sink 10px into the floor,
+	# and the "something under its feet" check only catches floating, not sinking — so really run it here; the floor must not push it
 	await open_level()
 	var sharks: Array[Enemy] = []
 	for enemy in enemies():
@@ -70,9 +70,9 @@ func test_the_low_shooters_sit_on_the_ground_not_in_it() -> void:
 
 
 func test_the_boss_has_clear_flat_ground_to_roll_on() -> void:
-	# 独轮机甲**站在地上**，冲撞那一下不受地盘限制（一直滚到时间到或者撞墙）：
-	# 二阶段约 334px，加上地盘本身 220，离出生点 550 以内都可能滚到。
-	# 这一片里有坑它会自己滚下去摔死；有墙会挡住它看玩家的视线（它就什么都不做）。
+	# The wheel mech **stands on the ground**, and its charge is not limited by its ground (it rolls until time is up or it hits a wall):
+	# about 334px in phase 2, plus its ground of 220, so it can roll anywhere within 550 of its spawn point.
+	# A pit in that stretch and it rolls in to its death; a wall blocks its view of the player (and it does nothing).
 	await open_level()
 	var boss := the_boss()
 	check("there is a boss", boss != null)
@@ -90,7 +90,7 @@ func test_the_boss_has_clear_flat_ground_to_roll_on() -> void:
 			check("nothing solid stands in the arena", false, "%s, boss at %.0f" % [rect, boss.position.x])
 
 
-# ---------------------------------------------------------------- 夜景：楼面和光照层
+# ---------------------------------------------------------------- Night scene: facades and lighting layer
 
 func facades() -> Array[Prop]:
 	var out: Array[Prop] = []
@@ -102,7 +102,7 @@ func facades() -> Array[Prop]:
 
 func test_the_street_is_lined_with_buildings() -> void:
 	if needs_art(): return
-	# 宣传图里街边那排楼：素材包只给了砖，楼是 terrain_build.py 拼出来的
+	# The row of buildings along the street in the promo art: the art pack only gave tiles, and the buildings are assembled by terrain_build.py
 	await open_level()
 	var found := facades()
 	check("there are buildings along the street", found.size() >= 30, str(found.size()))
@@ -114,7 +114,7 @@ func test_the_street_is_lined_with_buildings() -> void:
 
 func test_the_buildings_stand_behind_the_rest_of_the_scenery() -> void:
 	if needs_art(): return
-	# 先摆的先画：楼要排在吧台、酒桶、招牌前面，不然一栋楼把它们全盖住
+	# First placed, first drawn: buildings have to come before the bars, barrels and signs, or a building would cover them all
 	await open_level()
 	var last_facade := -1
 	var first_other := 1 << 30
@@ -129,7 +129,7 @@ func test_the_buildings_stand_behind_the_rest_of_the_scenery() -> void:
 
 func test_no_building_stands_over_a_pit() -> void:
 	if needs_art(): return
-	# 楼的整个底边都要落在同一块面上（街面、骑楼顶），悬在坑上看着就是一栋飘着的楼
+	# The whole bottom edge of a building has to rest on one surface (the street, an arcade roof); hanging over a pit it looks like a floating building
 	await open_level()
 	var faces := surfaces()
 	for facade in facades():
@@ -145,7 +145,7 @@ func test_no_building_stands_over_a_pit() -> void:
 
 func test_no_building_is_drawn_over_an_indoor_wall() -> void:
 	if needs_art(): return
-	# 楼面画在室内墙那一层上面：摆进楼里（头顶有楼板的地方）就把墙盖住了
+	# Facades are drawn over the indoor wall layer: placed inside a building (where there is a floor overhead) they would cover the wall
 	await open_level()
 	var solids := solid_rects()
 	for facade in facades():
@@ -160,7 +160,7 @@ func test_no_building_is_drawn_over_an_indoor_wall() -> void:
 
 func test_the_neon_light_falls_on_the_set_not_on_the_cast() -> void:
 	if needs_art(): return
-	# 光照层要夹在地形和人中间：背景、楼、装饰、地形被染色，人和子弹保持原色
+	# The lighting layer has to sit between terrain and characters: backdrop, buildings, scenery and terrain are tinted, characters and bullets keep their colours
 	await open_level()
 	var light := main.get_node_or_null("Lighting")
 	check("the level is lit", light is ScreenLight, str(light))
@@ -205,10 +205,10 @@ func test_the_test_level_stays_unlit() -> void:
 	check("no lighting on the default pack", main.get_node_or_null("Lighting") == null)
 
 
-# ---------------------------------------------------------------- 装饰里不许有像拾取物的东西
+# ---------------------------------------------------------------- No scenery that looks like a pickup
 
-## 2026-10 试玩反馈：酒瓶、酒杯、飞钞、飘牌摆在地上看着就像能捡的东西。
-## 分层版截图又看出两样：`bin`（其实是一个牛头骨）和 `crate`（一把平放的刀），小小一个摆满地板。
+## 2026-10 playtest feedback: bottles, glasses, flying banknotes and floating cards lying on the floor look like things to pick up.
+## The screenshots of the layered version showed two more: `bin` (actually a bull's skull) and `crate` (a knife lying flat), small things strewn all over the floor.
 const PICKUP_LOOKALIKES := ["bottle", "glass", "money", "card", "bin", "crate"]
 
 
@@ -222,15 +222,15 @@ func test_nothing_lying_around_looks_like_a_pickup() -> void:
 			check("%s is not a %s" % [node.name, word], not path.begins_with(word), path)
 
 
-## 基类那条查「会动的装饰真的在动」。这一关会动的两件（飞钞、飘牌）正是像拾取物的那两样，
-## 已经拿掉了，所以改成反过来守：**没有**会动的装饰混进来。
+## The base class checks "animated scenery really moves". The two animated pieces of this stage (banknotes, cards) are exactly the two that looked like pickups,
+## and they are gone, so it guards the opposite: **no** animated scenery creeps in.
 func test_the_fountain_actually_runs() -> void:
 	await open_level()
 	for node in props():
 		check("%s stays still" % node.name, (node as Prop).frames <= 1, str((node as Prop).frames))
 
 
-# ---------------------------------------------------------------- 必须绕的路，拿真规则跑一遍
+# ---------------------------------------------------------------- Forced detours, run with the real rules
 
 func climb(direction: StringName) -> void:
 	Input.action_press(direction)
@@ -251,7 +251,7 @@ func push_right(frames_held := 150, jumping := true) -> void:
 
 
 func test_the_first_bar_is_a_dead_end_downstairs() -> void:
-	# 第 1 段：酒吧一楼走到头是墙，顺梯子上二楼
+	# Segment 1: the bar's ground floor ends at a wall; take the ladder to the first floor
 	await open_empty()
 	player.global_position = Vector2(col_x(1, 60), GROUND_Y - 16.0)
 	await frames(3)
@@ -265,7 +265,7 @@ func test_the_first_bar_is_a_dead_end_downstairs() -> void:
 
 
 func test_the_cellar_is_shuttered_from_the_street() -> void:
-	# 第 3 段：地窖临街那一面是拉下来的卷帘，从街上进不去；酒吧里往右走到头，活板门掉进地窖
+	# Segment 3: the street side of the cellar is a pulled-down shutter, no way in from the street; inside the bar walk right to the end and drop through the trapdoor into the cellar
 	await open_empty()
 	player.global_position = Vector2(col_x(3, 0) - 40.0, GROUND_Y - 16.0)
 	await frames(3)
@@ -283,7 +283,7 @@ func test_the_cellar_is_shuttered_from_the_street() -> void:
 
 
 func test_the_street_ends_below_the_rooftops() -> void:
-	# 第 7 段：街到这儿是死路（第一栋楼的墙一直落到地上），顺消防梯爬上屋顶
+	# Segment 7: the street is a dead end here (the first building's wall comes down to the ground); climb the fire escape to the roofs
 	await open_empty()
 	player.global_position = Vector2(col_x(7, 3), GROUND_Y - 16.0)
 	await frames(3)
@@ -297,7 +297,7 @@ func test_the_street_ends_below_the_rooftops() -> void:
 
 
 func test_the_alley_is_sealed_with_crates() -> void:
-	# 第 9 段：后巷里两摞箱子把路堵死，打烂才过得去
+	# Segment 9: two stacks of crates block the back alley; you only get through by breaking them
 	await open_empty()
 	var stack: Array = []
 	for node in main.get_node("Traps").get_children():

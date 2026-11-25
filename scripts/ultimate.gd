@@ -1,43 +1,43 @@
 class_name Ultimate
 extends Node2D
-## 终极武器的效果（瞬时发动，用 weapons/ultimate.tres 的武器槽发射出来，所以次数、冷却都走武器结构）。
+## The effect of the ultimate (instant; fired from the weapon slot of weapons/ultimate.tres, so charges and cooldown go through the weapon system).
 ##
-## 发动的瞬间：清除所有敌人子弹，记下此刻屏幕内的敌人，给玩家无敌，然后暂停整个场景树——
-## 玩家、敌人、子弹全部定格 freeze_time 秒。时间到了恢复运行，同时对刚才记下的那些敌人调 hit_by_ultimate()：
-## 普通敌人直接消灭（不管血量），Boss 只受伤害（Boss.ultimate_damage），不会被直接消灭。
-## 屏幕外的敌人不受影响。以后的动画放在这里，节点设成 PROCESS_MODE_ALWAYS，暂停期间照样播放。
-## 画面不归它管：定格结束报告 ultimate_blast 时，`targets` 里就是这一下要打的敌人（还没被消灭），
-## Fx 据此在每个敌人身上画一团爆炸。
+## The moment it fires: clear every enemy bullet, note the enemies on screen right now, make the players invincible, then pause the whole scene tree —
+## players, enemies and bullets all freeze for freeze_time seconds. When the time is up it resumes and calls hit_by_ultimate() on the enemies noted earlier:
+## ordinary enemies are destroyed outright (regardless of health), bosses only take damage (Boss.ultimate_damage) and are never destroyed outright.
+## Enemies off screen are unaffected. Future animation goes here; the node is set to PROCESS_MODE_ALWAYS so it keeps playing during the pause.
+## The visuals are not its job: when the freeze ends and ultimate_blast is reported, `targets` holds the enemies to be hit (not destroyed yet),
+## and Fx draws an explosion on each of them from it.
 
-## 定格多久（秒）。
+## How long the freeze lasts (seconds).
 @export var freeze_time := 2.0
-## 恢复行动后玩家还额外无敌多久（秒），免得屏幕外的敌人刚好打过来。
+## Extra invincibility for the players after action resumes (seconds), so an off-screen enemy does not happen to hit them right then.
 @export var grace_time := 0.5
-## 每个敌人身上那团爆炸画多大（纯显示，Fx 读它；和手雷一样大）。
+## Size of the explosion drawn on each enemy (display only, read by Fx; the same size as a grenade's).
 @export var blast_radius := 56.0
 
-## 这一下要打的敌人：发动时记下屏幕内的那些，定格结束报告 ultimate_blast 时 Fx 读它画爆炸。
+## The enemies this blast hits: the ones on screen when it fires; Fx reads it to draw explosions when ultimate_blast is reported at the end of the freeze.
 var targets: Array[Enemy] = []
 
-## 敌人子弹所在的组（enemy_bullet.tscn 里设置）。
+## Group of enemy bullets (set in enemy_bullet.tscn).
 const ENEMY_BULLETS := &"enemy_bullets"
 
 
-## 谁发动的（武器槽发射时填）。被它消灭的敌人，奖励记在这个人头上。
+## Who fired it (filled in by the weapon slot). Enemies destroyed by it reward this player.
 var shooter: Node
 
 
-## 武器槽发射时调用；终极武器没有方向。
+## Called by the weapon slot when firing; the ultimate has no direction.
 func launch(_direction: Vector2) -> void:
 	pass
 
 
-## 正在定格的终极武器都在这个组里。暂停菜单靠它知道「现在是终极武器在定格，别插进来」。
+## Ultimates currently freezing the game are in this group. The pause menu uses it to know "the ultimate is freezing things right now, do not interfere".
 const GROUP := &"ultimates"
 
 
 func _ready() -> void:
-	# 整棵树都会被暂停，这个节点自己得继续跑，才能在时间到了之后恢复。
+	# The whole tree gets paused; this node has to keep running to resume things when the time is up.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	add_to_group(GROUP)
 	_activate()
@@ -48,8 +48,8 @@ func _activate() -> void:
 	targets = enemies_on_screen()
 	for bullet in tree.get_nodes_in_group(ENEMY_BULLETS):
 		bullet.queue_free()
-	# 所有玩家都被定住了，所以都给无敌（双人时队友也是）。
-	# 玩家自己的计时在暂停时也停着，所以这段无敌覆盖整个定格，恢复后再持续 grace_time。
+	# Every player is frozen, so every player gets invincibility (the partner too in co-op).
+	# The players' own timers also stop during the pause, so this invincibility covers the whole freeze and lasts grace_time after it.
 	for node in tree.get_nodes_in_group(&"player"):
 		(node as Player).grant_invincibility(grace_time)
 	tree.paused = true
@@ -62,7 +62,7 @@ func _activate() -> void:
 	queue_free()
 
 
-## 此刻身体中心在屏幕可见范围内的敌人。
+## Enemies whose body centre is inside the visible screen right now.
 func enemies_on_screen() -> Array[Enemy]:
 	var found: Array[Enemy] = []
 	for node in get_tree().get_nodes_in_group(Enemy.GROUP):

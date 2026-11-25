@@ -1,63 +1,63 @@
 class_name BossWheel
 extends Boss
-## Boss 3「独轮机甲」：一个踩在独轮上的大块头，在自己那片地盘里来回滚。
+## Boss 3, the "wheel mech": a hulk riding a single wheel, rolling back and forth on its own ground.
 ##
-## **三招轮着来**（不是随机挑）——这样玩家打两轮就能背下节奏，死了也知道自己错在哪：
-## 1. **炮击**：朝玩家打一串直线弹。中近距离的压制。
-## 2. **抛弹**：把炸弹抛到空中砸下来（就是敌人的手雷，`Grenade` 本来就是抛物线、落地弹一下再炸）。
-##    **它越得过掩体**——站在平台后面慢慢磨这一招专治。
-## 3. **冲撞**：先前倾蓄一下，然后滚过去。**蓄力那一下就是留给玩家跳开的**。
+## **Three moves in rotation** (not picked at random) — so after two rounds the player knows the rhythm, and when they die they know what went wrong:
+## 1. **Cannon**: a string of straight shots at the player. Pressure at short to mid range.
+## 2. **Lob**: throws a bomb into the air to drop on you (it is the enemy grenade; `Grenade` already flies in an arc, bounces once on landing, then explodes).
+## **It clears cover** — this is the answer to slowly chipping away from behind a platform.
+## 3. **Charge**: leans forward to wind up, then rolls over you. **That wind-up is the window for the player to jump away**.
 ##
-## 和前两个 Boss 分得开：Boss A 铺扇形（站进空隙里躲）、Boss 2 飞在空中伸手臂抓（横向闪开），
-## 这个是**地面重装**——三招分别管「远、掩体后、贴脸」，玩家得一直换位置。
+## Distinct from the first two bosses: Boss A fires fans (stand in a gap), Boss 2 flies and grabs with its arm (sidestep);
+## this one is **heavy ground armour** — its three moves cover "far, behind cover, in your face", so the player keeps moving.
 ##
-## **血过半进第二阶段**：出手变快、滚得更快，并且报一声（`boss_enrage`，有声音和屏幕抖动）。
+## **Phase 2 below half health**: attacks faster and rolls faster, and announces it (`boss_enrage`, with sound and a screen shake).
 
-## 现在在干什么。
+## What it is doing now.
 enum Move { ROAM, SHOOT, LOB, WINDUP, ROLL, REST }
 
 @export_group("Movement")
-## 地盘：以出生点为中心左右各多少像素。**不追出去**——走位是玩家的事。
+## Its ground: so many pixels left and right of the spawn point. **It does not chase out** — positioning is the player's job.
 @export var roam_range := 220.0
 @export var roam_speed := 70.0
 @export var turn_time_min := 1.0
 @export var turn_time_max := 2.2
 
 @export_group("Attacks")
-## 两招之间歇多久。
+## Rest between two moves.
 @export var attack_rest := 1.1
-## 炮击：射程以内才打。
+## Cannon: only fires within range.
 @export var shoot_range := 520.0
 
 @export_group("Lob")
-## 抛弹用的发射物（敌人的手雷）。留空就不抛。
+## The projectile for the lob (the enemy grenade). Leave empty to never lob.
 @export var bomb_scene: PackedScene
-## 抛出点（相对身体中心，朝右时；朝左 x 取反）——举起来那条臂的位置。
+## Release point (relative to the body centre, facing right; x flipped when facing left) — where the raised arm is.
 @export var lob_offset := Vector2(6, -34)
-## 举臂到脱手隔多久。素材里那道红色弹道就是这一下的预兆。
+## Time from raising the arm to letting go. The red trail in the art is the warning for this.
 @export var lob_windup := 0.35
-## 玩家在这个水平距离以内才值得抛（太近炸到自己、太远够不着）。
+## Only worth lobbing at a player within this horizontal distance (too close blows itself up, too far falls short).
 @export var lob_min := 80.0
 @export var lob_max := 420.0
 
 @export_group("Roll")
-## 前倾蓄力多久。**这是留给玩家跳开的时间。**
+## How long it leans forward to wind up. **This is the time the player gets to jump away.**
 @export var roll_windup := 0.5
 @export var roll_speed := 260.0
 @export var roll_time := 0.9
 
 @export_group("Enraged")
-## 血掉到这个比例以下进第二阶段。
+## Below this share of health it enters phase 2.
 @export_range(0.0, 1.0) var enrage_below := 0.5
-## 第二阶段「出手更快」的倍率：歇的时间、蓄力的时间都乘它，滚的速度除以它。
+## Phase 2 "attacks faster" multiplier: rest and wind-up times are multiplied by it, rolling speed is divided by it.
 @export var enrage_rush := 0.7
 
-## 炮口（相对身体中心，朝右时）。
+## Cannon muzzle (relative to the body centre, facing right).
 const CANNON := Vector2(36, -2)
 
 var _move := Move.ROAM
 var _left := 0.0
-## 下一招轮到第几个（0 炮击 / 1 抛弹 / 2 冲撞）。
+## Which move is next (0 cannon / 1 lob / 2 charge).
 var _turn := 0
 var _enraged := false
 
@@ -123,9 +123,9 @@ func is_enraged() -> bool:
 	return _enraged
 
 
-## 掉到半血以下就换挡。**判断是「小于等于」而且每次挨打都查一次**：
-## 一发手雷会从半血以上直接打到半血以下，写成「等于」的话绝大多数打法都跨过去了。
-## **报一声**（声音 + 屏幕抖），不然玩家根本不知道它变了。只报一次。
+## Below half health it switches gear. **The check is "at or below" and runs on every hit**:
+## one grenade can take it from above half straight to below half; with "equal to", nearly every way of fighting would skip right past it.
+## **Announce it** (sound + screen shake), otherwise the player never knows it changed. Reported only once.
 func take_damage(amount: int, source_position := Vector2.INF, from: Node = null) -> void:
 	super(amount, source_position, from)
 	if not _enraged and health > 0 and float(health) <= float(max_health) * enrage_below:
@@ -133,20 +133,20 @@ func take_damage(amount: int, source_position := Vector2.INF, from: Node = null)
 		GameEvents.report(&"boss_enrage", self)
 
 
-## 第二阶段歇得短、蓄得短。
+## Phase 2 rests less and winds up less.
 func _timing(seconds: float) -> float:
 	return seconds * enrage_rush if _enraged else seconds
 
 
-## 第二阶段滚得快。
+## Phase 2 rolls faster.
 func _speed(value: float) -> float:
 	return value / enrage_rush if _enraged else value
 
 
-## 轮到下一招。够不着的那一招直接跳过去，不空等。
+## Move on to the next move. If a move cannot reach, skip it instead of waiting around.
 func _begin(target: Node2D) -> void:
-	# **先把速度清零**：这一帧 `_drift()` 已经设过速度了，不清的话底下那次 `move_and_slide()`
-	# 会带着漫游的速度走一帧——起手那一下看着像抽了一下。
+	# **Zero the velocity first**: `_drift()` already set a velocity this frame; without clearing it the `move_and_slide()` below
+	# would carry the wandering speed for one frame — the start of the move would look like a twitch.
 	velocity.x = 0.0
 	for i in 3:
 		var pick: int = (_turn + i) % 3
@@ -190,8 +190,8 @@ func _face(target: Node2D) -> void:
 		_apply_visual_facing()
 
 
-## 抛一颗炸弹出去。**朝玩家那边抛**，`Grenade.launch()` 自己会加上抛，所以是条抛物线——
-## 越得过掩体，正好治「躲在平台后面慢慢磨」。
+## Throw a bomb. **Toward the player**; `Grenade.launch()` adds the upward toss itself, so it flies in an arc —
+## over cover, which is exactly what stops "hiding behind a platform and chipping away".
 func _release() -> void:
 	if bomb_scene == null:
 		return
@@ -199,7 +199,7 @@ func _release() -> void:
 	GameEvents.report(&"grenade_throw", self)
 
 
-## 在地盘里来回滚，到边就掉头。
+## Roll back and forth inside its ground, turning around at the edges.
 func _drift(delta: float) -> void:
 	_turn_left -= delta
 	if _turn_left <= 0.0:
@@ -218,7 +218,7 @@ func _pick_heading() -> void:
 	_heading = -_heading
 
 
-## 一串子弹全沿同一条线，朝玩家。
+## A string of shots all along one line, toward the player.
 func shoot_direction() -> Vector2:
 	var target := find_target()
 	if target == null:
@@ -230,6 +230,6 @@ func _muzzle_position() -> Vector2:
 	return body_center() + Vector2(CANNON.x * facing, CANNON.y)
 
 
-## 够得着就打，方向由 `shoot_direction()` 现算。
+## Fires when it can reach; the direction is worked out by `shoot_direction()`.
 func aim_for(target: Node2D) -> int:
 	return Aim.LEVEL if within_reach(global_position.distance_to(target.global_position)) else -1

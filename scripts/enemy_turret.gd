@@ -1,7 +1,7 @@
 class_name EnemyTurret
 extends Enemy
-## 站桩敌人：玩家进入射程时转向玩家并定时开火——同一高度水平打，斜上/斜下方向瞄准后 45° 打；
-## 玩家在同一高度趴下时它也趴下打低处。
+## Stationary enemy: when the player comes into range it turns to face them and fires on a timer — level shots at the same height, 45° shots after aiming diagonally up/down;
+## when the player lies prone at the same height it lies down too to fire low.
 
 func _physics_process(delta: float) -> void:
 	_apply_gravity(delta)

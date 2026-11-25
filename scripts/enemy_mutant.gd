@@ -1,17 +1,17 @@
 class_name EnemyMutant
 extends EnemyHammer
-## 第五关的变异体（5-C，科学家变身之后也是它）：走近、举手、**砸地**。
+## Stage 5's mutant (5-C, also what the scientists turn into): walks up, raises its fists and **slams the ground**.
 ##
-## 砸地那一下除了锤子兵那套「锤头周围挨打」，还有一圈**震波**：左右 `shock_radius` 以内、
-## **脚踩在地上**、和它站在同一层（脚底差不到 `shock_height`）的玩家都挨一下，被往上弹起来。
-## **跳起来就躲得掉**（人在空中不算）——举手那一下就是让你起跳的时机。
-## 走近、转身、起手、伤害卡在砸到底那一帧，全是 `EnemyHammer` 的（`hit_frame` 配素材第 4 帧）。
+## Besides the hammer man's "hit around the hammer head", the slam sends out a **shockwave**: players within `shock_radius` left and right,
+## **with their feet on the ground** and on the same layer (feet within `shock_height` of its own) all take a hit and are bounced upward.
+## **Jumping dodges it** (players in the air are not affected) — the raised fists are your cue to jump.
+## Walking up, turning, winding up and damage on the frame the slam lands all come from `EnemyHammer` (`hit_frame` set to frame 4 of the art).
 
 @export_group("Shockwave")
 @export var shock_radius := 72.0
 @export var shock_height := 20.0
 @export var shock_damage := 24
-## 被震起来的力度（往上弹）。
+## How hard the shockwave throws you (upward).
 @export var shock_lift := 260.0
 
 
@@ -32,7 +32,7 @@ func _land_the_blow() -> void:
 			player.shove(Vector2(0.0, -shock_lift))
 
 
-## 这个玩家会不会被震到：在左右范围内、脚踩在地上、和它脚底差不多高。
+## Does the shockwave reach this player: within range left and right, feet on the ground, at about the height of its feet.
 func shaken(player: Player, feet: float) -> bool:
 	if not player.is_on_floor():
 		return false
@@ -41,6 +41,6 @@ func shaken(player: Player, feet: float) -> bool:
 	return absf(player.global_position.y + 16.0 - feet) <= shock_height
 
 
-## 自己的脚底在原点下方多少（判定框底边）。
+## How far below the origin its own feet are (bottom of the hitbox).
 func feet_offset() -> float:
 	return 16.0

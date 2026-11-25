@@ -1,31 +1,31 @@
 class_name Boss
 extends Enemy
-## Boss 敌人的基类。关卡里的其它敌人（A/B/C/D/E/炮台）都是普通敌人，直接继承 Enemy。
+## Base class for boss enemies. The other enemies in a level (A/B/C/D/E/turret) are regular enemies and extend Enemy directly.
 ##
-## 和普通敌人的区别：
-## - **出场**：进入屏幕之前处于待机状态（只受重力，不行动）；身体**任何一部分**第一次进入屏幕时「出场」——
-##   （按中心点算的话，宽的 Boss 中心还在屏幕外时已经露出一大截、玩家打得到它，它却还在待机。
-##   待机时被打中也立刻出场，免得还有别的办法在它醒来之前白打。）
-##   报告 appear_event（特殊音效），通过 GameEvents.boss_appeared 通知 HUD 在右上角显示头像和血条。只出场一次。
-## - **终极武器**：定格和清子弹对 Boss 一样有效（暂停整棵树、Boss 的子弹也在 enemy_bullets 组里），
-##   但不会被直接消灭，而是受到 ultimate_damage() 点伤害 = 最大血量 × ultimate_damage_ratio（血量不够时照样会被打死）。
-## - 血量变化发 health_changed，HUD 的血条接这个。
+## Differences from regular enemies:
+## - **Entrance**: idle until it enters the screen (only gravity, no actions); it "appears" the first time **any part** of its body is on screen —
+## (going by the centre point, a wide boss would already be half visible and hittable while still idling.
+## Getting hit while idle also makes it appear at once, so it cannot be shot for free before it wakes.)
+## Reports appear_event (special sound) and notifies the HUD through GameEvents.boss_appeared to show the portrait and health bar. Appears only once.
+## - **Ultimate**: the freeze and bullet clearing work on bosses too (the whole tree pauses, boss bullets are in the enemy_bullets group),
+## but a boss is not destroyed outright; it takes ultimate_damage() = max health × ultimate_damage_ratio (it still dies if that is more than it has left).
+## - Health changes emit health_changed, which the HUD bar listens to.
 ##
-## 具体的攻击方式写在子类的 _boss_process() 里，每个 Boss 各不相同。
+## Each boss's attacks live in its subclass's _boss_process(); every boss is different.
 
-## 血量变化（包括出场那一刻），HUD 血条接这个。
+## Health changed (including the moment it appears); the HUD bar listens to this.
 signal health_changed(health: int, max_health: int)
 
-## 名字（以后 HUD、过场用）。
+## Name (for the HUD and cutscenes later).
 @export var display_name := "BOSS"
-## HUD 右上角的头像（占位美术放在 skins/default/portraits/）。素材包的外观带了头像就用外观的，见 hud_portrait()。
+## Portrait in the HUD (placeholder art lives in skins/default/portraits/). If the pack's appearance has a portrait, that one is used; see hud_portrait().
 @export var portrait: Texture2D
-## 被终极武器打中时受到的伤害占最大血量的比例（0.25 = 四分之一，4 次打死）。每个 Boss 可以不同。
+## Share of max health taken by one hit of the ultimate (0.25 = a quarter, dead in 4). Can differ per boss.
 @export_range(0.0, 1.0) var ultimate_damage_ratio := 0.25
-## 出场时报告的事件名（素材包按它找声音）。
+## Event reported on entrance (the pack looks up a sound by it).
 @export var appear_event := &"boss_appear"
-## 打死它算不算通关（2026-11，第五关的中段小 Boss 关掉）：关卡只接「算通关」的那种的死讯。
-## 血条、头像、终极武器只扣血这些规矩两种都一样。
+## Whether killing it clears the stage (2026-11, off for stage 5's mid-level boss): the level only listens for the deaths of the ones that do.
+## Health bar, portrait and "the ultimate only deals damage" work the same for both.
 @export var ends_level := true
 
 var has_appeared := false
@@ -41,12 +41,12 @@ func _physics_process(delta: float) -> void:
 	_boss_process(delta)
 
 
-## 子类在这里写行为（出场之后每个物理帧调用）。
+## Subclasses put their behaviour here (called every physics frame after the entrance).
 func _boss_process(_delta: float) -> void:
 	pass
 
 
-## 出场：只会发生一次。一般由「进入屏幕」触发，脚本关卡也可以直接调用。
+## Entrance: happens only once. Normally triggered by entering the screen; a scripted level can call it directly.
 func appear() -> void:
 	if has_appeared:
 		return
@@ -64,17 +64,17 @@ func take_damage(amount: int, source_position := Vector2.INF, from: Node = null)
 	health_changed.emit(maxi(health, 0), max_health)
 
 
-## 终极武器一次造成的伤害（向上取整，至少 1）。
+## Damage of one ultimate hit (rounded up, at least 1).
 func ultimate_damage() -> int:
 	return maxi(1, ceili(max_health * ultimate_damage_ratio))
 
 
-## 终极武器对 Boss 只造成伤害，不直接消灭。
+## The ultimate only damages a boss, it never destroys it outright.
 func hit_by_ultimate(from: Node = null) -> void:
 	take_damage(ultimate_damage(), Vector2.INF, from)
 
 
-## HUD 上显示的头像：外观（素材包）自己带了头像就用它，头像跟着皮肤换；否则用场景里配的占位头像。
+## Portrait shown in the HUD: if the appearance (pack) brings its own, use that, so the portrait follows the skin; otherwise the placeholder set in the scene.
 func hud_portrait() -> Texture2D:
 	var skinned: Variant = _visual.get(&"portrait") if _visual != null else null
 	return skinned if skinned is Texture2D else portrait

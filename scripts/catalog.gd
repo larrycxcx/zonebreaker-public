@@ -1,26 +1,26 @@
 class_name Catalog
 extends RefCounted
-## 「游戏里有哪些关卡 / 角色 / 装备」——**扫目录得来的，不是代码里点名的**。
+## "Which stages / characters / gear the game has" — **found by scanning directories, not named in code**.
 ##
-## 这件事关系到以后能不能做 DLC：Godot 的 DLC 是一个 `.pck`，加载时把里面的文件
-## **叠加进 `res://`**。所以只要主程序是去目录里找内容、而不是在常量里写死清单，
-## 丢一个包进去就能多出一关、一批装备、一个角色，主程序一行都不用改。
+## This matters for DLC later: a Godot DLC is a `.pck` whose files are
+## **overlaid onto `res://`** when loaded. As long as the main program looks for content in directories instead of hard-coding lists,
+## dropping in a pack adds a stage, a batch of gear or a character without changing a line of the main program.
 ##
-## 三张清单各是一个目录，每样东西一个小资源：
-## - `levels/` → `LevelInfo`（关卡场景、名字、排序）
-## - `characters/` → `CharacterLook`（皮肤键、名字、排序）
-## - `weapons/`、`armor/` → `Equipment`（装备本身）
+## Each of the three lists is a directory, one small resource per item:
+## - `levels/` → `LevelInfo` (stage scene, name, order)
+## - `characters/` → `CharacterLook` (skin key, name, order)
+## - `weapons/`, `armor/` → `Equipment` (the gear itself)
 ##
-## 排序**不按文件名**，按资源里的 `order`：按文件名排的话 biker / cyborg / punk，
-## 人物设置界面上后两个会对调，加一个 DLC 角色还会插到中间去。
+## Sorting is **not by file name** but by the resource's `order`: by file name it would be biker / cyborg / punk,
+## the last two would swap places in character setup, and a DLC character would land in the middle.
 
 const LEVELS := "res://levels"
 const CHARACTERS := "res://characters"
-## 装备可能放在好几个目录里（枪、防具分开），都扫。
+## Gear may live in several directories (guns and armour apart); scan them all.
 const GEAR := ["res://weapons", "res://armor"]
 
 
-## 全部关卡，按 `order` 排好。
+## All stages, sorted by `order`.
 static func levels() -> Array[LevelInfo]:
 	var found: Array[LevelInfo] = []
 	for item in _scan(LEVELS):
@@ -31,8 +31,8 @@ static func levels() -> Array[LevelInfo]:
 	return found
 
 
-## 这一关排第几（从 0 数）。**按场景路径认**，不按对象认：`Stage.current` 可能是另一份实例。
-## 不在清单里返回 -1。
+## Which position this stage has (counting from 0). **Matched by scene path**, not by object: `Stage.current` may be a different instance.
+## Returns -1 if it is not in the list.
 static func index_of(level: LevelInfo) -> int:
 	if level == null:
 		return -1
@@ -43,18 +43,18 @@ static func index_of(level: LevelInfo) -> int:
 	return -1
 
 
-## 一共几关。
+## Number of stages.
 static func count() -> int:
 	return levels().size()
 
 
-## 从头开始玩的那一关（没有关卡资源时返回 null——那说明装包装漏了）。
+## The stage a new game starts on (null if there are no stage resources — that means the pack was built incompletely).
 static func first_level() -> LevelInfo:
 	var all := levels()
 	return all[0] if not all.is_empty() else null
 
 
-## 全部可选角色，按 `order` 排好。
+## All selectable characters, sorted by `order`.
 static func looks() -> Array[CharacterLook]:
 	var found: Array[CharacterLook] = []
 	for item in _scan(CHARACTERS):
@@ -65,10 +65,10 @@ static func looks() -> Array[CharacterLook]:
 	return found
 
 
-## 商店里卖的东西：扫到的装备里**标了价的**那些。
-## 没标价的不是商品——初始的步枪和手雷（白给）、终极武器（它连装备位都没配，
-## 真混进货单里会变成一把白送的「枪」）都因此被挡在外面。
-## `level` 给了就只列门槛 ≤ 它的（商店按当前等级上货）；留空（0）列全部。
+## What the shop sells: the scanned gear **that has a price**.
+## Unpriced items are not merchandise — the starting rifle and grenades (free) and the ultimate (it does not even have a gear slot,
+## and if it slipped into the stock it would become a free "gun") are all kept out by this.
+## If `level` is given, only items whose level requirement is ≤ it are listed (the shop stocks by current level); left empty (0), everything is listed.
 static func gear_for_sale(level := 0) -> Array[Equipment]:
 	var found: Array[Equipment] = []
 	for folder in GEAR:
@@ -83,8 +83,8 @@ static func gear_for_sale(level := 0) -> Array[Equipment]:
 	return found
 
 
-## 扫一个目录下的资源。目录不存在就当空的——DLC 没装、或者哪个目录还没建，
-## 不该让游戏崩，只是少几样东西。
+## Scan the resources in one directory. A missing directory counts as empty — a DLC not installed, or a directory not created yet,
+## must not crash the game, it just means fewer items.
 static func _scan(folder: String) -> Array[Resource]:
 	var found: Array[Resource] = []
 	if not DirAccess.dir_exists_absolute(folder):
@@ -92,7 +92,7 @@ static func _scan(folder: String) -> Array[Resource]:
 	var names := DirAccess.get_files_at(folder)
 	names.sort()
 	for name in names:
-		# 导出成包之后 `.tres` 会变成 `.tres.remap`，两种都要认
+		# Once exported, `.tres` becomes `.tres.remap`; accept both
 		var clean := name.trim_suffix(".remap")
 		if not clean.ends_with(".tres") and not clean.ends_with(".res"):
 			continue

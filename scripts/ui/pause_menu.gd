@@ -1,12 +1,12 @@
 class_name PauseMenu
 extends CanvasLayer
-## 暂停界面：按 Start（或 Esc）定住整个关卡，弹出 RESUME / SKILLS / QUIT。
+## Pause menu: Start (or Esc) freezes the whole stage and brings up RESUME / SKILLS / QUIT.
 ##
-## **两个玩家都能暂停**——`pause` 这个动作两个手柄的 Start 都绑了。
-## 菜单本身谁都能操作（`MenuList.listens_to` 留 -1），加点界面里才分你我。
+## **Both players can pause** — the `pause` action is bound to the Start button of both pads.
+## Anyone can operate the menu itself (`MenuList.listens_to` left at -1); only the skill screen tells the players apart.
 ##
-## 节点是 `PROCESS_MODE_ALWAYS`：整棵树被 `get_tree().paused` 停住之后，只有它还在跑，才收得到按键。
-## **终极武器定格那两秒不让暂停**：那边也在用 `tree.paused`，两边抢着改会互相把对方解掉。
+## The node is `PROCESS_MODE_ALWAYS`: once the whole tree is stopped by `get_tree().paused`, only it keeps running and can take keys.
+## **No pausing during the ultimate's two-second freeze**: that also uses `tree.paused`, and fighting over it the two would undo each other.
 
 signal opened
 signal closed
@@ -15,7 +15,7 @@ const ITEMS: Array[String] = ["RESUME", "SKILLS", "MAIN MENU"]
 const RESUME := 0
 const SKILLS := 1
 const MAIN_MENU := 2
-## 回主菜单去哪个场景。
+## Which scene "back to the main menu" goes to.
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 
 var _shade: ColorRect
@@ -57,7 +57,7 @@ func is_open() -> bool:
 	return _root.visible
 
 
-## 菜单那一列（测试用）。
+## The menu column (for tests).
 func menu_list() -> MenuList:
 	return _menu
 
@@ -67,8 +67,8 @@ func _physics_process(_delta: float) -> void:
 		open()
 
 
-## 终极武器正在定格、或者已经全灭在等玩家选的时候不让暂停：
-## 那两边也在用 `tree.paused`，抢起来会互相把对方解掉。
+## No pausing while the ultimate is freezing things or while everyone is down waiting for the player to choose:
+## those also use `tree.paused`, and fighting over it they would undo each other.
 func _may_open() -> bool:
 	var tree := get_tree()
 	if not tree.get_nodes_in_group(Ultimate.GROUP).is_empty():
@@ -131,7 +131,7 @@ func _drop_skills() -> void:
 	_skills = null
 
 
-## 回主菜单：先把暂停解掉，否则新场景一进来就是停的。
+## Back to the main menu: unpause first, or the new scene would start paused.
 func _to_main_menu() -> void:
 	var tree := get_tree()
 	_drop_skills()
@@ -141,7 +141,7 @@ func _to_main_menu() -> void:
 	tree.change_scene_to_file(MENU_SCENE)
 
 
-## 场上的玩家，按编号排。
+## The players in play, sorted by number.
 func _players() -> Array[Player]:
 	var found: Array[Player] = []
 	for node in get_tree().get_nodes_in_group(&"player"):

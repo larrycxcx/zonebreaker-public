@@ -1,57 +1,57 @@
 class_name MainMenu
 extends Node2D
-## 主菜单：选几个人玩、每个人新建或读取一个角色，然后开始关卡。
+## Main menu: choose how many players, each creates or loads a character, then the stage starts.
 ##
-## 几页拼起来的一个小流程（`Page`）：
-## 标题（1 PLAYER / 2 PLAYERS / QUIT）→ **每个座位轮流**选 NEW 还是 LOAD →
-## 选 LOAD 就从名册里挑一个（列表显示名字、等级、玩了多久、上次存档时间，可以删）→
-## 都选完就 `change_scene_to_file` 进关卡。
+## A little flow made of several pages (`Page`):
+## title (1 PLAYER / 2 PLAYERS / QUIT) → **each seat in turn** chooses NEW or LOAD →
+## LOAD picks one from the roster (the list shows name, level, play time and last save time, and can delete) →
+## once everyone has chosen, `change_scene_to_file` enters the stage.
 ##
-## 人物设置界面（起名、选外观、加点、装备）还没做，现在选 NEW 直接现开一个默认角色就走；
-## 那一步做好之后插在「选完 NEW / LOAD」和「进关卡」之间。
+## Character setup (naming, picking a look, spending points, gear) is not built yet; choosing NEW just creates a default character on the spot and goes;
+## once that step exists it goes between "NEW / LOAD chosen" and "entering the stage".
 ##
-## 界面一律英文大写（素材包的字模没有汉字，见 CLAUDE.md）。
+## The UI is always English upper case (the pack's font has no Chinese glyphs, see CLAUDE.md).
 
-## 从哪一关开始：**扫 `levels/` 目录**得来的第一关（见 `Catalog`），不在代码里点名。
-## 这样加一关就是往那儿丢一个 `.tres`，DLC 也走同一条路。
-## （`scenes/main.tscn` 是测试关，不在清单里，测试直接加载它。）
+## Which stage to start from: the first stage found by **scanning the `levels/` directory** (see `Catalog`), not named in code.
+## So adding a stage means dropping a `.tres` in there, and DLC goes the same way.
+## (`scenes/main.tscn` is the test level, not in the list; tests load it directly.)
 static func level_scene() -> String:
 	var first := Catalog.first_level()
 	return first.scene_path if first != null else ""
-## 游戏名，写在标题牌里那一格（2026-11 定的，窗口标题 / 存档目录跟着 `application/config/name`）。
+## The game's name, written in the panel of the title plate (decided in 2026-11; the window title / save folder follow `application/config/name`).
 const TITLE := "ZONE BREAKER"
 const SUBTITLE := "A RUN AND GUN"
 
 enum Page {
-	TITLE,      ## 几个人玩
-	SOURCE,     ## 这个座位新建还是读档
-	LOAD_LIST,  ## 从名册里挑一个
-	CONFIRM,    ## 真的要删吗
-	SETUP,      ## 人物设置（每人一栏，都确定了才开始）
-	STAGE,      ## 从解锁了的关卡里挑一关（只有一关可选时直接跳过）
+	TITLE,      ## how many players
+	SOURCE,     ## this seat creates or loads
+	LOAD_LIST,  ## pick one from the roster
+	CONFIRM,    ## really delete?
+	SETUP,      ## character setup (one column per player, starts once everyone has confirmed)
+	STAGE,      ## pick a stage among the unlocked ones (skipped when only one can be chosen)
 }
 
-## 名册列表一页显示几行。存档多过这个数就滚动，不是把后面的砍掉。
+## Rows shown per page of the roster list. With more saves than this it scrolls instead of cutting off the rest.
 const ROWS := 6
-## 列表里的窗口多宽多高。
+## Width and height of the list's window.
 const LIST_BOX := Vector2(480.0, 240.0)
-## 九宫格边框四边各占这么多像素，字得落在里面，压在边上会被框子切掉。
+## The nine-slice frame takes this many pixels on each side; text has to fall inside it, or the frame cuts it off.
 const LIST_EDGE := 32.0
-## 四列：标题、离内容左边多远、多宽。**右边那列的末尾要落在边框里面**
-## （内容左边 = 窗口左边 + 40，所以最多能到 480 - 40 - 32 = 408）。
+## Four columns: title, distance from the left edge of the content, width. **The end of the rightmost column has to fall inside the frame**
+## (content left = window left + 40, so it can reach at most 480 - 40 - 32 = 408).
 const LIST_COLUMNS := [["NAME", 0.0, 134.0], ["LV", 138.0, 40.0], ["PLAYED", 186.0, 84.0], ["SAVED", 278.0, 122.0]]
 
 var _page := Page.TITLE
-## 正在给第几个座位选。
+## Which seat is choosing now.
 var _seat := 0
-## 列表里现在列的是哪些角色（下标和菜单项对得上）。
+## Which characters the list shows now (indexes match the menu items).
 var _listed: Array[PlayerProgress] = []
-## 要删的那个。
+## The one to delete.
 var _doomed: PlayerProgress
-## 哪些座位是读档进来的（名字不能改）。
+## Which seats were loaded from a save (their names cannot be changed).
 var _loaded: Array[int] = []
 var _setup: SetupScreen
-## 列表上那几行的文字（一行四个），滚动时改的是它们的内容，不是重新摆节点。
+## The text of the list rows (four per row); scrolling changes their content instead of laying out nodes again.
 var _row_labels: Array[Array] = []
 var _scroll_mark: Label
 
@@ -67,7 +67,7 @@ func _ready() -> void:
 	_ui = CanvasLayer.new()
 	_ui.layer = 5
 	add_child(_ui)
-	# 背景是白天那套，挺亮的，压暗一层菜单的字才读得清
+	# The backdrop is the daytime one and quite bright; darken it a layer so the menu text is readable
 	var shade := UiKit.shade(0.34)
 	_ui.add_child(shade)
 	_body = Control.new()
@@ -82,7 +82,7 @@ func _ready() -> void:
 	_show(Page.TITLE)
 
 
-## 和关卡里同一套背景（素材包有就用，没有就露出清屏色）。
+## The same backdrop as the stages (the skin pack's if it has one, otherwise the clear colour shows).
 func _add_backdrop() -> void:
 	var scene := Skins.backdrop()
 	if scene == null:
@@ -91,7 +91,7 @@ func _add_backdrop() -> void:
 	backdrop.name = "Backdrop"
 	add_child(backdrop)
 	move_child(backdrop, 0)
-	# 光照层也跟着来（酒吧街的夜景没有它就是一片灰）
+	# The lighting layer comes along too (the bar street at night is all grey without it)
 	var lighting := Skins.lighting()
 	if lighting != null:
 		var light := lighting.instantiate()
@@ -108,32 +108,32 @@ func seat() -> int:
 	return _seat
 
 
-## 列表上现在列着的角色（测试用）。
+## The characters the list shows now (for tests).
 func listed() -> Array[PlayerProgress]:
 	return _listed
 
 
-## 人物设置那一页（测试用），没在那一页就是 null。
+## The character setup page (for tests); null when not on that page.
 func setup() -> SetupScreen:
 	return _setup if _page == Page.SETUP and is_instance_valid(_setup) else null
 
 
 func _physics_process(_delta: float) -> void:
-	# **按这个座位自己那一份**（双人时 1 号是 `menu_delete`、2 号是 `p2_menu_delete`）：
-	# 两个座位轮流选，删的是轮到谁的那一页，不该被另一只手柄按到。单人时谁按都算。
+	# **By this seat's own action** (in co-op player 1 has `menu_delete`, player 2 `p2_menu_delete`):
+	# the two seats choose in turn, and deleting acts on whoever's page it is; it must not be triggered by the other pad. When playing alone anyone's press counts.
 	if _page == Page.LOAD_LIST and not _listed.is_empty() and Session.just_pressed(&"menu_delete", _seat):
 		_doomed = _listed[_menu.index]
 		_show(Page.CONFIRM)
 
 
-# ---------------------------------------------------------------- 画每一页
+# ---------------------------------------------------------------- Drawing each page
 
-## 每一页听谁的键。**写着 PLAYER N 的那几页只听那个座位自己的手柄**——
-## 不分的话，拿 2 号手柄的人可以把角色选进 1 号座位，然后一进人物设置界面
-## （那一栏只听 1 号手柄）他就变成 2 号了（2026-09 试玩报的「手柄错位」）。
-## 「几个人玩」「选哪一关」是**大家一起定的**，所以留 -1（谁按都算），和死亡页同一个道理。
-## 删存档本来就是按座位取的（`_physics_process`），这里只是把导航那一半补齐。
-## 单人时 `Session.just_pressed()` 一律谁按都算，所以这几页在单人下行为不变。
+## Whose keys each page listens to. **The pages that say PLAYER N only listen to that seat's own pad** —
+## otherwise the person holding pad 2 could choose a character into seat 1, and on reaching character setup
+## (where that column only listens to pad 1) they would turn into player 2 (the "pads swapped" report from the 2026-09 playtest).
+## "How many players" and "which stage" are **decided by everyone together**, so they stay at -1 (anyone's press counts), for the same reason as the death screen.
+## Deleting saves already goes by seat (`_physics_process`); this only completes the navigation half.
+## When playing alone `Session.just_pressed()` accepts anyone's press, so these pages behave the same in single player.
 const LISTENS := {
 	Page.TITLE: -1,
 	Page.SETUP: -1,
@@ -173,10 +173,10 @@ func _show(page_: Page) -> void:
 			for level in _unlocked():
 				names.append("%d  %s" % [Catalog.index_of(level) + 1, level.display_name])
 			_lay_out(names, screen, 130.0, "A CHOOSE    B BACK")
-			# 光标停在最靠后的那一关 = 「接着上次打」，想重打前面的往上走
+			# The cursor rests on the furthest stage = "carry on from last time"; move up to replay earlier ones
 			_menu.index = maxi(0, names.size() - 1)
-	# 菜单是 `_ready` 里就加好的，每页的窗口都是后加的——**后加的画在上面**，
-	# 不挪的话金色选中框会被窗口盖住，界面上看不出光标在哪。
+	# The menu is added in `_ready` and each page's windows are added later — **later additions are drawn on top**,
+	# so without moving it the gold selection box would be covered by the window and you could not see where the cursor is.
 	_body.move_child(_menu, -1)
 
 
@@ -217,19 +217,19 @@ func _lay_out(items: Array[String], screen: Vector2, top: float, hint: String) -
 	_body.add_child(_hint)
 
 
-## 名册列表：一行一个角色，名字 / 等级 / 玩了多久 / 上次存档。已经被另一个座位选走的置灰。
+## Roster list: one character per row, name / level / play time / last save. Ones already taken by the other seat are greyed out.
 func _draw_list(screen: Vector2) -> void:
 	_listed = Progress.by_recent()
 	var box := Rect2((screen.x - LIST_BOX.x) / 2.0, 46.0, LIST_BOX.x, LIST_BOX.y)
 	_body.add_child(UiKit.window(box))
-	# 标题要落在窗口**里面**：九宫格的边框占 32px，压在边上会被框子切掉
+	# The title has to fall **inside** the window: the nine-slice frame takes 32px, and text on the edge would be cut off by the frame
 	_body.add_child(UiKit.label("PLAYER %d" % (_seat + 1), Rect2(box.position + Vector2(0, 30.0), Vector2(box.size.x, 22.0)),
 		UiKit.CYAN, UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_CENTER))
 	var left := box.position.x + 40.0
 	var head := box.position.y + 60.0
 	for column in LIST_COLUMNS:
 		_body.add_child(UiKit.label(column[0], Rect2(Vector2(left + column[1], head), Vector2(column[2], 20.0)), UiKit.DIM))
-	# 滚到第几个了（存档多过一屏时才写）。摆在标题那一行的右头，不去挤 SAVED 那一列
+	# How far it has scrolled (only written when there are more saves than fit on one screen). Placed at the right end of the title row, not squeezed into the SAVED column
 	_scroll_mark = UiKit.label("", Rect2(box.position + Vector2(LIST_EDGE, 30.0),
 		Vector2(box.size.x - LIST_EDGE * 2.0 - 8.0, 22.0)), UiKit.DIM,
 		UiKit.TEXT_SIZE, HORIZONTAL_ALIGNMENT_RIGHT)
@@ -243,7 +243,7 @@ func _draw_list(screen: Vector2) -> void:
 	_menu.wide_highlight = true
 	_menu.row_boxes = []
 	_menu.window_rows = ROWS
-	# 选中框正好贴着边框内沿：左边 32、宽度 480 - 32 × 2
+	# The selection box hugs the inner edge of the frame: left 32, width 480 - 32 × 2
 	_menu.build(rows, box.size.x - LIST_EDGE * 2.0)
 	_menu.position = Vector2(box.position.x + LIST_EDGE, head + 22.0)
 	_menu.greyed = taken
@@ -270,8 +270,8 @@ func _on_list_moved(_index: int) -> void:
 		_fill_rows()
 
 
-## 把现在滚到的那几个角色写进那几行里。**节点不重摆，只换文字**——
-## 滚动时重建一堆 Label 会让这一页每按一下就闪一下。
+## Write the characters currently scrolled into view into those rows. **The nodes are not laid out again, only the text changes** —
+## rebuilding a pile of Labels while scrolling would make the page flicker on every press.
 func _fill_rows() -> void:
 	var first := _menu.first_row()
 	for i in _row_labels.size():
@@ -294,20 +294,20 @@ func _fill_rows() -> void:
 			if _listed.size() > _row_labels.size() else "")
 
 
-## 玩了多久，写成 `2H 14M`。
+## Play time, written as `2H 14M`.
 static func played_text(seconds: float) -> String:
 	var whole := int(seconds)
 	return "%dH %02dM" % [whole / 3600, (whole % 3600) / 60]
 
 
-## 存档时间里的日期和时分，写成 `09 21 22 40`（全用空格分隔，最省事也最耐看）。
+## Date and time of the save, written as `09 21 22 40` (all separated by spaces — simplest and easiest on the eye).
 static func saved_text(stamp: String) -> String:
 	if stamp.length() < 16:
 		return ""
 	return "%s %s %s %s" % [stamp.substr(5, 2), stamp.substr(8, 2), stamp.substr(11, 2), stamp.substr(14, 2)]
 
 
-# ---------------------------------------------------------------- 选了什么
+# ---------------------------------------------------------------- What was chosen
 
 func _on_chosen(index: int) -> void:
 	match _page:
@@ -316,8 +316,8 @@ func _on_chosen(index: int) -> void:
 				get_tree().quit()
 				return
 			Session.set_player_count(index + 1)
-			# **按下这一下的那只手柄就是 1 号**，其余连着的往后排。
-			# Godot 的 device 号是按插入顺序给的，和玩家心里的「1 号手柄」没关系。
+			# **The pad that made this press is player 1**, the other connected ones follow in order.
+			# Godot hands out device numbers in plug-in order, which has nothing to do with the player's idea of "pad 1".
 			Session.claim_pads(Session.last_pad)
 			_seat = 0
 			_loaded.clear()
@@ -371,14 +371,14 @@ func _on_cancelled() -> void:
 			_show(Page.SETUP)
 
 
-## 项目设置里的开关：打开时**所有关卡都能选**，不管打到哪儿了。
-## 做关卡的时候要随时跳到任意一关去试，不然每调一次第 5 关就得先把前四关打一遍。
-## **发布前记得关掉**——开着就没有「一关一关打过去」这回事了。
+## A switch in the project settings: when on, **every stage can be chosen**, however far you have got.
+## While making stages you need to jump to any stage to try it; otherwise every tweak to stage 5 would mean playing through the first four.
+## **Remember to turn it off before release** — while it is on there is no "play through the stages one by one".
 const UNLOCK_ALL := "game/unlock_all_levels"
 
 
-## 解锁了的那几关。**双人取两个人里最高的**：老手带新人时朋友也能一起往后打，
-## 不用卡着新角色重打十几关（通关时两个人的进度都往前推，见 `main.gd._unlock_next()`）。
+## The unlocked stages. **In co-op take the higher of the two players**: when a veteran plays with a newcomer the friend can come along further,
+## without replaying a dozen stages with the new character (on a clear both players' progress moves on, see `main.gd._unlock_next()`).
 func _unlocked() -> Array[LevelInfo]:
 	var all := Catalog.levels()
 	if ProjectSettings.get_setting(UNLOCK_ALL, false):
@@ -389,7 +389,7 @@ func _unlocked() -> Array[LevelInfo]:
 	return all.slice(0, clampi(reached, 1, all.size()))
 
 
-## 人物都设置好了：只解锁了一关就直接开打，有得选才问一句。
+## Characters are all set up: with only one stage unlocked start right away, ask only when there is a choice.
 func _after_setup() -> void:
 	if _unlocked().size() <= 1:
 		start_game(Catalog.first_level())
@@ -397,13 +397,13 @@ func _after_setup() -> void:
 	_show(Page.STAGE)
 
 
-## 从人物设置退回来：回到第一个座位重新选 NEW / LOAD。
+## Back from character setup: return to the first seat to choose NEW / LOAD again.
 func _back_to_source() -> void:
 	_seat = 0
 	_show(Page.SOURCE)
 
 
-## 这个座位选完了：还有人没选就轮到下一个，都选完就去设置人物。
+## This seat has chosen: if someone has not chosen yet it is their turn, otherwise on to character setup.
 func _next_seat() -> void:
 	_seat += 1
 	if _seat < Session.player_count:
@@ -412,8 +412,8 @@ func _next_seat() -> void:
 		_show(Page.SETUP)
 
 
-## 开打。**关卡加载之前**先把「打的是哪一关」定下来：
-## 敌人和平台在各自的 `_ready` 里就要问这一关的素材包要外观、按倍率缩放强度。
+## Start playing. **Before the stage loads**, settle "which stage is being played":
+## enemies and platforms ask this stage's skin pack for their look and scale their strength by its multipliers in their own `_ready`.
 func start_game(level: LevelInfo = null) -> void:
 	var going: LevelInfo = level if level != null else Catalog.first_level()
 	Stage.use(going)

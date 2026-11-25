@@ -1,44 +1,44 @@
 class_name EnemyGrenadier
 extends EnemyWalker
-## 敌人 F：巡逻兵的一种，但**不开枪，只扔手雷**。
+## Enemy F: a kind of patroller that **does not shoot, it only throws grenades**.
 ##
-## 手雷的规则和玩家的完全一样（同一个 `grenade.gd`：落地弹一下、再碰到就炸、1.5 秒保底、
-## 半径 28 中心 3 点往边缘降到 1 点、实心物体挡爆炸），区别只有一个——它打玩家、不打敌人
-## （`Grenade.target_layer`，所以不会炸到自己人，也不会炸到自己）。
+## The grenade rules are exactly the player's (the same `grenade.gd`: bounces once on landing, explodes on the next touch, 1.5 s fuse at most,
+## radius 28 with 3 at the centre falling to 1 at the edge, blocked by solid things); the only difference is that it hits players, not enemies
+## (`Grenade.target_layer`, so it cannot hurt its own side or itself).
 ##
-## 不追击（巡逻靠基类）、不跳跃、不趴下。扔的姿势就是玩家平地朝正前方扔：落点在前方约 110px。
+## No chasing (patrolling comes from the base class), no jumping, no going prone. The throw is the same as the player throwing straight ahead on flat ground: it lands about 110px ahead.
 
 @export_group("Grenades")
-## 留空表示不扔（那样它就只会走来走去）。
+## Leave empty to never throw (then it just walks around).
 @export var grenade_scene: PackedScene
-## 两次扔之间至少隔多久。
+## Minimum time between two throws.
 @export var throw_interval := 2.5
-## 玩家在正前方这个水平距离区间内才扔：太近会扔过头，太远够不着。
-## 但自己在屏幕里时，再远也扔（手雷会落在半路，当封路用）——玩家看得见它的时候它不能没反应。
+## It only throws at a player straight ahead within this horizontal distance range: too close and it overshoots, too far and it falls short.
+## But while it is on screen it throws however far away you are (the grenade lands halfway, blocking the way) — it cannot ignore a player who can see it.
 @export var min_throw_distance := 80.0
 @export var max_throw_distance := 300.0
-## 玩家比自己高过 throw_height_above、或低过 throw_height_below 就不扔（手雷是平抛的，够不着）。
+## It does not throw when the player is more than throw_height_above higher or throw_height_below lower (the grenade is thrown level and cannot reach).
 @export var throw_height_above := 80.0
 @export var throw_height_below := 160.0
-## 扔出去时报告的事件名，默认和玩家扔手雷共用一个声音。
+## Event reported on a throw; by default it shares the player's grenade sound.
 @export var throw_event := &"grenade_throw"
 
-## 出手点的默认值：第一关 F 挥棒的那道弧光（相对身体中心，朝右时；朝左 x 取反）。
+## Default release point: the arc of stage 1 F's bat swing (relative to the body centre, facing right; x flipped when facing left).
 const THROW_OFFSET := Vector2(16, -4)
 
-## 这一种从哪儿出手。第三关的炮车是从炮管口打出去的，和挥棒的位置不一样，所以每种自己配。
+## Where this kind lets go. Stage 3's cannon cart fires from the end of its barrel, not where a bat swings, so each kind sets its own.
 @export var throw_offset := THROW_OFFSET
 
 var _throw_timer := 0.0
 
 
 func _physics_process(delta: float) -> void:
-	# 巡逻、转身、接触伤害都走基类；它的 bullet_scene 是空的，所以基类那套射击不会开火。
+	# Patrolling, turning and contact damage all come from the base class; its bullet_scene is empty, so the base class shooting never fires.
 	super(delta)
 	_update_throw(delta)
 
 
-## F 不开枪，「交上火」按能不能扔手雷算：够得着就站定扔，够不着就接着巡逻走近点。
+## F does not shoot, so "engaged" means it can throw a grenade: within reach it stands and throws, otherwise it keeps patrolling closer.
 func is_engaged(_target: Node2D) -> bool:
 	return throw_target() != null
 
@@ -51,8 +51,8 @@ func _update_throw(delta: float) -> void:
 	_throw()
 
 
-## 正前方、距离和高度都合适、并且看得见的玩家；否则返回 null。
-## 和巡逻兵开枪一样只打正前方，转向完全由巡逻决定。
+## A player straight ahead at a suitable distance and height and in sight; otherwise null.
+## Like a patroller's shooting it only targets straight ahead; turning is entirely up to the patrol.
 func throw_target() -> Node2D:
 	for player in players_by_distance():
 		if _can_throw_at(player):

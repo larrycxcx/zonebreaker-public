@@ -1,23 +1,23 @@
 class_name BeltArt
 extends Node2D
-## 传送带的画面（2026-10）：在砖那一层上面，把每条传送带中间那一截的齿**朝它带的方向滚动**。
-## 砖（`TileArt`）画的是静止的传送带（两头的收边 + 中间的齿），这里只把中间那段换成会动的——
-## 玩家一眼看得出这条带往哪边走。纯显示，规则全在平台的 `conveyor` 上。
+## Conveyor art (2026-10): above the tile layer, the teeth in the middle stretch of each belt **scroll in the direction it carries**.
+## The tiles (`TileArt`) draw a still belt (end caps + teeth in the middle); this only replaces the middle with a moving one —
+## so the player can tell at a glance which way the belt goes. Pure presentation; the rule lives in the platform's `conveyor`.
 
 @export var atlas: Texture2D
-## 总图的路径。关卡场景里存的是这个（不直接引用贴图）：砖是第三方素材，公开版里没有，
-## 直接引用的话整个关卡场景加载不了。`_ready` 里有文件才加载；没有就什么都不画，
-## 关卡（`main.gd._show_bare_terrain()`）会把藏着的碰撞平台露出来当地形画。
+## Path of the tile atlas. The level scene stores this (not a direct reference to the texture): the tiles are third-party art missing from the public build,
+## and a direct reference would stop the whole level scene from loading. `_ready` only loads it if the file is there; otherwise nothing is drawn
+## and the level (`main.gd._show_bare_terrain()`) shows the hidden collision platforms as terrain instead.
 @export_file("*.png") var atlas_path := ""
 @export var columns := 9
 @export var tile_size := 32
-## 中间那块传送带砖的编号（素材 `IndustrialTile_75`，齿每 4 像素一个）
+## Number of the middle conveyor tile (art `IndustrialTile_75`, one tooth every 4 pixels)
 @export var tile := 75
-## 每条带：x, y, 宽, 速度（px/s，正数往右），四个一组
+## Each belt: x, y, width, speed (px/s, positive = right), four values per belt
 @export var belts: PackedFloat32Array = PackedFloat32Array()
 
 const PITCH := 4
-## 两头留给收边砖的宽度、每次从砖里取的那一截（取在砖中间，挪 0~3 像素也不会取到砖外面）
+## Width left for the end-cap tiles at both ends, and the slice taken from the tile each time (taken from the middle, so shifting it 0~3 pixels never reads outside the tile)
 const CAP := 8
 const CHUNK := 16
 const CELL_H := 16
@@ -47,7 +47,7 @@ func _draw() -> void:
 		var y := belts[i + 1]
 		var width := belts[i + 2]
 		var speed := belts[i + 3]
-		# 齿往右走 = 取图的位置往左挪
+		# Teeth moving right = the source rect moves left
 		var shift := posmod(-int(floor(_time * speed)), PITCH)
 		var at := x + CAP
 		var end := x + width - CAP

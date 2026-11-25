@@ -1,24 +1,24 @@
 class_name Prop
 extends Sprite2D
-## 关卡里的装饰：长椅、树、石头、草丛、喷泉这些。
+## Scenery in a stage: benches, trees, rocks, bushes, fountains and so on.
 ##
-## **纯显示**：整棵树里不许有碰撞体，也不参与任何判定——和特效是同一条规矩。
-## 关卡里它们挂在 `Props` 节点下，**画在所有东西后面**（背景之后、地形之前），
-## 所以再密也不会挡住敌人、子弹和地形；`Props` 整个删掉游戏照常跑。
+## **Display only**: no colliders anywhere in the tree, and it takes part in no checks — the same rule as effects.
+## In a stage they hang under the `Props` node, **drawn behind everything** (after the backdrop, before the terrain),
+## so however dense they are they never hide enemies, bullets or terrain; delete `Props` entirely and the game still runs.
 ##
-## 贴图的**左下角对准节点位置**（`centered = false` 再往上挪一个身高），
-## 摆的时候直接给「站在哪个面上」就行。
+## The texture's **bottom-left corner sits on the node's position** (`centered = false`, then moved up by its height),
+## so placing it is just a matter of saying "which surface it stands on".
 ##
-## 多帧的是横着排成一条的动画（喷泉 288×72 = 4 帧 × 72），按 `region_rect` 逐帧播。
+## Animated ones are a horizontal strip of frames (fountain 288×72 = 4 frames × 72), played frame by frame through `region_rect`.
 
-## 贴图的路径。**关卡场景里存路径、不直接引用贴图**：装饰是第三方素材，公开版里没有，
-## 直接引用的话整个关卡场景都加载不了；存路径的话缺了就是不画（`_ready` 里加载，没有就空着）。
+## Path of the texture. **The level scene stores a path, not a direct reference**: scenery is third-party art, missing from the public build,
+## and a direct reference would stop the whole level scene from loading; with a path a missing one is simply not drawn (loaded in `_ready`, left empty if absent).
 @export_file("*.png") var texture_path := ""
-## 贴图左下角对准节点位置（装饰的摆法）。false = 居中（贴花的摆法：编号牌上的数字贴在圆盘正中）。
+## Bottom-left corner of the texture on the node's position (how scenery is placed). false = centred (how decals are placed: the digit on a sign sits in the middle of the disc).
 @export var bottom_left := true
-## 贴图里横着排了几帧。1 = 静止的，不走 `_process`。
+## How many frames are laid out side by side in the texture. 1 = static, no `_process`.
 @export var frames := 1
-## 多帧时一秒播几帧。
+## Frames per second for animated ones.
 @export var fps := 8.0
 
 var _time := 0.0
@@ -34,7 +34,7 @@ func _ready() -> void:
 	if texture == null:
 		set_process(false)
 		return
-	# 位置写的是「贴图底边落在哪儿」，所以整张往上挪一个身高
+	# The position says "where the bottom edge of the texture lands", so move the whole thing up by its height
 	offset.y = -texture.get_height()
 	if frames <= 1:
 		set_process(false)

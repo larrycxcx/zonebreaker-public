@@ -1,39 +1,39 @@
 class_name Player
 extends CharacterBody2D
-## 方块玩家：左右移动、跳跃、射击，有生命值和受伤无敌帧。
+## Block player: moves left and right, jumps and shoots, with health and invincibility frames after a hit.
 
 signal health_changed(health: int, max_health: int)
 signal died
-## 血空了但还没真死，正倒在地上等队友来救（只有双人时会发生）。
+## Out of health but not truly dead yet, lying on the ground waiting for the partner to come and help (only happens in co-op).
 signal downed
-## 被队友拉起来了。
+## Pulled back up by the partner.
 signal revived
 signal stamina_changed(stamina: float, max_stamina: float)
-## 切换武器（或当前这把被换掉）时发出，HUD 接这个。
+## Emitted when switching weapons (or when the current one is replaced); the HUD listens to it.
 signal weapon_switched(index: int, weapon: Weapon)
-## 终极武器剩余次数变化，HUD 接这个。
+## The number of ultimate charges changed; the HUD listens to it.
 signal ultimate_ammo_changed(ammo: int, max_ammo: int)
 
 
 @export_group("Health")
-## 最大血量：由生命属性算出来（自己那份进度的 stat(life)），这里不再手填。
+## Max health: worked out from the life stat (its own progress's stat(life)), no longer filled in by hand.
 var max_health := 0
-## 受伤后的无敌时间，期间闪烁且不再受任何伤害。
+## Invincibility time after a hit, blinking and immune to all damage meanwhile.
 @export var invincible_time := 1.0
-## 受伤时被顶开的速度（水平方向背离伤害源）。
+## Knockback speed on a hit (horizontally away from the source of the damage).
 @export var hurt_knockback := Vector2(140, -240)
 
 @export_group("Downed")
-## 倒地之后还能撑多久（秒）。撑完就真死了。**只在双人时会进这个状态**——
-## 一个人玩没人来救，倒地只会变成站着等死。
+## How long it can hold out after going down (seconds). After that it is truly dead. **This state only happens in co-op** —
+## playing alone nobody can come to help, so going down would only mean waiting to die.
 @export var down_time := 10.0
-## 掉进坑里扣掉最大血量的几分之几。
+## Fraction of max health lost on falling into a pit.
 @export var fall_damage_ratio := 1.0 / 3.0
-## 掉进坑里捞回来之后给多久无敌（够你看清楚周围再动）。
+## How long it is invincible after being brought back from a pit (enough to look around before moving).
 @export var fall_grace := 1.5
-## 队友走到这么近（像素，身体原点之间）就自动把人拉起来。不用按键。
+## When the partner comes this close (pixels, between body origins) the downed player is pulled up automatically. No button needed.
 @export var revive_range := 28.0
-## 救起来回多少血（占上限的比例），外加一小段无敌免得刚起来又被同一发子弹打倒。
+## Share of max health restored on revival, plus a short invincibility so the same bullet does not knock you down again right away.
 @export var revive_health_ratio := 0.5
 @export var revive_grace := 1.0
 
@@ -47,81 +47,81 @@ var max_health := 0
 @export var jump_velocity := -560.0
 @export var gravity := 1800.0
 @export var max_fall_speed := 800.0
-## 松开跳跃键时，上升速度乘以这个系数，实现可变跳跃高度。
+## When the jump button is released, the upward speed is multiplied by this for a variable jump height.
 @export var jump_cut := 0.5
-## 离开平台边缘后仍可起跳的时间（土狼时间）。
+## Time after leaving a platform edge during which you can still jump (coyote time).
 @export var coyote_time := 0.1
-## 落地前提前按下跳跃键仍然有效的时间（跳跃缓冲）。
+## Time during which pressing jump just before landing still counts (jump buffer).
 @export var jump_buffer_time := 0.1
 
 @export_group("Ladder")
-## 爬梯子多快（上下一样）。比走路慢一截：梯子是危险地带，爬的时候不能开枪。
+## Climbing speed (same up and down). A bit slower than walking: ladders are dangerous ground, and you cannot shoot while climbing.
 @export var climb_speed := 100.0
-## 从梯子上往旁边跳出去时，起跳速度打几折（比原地起跳矮一点，免得在梯子上一跳就够到上一层）。
+## Multiplier on the jump speed when jumping sideways off a ladder (a bit lower than a standing jump, so one jump from a ladder does not reach the next layer).
 @export var ladder_jump_scale := 0.6
 
 @export_group("Crouch")
-## 趴下时的移动速度倍率。
+## Movement speed multiplier while prone.
 @export var crouch_speed_scale := 0.6
 
 @export_group("Sprint")
-## 奔跑时的移动速度倍率。
+## Movement speed multiplier while running.
 @export var sprint_speed_scale := 1.5
 @export var max_stamina := 100.0
-## 奔跑时每秒消耗的体力。满体力大约能连续跑 max_stamina / stamina_drain 秒。
+## Stamina used per second while running. A full bar lasts about max_stamina / stamina_drain seconds of running.
 @export var stamina_drain := 35.0
-## 停止奔跑后每秒恢复的体力。
+## Stamina recovered per second after you stop running.
 @export var stamina_regen := 25.0
-## 停止奔跑后隔多久才开始恢复。
+## Delay after you stop running before stamina starts to recover.
 @export var stamina_regen_delay := 0.5
-## 体力耗尽后，要恢复到这个比例才能再次奔跑。
-## 否则一直按着奔跑键时，体力会在 0 附近刚回一点就被用掉，人物一顿一顿地时快时慢。
+## After stamina runs out, it has to recover to this share before you can run again.
+## Otherwise, holding the run button, stamina would be used up the moment a little came back around 0, and the character would stutter between fast and slow.
 @export_range(0.0, 1.0) var stamina_recover_ratio := 0.25
 
 @export_group("Weapons")
-## 身上的武器，按切换顺序排列（默认 [步枪, 手雷]）。Shift / 手柄 X 切到下一把，J / RT 用当前这把开火，
-## 都跟着 8 方向瞄准。换武器 = 换这里的资源文件（weapons/*.tres）。
+## Weapons carried, in switching order (default [rifle, grenade]). Shift / pad X switches to the next one, J / RT fires the current one,
+## all following the 8-way aim. Changing weapons = changing the resource files here (weapons/*.tres).
 @export var weapons: Array[Weapon] = []
-## 终极武器（K / 手柄 Y，瞬时发动，有次数限制）。不在切换顺序里。默认 weapons/ultimate.tres。
+## The ultimate (K / pad Y, instant, limited charges). Not in the switching order. Default weapons/ultimate.tres.
 @export var ultimate_weapon: Weapon
 
-## 瞄准方向（魂斗罗式）。W + 左右 = 边走边斜上，只按 W = 原地正上；
-## S + 左右 = 边走边斜下，只按 S：地面上朝前斜下、空中朝正下；W、S 同时按互相抵消；趴下时一律水平。
+## Aim direction (Contra style). W + left/right = diagonally up while walking, W alone = straight up on the spot;
+## S + left/right = diagonally down while walking; S alone: diagonally down ahead on the ground, straight down in the air; W and S together cancel out; always level while prone.
 enum Aim { FORWARD, UP, DIAGONAL_UP, DIAGONAL_DOWN, DOWN }
 
-## 斜向和正下方的出膛点，相对身体中心（朝右时；朝左时 x 取反）。按约定由代码算、不挂在 Visual 下，和外观无关。
-## 斜下的枪口不能太低：子弹转 45° 后半高约 3px，站在地面上（脚底在 +8）时出膛点要在 +5 以上，否则一出膛就嵌进地里。
-## 各方向的出膛点，相对身体中心（朝右时；朝左 x 取反）。全部由代码算，不挂在 Visual 下面——
-## 判定点不能跟着外观走，否则换皮肤、甚至开枪的后坐力位移都会改变子弹从哪飞出去。
+## Diagonal and straight-down muzzle positions, relative to the body centre (facing right; x flipped when facing left). By convention computed in code, not hung under Visual, independent of the look.
+## The diagonal-down muzzle must not be too low: rotated 45° a bullet is about 3px high, so standing on the ground (feet at +8) the muzzle must be above +5, or the bullet sinks into the floor as it leaves.
+## Muzzle position per direction, relative to the body centre (facing right; x flipped when facing left). All computed in code, none hung under Visual —
+## hit points must not follow the look, or a new skin, or even the recoil offset when firing, would change where bullets come from.
 const LEVEL_MUZZLE := Vector2(23, -7)
 const UP_MUZZLE := Vector2(8, -27)
 const DIAGONAL_UP_MUZZLE := Vector2(22, -21)
 const DIAGONAL_DOWN_MUZZLE := Vector2(19, 7)
 const DOWN_MUZZLE := Vector2(9, 13)
 
-## 站立/蹲下的碰撞体高度。脚底位置不变，只压低头顶。
-## 倒地时一秒闪几次：刚倒下慢，快到头了急。
+## Collision height standing / crouching. The feet stay put; only the top of the head comes down.
+## Blinks per second while down: slow just after going down, urgent near the end.
 const DOWN_BLINK_SLOW := 1.5
 const DOWN_BLINK_FAST := 7.0
-## 闪到最暗时多透明。
+## How transparent it gets at the darkest point of the blink.
 const DOWN_BLINK_DIM := 0.25
 
 const STAND_HEIGHT := 32.0
-## 趴下的碰撞体高度。敌人站着开的枪离地 21~25px（枪举在胸口），趴下必须矮于 21px 才躲得开；
-## 取 12 是为了和趴姿贴图（12~14px）差不多高，见 CLAUDE.md「所有人按素材对齐」。
+## Collision height when prone. Enemies' standing shots fly 21~25px above the floor (the gun is raised to the chest), so prone must be lower than 21px to dodge them;
+## 12 is chosen to be about as tall as the prone sprite (12~14px), see "align everyone to the art" in CLAUDE.md.
 const CROUCH_HEIGHT := 12.0
 const HURTBOX_STAND_HEIGHT := 36.0
-## 开枪时外观往反方向弹开多少像素（后坐力，纯表现，不动身体和判定）。
+## How many pixels the appearance kicks back opposite to the shot when firing (recoil, pure presentation, the body and hit checks do not move).
 const RECOIL_DISTANCE := 4.0
-## 后坐力每秒回复多少像素。
+## Pixels of recoil recovered per second.
 const RECOIL_RECOVER := 80.0
-## 从单向平台上跳下来时，忽略那块平台多久（秒）。够落下一个身位就行，太长会穿过下一层平台。
+## How long (seconds) the platform is ignored when dropping through a one-way platform. Long enough to fall one body height; too long and you pass through the next platform too.
 const DROP_THROUGH_TIME := 0.25
-## 跳下来那一下先给一点向下的速度，好立刻脱离地面。
+## Give a little downward speed at the moment of dropping, to leave the floor at once.
 const DROP_THROUGH_SPEED := 80.0
 
 var facing := 1
-## 最近一枪的出膛点和方向（枪口闪光等特效读它，见 fx.gd）。
+## Muzzle position and direction of the latest shot (read by effects such as the muzzle flash, see fx.gd).
 var last_muzzle_position := Vector2.ZERO
 var last_shot_direction := Vector2.RIGHT
 var health := 0
@@ -132,50 +132,50 @@ var stamina := 0.0
 
 var _coyote_timer := 0.0
 var _jump_buffer_timer := 0.0
-## 主武器槽：冷却和弹药都在里面。
-## 当前拿在手上的是第几把。
+## Main weapon slot: holds the cooldown and ammo.
+## Which weapon is in hand.
 var current_weapon := 0
-## 每把武器一个槽，各自记冷却和弹药：切走再切回来，冷却和弹药都还在。
+## One slot per weapon, each with its own cooldown and ammo: switch away and back and both are still there.
 var _slots: Array[WeaponSlot] = []
 var _ultimate := WeaponSlot.new()
 var _recoil := Vector2.ZERO
-## 正在穿过的那块单向平台（跳下平台时临时忽略它的碰撞）。
+## The one-way platform being passed through (its collision is ignored while dropping through).
 var _dropping_platform: Platform
 var _drop_timer := 0.0
 var _invincible_timer := 0.0
-## 不闪烁的无敌（终极武器用）。暂停期间玩家的计时也停着，所以它能覆盖整个定格。
+## Invincibility without blinking (used by the ultimate). The player's timers stop during pause, so it covers the whole freeze.
 var _shield_timer := 0.0
 var _dead := false
-## 最后一次**站稳**的地方：掉进坑里就捞回这儿。只在脚踏实地、没在被击退的时候记，
-## 所以不会记到半空中，也不会记到正往坑里掉的那一瞬。
+## Where the player last **stood firmly**: falling into a pit brings them back here. Only recorded with feet on solid ground and not being knocked back,
+## so it is never recorded in mid-air or at the instant of falling into a pit.
 var _safe_spot := Vector2.ZERO
-## 纵向关里，捞回的落脚点离画面边至少这么远才算「在画面里」（整个人看得见、脚下的面也看得见）。
+## In vertical stages, the landing spot has to be at least this far from the edge of the view to count as "on screen" (the whole player visible, and the ground under them).
 const EDGE_ROOM := 24.0
-## 倒地闪烁走到哪儿了（整数部分 = 闪了几次）。
+## How far the down-blink has got (whole part = number of blinks so far).
 var _down_blink := 0.0
-## 濒死（双人专用）：血空了先倒地，队友走过来就能拉起来，没人来救、倒计时走完才真的死。
+## Near death (co-op only): out of health you first go down; the partner can pull you up by walking over, and only if nobody comes before the countdown ends do you really die.
 var _downed := false
 var _down_timer := 0.0
-## 身上的异常状态（中毒、麻痹……）。持续伤害走 take_status_damage，不触发无敌、不击退。
+## Statuses on the player (poison, paralysis...). Damage over time goes through take_status_damage, with no invincibility and no knockback.
 var statuses := StatusEffects.new()
-## 正抓着的梯子（null = 没在梯子上）。见 `_climb()`。
+## The ladder being held (null = not on a ladder). See `_climb()`.
 var _ladder: Ladder = null
-## 防御属性（挨打时减伤）。
+## Defence stat (reduces damage taken).
 var _defense := 0.0
-## 速度属性让冲刺耗体力变慢（1 = 原样）。
+## The speed stat makes sprinting use stamina more slowly (1 = unchanged).
 var _stamina_drain_scale := 1.0
 var _exhausted := false
 var _stamina_regen_timer := 0.0
 
-## 第几号玩家（0 = 1 号，1 = 2 号）：决定读哪一套输入（见 act()）、用哪一份成长进度、哪一套 HUD。
+## Which player this is (0 = player 1, 1 = player 2): decides which set of inputs to read (see act()), which progress to use and which HUD.
 @export var player_index := 0
 
-## 自己那一份成长进度（`Progress.of(player_index)`，双人时两个人各一份）。在 `_ready` 里取。
+## This player's own progress (`Progress.of(player_index)`, one each in co-op). Taken in `_ready`.
 var progress: PlayerProgress
 
-## 外观层。玩法只调它的接口（朝向/姿势/瞄准/受击/闪烁/死亡/后坐力），不碰方块和颜色。
-## 外观用素材包里的哪一套（见 Skins.build_appearance）。**出生时会被自己那份进度里的 `look` 覆盖**——
-## 外观是角色自己的属性，不是座位的，2 号玩家照样可以选 Biker。
+## Appearance layer. Gameplay only calls its interface (facing / pose / aim / hit / blink / death / recoil) and never touches the blocks or colours.
+## Which appearance of the skin pack to use (see Skins.build_appearance). **On spawn it is overridden by the `look` in this player's progress** —
+## the look belongs to the character, not to the seat; player 2 can pick Biker too.
 @export var skin_key := &"biker"
 @onready var _visual: Appearance = $Visual
 @onready var _hurtbox: Area2D = $Hurtbox
@@ -184,24 +184,24 @@ var progress: PlayerProgress
 @onready var _head_check: ShapeCast2D = $HeadCheck
 
 
-## 这个玩家的输入动作名：1 号就是动作名本身（`shoot`），2 号加前缀（`p2_shoot`）。读输入一律经过它。
+## This player's input action name: for player 1 the action itself (`shoot`), for player 2 with a prefix (`p2_shoot`). All input reading goes through this.
 func act(action: StringName) -> StringName:
 	return action if player_index == 0 else StringName("p%d_%s" % [player_index + 1, action])
 
 
-## 还活着吗（敌人找目标、摄像机跟随、双人的重开判断都看它）。
-## **倒地的也算不活着**：敌人因此不再打他，一种敌人的代码都不用改。
+## Still alive? (Enemy targeting, camera following and the co-op restart check all look at this.)
+## **Being down counts as not alive**: enemies therefore stop shooting at them, without changing any enemy's code.
 func is_alive() -> bool:
 	return not _dead and not _downed
 
 
-## 正倒在地上等人救（双人专用）。
+## Lying on the ground waiting to be helped up (co-op only).
 func is_downed() -> bool:
 	return _downed
 
 
-## 这一局还有人吗：还有人站着、或者有人正倒在地上等救，这一关就还没完（双人）。
-## 关卡和 HUD 都要问这件事，所以搁在这儿，别两处各写一遍。
+## Is anyone left in this run: as long as someone is standing, or someone is down waiting to be helped, the stage is not over (co-op).
+## Both the level and the HUD need to ask this, so it lives here instead of being written twice.
 static func anyone_left(tree: SceneTree) -> bool:
 	for node in tree.get_nodes_in_group(&"player"):
 		var player := node as Player
@@ -210,17 +210,17 @@ static func anyone_left(tree: SceneTree) -> bool:
 	return false
 
 
-## 还能撑多久（秒）。倒计时走完就真死了。
+## How long it can still hold out (seconds). When the countdown ends it is truly dead.
 func down_time_left() -> float:
 	return _down_timer
 
 
 func _ready() -> void:
-	# 先拿自己那份进度：长什么样也记在里面（`look`），外观要按它来装
+	# Take its own progress first: what it looks like is recorded there too (`look`), and the appearance is installed from it
 	progress = Progress.of(player_index)
 	skin_key = progress.look
 	_visual = Skins.build_appearance(self, skin_key)
-	# 两个武器位用进度里身上装备的那两把（枪、手雷）；进度里没有就用场景里配的
+	# The two weapon slots use the two weapons equipped in the progress (gun, grenade); without them, the ones set in the scene
 	var gun := progress.gear(Equipment.Slot.GUN) as Weapon
 	var grenade := progress.gear(Equipment.Slot.GRENADE) as Weapon
 	if gun != null and grenade != null:
@@ -234,7 +234,7 @@ func _ready() -> void:
 		_ultimate.equip(ultimate_weapon)
 	_apply_stats()
 	health = max_health
-	# 还没走过一步就掉下去的话，捞回出生点（不设的话会被捞到世界原点去）
+	# If it falls before taking a single step, bring it back to the spawn point (unset, it would be brought back to the world origin)
 	_safe_spot = global_position
 	health_changed.emit(health, max_health)
 	progress.stats_changed.connect(_apply_stats)
@@ -242,8 +242,8 @@ func _ready() -> void:
 	statuses.changed.connect(_on_status_changed)
 	stamina = max_stamina
 	stamina_changed.emit(stamina, max_stamina)
-	# HeadCheck 正好覆盖「站起来需要多出来的那段空间」：从站立头顶到趴下后的头顶。
-	# 按常量算而不是写死在场景里，改下蹲高度时不会不同步。
+	# HeadCheck covers exactly "the extra space needed to stand up": from the standing head height to the prone head height.
+	# Worked out from constants rather than fixed in the scene, so changing the crouch height cannot get out of sync.
 	var headroom := STAND_HEIGHT - CROUCH_HEIGHT
 	(_head_check.shape as RectangleShape2D).size.y = headroom
 	_head_check.position.y = -STAND_HEIGHT / 2.0 + headroom / 2.0
@@ -262,7 +262,7 @@ func _physics_process(delta: float) -> void:
 	if _ladder == null:
 		_try_grab_ladder()
 	if _ladder != null:
-		# 在梯子上：只爬，不受重力、不左右走、**不开枪**、不切武器、不趴下。终极武器照样能放（任何状态都能）
+		# On a ladder: only climb — no gravity, no walking sideways, **no shooting**, no weapon switching, no going prone. The ultimate still works (it works in any state)
 		_climb(delta)
 		_handle_ultimate()
 		_update_invincibility(delta)
@@ -287,8 +287,8 @@ func _physics_process(delta: float) -> void:
 	_visual.motion(_motion_state())
 
 
-## 在梯子前按「上」，或者站在梯子顶上按「下」，就抓住它。
-## 横向要对得上：身体中线离梯子中线不超过半个梯子宽。
+## Grab a ladder by pressing "up" in front of it, or "down" while standing on top of it.
+## It has to line up horizontally: the body's centre line within half a ladder width of the ladder's centre line.
 func _try_grab_ladder() -> void:
 	var up := Input.is_action_pressed(act(&"aim_up"))
 	var down := Input.is_action_pressed(act(&"aim_down"))
@@ -301,11 +301,11 @@ func _try_grab_ladder() -> void:
 		var ladder := node as Ladder
 		if absf(global_position.x - ladder.global_position.x) > ladder.width / 2.0:
 			continue
-		# 往上：人得在梯子跟前（脚在梯子顶以下、头在梯子底以上）
+		# Up: the player has to be in front of the ladder (feet below the ladder top, head above the ladder foot)
 		if up and feet > ladder.top_y() + 2.0 and global_position.y - STAND_HEIGHT / 2.0 < ladder.bottom_y():
 			_grab(ladder)
 			return
-		# 往下：站在梯子顶上
+		# Down: standing on top of the ladder
 		if down and is_on_floor() and absf(feet - ladder.top_y()) <= 2.0:
 			_grab(ladder)
 			global_position.y += 4.0
@@ -321,7 +321,7 @@ func _grab(ladder: Ladder) -> void:
 		add_collision_exception_with(ladder.cap_body())
 
 
-## 松开梯子（爬到头、跳下来、挨打、倒地都走这儿）。
+## Let go of the ladder (reaching the end, jumping off, getting hit and going down all come through here).
 func _release_ladder() -> void:
 	if _ladder != null and is_instance_valid(_ladder) and _ladder.cap_body() != null:
 		remove_collision_exception_with(_ladder.cap_body())
@@ -332,11 +332,11 @@ func is_climbing() -> bool:
 	return _ladder != null
 
 
-## 在梯子上的一帧：上下爬；按跳跃跳下来；爬到顶站上去，爬到底落地松手。
+## One frame on a ladder: climb up and down; jump to drop off; step off at the top, let go on landing at the bottom.
 func _climb(_delta: float) -> void:
 	var dir := signf(Input.get_axis(act(&"aim_up"), act(&"aim_down")))
 	if Input.is_action_just_pressed(act(&"jump")):
-		# 带着左右方向就往那边跳出去，不带就直接松手往下掉
+		# With a left/right direction it jumps off that way, without one it simply lets go and drops
 		var side := signf(Input.get_axis(act(&"move_left"), act(&"move_right")))
 		_release_ladder()
 		if side != 0.0:
@@ -350,7 +350,7 @@ func _climb(_delta: float) -> void:
 	move_and_slide()
 	var feet := global_position.y + STAND_HEIGHT / 2.0
 	if feet <= _ladder.top_y():
-		# 爬到顶：站到梯子顶那一层上（盖子恢复碰撞，就站住了）
+		# Reached the top: step onto the floor at the top of the ladder (the cover's collision comes back and holds them)
 		global_position.y = _ladder.top_y() - STAND_HEIGHT / 2.0
 		velocity = Vector2.ZERO
 		_release_ladder()
@@ -358,14 +358,14 @@ func _climb(_delta: float) -> void:
 		_release_ladder()
 
 
-## 记下最后一次站稳的地方。**要真的站住**：踩在地上、横竖都不在飞，
-## 才算一个能把人捞回来的落脚点。
+## Remember where the player last stood firmly. **They must really be standing**: on the ground, not flying horizontally or vertically,
+## before it counts as a spot to bring them back to.
 func _remember_safe_ground() -> void:
 	if is_on_floor() and absf(velocity.y) < 1.0:
 		_safe_spot = global_position
 
 
-## 这一帧在做什么，交给外观去选动画。趴下不在这里说，它走 `pose()`（见 Appearance.Motion）。
+## What it is doing this frame, for the appearance to pick a clip. Prone is not stated here, it goes through `pose()` (see Appearance.Motion).
 func _motion_state() -> Appearance.Motion:
 	if not is_on_floor():
 		return Appearance.Motion.FALL if velocity.y > 0.0 else Appearance.Motion.JUMP
@@ -390,7 +390,7 @@ func _handle_jump(delta: float) -> void:
 	else:
 		_jump_buffer_timer -= delta
 
-	# 魂斗罗式跳下平台：站在单向平台上按住「下」再按跳跃，就直接穿下去，而不是起跳。
+	# Contra-style drop through a platform: standing on a one-way platform, holding "down" and pressing jump drops straight through instead of jumping.
 	if _jump_buffer_timer > 0.0 and is_on_floor() and Input.is_action_pressed(act(&"aim_down")):
 		var platform := _one_way_floor()
 		if platform != null:
@@ -399,7 +399,7 @@ func _handle_jump(delta: float) -> void:
 
 	var can_jump := _jump_buffer_timer > 0.0 and _coyote_timer > 0.0
 	if can_jump and is_crouching:
-		# 蹲着也能跳，但得先站得起来：头顶被挡住就跳不了。
+		# You can jump while crouching too, but only if you can stand up: with something overhead you cannot jump.
 		if _head_blocked():
 			can_jump = false
 		else:
@@ -415,31 +415,31 @@ func _handle_jump(delta: float) -> void:
 		velocity.y *= jump_cut
 
 
-## 脚下踩着的单向平台；踩的是实心地面（或者没踩着东西）就返回 null。
-## 用上一次 move_and_slide 的碰撞结果判断，所以只有真正站在平台上时才跳得下去。
+## The one-way platform underfoot; null when standing on solid ground (or on nothing).
+## Judged from the collisions of the last move_and_slide, so you can only drop through when really standing on the platform.
 func _one_way_floor() -> Platform:
 	for i in get_slide_collision_count():
 		var collision := get_slide_collision(i)
 		if collision.get_normal().y > -0.7:
-			continue # 不是脚下那一面
+			continue # Not the surface underfoot
 		var platform := collision.get_collider() as Platform
 		if platform != null and platform.one_way:
 			return platform
 	return null
 
 
-## 开始穿过这块平台：临时把它排除在碰撞之外，并往下推一点。
+## Start passing through this platform: exclude it from collisions for now and push down a little.
 func _drop_through(platform: Platform) -> void:
 	_dropping_platform = platform
 	_drop_timer = DROP_THROUGH_TIME
 	add_collision_exception_with(platform)
 	velocity.y = maxf(velocity.y, DROP_THROUGH_SPEED)
-	# 跳跃缓冲要清掉，否则刚穿下去就又起跳了。
+	# Clear the jump buffer, or it would jump again right after dropping through.
 	_jump_buffer_timer = 0.0
 	_coyote_timer = 0.0
 
 
-## 时间到就恢复和那块平台的碰撞（这时人已经落到它下面了，不会被顶回去）。
+## When the time is up restore collision with that platform (by then the player is below it and will not be pushed back up).
 func _update_drop_through(delta: float) -> void:
 	if _drop_timer <= 0.0:
 		return
@@ -452,9 +452,9 @@ func _update_drop_through(delta: float) -> void:
 
 
 func _handle_horizontal(delta: float) -> void:
-	# 手柄摇杆推过死区（0.3）就按全速走，不按推的幅度调速——像素风横版的习惯；键盘本来就只有 0 和 1。
+	# Once the stick passes the dead zone (0.3) it walks at full speed instead of scaling with how far it is pushed — the habit of pixel side-scrollers; a keyboard only gives 0 or 1 anyway.
 	var direction := signf(Input.get_axis(act(&"move_left"), act(&"move_right")))
-	# 麻痹之类的状态：动不了
+	# Statuses such as paralysis: cannot move
 	if not statuses.can_act():
 		direction = 0.0
 	_update_sprint(delta, direction)
@@ -477,13 +477,13 @@ func _speed_scale() -> float:
 	return status
 
 
-## 按住奔跑键且正在移动时加速并消耗体力；不跑的时候隔一小段时间开始回体力。
-## 原地按着奔跑键不算奔跑，也不耗体力；趴着不能奔跑。
+## Holding the run button while moving speeds up and uses stamina; when not running, stamina starts recovering after a short delay.
+## Holding the run button while standing still is not running and uses no stamina; you cannot run while prone.
 func _update_sprint(delta: float, direction: float) -> void:
 	var wants := Input.is_action_pressed(act(&"sprint")) and direction != 0.0 and not is_crouching
 	is_sprinting = wants and not _exhausted and stamina > 0.0
 
-	# 先更新 _exhausted 再改体力：stamina_changed 发出时状态已经是最新的，HUD 据此变色。
+	# Update _exhausted before changing stamina: when stamina_changed fires the state is already up to date, and the HUD changes colour from it.
 	if is_sprinting:
 		var drained := stamina - stamina_drain * _stamina_drain_scale * delta
 		if drained <= 0.0:
@@ -500,7 +500,7 @@ func _update_sprint(delta: float, direction: float) -> void:
 		_set_stamina(regained)
 
 
-## 体力耗尽、还没恢复到能重新起跑的程度。
+## Stamina ran out and has not yet recovered enough to run again.
 func is_exhausted() -> bool:
 	return _exhausted
 
@@ -514,7 +514,7 @@ func _set_stamina(value: float) -> void:
 
 
 func _update_crouch() -> void:
-	# 只能在地面上主动蹲；空中松开蹲键会自动站起来。
+	# You can only crouch on purpose on the ground; releasing crouch in the air stands up automatically.
 	var wants := Input.is_action_pressed(act(&"crouch")) and is_on_floor()
 	if wants == is_crouching:
 		return
@@ -528,7 +528,7 @@ func _set_crouching(value: bool) -> void:
 	is_crouching = value
 	var height := CROUCH_HEIGHT if value else STAND_HEIGHT
 	var lowered := (STAND_HEIGHT - height) / 2.0
-	# 碰撞体和受击框同时压低，并整体下移，保证脚底位置不变。
+	# The collision shape and hurtbox are lowered together and shifted down, keeping the feet in place.
 	(_shape.shape as RectangleShape2D).size.y = height
 	_shape.position.y = lowered
 	(_hurtbox_shape.shape as RectangleShape2D).size.y = HURTBOX_STAND_HEIGHT - (STAND_HEIGHT - height)
@@ -536,39 +536,39 @@ func _set_crouching(value: bool) -> void:
 	_visual.pose(height / STAND_HEIGHT, lowered)
 
 
-## 碰撞体中心的世界坐标。趴下时比 global_position 低 6px，敌人的视线要瞄这里。
+## World position of the collision shape's centre. 6px below global_position when prone; enemies aim their sight here.
 func body_center() -> Vector2:
 	return _shape.global_position
 
 
-## 判定框在世界里的矩形（趴下时跟着变矮）。横贯一条线的攻击（地下室 Boss 的激光）拿它判断碰没碰到。
+## The hitbox as a rectangle in the world (shorter when prone). Attacks that sweep a line (the basement boss's laser) use it to check for contact.
 func hit_box() -> Rect2:
 	var size := (_shape.shape as RectangleShape2D).size
 	return Rect2(_shape.global_position - size / 2.0, size)
 
 
-## 头顶上方是否有东西挡着，挡着就站不起来。
+## Is something overhead in the way? If so, you cannot stand up.
 func _head_blocked() -> bool:
 	_head_check.force_shapecast_update()
 	for i in _head_check.get_collision_count():
 		var collider := _head_check.get_collider(i)
-		# 单向平台可以从下面穿过去，不算挡头。
+		# One-way platforms can be passed through from below, so they do not block your head.
 		if collider is Platform and (collider as Platform).one_way:
 			continue
 		return true
 	return false
 
 
-## J 用当前武器朝当前瞄准方向开火（瞄准规则见 Aim）。趴着不动只能水平开枪（子弹贴地飞），趴着爬行时不能开枪。
+## J fires the current weapon in the current aim direction (aim rules: see Aim). Lying still you can only fire level (the bullet skims the floor); crawling you cannot fire.
 func _handle_shoot(delta: float) -> void:
-	# 所有武器的冷却都在走：切走的那把也会冷却好。
+	# Every weapon's cooldown keeps running: the one you switched away from cools down too.
 	for slot in _slots:
 		slot.tick(delta)
 	var moving := Input.get_axis(act(&"move_left"), act(&"move_right")) != 0.0
 	_update_aim(moving)
 	var pressed := Input.is_action_pressed(act(&"shoot")) if current_slot().weapon.automatic else Input.is_action_just_pressed(act(&"shoot"))
-	# 趴下时一律不能开火：步枪、手雷都不行，不管在不在爬行。想开枪先站起来。
-	# （终极武器不走这里，任何状态都能发动。）
+	# No firing at all while prone: neither rifle nor grenade, crawling or not. To shoot, stand up first.
+	# (The ultimate does not come through here; it can be used in any state.)
 	if is_crouching or not pressed or not current_slot().is_ready() or not statuses.can_act():
 		return
 	_shoot(aim_vector())
@@ -585,11 +585,11 @@ func _update_aim(moving: bool) -> void:
 		aim = Aim.DIAGONAL_DOWN
 	else:
 		aim = Aim.DOWN
-	# 占位美术：按瞄准方向显示对应的那根枪。
+	# Placeholder art: show the gun for the aim direction.
 	_visual.aim(aim_vector())
 
 
-## 当前瞄准方向对应的子弹方向（单位向量）。
+## Bullet direction for the current aim (unit vector).
 func aim_vector() -> Vector2:
 	match aim:
 		Aim.UP:
@@ -603,19 +603,19 @@ func aim_vector() -> Vector2:
 	return Vector2(facing, 0)
 
 
-## K / 手柄 Y 发动终极武器。任何状态（趴着、爬行、空中）都能用；效果见 Ultimate。
+## K / pad Y fires the ultimate. Usable in any state (prone, crawling, in the air); see Ultimate for the effect.
 func _handle_ultimate() -> void:
 	if _ultimate.weapon == null or not Input.is_action_just_pressed(act(&"ultimate")) or not _ultimate.is_ready():
 		return
 	_ultimate.fire(get_parent(), global_position, Vector2(facing, 0), self)
 
 
-## 终极武器还剩几次。
+## Ultimate charges left.
 func ultimate_ammo() -> int:
 	return _ultimate.ammo
 
 
-## 不闪烁的无敌 seconds 秒（已有更长的就保留更长的）。
+## Invincibility without blinking for seconds (keeps a longer one if there already is one).
 func grant_invincibility(seconds: float) -> void:
 	_shield_timer = maxf(_shield_timer, seconds)
 
@@ -629,7 +629,7 @@ func _handle_switch() -> void:
 		switch_weapon()
 
 
-## 切到下一把武器（最后一把之后回到第一把）。
+## Switch to the next weapon (back to the first after the last).
 func switch_weapon() -> void:
 	if _slots.size() < 2:
 		return
@@ -643,7 +643,7 @@ func current_slot() -> WeaponSlot:
 	return _slots[current_weapon]
 
 
-## 把第 index 把武器换成 weapon（以后拾取武器升级就调这个）：冷却清零、弹药补满。
+## Replace weapon number index with weapon (future weapon upgrade pickups call this): cooldown cleared, ammo refilled.
 func equip_weapon(index: int, weapon: Weapon) -> void:
 	weapons[index] = weapon
 	_slots[index].equip(weapon)
@@ -653,8 +653,8 @@ func equip_weapon(index: int, weapon: Weapon) -> void:
 		weapon_switched.emit(current_weapon, weapon)
 
 
-## 用当前武器朝 direction 开一次火（不看冷却；_handle_shoot 先检查过了，测试也直接调它）。
-## 所有武器都从同一套枪口出膛（见 _muzzle_position）。
+## Fire the current weapon once in direction (ignores the cooldown; _handle_shoot checked it already, and tests call this directly).
+## All weapons fire from the same set of muzzles (see _muzzle_position).
 func _shoot(direction: Vector2) -> void:
 	last_muzzle_position = _muzzle_position(direction)
 	last_shot_direction = direction
@@ -663,8 +663,8 @@ func _shoot(direction: Vector2) -> void:
 	current_slot().fire(get_parent(), last_muzzle_position, direction, self)
 
 
-## 出膛点：身体原点（= 站立碰撞体的中心）+ 该方向的常量偏移，朝左时 x 取反。
-## 趴下时不能开火，所以不需要「趴下的出膛点」——玩家这边的高度规则只看站姿。
+## Muzzle position: the body origin (= the centre of the standing collision shape) + the constant offset for the direction, x flipped when facing left.
+## You cannot fire while prone, so there is no "prone muzzle" — the player's height rules only look at standing.
 func _muzzle_position(direction: Vector2) -> Vector2:
 	var offset := LEVEL_MUZZLE
 	if direction == Vector2.UP:
@@ -676,8 +676,8 @@ func _muzzle_position(direction: Vector2) -> Vector2:
 	return global_position + Vector2(offset.x * facing, offset.y)
 
 
-## 后坐力：开枪那一下外观往反方向弹开，然后弹回原位。
-## 只改 Visual 的位置，身体、碰撞体、枪口、子弹全都不受影响。
+## Recoil: on firing, the appearance kicks back opposite the shot, then springs back.
+## Only the position of Visual changes; the body, collision shape, muzzle and bullets are all unaffected.
 func _update_recoil(delta: float) -> void:
 	if _recoil == Vector2.ZERO:
 		return
@@ -692,11 +692,11 @@ func _update_invincibility(delta: float) -> void:
 	if _invincible_timer <= 0.0:
 		_visual.blink(1.0)
 	else:
-		# 每 0.05 秒切换一次显隐，做出闪烁效果。
+		# Toggle visibility every 0.05 seconds for the blinking effect.
 		_visual.blink(0.3 if int(_invincible_timer / 0.05) % 2 == 0 else 1.0)
 
 
-## 站在/贴着敌人身上时持续判定，无敌帧结束后会再次受伤。
+## Checked continuously while standing on / touching an enemy; once invincibility ends you get hurt again.
 func _check_contact_damage() -> void:
 	if is_invincible():
 		return
@@ -704,14 +704,14 @@ func _check_contact_damage() -> void:
 		if body is Enemy:
 			var enemy := body as Enemy
 			take_damage(enemy.contact_damage, enemy.global_position)
-			# 撞上了也告诉它一声：会追人的 D 会往后弹开，不然它一直贴着，无敌帧一过又扣一次血
+			# Tell it about the bump too: a chasing D bounces back; otherwise it would stay glued on and hit again as soon as the invincibility frames end
 			enemy.bounced_off(global_position)
 			return
 
 
-## 从进度里读属性：生命 → 血量上限（上限加了多少就补多少血），攻击 → 伤害倍率，
-## 速度 → 冷却倍率和冲刺的体力消耗倍率，防御留着挨打时用。
-## 出生时读一次，之后属性一变（升级加点、换装备）就重读。
+## Read the stats from the progress: life → max health (raising the cap heals by the same amount), attack → damage multiplier,
+## speed → cooldown multiplier and sprint stamina multiplier, defence is kept for when you get hit.
+## Read once on spawn, then again whenever the stats change (levelling up, spending points, changing gear).
 func _apply_stats() -> void:
 	var life := int(progress.stat(Balance.LIFE))
 	if max_health > 0 and life > max_health and not _dead:
@@ -728,14 +728,14 @@ func _apply_stats() -> void:
 	health_changed.emit(health, max_health)
 
 
-## 挂一个异常状态（子弹、手雷打中时调）。抗性来自身上的装备（自己那份进度的 resistance）。
+## Apply a status (called when bullets or grenades hit). Resistance comes from the equipped gear (the resistance in this player's progress).
 func apply_status(effect: StatusEffect) -> void:
 	if _dead or _downed or effect == null:
 		return
 	statuses.apply(effect, progress.resistance(effect.id))
 
 
-## 状态挂上 / 解除：告诉外观（染色）；HUD 那行字听 `status_changed`。
+## A status applied / removed: tell the appearance (tint); the HUD line listens to `status_changed`.
 signal status_changed(id: StringName, active: bool)
 
 
@@ -745,7 +745,7 @@ func _on_status_changed(id: StringName, active: bool) -> void:
 	status_changed.emit(id, active)
 
 
-## 异常状态的持续伤害：不吃防御、不触发无敌时间、不击退（防它靠抗性）。
+## Damage over time from a status: ignores defence, triggers no invincibility, no knockback (resistance is the defence against it).
 func take_status_damage(amount: int) -> void:
 	if _dead or _downed or amount <= 0:
 		return
@@ -755,12 +755,12 @@ func take_status_damage(amount: int) -> void:
 		_die()
 
 
-## 被敌人子弹或接触伤害调用。`source_position` 用来决定击退方向。防御按 Balance.damage_taken 减伤。
-## `from` 是打人的那一方，玩家这边用不上（敌人用它记奖励算谁的），但签名要和敌人的一模一样——
-## `Bullet` 是靠 `has_method("take_damage")` 找目标的，两边必须同名同签名。
+## Called by enemy bullets or contact damage. `source_position` decides the knockback direction. Defence reduces the damage through Balance.damage_taken.
+## `from` is the attacker; unused on the player's side (enemies use it to credit the reward), but the signature must match the enemies' exactly —
+## `Bullet` finds targets through `has_method("take_damage")`, so both sides need the same name and signature.
 func take_damage(amount: int, source_position := Vector2.INF, _from: Node = null) -> void:
-	# 倒地的人打不动：敌人本来就不瞄他（is_alive 是 false），但流弹和贴身伤害还是会撞上来，
-	# 不拦的话倒计时会被一次次刷新。
+	# A downed player cannot be hurt: enemies do not aim at them anyway (is_alive is false), but stray bullets and contact damage still run into them,
+	# and without this the countdown would keep being refreshed.
 	if _dead or _downed or is_invincible():
 		return
 	health -= Balance.damage_taken(amount, _defense)
@@ -770,7 +770,7 @@ func take_damage(amount: int, source_position := Vector2.INF, _from: Node = null
 		return
 	GameEvents.report(&"player_hurt", self)
 	_invincible_timer = invincible_time
-	# 挨一下就从梯子上被打下来
+	# One hit knocks you off the ladder
 	_release_ladder()
 	var away := 1.0 if source_position == Vector2.INF else signf(global_position.x - source_position.x)
 	if away == 0.0:
@@ -778,8 +778,8 @@ func take_damage(amount: int, source_position := Vector2.INF, _from: Node = null
 	velocity = Vector2(hurt_knockback.x * away, hurt_knockback.y)
 
 
-## 被抡飞：直接给一个速度，之后照常受重力、空中控制慢慢吃掉它。
-## 挨打本身（扣血、无敌帧）走 `take_damage`，这里只管飞出去多远——地下室 4-F 用它。
+## Flung away: just set a velocity; gravity and air control wear it down as usual.
+## The hit itself (losing health, invincibility frames) goes through `take_damage`; this only decides how far you fly — basement 4-F uses it.
 func shove(push: Vector2) -> void:
 	if _dead or _downed:
 		return
@@ -787,7 +787,7 @@ func shove(push: Vector2) -> void:
 	velocity = push
 
 
-## 血空了：双人时先倒地等人救，单人直接死。
+## Out of health: in co-op go down and wait for help first, alone die at once.
 func _go_down() -> void:
 	_release_ladder()
 	if Session.player_count < 2:
@@ -805,7 +805,7 @@ func _go_down() -> void:
 	GameEvents.report(&"player_down", self)
 
 
-## 倒地时每帧：队友走到跟前就自动拉起来，没人来就倒计时，撑完真死。
+## Every frame while down: the partner walking up pulls you up automatically; otherwise the countdown runs and at the end you really die.
 func _update_downed(delta: float) -> void:
 	for node in get_tree().get_nodes_in_group(&"player"):
 		var mate := node as Player
@@ -818,15 +818,15 @@ func _update_downed(delta: float) -> void:
 		_die()
 
 
-## 倒地的人**身上越闪越快**——时间还剩得多就慢慢闪，快到头了闪得急，
-## 队友一眼就看得出还来不来得及。比在 HUD 上写个数字直观：眼睛本来就盯着人。
+## A downed player **blinks faster and faster** — slowly while there is plenty of time left, urgently near the end,
+## so the partner can tell at a glance whether there is still time. More direct than a number on the HUD: the eyes are on the characters anyway.
 func _blink_while_down(delta: float) -> void:
 	var left := clampf(_down_timer / maxf(down_time, 0.001), 0.0, 1.0)
 	_down_blink += delta * lerpf(DOWN_BLINK_FAST, DOWN_BLINK_SLOW, left)
 	_visual.blink(DOWN_BLINK_DIM if fmod(_down_blink, 1.0) < 0.5 else 1.0)
 
 
-## 被队友拉起来：回一半血，给一小段无敌，接着打。
+## Pulled up by the partner: half health back, a short invincibility, carry on fighting.
 func revive() -> void:
 	if not _downed:
 		return
@@ -842,15 +842,15 @@ func revive() -> void:
 	GameEvents.report(&"player_revive", self)
 
 
-## 掉出关卡（踩空掉进坑里）：**扣掉三分之一的血，捞回最后站稳的地方**，再给一小段无敌，
-## 不是直接判死。坑在这一关里到处都是，一脚踩空就重来一整关太狠了。
-## 扣完血还剩得下才捞人；扣没了就照常走死亡那条路（双人时是倒地等人救）。
-## **不吃无敌帧**：刚挨完打的那一秒不该让你在坑里飘着。
+## Fell out of the stage (stepped into a pit): **lose a third of max health and get brought back to where you last stood firmly**, plus a short invincibility,
+## instead of dying outright. Pits are everywhere in this stage, and replaying the whole stage for one misstep would be too harsh.
+## Only bring the player back if there is health left after the loss; if it runs out, go down the usual death path (in co-op, down and waiting for help).
+## **Invincibility frames do not protect you**: the second after being hit should not leave you floating in a pit.
 func fall_out() -> void:
 	if _dead:
 		return
 	if _downed:
-		# 倒地的人掉下去：已经没血可扣了，捞回来接着等队友
+		# A downed player falling in: no health left to lose, so bring them back to keep waiting for the partner
 		_respawn_at_safe_ground()
 		return
 	health -= maxi(1, ceili(max_health * fall_damage_ratio))
@@ -863,7 +863,7 @@ func fall_out() -> void:
 	_respawn_at_safe_ground()
 
 
-## 捞回最后一次站稳的地方，站定、给一小段无敌。
+## Bring the player back to where they last stood firmly, standing still, with a short invincibility.
 func _respawn_at_safe_ground() -> void:
 	_release_ladder()
 	global_position = landing_spot()
@@ -871,9 +871,9 @@ func _respawn_at_safe_ground() -> void:
 	grant_invincibility(fall_grace)
 
 
-## 掉出去之后捞回哪儿：**最后一次站稳的地方**。
-## 纵向关里画面只往上卷，那个地方可能已经卷出画面了（队友爬得快、把你甩在底下）——
-## 捞回去等于马上又掉一次。那就捞到**画面里队友最后站稳的地方**；谁的都不在画面里，只好照旧。
+## Where to bring the player back to after falling out: **where they last stood firmly**.
+## In vertical stages the view only scrolls up, and that spot may already have scrolled off screen (the partner climbed fast and left you behind) —
+## bringing you back there would mean falling again at once. So bring you to **where your partner last stood, on screen**; if neither spot is on screen, use the old one anyway.
 func landing_spot() -> Vector2:
 	var rig := CameraRig.find(get_tree())
 	if rig == null or not rig.only_up:

@@ -1,15 +1,15 @@
 extends GameTest
-## 音效：事件总线 → 素材包 → 播放器这条链路，以及素材包能替换声音。
-## 前半部分逐个场景确认「游戏里真的会报告这个事件」，最后一条用例检查
-## SkinPack.SOUND_EVENTS 里的每个事件都被某个场景实际触发过——清单和游戏不会各说各的。
+## Sound: the event bus → skin pack → player chain, and skin packs replacing sounds.
+## The first part confirms scene by scene that "the game really reports this event"; the last case checks
+## that every event in SkinPack.SOUND_EVENTS was actually triggered by some scene — so the list and the game cannot drift apart.
 
 const DEFAULT_SKIN_DIR := "res://skins/default/"
 
-## 各场景实际观察到的事件，跨用例累计（同一组的用例共用一个实例）。
+## Events actually seen in each scene, accumulated across cases (the cases of a suite share one instance).
 var covered := {}
 
 
-## 断言这些事件都出现过，并记进 covered。
+## Assert that these events all happened, and record them in covered.
 func expect_events(expected: Array, context: String) -> void:
 	for event in expected:
 		var seen := events.has(event)
@@ -20,15 +20,15 @@ func expect_events(expected: Array, context: String) -> void:
 
 func _only(enemy_name: String) -> Node:
 	keep_only_enemies([enemy_name])
-	# 关卡加载那两帧里，屏幕里的敌人可能已经开过枪：清掉那些事件，只看这一个敌人的
+	# In the two frames of loading, enemies on screen may already have fired: clear those events and look only at this one enemy's
 	events.clear()
 	var enemy: Enemy = main.get_node("Enemies/" + enemy_name)
-	enemy._fire_timer = 0.0 # 那一枪的冷却也别带进来
+	enemy._fire_timer = 0.0 # and do not carry over that shot's cooldown either
 	enemy._burst_left = 0
 	return enemy
 
 
-# ---------------------------------------------------------------- 结构
+# ---------------------------------------------------------------- Structure
 
 func test_audio_setup() -> void:
 	if needs_art(): return
@@ -39,8 +39,8 @@ func test_audio_setup() -> void:
 	var players := Sfx.get_children().filter(func(c): return c is AudioStreamPlayer)
 	check("Sfx has a pool of players", players.size() == Sfx.POOL_SIZE, str(players.size()))
 	check("all of them play on the SFX bus", players.all(func(p): return p.bus == &"SFX"))
-	# 游戏启动时用哪个包由项目设置决定（现在是赛博朋克包）。不管指向谁，
-	# 声音都必须找得到——找不到就是这个包的 fallback 链断了。
+	# Which pack the game starts with is decided by the project settings (the cyberpunk pack now). Whatever it points to,
+	# the sounds must be found — if not, the pack's fallback chain is broken.
 	var startup := load(ProjectSettings.get_setting(Skins.SETTING)) as SkinPack
 	check("the project setting points at a real skin pack", startup != null,
 		str(ProjectSettings.get_setting(Skins.SETTING)))
@@ -62,7 +62,7 @@ func test_default_skin_has_every_sound() -> void:
 
 
 func test_every_sound_file_is_used() -> void:
-	# 生成器输出的每个 wav 都要被默认包用上，不留孤儿文件；反过来包里引用的文件也都在。
+	# Every wav the generator outputs must be used by the default pack, with no orphans; and every file the pack references must exist.
 	await reset_scene()
 	var used := {}
 	for stream in Skins.default_skin().sounds.values():
@@ -78,7 +78,7 @@ func test_every_sound_file_is_used() -> void:
 	check("the skin references no missing files", used.keys().all(func(p): return FileAccess.file_exists(p)))
 
 
-# ---------------------------------------------------------------- 游戏里真的会报告这些事件
+# ---------------------------------------------------------------- The game really reports these events
 
 func test_player_events() -> void:
 	await reset_scene()
@@ -91,7 +91,7 @@ func test_player_events() -> void:
 	Input.action_release("jump")
 	await frames(60)
 	player.current_slot().cooldown_left = 0.0
-	Input.action_press("shoot") # 贴着左墙往左打
+	Input.action_press("shoot") # Firing left against the left wall
 	await frames(2)
 	Input.action_release("shoot")
 	await frames(10)
@@ -116,8 +116,8 @@ func test_player_hurt_death_and_game_over() -> void:
 		player._invincible_timer = 0.0
 		player.take_damage(HIT, player.global_position + Vector2(40, 0))
 		await frames(2)
-	# game_over 现在是**当场报**（`game_over_delay` 已经改成 0）：声音走 Sfx 单例，
-	# 弹出那一页不会截断它，没必要为了让死亡音效先响而干等
+	# game_over is now **reported immediately** (`game_over_delay` is now 0): the sound goes through the Sfx singleton,
+	# and the screen popping up does not cut it off, so there is no need to wait for the death sound first
 	await frames(4)
 	expect_events([&"player_hurt", &"player_death", &"game_over"], "losing all health")
 	check("hurt twice before dying", events.count(&"player_hurt") == 2, str(events.count(&"player_hurt")))
@@ -169,7 +169,7 @@ func test_turret_shot() -> void:
 
 
 func test_enemy_prone_event() -> void:
-	# 只有 C 会跟着玩家趴下（炮台不会）。
+	# Only C goes prone after the player (the turret does not).
 	await reset_scene(true)
 	var c: EnemyWalker = _only("WalkerC")
 	c.global_position = Vector2(1000, 304)
@@ -183,7 +183,7 @@ func test_enemy_prone_event() -> void:
 		await tree.physics_frame
 	expect_events([&"enemy_prone"], "C lying down with the player")
 	check("enemy_prone is reported once, not every frame", events.count(&"enemy_prone") == 1, str(events.count(&"enemy_prone")))
-	# set_prone() 是公开方法：对已经趴着的敌人再调一次，不能再报告一遍。
+	# set_prone() is public: calling it again on an enemy already prone must not report it again.
 	c.set_prone(true)
 	check("set_prone on an already prone enemy does not report again", events.count(&"enemy_prone") == 1, str(events.count(&"enemy_prone")))
 
@@ -235,7 +235,7 @@ func test_ultimate_events() -> void:
 	Input.action_press("ultimate")
 	await frames(2)
 	Input.action_release("ultimate")
-	await frames(135) # 定格 2 秒
+	await frames(135) # Freezes for 2 seconds
 	expect_events([&"ultimate_start", &"ultimate_blast"], "using the ultimate weapon")
 
 
@@ -248,7 +248,7 @@ func test_boss_appear_event() -> void:
 
 
 func test_level_clear_event() -> void:
-	# Boss 倒下 = 这一关打完了。以前打死 Boss 什么都不会发生，关卡只有一个出口——全灭。
+	# The boss falling = this stage is cleared. Killing the boss used to do nothing, and a stage had only one way out — everyone dying.
 	await reset_scene(true)
 	keep_only_enemies(["BossMissile"])
 	var boss: Boss = main.get_node("Enemies/BossMissile")
@@ -257,11 +257,11 @@ func test_level_clear_event() -> void:
 	boss.take_damage(boss.max_health)
 	await frames(4)
 	expect_events([&"level_clear"], "the boss going down")
-	# 结算页 1.5 秒后才弹，这里不等它；把暂停收干净，别带进下一条用例
+	# The results screen only pops up after 1.5 seconds; do not wait for it here. Clear the pause so it is not carried into the next case
 	tree.paused = false
 
 
-# ---------------------------------------------------------------- 播放器与素材包
+# ---------------------------------------------------------------- Player and skin packs
 
 func test_sfx_plays_the_skin_sound() -> void:
 	await reset_scene()
@@ -295,7 +295,7 @@ func test_a_custom_skin_replaces_only_what_it_provides() -> void:
 
 
 func test_a_skin_missing_a_sound_stays_silent() -> void:
-	# 没有备用包、也没提供某个声音：不响、不报错（runner 会把任何 SCRIPT ERROR 记成失败）。
+	# No fallback pack and a sound not provided: silent, no error (the runner counts any SCRIPT ERROR as a failure).
 	await reset_scene()
 	Skins.use(SkinPack.new())
 	var played := []
@@ -316,7 +316,7 @@ func test_same_sound_is_capped() -> void:
 
 
 func test_going_down_and_being_picked_up_have_their_own_sounds() -> void:
-	# 双人专用的两个时刻：倒地等人救、被队友拉起来。单人不会发生（血空了直接死）。
+	# The two co-op-only moments: going down waiting for help, and being pulled up by the partner. They never happen alone (out of health you just die).
 	await reset_scene(false, false, null, 2)
 	player.global_position = Vector2(200, 304)
 	player2.global_position = Vector2(500, 304)
@@ -333,7 +333,7 @@ func test_going_down_and_being_picked_up_have_their_own_sounds() -> void:
 
 
 func test_the_menu_clicks() -> void:
-	# 暂停菜单：打开、光标上下、返回，各有各的声音。菜单本身的行为在 test_menus.gd 里测。
+	# Pause menu: opening, cursor up / down, going back each have their own sound. The menu's own behaviour is tested in test_menus.gd.
 	await reset_scene()
 	events.clear()
 	await tap(&"pause")
@@ -346,20 +346,20 @@ func test_the_menu_clicks() -> void:
 
 
 func test_sounds_outlive_the_level() -> void:
-	# 死亡后关卡会重载；game_over 必须继续响完，所以播放器不能挂在关卡里。
+	# After dying the stage reloads; game_over has to keep playing to the end, so the player cannot hang under the stage.
 	await reset_scene()
 	GameEvents.report(&"game_over")
 	free_scene()
 	await frames(2)
 	check("game_over keeps playing after the level is freed", Sfx.playing_count(&"game_over") >= 1)
-	await reset_scene() # 让 runner 收尾时有场景可释放
+	await reset_scene() # Leave a scene for the runner to free at the end
 
 
-# ---------------------------------------------------------------- 清单和游戏一致
+# ---------------------------------------------------------------- The list and the game agree
 
 func test_the_hammer_and_the_second_boss_phase_have_sounds() -> void:
-	# 这两个只在第二关里出现（测试关没有），所以自己摆一个到测试关里来。
-	# 清单里有的事件就得在游戏里真的触发——下面那条收尾用例查的就是这个。
+	# These two only appear in stage 2 (the test level has neither), so place one on the test level here.
+	# Every event in the list has to really fire in the game — that is what the final case below checks.
 	var pack := load("res://skins/industrial/industrial_skin.tres") as SkinPack
 	await reset_scene(false, true, pack)
 	var hammer := (load("res://scenes/enemy_2_d.tscn") as PackedScene).instantiate() as EnemyHammer
@@ -375,7 +375,7 @@ func test_the_hammer_and_the_second_boss_phase_have_sounds() -> void:
 		player.health = 9999
 		if events.has(&"hammer_smash"):
 			break
-	expect_events([&"hammer_smash"], "抡锤起手")
+	expect_events([&"hammer_smash"], "the hammer swing starts")
 
 	await reset_scene(false, true, pack)
 	var boss := (load("res://scenes/boss_2.tscn") as PackedScene).instantiate() as BossOperator
@@ -385,19 +385,19 @@ func test_the_hammer_and_the_second_boss_phase_have_sounds() -> void:
 	await frames(2)
 	boss.appear()
 	events.clear()
-	# **擦破点皮不该换挡**：先打一下，确认没报
+	# **A scratch should not switch gear**: hit it once first and confirm nothing is reported
 	boss.take_damage(SHOT, Vector2.INF, player)
 	await frames(2)
 	check("a scratch does not flip it", not events.has(&"boss_enrage") and not boss.is_enraged())
-	# **别一下打死**：死了就不换挡了（`health > 0` 才报），那条用例会白等
+	# **Do not kill it in one hit**: dead, it never switches gear (only reported while `health > 0`), and that case would wait in vain
 	boss.take_damage(boss.max_health / 2, Vector2.INF, player)
 	await frames(2)
 	check("setup: it is hurt but alive", boss.health > 0, str(boss.health))
-	expect_events([&"boss_enrage"], "Boss 掉到半血以下")
+	expect_events([&"boss_enrage"], "Boss drops below half health")
 
 
 func test_zz_every_listed_event_happens_in_game() -> void:
-	# 排在最后（用例按声明顺序跑）：上面的场景覆盖了清单里的每个事件。
+	# Last in line (cases run in declaration order): the scenes above have covered every event in the list.
 	await reset_scene()
 	for event in SkinPack.SOUND_EVENTS:
 		check("%s is triggered by gameplay" % event, covered.has(event))

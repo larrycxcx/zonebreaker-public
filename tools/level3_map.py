@@ -1,17 +1,17 @@
-"""第三关（酒吧街）的分层版：一段一段画，`map_canvas.stitch()` 拼成一整关。
+"""The layered version of stage 3 (bar street): drawn segment by segment and joined into a whole stage by `map_canvas.stitch()`.
 
-和第一、二关同一套设计原则（2026-10 用户定的）：
-- **只有一个出口**（最后的 Boss）。十段里七段**必须绕路**（标 [绕]），三段**两条路随便挑**（标 [选]）。
-- **敌人多、摆得合理**：会冲的（3-A 突刺、3-C 跳劈、3-D 壮汉）只放在两头堵死的路上，路的尽头不许是坑；
-  上下分层的地方多放会斜射的 3-B。每一屏至少 4 个（`MIN_ENEMIES`）。
-- **画面要满**：街边一栋栋楼面（`facade_N`）、吧台酒柜吧凳酒桶、油桶、可打爆的箱子，不要大片空地。
+The same design principles as stages 1 and 2 (set by the user in 2026-10):
+- **Only one exit** (the final boss). Seven of the ten segments **force a detour** (marked [detour]), three let you **pick either of two routes** (marked [choice]).
+- **Lots of enemies, placed sensibly**: chargers (3-A lunge, 3-C leaping slash, 3-D brute) only go on paths blocked at both ends, and a path must not end in a pit;
+  where there are upper and lower layers, put more diagonal-shooting 3-Bs. At least 4 per screen (`MIN_ENEMIES`).
+- **A full picture**: rows of building fronts along the street (`facade_N`), bars, liquor cabinets, bar stools, kegs, barrels, breakable crates; no big empty stretches.
 
-酒吧街的「室内」就是楼里：头顶有楼板的地方铺灰砖墙（见 `map_build.THEMES["bar"]`）。
-**楼面只摆在露天的街边**：它画在室内墙的上面，摆进楼里就把墙盖住了。
+Bar street's "indoors" is inside buildings: where there is a floor overhead, grey brick walls are laid (see `map_build.THEMES["bar"]`).
+**Building fronts only go along the open street**: they are drawn on top of the indoor walls, and placed inside a building they would cover the walls.
 
-字母表：a 3-A（刀客，蓄一下急冲）、b 3-B（枪手，会斜射）、c 3-C（剑客，跳劈）、d 3-D（壮汉，正面减伤）、
-e 3-E（鲨鱼机，贴地开枪——趴下躲不掉、只能跳）、f 3-F（炮车，打手雷）、B Boss 3（独轮机甲）。
-行号：上层地板第 7 行、中层第 13 行、地面第 20 行；敌人写在**脚下那一行的上一行**。
+Letters: a 3-A (knifeman, winds up and dashes), b 3-B (gunner, shoots diagonally), c 3-C (swordsman, leaping slash), d 3-D (brute, takes less damage from the front),
+e 3-E (shark mech, fires along the ground — lying down does not dodge it, only jumping does), f 3-F (cannon cart, fires grenades), B Boss 3 (unicycle mech).
+Rows: the upper floor is row 7, the middle row 13, the ground row 20; enemies are written **on the row above the one under their feet**.
 """
 
 from map_canvas import Canvas, from_png, stitch
@@ -24,9 +24,9 @@ MIN_ENEMIES = 4
 
 
 def street():
-	"""[绕] 第 1 段「街口」。第一屏不放敌人：街边的楼、几块雨棚。
-	第二屏一座两层的酒吧把街整个占住：从正门进一楼，**一楼走到头是墙**，顺梯子上二楼，
-	二楼从后门出到雨棚上、跳回街上。"""
+	"""[detour] Segment 1 "Street corner". No enemies on the first screen: buildings along the street, a few awnings.
+	On the second screen a two-storey bar takes up the whole street: enter the ground floor by the front door, **the ground floor ends at a wall**, climb the ladder to the first floor,
+	go out the back door of the first floor onto the awnings and jump back down to the street."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.put(3, 19, "@")
@@ -36,7 +36,7 @@ def street():
 	cv.prop("facade_2", 31, 20)
 	cv.floor(10, 15, 15, "=")
 	cv.floor(20, 26, 12, "=")
-	# 酒吧：屋顶第 7 行，正门在左墙下面，右墙二楼那一截是后门
+	# The bar: roof on row 7, the front door at the bottom of the left wall, and the first floor part of the right wall is the back door
 	cv.floor(42, 73, 7)
 	cv.fill(44, 45, 8, 15, "%")
 	cv.floor(46, 71, 13)
@@ -59,8 +59,8 @@ def street():
 
 
 def awnings():
-	"""[选] 第 2 段「雨棚阶梯」。**上面**：一级级雨棚上到一条长长的阳台，三个枪手站在上面往下斜着打；
-	**下面**：街上的刀客、鲨鱼机、剑客。两条路在另一头会合。"""
+	"""[choice] Segment 2 "Awning steps". **Above**: up a series of awnings to a long balcony, where three gunners shoot diagonally down;
+	**below**: knifemen, a shark mech and swordsmen in the street. The two routes meet at the other end."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	for c, name in ((2, "facade_4"), (16, "facade_5"), (30, "facade_1"), (42, "facade_2"),
@@ -84,17 +84,17 @@ def awnings():
 
 
 def cellar():
-	"""[绕] 第 3 段「地窖」。一间抬高的酒吧：门廊上梯子进去，酒吧里往右被墙挡住，
-	**从地板的活板门掉进地窖**：鲨鱼机贴着地面打（只能跳）、一摞箱子堵着，打烂了顺梯子爬上露台出去。
-	地窖临街那一面是拉下来的卷帘，从街上进不去。"""
+	"""[detour] Segment 3 "Cellar". A raised bar: climb the ladder on the porch to get in, the way right inside the bar is blocked by a wall,
+	**so drop through the trapdoor in the floor into the cellar**: a shark mech fires along the ground (jump only), a stack of crates blocks the way, and once broken you climb the ladder up to the terrace and out.
+	The cellar's street side has its shutter down, so it cannot be entered from the street."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
-	cv.fill(3, 75, 13, 14)               # 酒吧的地板（也是地窖的顶）
-	cv.fill(3, 4, 15, 19, "%")           # 地窖临街：卷帘拉着
+	cv.fill(3, 75, 13, 14)               # The bar's floor (also the cellar's ceiling)
+	cv.fill(3, 4, 15, 19, "%")           # The cellar's street side: shutter down
 	cv.fill(74, 75, 15, 19, "%")
-	cv.floor(6, 49, 7)                   # 酒吧的屋顶（右半截是露台，露天）
-	cv.fill(48, 49, 8, 12, "%")          # 酒吧里往右走到头
-	cv.clear(40, 41, 13, 14)             # 活板门
+	cv.floor(6, 49, 7)                   # The bar's roof (the right half is the terrace, open air)
+	cv.fill(48, 49, 8, 12, "%")          # The end of the way right inside the bar
+	cv.clear(40, 41, 13, 14)             # Trapdoor
 	cv.ladder(1, 13, 20)
 	cv.ladder(66, 13, 20)
 	cv.crates(58, 20, 3)
@@ -113,14 +113,14 @@ def cellar():
 	cv.prop("counter", 8, 13)
 	cv.prop("cabinet2", 16, 13)
 	cv.prop("counter2", 28, 13)
-	cv.prop("sign", 52, 13)              # 露台上立着的霓虹招牌
+	cv.prop("sign", 52, 13)              # The neon sign standing on the terrace
 	cv.prop("facade_6", 76, 20)
 	return cv
 
 
 def drains():
-	"""[绕] 第 4 段「排水沟」。街面断成三截，两道沟都跳不过去：顺梯子上雨棚，
-	一块一块跳过去；中间那截路面上守着鲨鱼机和炮车，可以下去也可以不下。"""
+	"""[detour] Segment 4 "Drains". The street breaks into three pieces and neither ditch can be jumped: climb the ladder onto the awnings
+	and jump across one by one; the middle stretch of road is guarded by a shark mech and a cannon cart, and you can go down or not."""
 	cv = Canvas(80)
 	cv.ground(0, 13)
 	cv.fill(12, 13, 18, 19)
@@ -154,17 +154,17 @@ def drains():
 
 
 def brutes():
-	"""[绕] 第 5 段「壮汉」。一家关了门的铺子：一楼卷帘拉着，梯子上二楼；
-	二楼一条长厅，三个壮汉一个接一个压过来（正面打只掉一半血：绕背、跳过去、或者把手雷扔过它头顶），
-	厅尽头地板上的洞掉进一楼后半间，从后门出去。"""
+	"""[detour] Segment 5 "Brutes". A closed shop: the ground floor shutter is down, take the ladder to the first floor;
+	along a long hall on the first floor three brutes press in one after another (shot from the front they only lose half: get behind them, jump over, or throw a grenade over their heads),
+	and a hole in the floor at the end of the hall drops into the back half of the ground floor, out through the back door."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.floor(5, 73, 7)
 	cv.floor(5, 73, 13)
-	cv.fill(6, 7, 14, 19, "%")           # 一楼卷帘
-	cv.fill(8, 47, 14, 19, "X")          # 一楼前半间堆满了货
+	cv.fill(6, 7, 14, 19, "%")           # Ground floor shutter
+	cv.fill(8, 47, 14, 19, "X")          # The front half of the ground floor is full of goods
 	cv.fill(48, 49, 14, 19, "%")
-	cv.fill(72, 73, 8, 15, "%")          # 后墙，下面 4 格是后门
+	cv.fill(72, 73, 8, 15, "%")          # Back wall, the bottom 4 cells are the back door
 	cv.clear(60, 61, 13, 13)
 	cv.ladder(3, 13, 20)
 	cv.put(14, 12, "b")
@@ -184,8 +184,8 @@ def brutes():
 
 
 def long_street():
-	"""[选] 第 6 段「炮车长街」。**下面**街上两辆炮车往前打手雷、身边堆着油桶；
-	**上面**一整排阳台，枪手和剑客守着。左头顺梯子上阳台，或者直接走街上。"""
+	"""[choice] Segment 6 "Cannon cart avenue". **Below**, two cannon carts in the street lob grenades forward with barrels piled beside them;
+	**above**, a whole row of balconies guarded by gunners and swordsmen. Climb the ladder at the left end onto the balconies, or just walk the street."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	for c, name in ((0, "facade_2"), (11, "facade_5"), (24, "facade_4"), (37, "facade_1"),
@@ -209,16 +209,16 @@ def long_street():
 
 
 def rooftops():
-	"""[绕] 第 7 段「屋顶」。街到这儿是死路，顺消防梯爬上屋顶，**一栋一栋跳过去**：
-	楼与楼之间的窄巷是坑。楼里是空的店面，从窗口看得见里面。最后跳回街上。"""
+	"""[detour] Segment 7 "Rooftops". The street is a dead end here, so climb the fire escape to the roofs and **jump across building by building**:
+	the narrow alleys between buildings are pits. The buildings are empty shops whose insides you can see through the windows. Finally jump back down to the street."""
 	cv = Canvas(80)
 	cv.ground(0, 9)
-	cv.ground(71, 79)                    # 最后一栋旁边就是街，从屋顶边上掉下去正好落在街上
+	cv.ground(71, 79)                    # Next to the last building is the street, and dropping off the edge of the roof lands right on it
 	for c0, c1, top in ((10, 24, 8), (30, 42, 6), (48, 58, 9), (64, 70, 10)):
-		cv.floor(c0, c1, top)                        # 屋顶
-		cv.fill(c0, c0 + 1, top + 1, 22, "%")        # 两边的墙
+		cv.floor(c0, c1, top)                        # Roof
+		cv.fill(c0, c0 + 1, top + 1, 22, "%")        # The walls on both sides
 		cv.fill(c1 - 1, c1, top + 1, 22, "%")
-		cv.fill(c0 + 2, c1 - 2, 20, 22)              # 楼里的地（进不去，只是看得见）
+		cv.fill(c0 + 2, c1 - 2, 20, 22)              # The floor inside the building (cannot be entered, only seen)
 	cv.ladder(8, 8, 20)
 	cv.fill(26, 27, 12, 22, "!")
 	cv.fill(60, 61, 14, 22, "!")
@@ -238,9 +238,9 @@ def rooftops():
 
 
 def hotel():
-	"""[绕] 第 8 段「三层交叉火力」。一座旅馆：一楼前半间到头是墙，梯子上二楼；
-	二楼有一截是木头的单向楼板，楼下的枪手往上斜着打得到你、你也打得到他；
-	二楼走到一半被墙挡住，梯子上屋顶，从屋顶的洞掉回二楼后半截，再从二楼的洞掉进一楼后半间出去。"""
+	"""[detour] Segment 8 "Three-layer crossfire". A hotel: the front half of the ground floor ends at a wall, take the ladder to the first floor;
+	part of the first floor is a one-way wooden floor, and the gunners downstairs can shoot diagonally up at you, and you at them;
+	halfway along the first floor a wall blocks the way, so take the ladder to the roof, drop through the roof's hole back into the back half of the first floor, then through the first floor's hole into the back half of the ground floor and out."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.floor(10, 79, 7)
@@ -274,8 +274,8 @@ def hotel():
 
 
 def alley():
-	"""[绕] 第 9 段「后巷」。一条长长的骑楼底下，一条道走到底：刀客、壮汉迎面过来，
-	鲨鱼机贴着地面打，**两摞箱子把路堵死**（打烂才过得去）。骑楼上面的楼上不去。"""
+	"""[detour] Segment 9 "Back alley". Under a long arcade, one way straight through: knifemen and brutes come head-on,
+	a shark mech fires along the ground, and **two stacks of crates block the way** (you only get through by breaking them). The floors above the arcade cannot be reached."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	cv.fill(4, 75, 13, 14)
@@ -301,8 +301,8 @@ def alley():
 
 
 def boss_room():
-	"""[选] 第 10 段「Boss 区」。独轮机甲站在地上、来回滚、冲撞一下能滚三百多：
-	它左右 600 以内**一整片实地、没有墙**（墙会挡住它的视线，它就什么都不做）。头顶几块雨棚。"""
+	"""[choice] Segment 10 "Boss area". The unicycle mech stands on the ground and rolls back and forth, and one ram can roll over three hundred:
+	within 600 on either side of it there is **one stretch of solid ground with no walls** (a wall would block its sight and it would do nothing). A few awnings overhead."""
 	cv = Canvas(80)
 	cv.ground(0, 79)
 	for c0, c1 in ((8, 14), (28, 34), (50, 56), (68, 74)):

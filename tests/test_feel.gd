@@ -1,13 +1,13 @@
 extends GameTest
-## 打击感：屏幕抖动（摄像机 `ScreenShake`）和开枪后坐力（玩家外观弹一下）。
-## 两者都只改表现——抖动只动摄像机 offset，后坐力只动 Visual 的位置，玩法判定一点都不碰。
+## Hit feel: screen shake (the camera's `ScreenShake`) and recoil when firing (the player's look kicks back).
+## Both only change presentation — the shake only moves the camera offset and the recoil only Visual's position; gameplay checks are not touched at all.
 
 func camera() -> ScreenShake:
 	return main.get_node("Camera2D")
 
 
-## 报告一个事件，等抖动生效。
-## 抖动在 _process 里更新（每个画面帧一次），所以要等一个 process_frame，光等物理帧可能还没轮到。
+## Report an event and wait for the shake to take effect.
+## The shake updates in _process (once per rendered frame), so wait for a process_frame; physics frames alone may not reach it yet.
 func report(event: StringName) -> void:
 	GameEvents.report(event, player)
 	await tree.process_frame
@@ -21,7 +21,7 @@ func test_camera_shakes_on_events() -> void:
 	check("resting still", camera().offset == Vector2.ZERO, str(camera().offset))
 	await report(&"explosion")
 	check("an explosion shakes the screen", camera().offset != Vector2.ZERO, str(camera().offset))
-	# 自己停下来
+	# It stops by itself
 	for i in 60:
 		await frames(1)
 		if camera().offset == Vector2.ZERO:
@@ -37,7 +37,7 @@ func test_bigger_events_shake_harder() -> void:
 	check("firing barely shakes", shot <= 2.0, str(shot))
 	check("the ultimate shakes hard", blast >= 6.0, str(blast))
 	check("an explosion shakes more than a shot", ScreenShake.SHAKES[&"explosion"] > shot)
-	# 强度直接反映在抖动幅度上
+	# The strength shows directly in the shake amplitude
 	camera()._strength = 0.0
 	await report(&"player_shoot")
 	var small := camera().offset.length()
@@ -48,7 +48,7 @@ func test_bigger_events_shake_harder() -> void:
 
 
 func test_shake_does_not_move_the_camera_itself() -> void:
-	# 抖动只改 offset：摄像机跟随玩家的位置和关卡边界都不受影响
+	# The shake only changes offset: the camera's position following the player and the level limits are unaffected
 	await reset_scene()
 	player.global_position = Vector2(400, 304)
 	await frames(5)
@@ -69,7 +69,7 @@ func test_shake_can_be_turned_off() -> void:
 
 
 func test_shake_runs_during_the_ultimate_freeze() -> void:
-	# 终极武器把整棵树暂停了，那一下的抖动还得看得见
+	# The ultimate paused the whole tree, and that shake still has to be visible
 	await reset_scene()
 	check("the camera keeps processing while paused", camera().process_mode == Node.PROCESS_MODE_ALWAYS)
 
@@ -104,12 +104,12 @@ func test_the_kick_follows_the_shot_direction() -> void:
 
 
 func test_recoil_does_not_break_lying_down() -> void:
-	# 趴下会把整个 Visual 下移，后坐力是加在那个位置上的偏移，两者不能打架
+	# Lying prone moves the whole Visual down, and the recoil is an offset added on top; the two must not fight
 	await reset_scene()
 	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
-	# 开枪之后立刻趴下：这一帧「趴下的下移」和「后坐力的偏移」必须同时生效，谁也别把谁抹掉
+	# Lie down right after firing: on this frame "the prone offset" and "the recoil offset" must both apply, neither wiping out the other
 	player._shoot(Vector2.RIGHT)
 	Input.action_press("crouch")
 	await frames(1)

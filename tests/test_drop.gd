@@ -1,8 +1,8 @@
 extends GameTest
-## 跳下平台（魂斗罗式）：站在单向平台上按住「下」再按跳跃，就从平台上穿下去，而不是起跳。
-## 实心地面上按同样的键照常起跳。
+## Dropping through a platform (Contra style): standing on a one-way platform, holding "down" and pressing jump drops through it instead of jumping.
+## On solid ground the same keys jump as usual.
 
-## Platform1：x 160..256，顶面 y=256。
+## Platform1: x 160..256, top y=256.
 const PLATFORM := "Level/Platform1"
 const PLATFORM_TOP := 256.0
 
@@ -11,7 +11,7 @@ func platform() -> Platform:
 	return main.get_node(PLATFORM)
 
 
-## 站到 Platform1 上（脚底贴着顶面），等它真的踩稳。
+## Stand on Platform1 (feet on its top) and wait until really standing firmly.
 func stand_on_platform() -> void:
 	await reset_scene()
 	player.global_position = Vector2(208, PLATFORM_TOP - 24.0)
@@ -40,7 +40,7 @@ func test_down_and_jump_drops_through() -> void:
 			break
 	check("drops through the platform", below, "feet at %.1f, platform at %.1f" % [feet(), PLATFORM_TOP])
 	check("it falls instead of jumping", player.velocity.y > 0.0, str(player.velocity.y))
-	# 一路落到地面上
+	# Falling all the way to the ground
 	for i in 90:
 		await frames(1)
 		if player.is_on_floor():
@@ -52,7 +52,7 @@ func test_down_and_jump_drops_through() -> void:
 func test_jump_alone_still_jumps() -> void:
 	await stand_on_platform()
 	var start_y := player.global_position.y
-	Input.action_press("jump") # 按住：一按就松是低跳，高度不够看
+	Input.action_press("jump") # Hold it: press and release is a short jump, too low to see
 	var top := start_y
 	for i in 40:
 		await frames(1)
@@ -63,7 +63,7 @@ func test_jump_alone_still_jumps() -> void:
 
 
 func test_down_and_jump_on_solid_ground_jumps() -> void:
-	# 实心地面上按「下 + 跳」照常起跳（地面不是单向平台，跳不下去）
+	# On solid ground "down + jump" jumps as usual (the ground is not a one-way platform and cannot be dropped through)
 	await reset_scene()
 	player.global_position = Vector2(400, 304)
 	player.velocity = Vector2.ZERO
@@ -81,7 +81,7 @@ func test_down_and_jump_on_solid_ground_jumps() -> void:
 
 
 func test_cannot_drop_through_in_mid_air() -> void:
-	# 空中按「下 + 跳」不会有任何「穿过」效果：该落下就落下，不会二段跳
+	# In the air "down + jump" has no "passing through" effect at all: it falls as it would, no double jump
 	await stand_on_platform()
 	await tap("jump")
 	await frames(6)
@@ -94,7 +94,7 @@ func test_cannot_drop_through_in_mid_air() -> void:
 
 
 func test_the_platform_is_solid_again_afterwards() -> void:
-	# 穿下去之后碰撞要恢复：跳回来还能站上去（不能留下一块永远穿得过的平台）
+	# After dropping through, collision has to come back: jumping back up you can stand on it (no platform left passable for ever)
 	await stand_on_platform()
 	Input.action_press("aim_down")
 	await tap("jump")
@@ -104,9 +104,9 @@ func test_the_platform_is_solid_again_afterwards() -> void:
 			break
 	Input.action_release("aim_down")
 	check("setup: dropped to the ground", feet() > PLATFORM_TOP + 4.0, "feet at %.1f" % feet())
-	await frames(20) # 等忽略碰撞的那 0.25 秒走完
+	await frames(20) # Wait out the 0.25 seconds of ignored collision
 	check("the exception was cleared", player._dropping_platform == null)
-	# 从下面跳回平台上
+	# Jumping back onto the platform from below
 	player.global_position = Vector2(208, 304)
 	player.velocity = Vector2.ZERO
 	await frames(5)
@@ -122,7 +122,7 @@ func test_the_platform_is_solid_again_afterwards() -> void:
 
 
 func test_dropping_while_lying_down() -> void:
-	# 趴在平台上也能跳下去（趴下用 Ctrl，跳下用「下 + 跳」，互不冲突）
+	# You can drop through while lying on the platform too (prone is Ctrl, dropping is "down + jump"; they do not clash)
 	await stand_on_platform()
 	Input.action_press("crouch")
 	await frames(6)

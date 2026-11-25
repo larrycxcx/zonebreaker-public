@@ -1,10 +1,10 @@
 extends GameTest
-## 下蹲：碰撞体压低、脚底不动、头顶阻挡、矮通道通行。
+## Crouching: the collision shape is lowered, the feet stay put, blocked overhead, passing through crawl passages.
 
-## 关卡里的矮通道：x 592..704，天花板底边 y=290，地面 y=320，净空 30px。
-## 净空卡在两个数之间：要小于站立高度 32（站着过不去），又要大于站姿子弹的高度 25（子弹照旧穿得过去）。
+## The level's crawl passage: x 592..704, ceiling bottom y=290, ground y=320, 30px of clearance.
+## The clearance sits between two numbers: less than the standing height 32 (you cannot pass standing), more than the standing bullet height 25 (bullets still pass through).
 const TUNNEL_X := 648.0
-## 一段没有平台也没有天花板的空地，用来测「头顶没东西」的情况。
+## An empty stretch with neither platforms nor ceiling, for testing "nothing overhead".
 const OPEN_X := 400.0
 
 
@@ -12,7 +12,7 @@ func shape_height() -> float:
 	return (player._shape.shape as RectangleShape2D).size.y
 
 
-## 碰撞体底边的世界坐标。下蹲前后这个值必须一模一样，否则玩家会陷进地里或者被弹起来。
+## World position of the bottom of the collision shape. It must be exactly the same before and after crouching, or the player would sink into the floor or be bounced up.
 func feet_y() -> float:
 	return player.global_position.y + player._shape.position.y + shape_height() / 2.0
 
@@ -105,9 +105,9 @@ func test_low_ceiling_keeps_the_player_down() -> void:
 
 
 func test_a_standing_shot_flies_through_the_crawl_tunnel() -> void:
-	# 净空卡在两个数中间：要小于站立高度 32（人过不去），又要大于站姿子弹的高度 25（子弹过得去）。
-	# 枪抬到胸口以后这个窗口只剩几个像素，窄到值得单独守一条——
-	# 净空调小或者出膛点再抬高，矮通道就会变成一堵挡子弹的墙。
+	# The clearance sits between two numbers: less than the standing height 32 (people cannot pass), more than the standing bullet height 25 (bullets can).
+	# With the gun raised to the chest this window is only a few pixels, narrow enough to deserve a check of its own —
+	# make the clearance smaller or the muzzle higher and the crawl passage becomes a wall that stops bullets.
 	await reset_scene()
 	player.global_position = Vector2(540, 304)
 	player.velocity = Vector2.ZERO
@@ -137,7 +137,7 @@ func test_standing_player_cannot_pass_the_crawl_block() -> void:
 
 func test_one_way_platform_does_not_block_standing() -> void:
 	await reset_scene()
-	# Platform1：x 160..256，y 256..272。站在它正下方，头顶虽然有平台但可以穿过去。
+	# Platform1: x 160..256, y 256..272. Standing right under it there is a platform overhead, but it can be passed through.
 	player.global_position = Vector2(208, 304)
 	player.velocity = Vector2.ZERO
 	await frames(10)
@@ -162,7 +162,7 @@ func test_jumping_from_a_crouch() -> void:
 
 
 func test_cannot_fire_while_lying_down() -> void:
-	# 趴下时步枪和手雷都打不出来（以前趴着不动可以贴地水平射，现在取消了）
+	# Neither rifle nor grenade fires while prone (lying still used to allow level shots along the floor; that is gone)
 	await reset_scene()
 	player.global_position = Vector2(OPEN_X, 304)
 	player.velocity = Vector2.ZERO
@@ -170,7 +170,7 @@ func test_cannot_fire_while_lying_down() -> void:
 	Input.action_press("crouch")
 	await frames(5)
 
-	# 趴着爬行
+	# Crawling
 	player.current_slot().cooldown_left = 0.0
 	Input.action_press("move_right")
 	Input.action_press("shoot")
@@ -178,21 +178,21 @@ func test_cannot_fire_while_lying_down() -> void:
 	check("cannot shoot while crawling", bullets(4).is_empty(), str(bullets(4).size()))
 	check("still crawling meanwhile", player.is_crouching and absf(player.velocity.x) > 1.0)
 
-	# 趴着不动
+	# Lying still
 	Input.action_release("move_right")
 	player.current_slot().cooldown_left = 0.0
 	await frames(30)
 	check("cannot shoot while lying still either", bullets(4).is_empty(), str(bullets(4).size()))
 	check("still lying down meanwhile", player.is_crouching and is_zero_approx(player.velocity.x))
 
-	# 趴着按 W 也一样
+	# The same with W held while prone
 	Input.action_press("aim_up")
 	await frames(10)
 	check("aiming up while lying down does not fire", bullets(4).is_empty(), str(bullets(4).size()))
 	Input.action_release("aim_up")
 	Input.action_release("shoot")
 
-	# 站起来就能打
+	# Standing up you can fire
 	Input.action_release("crouch")
 	await frames(5)
 	check("setup: standing again", not player.is_crouching)
@@ -220,7 +220,7 @@ func test_cannot_throw_grenades_while_lying_down() -> void:
 			Input.action_release("move_right")
 		await frames(5)
 		player.current_slot().cooldown_left = 0.0
-		# 每按一次扔一颗：按住两帧再松开（见 CLAUDE.md 里的坑）
+		# One grenade per press: hold for two frames, then release (see the pitfalls in CLAUDE.md)
 		for i in 3:
 			Input.action_press("shoot")
 			await frames(2)
@@ -229,7 +229,7 @@ func test_cannot_throw_grenades_while_lying_down() -> void:
 		check("no grenade while %s" % label, grenades().is_empty(), str(grenades().size()))
 	check("still lying down", player.is_crouching)
 
-	# 站起来就能扔
+	# Standing up you can throw
 	Input.action_release("crouch")
 	await frames(5)
 	player.current_slot().cooldown_left = 0.0
@@ -245,9 +245,9 @@ func grenades() -> Array:
 	return main.get_children().filter(func(c): return c is Grenade)
 
 
-## 敌人**站着**开的枪子弹离地面 6~8px，趴下的玩家必须矮到让它们从头顶飞过去。
-## 这里把敌人的 can_go_prone 关掉，只验证高度上躲得开；敌人跟着趴下的情况在 test_enemies.gd 里测。
-## 同时确认「子弹确实飞过了玩家所在位置」，否则没开火也会误判为躲开了。
+## Enemy shots fired **standing** fly 6~8px above the floor, and a prone player must be low enough for them to pass overhead.
+## can_go_prone is turned off on the enemy here to verify only that height dodges them; enemies going prone too is tested in test_enemies.gd.
+## It also confirms "the bullet really flew past where the player is", otherwise not firing at all would be mistaken for a dodge.
 func _assert_crouch_dodges(enemy_name: String, enemy_pos: Vector2, facing: int) -> void:
 	await reset_scene(true)
 	keep_only_enemies([enemy_name])
@@ -275,7 +275,7 @@ func _assert_crouch_dodges(enemy_name: String, enemy_pos: Vector2, facing: int) 
 	check(enemy_name + ": bullets fly past the player", passed_player)
 	check(enemy_name + ": lying down dodges a standing enemy", player.health == player.max_health, str(player.health))
 
-	# 对照组：站起来就会中弹，证明躲开靠的是高度而不是别的原因。
+	# Control group: standing up gets hit, proving the dodge comes from height and nothing else.
 	Input.action_release("crouch")
 	await frames(3)
 	check(enemy_name + ": player stands up again", not player.is_crouching)

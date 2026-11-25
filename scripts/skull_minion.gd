@@ -1,19 +1,19 @@
 class_name SkullMinion
 extends Enemy
-## 地下室 Boss 召唤出来的小骷髅：**满屏飞、绕着玩家转、隔一会儿扑过去**。
+## The little skulls summoned by the basement boss: **fly all over the screen, circle the player, swoop every now and then**.
 ##
-## 2026-10 试玩反馈后重做的：原来只是慢慢飘过来，被单向平台、实心块挡着，玩家躲在 Boss 底下根本够不着。
-## 现在：
-## - **穿墙**（场景里 `collision_mask` = 0）：地形挡不住它，但**不飞出画面**（每帧夹回摄像机看着的那块里）；
-## - 平时**绕着玩家转圈**（`orbit_radius`），几只各转各的方向、相位错开，不会叠成一团；
-## - 每隔 `dive_every` 秒**停一下、闪一下红**（`windup_time`，预兆），然后朝玩家那一刻的位置
-##   **直线扑过去**（`dive_speed` 240，比玩家走路快），扑完接着转圈。
-##   躲法是看见它闪红就横向挪开——它扑的是那一刻的位置，不拐弯。
-## 碰到就扣血（接触伤害走玩家 Hurtbox 那一套），两枪打掉。
+## Reworked after 2026-10 playtest feedback: they used to drift slowly toward you, blocked by one-way platforms and solid blocks, and could never reach a player hiding under the boss.
+## Now:
+## - **Through walls** (`collision_mask` = 0 in the scene): terrain does not stop them, but **they never leave the view** (clamped back into what the camera sees every frame);
+## - normally they **circle the player** (`orbit_radius`), each in its own direction with staggered phases, so they do not bunch up;
+## - every `dive_every` seconds **they stop and flash red** (`windup_time`, the warning), then **swoop in a straight line**
+## at where the player was at that moment (`dive_speed` 240, faster than walking), and go back to circling afterwards.
+## The dodge is to step sideways when it flashes red — it swoops at that moment's position and does not turn.
+## Contact hurts (contact damage goes through the player's Hurtbox), and two shots kill one.
 
 @export_group("Orbit")
 @export var orbit_radius := 90.0
-## 转圈的角速度（弧度 / 秒）和贴向那个圈的速度。
+## Angular speed of the circling (radians / second) and how fast it closes onto the circle.
 @export var orbit_speed := 1.6
 @export var approach_speed := 90.0
 
@@ -21,10 +21,10 @@ extends Enemy
 @export var dive_speed := 240.0
 @export var dive_time := 0.7
 @export var windup_time := 0.4
-## 两次扑之间隔多久（每只在这个范围里随机，免得一起扑）。
+## Time between swoops (each picks at random in this range, so they do not all swoop at once).
 @export var dive_every_min := 1.6
 @export var dive_every_max := 2.8
-## 离画面边至少这么远（整个身子都在画面里）。
+## Minimum distance from the edge of the view (the whole body stays visible).
 @export var screen_margin := 8.0
 
 enum State {ORBIT, WINDUP, DIVE}
@@ -60,7 +60,7 @@ func _physics_process(delta: float) -> void:
 					state = State.WINDUP
 					_left = windup_time
 					velocity = Vector2.ZERO
-					# 预兆：闪一下红（素材 Hurt2 那一帧整只骷髅是红的）
+					# Warning: a red flash (frame Hurt2 in the art has the whole skull in red)
 					_visual.flash_hit()
 		State.WINDUP:
 			velocity = Vector2.ZERO
@@ -84,7 +84,7 @@ func _physics_process(delta: float) -> void:
 	_report_motion(state == State.DIVE)
 
 
-## 夹回画面里：它穿墙，不夹的话扑一下就飞出去、在画面外绕回来，玩家看不见它从哪儿来。
+## Clamp it back into the view: it passes through walls, and without the clamp one swoop would send it off screen to circle back unseen, so the player could not tell where it came from.
 func _stay_on_screen() -> void:
 	var rig := CameraRig.find(get_tree())
 	if rig == null:
@@ -101,6 +101,6 @@ func is_winding_up() -> bool:
 	return state == State.WINDUP
 
 
-## 看见就追：在画面里或者够得着就算，**不看视线**（它穿墙）。
+## Chase on sight: on screen or within reach counts, **line of sight is ignored** (it passes through walls).
 func can_target(player: Player) -> bool:
 	return within_reach(global_position.distance_to(player.global_position))

@@ -1,13 +1,13 @@
 extends "res://tests/level_checks.gd"
-## **分层关卡**（格子地图，`tools/map_build.py` 生成）共用的检查：第一关、第二关都继承这一组。
+## Shared checks for **layered stages** (grid maps built by `tools/map_build.py`): stages 1 and 2 both inherit this set.
 ##
-## 和方向无关的几条（敌人站在面上、开场不挨打、没人自己走下平台、装饰没有碰撞、没有重名、
-## 关卡自己跑得起来、Boss 在最后）从横向关那组（`level_checks.gd`）继承。横向关专用的几何检查在这里**逐条覆盖**：
-## 分层关的坑不一定跳得过（得走上面的台子）、墙不一定翻得过（得爬梯子），那正是设计。
-## 子类覆盖 `level_path()` / `level_stage()` / `zone()`，再写这一关自己的、拿**真规则**跑那几处必须绕的路。
+## The direction-independent ones (enemies standing on something, no damage on arrival, nobody walking off a ledge, scenery without collision, no duplicate names,
+## the stage running on its own, the boss at the end) are inherited from the horizontal stage set (`level_checks.gd`). The geometry checks specific to horizontal stages are **overridden one by one** here:
+## a pit in a layered stage cannot necessarily be jumped (you take the platforms above), a wall cannot necessarily be climbed (you take a ladder) — that is the design.
+## Subclasses override `level_path()` / `level_stage()` / `zone()`, then add this stage's own checks, running the forced detours with **the real rules**.
 
 
-## 这一关的砖从哪个素材包的总图里取（`skins/<zone>/tiles/atlas.png`）。
+## Which skin pack's atlas this stage's tiles come from (`skins/<zone>/tiles/atlas.png`).
 func zone() -> String:
 	return ""
 
@@ -17,7 +17,7 @@ const SEGMENT := 80 * 16.0
 const MIDDLE_FLOOR := 208.0
 
 
-## 第 seg 段（从 1 数）第 col 列的左边 x。
+## Left x of column col in segment seg (counting from 1).
 func col_x(seg: int, col: int) -> float:
 	return (seg - 1) * SEGMENT + col * CELL
 
@@ -26,7 +26,7 @@ func feet() -> float:
 	return player.global_position.y + 16.0
 
 
-## 打开关卡、清掉所有敌人：下面那几条只测地形和机关，别人的流弹会打乱结果。
+## Open the stage and clear all enemies: the checks below only test terrain and traps, and stray bullets would spoil the results.
 func open_empty() -> void:
 	await open_level()
 	keep_only_enemies([])
@@ -42,14 +42,14 @@ func solid_rects() -> Array[Rect2]:
 	return out
 
 
-# ---------------------------------------------------------------- 覆盖：分层关的地形
+# ---------------------------------------------------------------- Overridden: layered stage terrain
 
-## 地形块，**不含梯子顶上那块看不见的盖子**（它挂在梯子节点下面，原点是梯子顶，不是一块浮台）。
+## Terrain blocks, **excluding the invisible cover on top of ladders** (it hangs under the ladder node, its origin is the ladder top, it is not a floating platform).
 func terrain() -> Array:
 	return super.terrain().filter(func(node: Node) -> bool: return not node.get_parent() is Ladder)
 
 
-## 能站人的面：**所有**平台的顶边（分层关的楼板是实心的，不只是地面和单向浮台）。两侧的边墙不算。
+## Surfaces to stand on: the tops of **all** platforms (layered stages have solid floors, not just the ground and one-way platforms). The side walls do not count.
 func surfaces() -> Array:
 	var found := []
 	for node in terrain():
@@ -60,7 +60,7 @@ func surfaces() -> Array:
 	return found
 
 
-## 地面是按格子合成的：传送带自己一块，和两边的地面首尾相接——接缝不是坑。
+## The ground is merged from cells: a conveyor is its own block, joined end to end with the ground either side — the seams are not pits.
 func pits() -> Array[Vector2]:
 	var found: Array[Vector2] = []
 	for pit in super.pits():
@@ -69,7 +69,7 @@ func pits() -> Array[Vector2]:
 	return found
 
 
-## 这一关至少有几个坑（不先确认有坑的话，下面那条比的是空气）。
+## At least how many pits this stage has (without first confirming there are pits, the check below would compare thin air).
 func min_pits() -> int:
 	return 3
 
@@ -80,8 +80,8 @@ func test_it_really_has_pits() -> void:
 
 
 func test_every_pit_can_be_jumped() -> void:
-	# 分层关的坑**不一定跳得过**（沉降池 12 格宽）——跳不过的，头顶上得有一串钢梁盖过去，
-	# 一截一截之间的空当跳得过。两样都没有的坑就是死路。
+	# A pit in a layered stage **cannot necessarily be jumped** (the settling pit is 12 cells wide) — if it cannot, a string of girders overhead has to bridge it,
+	# with jumpable gaps between the pieces. A pit with neither is a dead end.
 	var reach := await jump_distance()
 	check("setup: a jump really covers some ground", reach > 80.0, "%.0f" % reach)
 	await open_level()
@@ -99,16 +99,16 @@ func test_every_pit_can_be_jumped() -> void:
 			if face[0] - cursor <= reach and face[1] > cursor:
 				cursor = face[1]
 		bridged += 1
-		# 最后一截：从钢梁尽头跳 / 掉到对岸
+		# Last piece: jump / drop from the end of the girders to the far side
 		check("the wide pit at %.0f has walkways over it" % pit.x, pit.y - cursor <= reach,
 			"covered up to %.0f of %.0f..%.0f" % [cursor, pit.x, pit.y])
 	check("setup: some pits are too wide to jump", bridged >= 2, str(bridged))
 
 
 func test_nothing_is_higher_than_a_jump() -> void:
-	# 分层关里比一跳高的地方多的是（层高 96，正是设计），所以这一条改成：
-	# **每架梯子两头都接在面上**，**每块浮台都有路上得去**（底下一跳够得着、梯子顶在它上面、
-	# 旁边同一高度有一跳跨得过的面，或者头顶有面可以掉下来）。
+	# Layered stages have plenty of places higher than a jump (a floor height of 96, which is the design), so this check becomes:
+	# **every ladder connects to a surface at both ends**, **every floating platform has a way up** (reachable by a jump from below, a ladder top above it,
+	# a surface at the same height within one jump to the side, or a surface overhead to drop down from).
 	var top := await jump_height()
 	var reach := await jump_distance()
 	await open_level()
@@ -138,23 +138,23 @@ func test_nothing_is_higher_than_a_jump() -> void:
 		for face in faces:
 			var near: bool = face[1] >= left - 120.0 and face[0] <= right + 120.0
 			if near and face[2] > y and face[2] - y <= top:
-				way = true          # 底下一跳
+				way = true          # A jump from below
 			if absf(face[2] - y) < 1.0 and face[0] != left \
 					and (absf(face[0] - right) <= reach or absf(left - face[1]) <= reach):
-				way = true          # 同一高度、跨得过去
+				way = true          # Same height, within reach
 			if face[2] < y and face[0] < right + reach and face[1] > left - reach:
-				way = true          # 头顶或者斜上方有面：掉下来、或者往下跳过来
+				way = true          # A surface overhead or diagonally above: drop down, or jump down onto it
 		for lnode in ladders:
 			var ladder := lnode as Ladder
 			if absf(ladder.global_position.y - y) < 1.0 and left - 32.0 <= ladder.global_position.x \
 					and ladder.global_position.x <= right + 32.0:
-				way = true          # 梯子顶在它上面或者紧挨着它
+				way = true          # A ladder top above it or right next to it
 		check("%s can be reached" % slab.name, way, "%.0f..%.0f at %.0f" % [left, right, y])
 
 
 func test_the_crawl_passages_still_need_crouching() -> void:
-	# 这一关没有矮通道。要守的是反过来那条：**楼板底下要么贴着（0），要么站得下人**——
-	# 留一道 1~39 的缝，人钻不过去、子弹也卡一半，一看就是画错了。
+	# This stage has no crawl passages. What it guards is the opposite: **under a floor there is either no gap (0) or room for a person to stand** —
+	# a gap of 1~39 that people cannot squeeze through and that half blocks bullets is obviously a drawing mistake.
 	await open_level()
 	var faces := surfaces()
 	var checked := 0
@@ -177,8 +177,8 @@ func test_the_crawl_passages_still_need_crouching() -> void:
 	check("setup: there are floors over other floors", checked >= 20, str(checked))
 
 
-## 一摞一摞的箱子：同一列、上下挨着（差一只箱子高）的算一摞。键是那一列的 x。
-## **不能只按列分**：竖井里两段的箱子可能在同一列（第四关），按列分会把隔着几层楼的两摞当成一摞。
+## Stacks of crates: crates in the same column touching vertically (one crate height apart) form a stack. The key is that column's x.
+## **Grouping by column alone is not enough**: in a shaft, crates of two segments may share a column (stage 4), and grouping by column would merge two stacks floors apart.
 func crate_stacks() -> Dictionary:
 	var crates: Array = main.get_node("Traps").get_children().filter(
 		func(n: Node) -> bool: return n is BreakableCrate)
@@ -199,8 +199,8 @@ func crate_stacks() -> Dictionary:
 
 
 func test_the_blocked_routes_really_block_and_really_have_a_way_over() -> void:
-	# 横向关的「堵块」在这一关是**摞到顶的箱子**：打烂才过得去。摞满的那几摞和天花板之间
-	# 要钻不过一个人（32），不然打都不用打。
+	# The horizontal stages' "blockers" are **crates stacked to the ceiling** in this stage: you only get through by breaking them. Between a full stack and the ceiling
+	# there must not be room for a person (32), or you would not even need to shoot.
 	await open_level()
 	var sealed := 0
 	var stacks := crate_stacks()
@@ -216,7 +216,7 @@ func test_the_blocked_routes_really_block_and_really_have_a_way_over() -> void:
 		for rect in solid_rects():
 			if rect.position.x < x + 32.0 and rect.end.x > x and rect.end.y <= top + 0.5:
 				ceiling = maxf(ceiling, rect.end.y)
-		# 按摞起来多高算，不按几只：三只箱子 72、两个毒气罐 96，都是跳不过去、要打烂的那种
+		# By stacked height, not number: three crates are 72, two gas capsules 96 — both too high to jump, both have to be broken
 		if bottom - top >= 72.0:
 			sealed += 1
 			check("the stack at %s reaches the ceiling" % key, top - ceiling < 32.0,
@@ -225,7 +225,7 @@ func test_the_blocked_routes_really_block_and_really_have_a_way_over() -> void:
 
 
 func test_no_enemy_is_stuck_in_a_crawl_passage() -> void:
-	# 分层关里的说法：**没有敌人的身子嵌在实心里**（摆错一行就是这样）
+	# In layered-stage terms: **no enemy's body is buried in something solid** (that is what one row off looks like)
 	await open_level()
 	var solids := solid_rects()
 	for node in main.get_node("Enemies").get_children():
@@ -239,11 +239,11 @@ func test_no_enemy_is_stuck_in_a_crawl_passage() -> void:
 
 
 
-# ---------------------------------------------------------------- 分层关都该有的
+# ---------------------------------------------------------------- What every layered stage should have
 
 func test_the_tiles_come_from_this_zones_atlas() -> void:
 	if needs_art(): return
-	# 画面交给砖（`TileArt`），碰撞的平台都藏着
+	# The visuals come from the tiles (`TileArt`); the collision platforms are hidden
 	await open_level()
 	for layer in ["FrontTiles", "BackTiles"]:
 		var art := main.get_node(layer) as TileArt
@@ -257,7 +257,7 @@ func test_the_tiles_come_from_this_zones_atlas() -> void:
 
 
 func test_every_barrel_stands_next_to_an_enemy() -> void:
-	# 用户要的就是「放在敌人旁边，打一枪就炸」——摆在空地上的油桶只是个会炸的装饰
+	# What the user asked for was "next to enemies, one shot and it blows up" — a barrel standing in an empty spot is just exploding decoration
 	await open_level()
 	var barrels := 0
 	for node in main.get_node("Traps").get_children():

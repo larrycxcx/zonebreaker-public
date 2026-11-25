@@ -1,11 +1,11 @@
 extends GameTest
-## 敌人斜射：B、C、炮台在玩家位于斜上/斜下方向（偏离水平 45.0°~135.0°、直线距离在射程内）时，
-## 巡逻兵停下、炮台转向，瞄准 0.3 秒后朝 45° 开火；A 不会。玩家回到水平方向或离开后恢复原样。
+## Enemy diagonal fire: when the player is diagonally above / below (45.0°~135.0° from level, within range in a straight line), B, C and the turret
+## stop walking (patrollers) or turn (turret), aim for 0.3 seconds and fire at 45°; A does not. They go back to normal once the player is level again or gone.
 
 const DIAGONAL := 0.7071
 
 
-## 只留一个敌人，放到 pos 朝左（巡逻兵会照常巡逻，除非 still = true）。
+## Keep only one enemy, put at pos facing left (patrollers patrol as usual unless still = true).
 func _place(enemy_name: String, pos: Vector2, still := false) -> Enemy:
 	await reset_scene(true)
 	keep_only_enemies([enemy_name])
@@ -17,13 +17,13 @@ func _place(enemy_name: String, pos: Vector2, still := false) -> Enemy:
 		(enemy as EnemyWalker)._apply_facing()
 		if still:
 			(enemy as EnemyWalker).move_speed = 0.0
-	# 先把玩家停在所有射程之外：否则准备阶段敌人就开始水平连发，会搅乱后面对斜射的观察。
+	# Park the player outside every range first: otherwise enemies start firing level bursts during setup, muddling the observation of diagonal shots.
 	player.global_position = Vector2(1240.0 if pos.x < 640.0 else 40.0, 304)
 	await frames(5)
 	return enemy
 
 
-## 观察若干帧：记录每颗子弹的方向和它是第几帧射出的，以及敌人横向走了多远。
+## Watch for some frames: record each bullet's direction and the frame it was fired on, plus how far the enemy walked horizontally.
 func _watch(enemy: Enemy, frame_count: int, invincible := true) -> Dictionary:
 	var shots := []
 	var frame := [0]
@@ -43,7 +43,7 @@ func _watch(enemy: Enemy, frame_count: int, invincible := true) -> Dictionary:
 	return {"shots": shots, "moved": absf(enemy.global_position.x - x0) if is_instance_valid(enemy) else 0.0, "stood_still": stood_still}
 
 
-## 枪管（占位美术）实际指着哪个方向：枪管按「朝右」摆，朝左时整块镜像过去，所以本地 +x 指向身体。
+## Which way the gun barrel (placeholder art) really points: the barrel is laid out "facing right" and mirrored as a whole when facing left, so local +x points at the body.
 func gun_direction(e: Enemy) -> Vector2:
 	var gun := turning_gun(e)
 	return (Vector2.RIGHT if e.facing > 0 else Vector2.LEFT).rotated(gun.rotation)
@@ -53,7 +53,7 @@ func _all_toward(shots: Array, expected: Vector2) -> bool:
 	return not shots.is_empty() and shots.all(func(s): return s["direction"].is_equal_approx(expected))
 
 
-# ---------------------------------------------------------------- 配置与判定
+# ---------------------------------------------------------------- Configuration and checks
 
 func test_which_enemies_aim_diagonally() -> void:
 	await reset_scene(true)
@@ -66,7 +66,7 @@ func test_which_enemies_aim_diagonally() -> void:
 
 
 func test_aim_sectors() -> void:
-	# 纯几何：只看 aim_for() 对不同方位的判定（炮台射程 400，A 射程 220）。
+	# Pure geometry: only look at aim_for()'s verdict for different positions (turret range 400, A range 220).
 	await reset_scene(true)
 	var turret: Enemy = main.get_node("Enemies/Turret1")
 	var walker_a: Enemy = main.get_node("Enemies/WalkerA")
@@ -93,9 +93,9 @@ func test_aim_sectors() -> void:
 	dummy.free()
 
 
-# ---------------------------------------------------------------- 巡逻兵
+# ---------------------------------------------------------------- Patrollers
 
-## 玩家站在 Platform1（单向，x 160..128，顶面 y=256）上，巡逻兵在右下方地面上，正好 90°。
+## The player stands on Platform1 (one-way, x 160..128, top y=256), the patroller on the ground below to the right, exactly 90°.
 func _player_on_platform1() -> void:
 	player.global_position = Vector2(208, 240)
 	player.velocity = Vector2.ZERO
@@ -105,7 +105,7 @@ func test_b_stops_and_fires_diagonally_up() -> void:
 	var b := await _place("WalkerB", Vector2(274, 304))
 	_player_on_platform1()
 	var w := await _watch(b, 120)
-	# 发现玩家的那一帧已经先走了一步（瞄准在移动之后判定），之后就站定。
+	# On the frame it spots the player it has already taken a step (aiming is checked after moving), then it stands still.
 	check("B stops walking to aim", w["moved"] < 2.0 and is_zero_approx(b.velocity.x), "moved %.1f" % w["moved"])
 	check("B aims diagonally up", b.aim == Enemy.Aim.DIAGONAL_UP, str(b.aim))
 	check("B fires diagonally up-left", _all_toward(w["shots"], Vector2(-DIAGONAL, -DIAGONAL)), str(w["shots"].map(func(s): return s["direction"])))
@@ -114,10 +114,10 @@ func test_b_stops_and_fires_diagonally_up() -> void:
 
 
 func test_a_burst_keeps_its_direction() -> void:
-	# 水平连发打到一半玩家跳上斜上方的平台：剩下的子弹还是水平的，斜射要等瞄准时间过了才开始。
+	# Halfway through a level burst the player jumps onto a platform diagonally above: the remaining shots stay level, and diagonal shots only start after the aiming time.
 	seed(6)
 	var b := await _place("WalkerB", Vector2(274, 304), true)
-	player.global_position = Vector2(160, 304) # 正前方同一高度
+	player.global_position = Vector2(160, 304) # Straight ahead at the same height
 	var shots := []
 	var record := func() -> void: shots.append(b.last_shot_direction)
 	b.shot_fired.connect(record)
@@ -128,7 +128,7 @@ func test_a_burst_keeps_its_direction() -> void:
 			break
 	check("a level burst started", shots.size() == 1 and shots[0].is_equal_approx(Vector2.LEFT), str(shots))
 	_player_on_platform1()
-	for i in 12: # 连发剩下的 1~2 颗在这段时间里打完，瞄准时间还没到
+	for i in 12: # The remaining 1~2 shots of the burst finish during this time, before the aiming time is up
 		player._invincible_timer = 1000.0
 		await tree.physics_frame
 	b.shot_fired.disconnect(record)
@@ -140,7 +140,7 @@ func test_diagonal_fire_waits_for_the_aim_time() -> void:
 	_player_on_platform1()
 	var w := await _watch(b, 120)
 	var first: int = w["shots"][0]["frame"] if not w["shots"].is_empty() else -1
-	# 0.3 秒 = 18 帧；允许一两帧的判定延迟。
+	# 0.3 seconds = 18 frames; a frame or two of check delay is allowed.
 	check("the first diagonal shot comes after ~0.3s of aiming", first >= 17 and first <= 24, "frame %d" % first)
 
 
@@ -172,22 +172,22 @@ func test_walker_resumes_patrol_after_the_player_leaves() -> void:
 
 
 func test_walker_does_not_aim_diagonally_behind_it() -> void:
-	# 巡逻兵只打正前方：玩家在斜后方时照常巡逻。
-	var b := await _place("WalkerB", Vector2(142, 304)) # 朝左
-	_player_on_platform1() # 玩家在它右上方，也就是身后
+	# Patrollers only fire straight ahead: with the player diagonally behind, it patrols as usual.
+	var b := await _place("WalkerB", Vector2(142, 304)) # Facing left
+	_player_on_platform1() # The player is above to its right, i.e. behind it
 	var w := await _watch(b, 80)
 	check("no diagonal aim at a player behind", w["shots"].is_empty() and not b.is_aiming_diagonally())
 
 
 func test_c_fires_down_at_a_prone_player() -> void:
-	# C 站在 Platform6（x 1000..548，顶面 y=184）上，玩家趴在左下方地面。子弹固定走 90°：
-	# 出膛点 (1028, 176)，要到趴下身体的高度（y≈316）得往左 140px，所以玩家放在 x=888。
-	# （放在正好 90° 的 x=914 反而打不中：那条线经过的是站立身体的高度，从趴着的玩家头顶掠过。）
+	# C stands on Platform6 (x 1000..548, top y=184), the player prone on the ground below to the left. Bullets always travel at 90°:
+	# from the muzzle at (1028, 176), reaching the height of a prone body (y≈316) takes 140px to the left, so the player is placed at x=888.
+	# (Placed exactly at 90°, x=914, it would miss: that line passes at the height of a standing body, skimming over the prone player.)
 	var c := await _place("WalkerC", Vector2(1048, 168), true)
 	player.global_position = Vector2(888, 304)
 	player.velocity = Vector2.ZERO
 	Input.action_press("crouch")
-	# 先无敌观察 1.5 秒：中弹会被击退到空中、自动站起来，C 也就跟着站起来——只看最后一帧会漏掉它中途趴下过，所以逐帧看。
+	# First watch invincible for 1.5 seconds: being hit knocks the player into the air and they stand up automatically, and C stands up with them — the last frame alone would miss that it lay down midway, so watch every frame.
 	var shots := []
 	var record := func() -> void: shots.append(c.last_shot_direction)
 	c.shot_fired.connect(record)
@@ -200,7 +200,7 @@ func test_c_fires_down_at_a_prone_player() -> void:
 	check("C aims diagonally down", c.aim == Enemy.Aim.DIAGONAL_DOWN, str(c.aim))
 	check("C fires down-left", not shots.is_empty() and shots.all(func(d): return d.is_equal_approx(Vector2(-DIAGONAL, DIAGONAL))), str(shots))
 	check("C never lies down while firing down (it only lies down level with the player)", not ever_prone and not c.is_prone)
-	# 再关掉无敌等下一发（C 每 4.4 秒一发，子弹飞过去还要约 0.7 秒）：从上面斜着打下来，趴着也躲不掉。
+	# Then turn invincibility off and wait for the next shot (C fires every 4.4 seconds, plus about 0.7 seconds of flight): coming diagonally from above, prone does not dodge it.
 	player._invincible_timer = 0.0
 	for i in 180:
 		await tree.physics_frame
@@ -209,10 +209,10 @@ func test_c_fires_down_at_a_prone_player() -> void:
 	check("lying down does not dodge shots from above", player.health < player.max_health, str(player.health))
 
 
-# ---------------------------------------------------------------- 炮台
+# ---------------------------------------------------------------- Turret
 
 func test_turret_fires_diagonally_up() -> void:
-	# 炮台在地面，玩家站在 Platform5（x 840..468，顶面 y=248）上，在它左上方 90°。
+	# The turret on the ground, the player on Platform5 (x 840..468, top y=248), up and to its left at 90°.
 	var turret := await _place("Turret1", Vector2(1000, 304))
 	player.global_position = Vector2(926, 232)
 	player.velocity = Vector2.ZERO
@@ -225,7 +225,7 @@ func test_turret_fires_diagonally_up() -> void:
 
 func test_turret_turns_for_a_diagonal_target_behind_it() -> void:
 	var turret := await _place("Turret1", Vector2(840, 304))
-	# 玩家在它右上方（它原本朝左）：炮台会转身。
+	# The player up and to its right (it was facing left): the turret turns around.
 	player.global_position = Vector2(926, 232)
 	player.velocity = Vector2.ZERO
 	var w := await _watch(turret, 120)

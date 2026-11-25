@@ -1,13 +1,13 @@
 extends Node
-## 音效播放器（autoload 单例 Sfx）：监听 GameEvents，到当前素材包里找对应的声音播放。
-## 播放器挂在这个单例下，所以关卡重载时正在播的声音（比如 game_over）不会被截断。
+## Sound effect player (the autoload singleton Sfx): listens to GameEvents and plays the matching sound from the current skin pack.
+## The players hang under this singleton, so a sound still playing when a stage reloads (e.g. game_over) is not cut off.
 
-## 每次真的播放一个声音时发出。测试用它确认「哪个事件播了哪个声音」。
+## Emitted every time a sound actually plays. Tests use it to confirm "which event played which sound".
 signal sound_played(event: StringName, stream: AudioStream)
 
-## 同时最多有几个声音在响。
+## How many sounds can play at once.
 const POOL_SIZE := 16
-## 同一种声音最多同时响几个：一排子弹同时打墙时，再多叠加只会更吵。
+## How many copies of the same sound can play at once: when a row of bullets hits a wall together, stacking more only makes it louder.
 const MAX_PER_EVENT := 3
 const BUS := &"SFX"
 
@@ -17,7 +17,7 @@ var _warned := {}
 
 
 func _ready() -> void:
-	# 终极武器发动时整棵树会暂停，音效要照常播放。
+	# The whole tree pauses when the ultimate fires, and sound effects must keep playing.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	for i in POOL_SIZE:
 		var player := AudioStreamPlayer.new()
@@ -30,7 +30,7 @@ func _ready() -> void:
 func play(event: StringName) -> void:
 	var stream := Skins.sound(event)
 	if stream == null:
-		# 素材包可以不提供某些声音（没有备用包时），只提醒一次，不中断游戏。
+		# A skin pack may leave out some sounds (when it has no fallback); warn once and do not interrupt the game.
 		if not _warned.has(event):
 			_warned[event] = true
 			push_warning("Sfx: current skin has no sound for event '%s'" % event)
@@ -42,12 +42,12 @@ func play(event: StringName) -> void:
 	sound_played.emit(event, stream)
 
 
-## 正在播放某个事件的播放器数量。
+## Number of players currently playing a given event.
 func playing_count(event: StringName) -> int:
 	return _players.filter(func(p: AudioStreamPlayer) -> bool: return p.playing and p.get_meta(&"event", &"") == event).size()
 
 
-## 同一事件已经响满 MAX_PER_EVENT 个就复用其中播得最久的；否则找空闲的；都忙就按顺序抢一个。
+## If the event already has MAX_PER_EVENT copies playing, reuse the one that has played longest; otherwise find an idle player; if all are busy, take one in turn.
 func _pick_player(event: StringName) -> AudioStreamPlayer:
 	var same := _players.filter(func(p: AudioStreamPlayer) -> bool: return p.playing and p.get_meta(&"event", &"") == event)
 	if same.size() >= MAX_PER_EVENT:

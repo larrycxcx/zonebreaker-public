@@ -1,8 +1,8 @@
 extends GameTest
-## 第四关的 Boss「骷髅头」（`scripts/boss_skull.gd`）和它召唤的小骷髅（`scripts/skull_minion.gd`）。
+## Stage 4's boss, the "skull" (`scripts/boss_skull.gd`), and the little skulls it summons (`scripts/skull_minion.gd`).
 ##
-## 用测试关跑：清掉关卡自带的浮台（不然「激光射到哪」「换一层」量的是关卡原有的东西），
-## 把 Boss 摆在右侧、最低的位置正好让激光对准站在地上的人（和第四关里一样的摆法：地面 320 → 288）。
+## Run on the test level: clear the level's own floating platforms (otherwise "where the laser reaches" and "changing layers" would measure the level's existing things),
+## and put the boss on the right at its lowest position, where the laser lines up with a player standing on the ground (placed as in stage 4: ground 320 → 288).
 
 const PACK := "res://skins/basement/basement_skin.tres"
 const GROUND_Y := 320.0
@@ -36,7 +36,7 @@ func add_ledge(x: float, top: float, wide := 160.0) -> Platform:
 	return ledge
 
 
-## 等它进入某个状态（最多 n 帧）。
+## Wait until it enters a given state (at most n frames).
 func wait_for(boss: BossSkull, state: Callable, n := 300) -> bool:
 	for i in n:
 		if state.call():
@@ -45,7 +45,7 @@ func wait_for(boss: BossSkull, state: Callable, n := 300) -> bool:
 	return state.call()
 
 
-# ---------------------------------------------------------------- 身份
+# ---------------------------------------------------------------- Identity
 
 func test_it_is_a_floating_boss() -> void:
 	var boss := (load("res://scenes/boss_4.tscn") as PackedScene).instantiate() as BossSkull
@@ -70,7 +70,7 @@ func test_the_pack_has_its_art() -> void:
 	check("and a beam to tile", ResourceLoader.exists("res://skins/basement/enemies/4_boss/beam_thick.png"))
 
 
-# ---------------------------------------------------------------- 激光
+# ---------------------------------------------------------------- Laser
 
 func test_it_lines_up_charges_then_fires() -> void:
 	await open_arena()
@@ -82,7 +82,7 @@ func test_it_lines_up_charges_then_fires() -> void:
 	check("it starts charging", charged)
 	check("lined up on the player's body", absf(boss.beam_height() - player.body_center().y) <= 1.0,
 		"%.1f vs %.1f" % [boss.beam_height(), player.body_center().y])
-	# **量蓄力持续了多久**，不是只看进没进过：蓄力为 0 时状态也会闪一帧「蓄力中」
+	# **Measure how long the charge lasted**, not just whether it happened: with a charge time of 0 the state still flickers "charging" for one frame
 	var held := 0
 	while boss.is_charging() and held < 120:
 		await tree.physics_frame
@@ -111,7 +111,7 @@ func test_the_beam_runs_to_the_wall_through_ledges() -> void:
 
 
 func test_another_floor_is_safe() -> void:
-	# 躲法是换一层：激光锁定之后跳上一层（60 高）就打不到
+	# The dodge is changing layers: once the laser is locked, jumping up one layer (60 tall) gets out of its way
 	await open_arena()
 	var boss := spawn_boss()
 	var ledge := add_ledge(240, GROUND_Y - 60.0, 160)
@@ -126,7 +126,7 @@ func test_another_floor_is_safe() -> void:
 
 
 func test_lying_down_under_it_also_works() -> void:
-	# 激光对着站着的人的身体中心、6px 粗；趴下的人顶在它下面
+	# The laser aims at a standing player's body centre and is 6px thick; a prone player fits under it
 	await open_arena()
 	var boss := spawn_boss()
 	player.global_position = Vector2(300, STAND_Y)
@@ -142,9 +142,9 @@ func test_lying_down_under_it_also_works() -> void:
 	check("and the beam went over", player.health == full, "%d -> %d" % [full, player.health])
 
 
-# ---------------------------------------------------------------- 骨弹（站在它底下不安全）
+# ---------------------------------------------------------------- Bone shots (standing under it is not safe)
 
-## 记下 Boss 每一发子弹的方向。
+## Record the direction of every shot the boss fires.
 func record_shots(boss: BossSkull) -> Array[Vector2]:
 	var shots: Array[Vector2] = []
 	boss.shot_fired.connect(func() -> void: shots.append(boss.last_shot_direction))
@@ -152,11 +152,11 @@ func record_shots(boss: BossSkull) -> Array[Vector2]:
 
 
 func test_standing_under_it_is_not_safe() -> void:
-	# 2026-10 试玩反馈：激光从骨手往竖井中间射，站在它正下方就是安全区。现在它会往下打骨弹
+	# 2026-10 playtest feedback: the laser shoots from the bony hand toward the middle of the shaft, so standing right under it was a safe spot. Now it fires bone shots downward
 	await open_arena()
 	var boss := spawn_boss()
 	boss.summon_every = 1000
-	# 把它抬高一截：在最低的位置时它的骨手和站在地上的人一样高，那个人其实在它侧后方
+	# Lift it a bit: at its lowest position its bony hand is as high as a player standing on the ground, who is then actually beside and behind it
 	boss.global_position.y = BOSS_AT.y - 120.0
 	player.global_position = Vector2(BOSS_AT.x, STAND_Y)
 	snap_camera()
@@ -172,7 +172,7 @@ func test_it_shoots_up_at_a_player_above_its_reach() -> void:
 	await open_arena()
 	var boss := spawn_boss()
 	boss.summon_every = 1000
-	# 它往上最多飘 140，激光最高打到 288 - 140 + 16 = 164；站在更高的地方激光够不着
+	# It floats up 140 at most, so the highest the laser reaches is 288 - 140 + 16 = 164; standing higher than that, the laser cannot reach
 	var ledge := add_ledge(400, 100, 200)
 	player.global_position = Vector2(480, ledge.position.y - 16.0)
 	snap_camera()
@@ -202,8 +202,8 @@ func test_the_volley_is_a_fan() -> void:
 
 func test_the_volley_in_the_pack_needs_no_missing_art() -> void:
 	if needs_art(): return
-	# 截图抓到的：基类每打一发都让外观「播一遍开火动作」，骷髅头没有 attack_level 那组，
-	# 每发刷一条「Resource file not found」（第二关 2-C 当年同一个毛病）。默认皮肤下测不出来
+	# Caught in a screenshot: the base class makes the appearance "play the firing clip once" for every shot, and the skull has no attack_level clip,
+	# so every shot printed a "Resource file not found" (stage 2's 2-C once had the same problem). The default skin cannot catch it
 	await open_arena(load(PACK) as SkinPack)
 	var boss := spawn_boss()
 	boss.summon_every = 1000
@@ -211,8 +211,8 @@ func test_the_volley_in_the_pack_needs_no_missing_art() -> void:
 	player.global_position = Vector2(BOSS_AT.x, STAND_Y)
 	snap_camera()
 	var shots := record_shots(boss)
-	# **自己查贴图在不在**：「Resource file not found」是加载器报的引擎错误，
-	# runner 只把 SCRIPT ERROR 记成失败，这条它不管（第一版用例就这么绿了）
+	# **Check for the sprites yourself**: "Resource file not found" is an engine error printed by the loader,
+	# and the runner only counts SCRIPT ERROR as failures, not this (the first version of the case passed just like that)
 	var visual := boss.get_node("Visual") as EnemySpriteAppearance
 	var missing := {}
 	for i in 240:
@@ -224,7 +224,7 @@ func test_the_volley_in_the_pack_needs_no_missing_art() -> void:
 	check("and every pose it showed has art", missing.is_empty(), str(missing.keys()))
 
 
-# ---------------------------------------------------------------- 小骷髅：满屏飞、扑人
+# ---------------------------------------------------------------- Little skulls: flying everywhere, swooping
 
 func spawn_minion(at: Vector2) -> SkullMinion:
 	var minion := (load("res://scenes/enemy_4_minion.tscn") as PackedScene).instantiate() as SkullMinion
@@ -234,7 +234,7 @@ func spawn_minion(at: Vector2) -> SkullMinion:
 
 
 func test_minions_fly_through_solid_ground() -> void:
-	# 原来被单向平台、实心块挡着，玩家躲在 Boss 底下就够不着。现在穿墙
+	# They used to be blocked by one-way platforms and solid blocks, and could not reach a player hiding under the boss. Now they pass through walls
 	await open_arena()
 	var slab: Platform = load("res://scenes/platform.tscn").instantiate()
 	slab.position = Vector2(200, 200)
@@ -244,8 +244,8 @@ func test_minions_fly_through_solid_ground() -> void:
 	minion._left = 100.0
 	player.global_position = Vector2(320, STAND_Y)
 	snap_camera()
-	# 它绕着玩家转圈（方向、相位随机），只看最后一帧的话碰巧转到上面就判成「没穿过来」——
-	# 全量测试里偶发过一次。看它这两秒里到过的最低处
+	# It circles the player (random direction and phase), so looking at the last frame only, it might happen to be above and be judged "did not come through" —
+	# that happened once in a full run. Look at the lowest point it reached in these two seconds
 	var lowest := minion.global_position.y
 	for i in 120:
 		await tree.physics_frame
@@ -292,7 +292,7 @@ func test_minions_never_leave_the_screen() -> void:
 		"%s in %s" % [minion.global_position, camera_rig().view_rect()])
 
 
-# ---------------------------------------------------------------- 召唤、换边
+# ---------------------------------------------------------------- Summoning, switching sides
 
 func test_every_third_attack_is_a_summon() -> void:
 	await open_arena()
@@ -334,9 +334,9 @@ func test_minions_float_at_you_and_die_in_two_shots() -> void:
 
 
 func test_killing_a_minion_while_the_boss_lives_is_fine() -> void:
-	# 2026-10 试玩崩过：打死一只小骷髅以后，Boss 每帧清理名单时把已经释放的对象传给了
-	# 带类型的 lambda 参数，每帧报 SCRIPT ERROR（编辑器里就停在调试器上）。
-	# 原来的用例只测过「Boss 死了小骷髅跟着碎」，从没在 Boss 还活着的时候打死过一只。
+	# Crashed in a 2026-10 playtest: after killing a little skull, the boss cleaning up its list every frame passed an already freed object to
+	# a typed lambda parameter, printing a SCRIPT ERROR every frame (the editor stopped in the debugger).
+	# The old case only tested "the little skulls shatter when the boss dies" and had never killed one while the boss was alive.
 	await open_arena()
 	var boss := spawn_boss()
 	player.global_position = Vector2(300, STAND_Y)
@@ -345,9 +345,9 @@ func test_killing_a_minion_while_the_boss_lives_is_fine() -> void:
 	boss._summon()
 	var minions := boss.minions().duplicate()
 	check("setup: there are minions", minions.size() >= 2, str(minions.size()))
-	# **直接 free()，不走 take_damage**：真打的时候是玩家的子弹把它打死的，子弹在 Boss 之后处理，
-	# 小骷髅在那一帧末尾就被释放了——Boss 下一帧清理名单时拿到的是一个已经释放的对象。
-	# 在两帧之间 take_damage 的话它只是「待删」，Boss 先看到待删就去掉了，重现不出来（第一版就这么绿了）。
+	# **free() it directly, not through take_damage**: in real play the player's bullet kills it, and bullets are processed after the boss,
+	# so the little skull is freed at the end of that frame — next frame the boss's cleanup sees an already freed object.
+	# With take_damage between frames it is only "queued for deletion", the boss drops it on seeing that, and it does not reproduce (the first version passed just like that).
 	(minions[0] as Enemy).free()
 	await frames(30)
 	check("the boss lets go of the dead one", boss.minions().size() == minions.size() - 1,
@@ -370,7 +370,7 @@ func test_it_switches_sides_every_other_attack() -> void:
 	check("still facing into the shaft", boss.facing == 1)
 
 
-# ---------------------------------------------------------------- 第二阶段
+# ---------------------------------------------------------------- Phase 2
 
 func test_it_turns_nasty_below_half_and_says_so_once() -> void:
 	await open_arena()
@@ -406,7 +406,7 @@ func test_enraged_it_fires_twice_a_round() -> void:
 	check("two beams in one round", beams == 2, str(beams))
 
 
-# ---------------------------------------------------------------- 死了
+# ---------------------------------------------------------------- Death
 
 func test_its_minions_go_with_it_and_pay_nothing() -> void:
 	await open_arena()
@@ -417,19 +417,19 @@ func test_its_minions_go_with_it_and_pay_nothing() -> void:
 	boss._summon()
 	var minions := boss.minions().duplicate()
 	check("setup: there are minions", not minions.is_empty())
-	# 比金钱、不比经验：Boss 那 400 多经验会让 1 级的角色升级，升级把经验清零重算，差值就不是奖励了
+	# Compare money, not XP: the boss's 400-odd XP levels up a level 1 character, and levelling up resets XP, so the difference is not the reward
 	var money := player.progress.money
 	var pay := boss.money_reward
 	boss.die()
 	await frames(2)
-	# 不给循环变量标类型：它们多半已经被释放了，给已释放的对象赋一个带类型的变量会报错
+	# Do not type the loop variable: they are mostly freed already, and assigning a freed object to a typed variable is an error
 	for minion in minions:
 		check("a minion went with it", not is_instance_valid(minion) or minion.is_queued_for_deletion())
 	check("and only the boss paid", player.progress.money - money == pay,
 		"%d vs %d" % [player.progress.money - money, pay])
 
 
-# ---------------------------------------------------------------- 换皮肤
+# ---------------------------------------------------------------- Switching skins
 
 func test_the_pack_draws_the_beam_and_changes_no_rules() -> void:
 	var heights := []

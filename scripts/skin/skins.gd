@@ -1,6 +1,6 @@
 extends Node
-## 当前使用的素材包（autoload 单例 Skins）。
-## 启动时读取项目设置 game/skin 指定的包；运行中可以用 use() 切换。
+## The skin pack currently in use (the autoload singleton Skins).
+## On start-up it reads the pack named by the project setting game/skin; use() switches it at run time.
 
 signal skin_changed(skin: SkinPack)
 
@@ -11,7 +11,7 @@ var current: SkinPack
 
 
 func _ready() -> void:
-	# 设置里那个包可能不在（公开版去掉了第三方素材），那就用默认包（占位方块 + 8-bit 音效）
+	# The pack in the settings may be missing (the public build strips third-party art); then use the default pack (placeholder blocks + 8-bit sounds)
 	var path: String = ProjectSettings.get_setting(SETTING, DEFAULT_SKIN)
 	use(load(path if ResourceLoader.exists(path) else DEFAULT_SKIN) as SkinPack)
 
@@ -21,7 +21,7 @@ func use(skin: SkinPack) -> void:
 	skin_changed.emit(skin)
 
 
-## 默认包。测试和自制素材包的 fallback 都会用到。
+## The default pack. Used by tests and as the fallback of custom packs.
 func default_skin() -> SkinPack:
 	return load(DEFAULT_SKIN) as SkinPack
 
@@ -30,28 +30,28 @@ func sound(event: StringName) -> AudioStream:
 	return current.find_sound(event) if current != null else null
 
 
-## 当前包（或它的备用包）里的一个文件，找不到返回空串。
+## A file in the current pack (or its fallback pack); an empty string if not found.
 func file(relative: String) -> String:
 	return current.find_file(relative) if current != null else ""
 
 
-## 当前包里某个特效的场景，没有就返回 fallback_（Fx 节点上配的默认值）。
+## The scene for an effect in the current pack; fallback_ (the default set on the Fx node) if there is none.
 func effect(key: StringName, fallback_: PackedScene) -> PackedScene:
 	var scene: PackedScene = current.find_effect(key) if current != null else null
 	return scene if scene != null else fallback_
 
 
-## 当前包里某个用途的背景音乐，没有返回 null。
+## The background music for a purpose in the current pack; null if there is none.
 func music(key: StringName) -> AudioStream:
 	return current.find_music(key) if current != null else null
 
 
-## 当前包的 HUD 外观场景，没有返回 null。
+## The current pack's HUD appearance scene; null if there is none.
 func hud() -> PackedScene:
 	return current.find_hud() if current != null else null
 
 
-## 当前包的关卡背景场景，没有返回 null。
+## The current pack's stage backdrop scene; null if there is none.
 func backdrop() -> PackedScene:
 	return current.find_backdrop() if current != null else null
 
@@ -60,9 +60,9 @@ func lighting() -> PackedScene:
 	return current.find_lighting() if current != null else null
 
 
-## 按皮肤键给 owner 装上外观，返回最终用的那个 `Appearance`。
-## 当前包里没有这个键（或者给的场景不对）就保留角色场景里自带的外观——皮肤包填错不该让游戏崩。
-## 角色在 _ready 里第一时间调它，之后只通过返回的这个对象和外观打交道。
+## Install the appearance for a skin key on owner and return the `Appearance` finally used.
+## If the current pack lacks this key (or the scene is wrong) the look built into the character's scene stays — a mistake in a skin pack should not crash the game.
+## Characters call this first thing in _ready, and from then on only deal with the appearance through the returned object.
 func build_appearance(owner: Node, key: StringName) -> Appearance:
 	var built_in := owner.get_node_or_null("Visual") as Appearance
 	if key == &"" or current == null:
@@ -72,7 +72,7 @@ func build_appearance(owner: Node, key: StringName) -> Appearance:
 		return built_in
 	var replacement := scene.instantiate() as Appearance
 	if replacement == null:
-		push_warning("皮肤包里 %s 的外观根节点没有 Appearance 脚本，继续用默认外观" % key)
+		push_warning("the appearance root for %s in the skin pack has no Appearance script; keeping the default look" % key)
 		return built_in
 	replacement.name = "Visual"
 	if built_in != null:

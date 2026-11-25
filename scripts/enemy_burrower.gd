@@ -1,19 +1,19 @@
 class_name EnemyBurrower
 extends EnemyChaser
-## 第五关的 5-E：**埋在地下的蜘蛛爪臂**（爪臂头 + 蜘蛛腿）。2026-11 和用户定的：
-## - **埋着**：地上只露一块履带（素材包的外观；占位方块画成半透明），那就是提醒。埋着的时候碰撞层清空——
-##   打不到、撞不到，终极武器也炸不着它。
-## - 玩家走近（左右 `trigger_range` 以内、和它差不多同一层）→ **钻出来**：履带滑开、机甲升上来（`emerge_time`），
-##   钻完才恢复碰撞。
-## - 钻出来之后就是 D 那套**追击**（蜘蛛腿走得动、能跳上平台、翻墙）。
-## - 贴到 `spin_range` 以内 → 站住**原地旋转**（`spin_time`）：一边播爪臂横扫那几帧、一边快速左右翻身，
-##   转到一半那一下**左右两边都打**（`spin_radius` 以内的人挨一下）。转完**歇一会儿**（`rest_time`）——反击的时机。
+## Stage 5's 5-E: **a spider claw arm buried in the ground** (claw-arm head + spider legs). Agreed with the user in 2026-11:
+## - **Buried**: only a tread shows on the floor (the pack's appearance; the placeholder is drawn half transparent) — that is the warning. While buried its collision layer is cleared:
+## it cannot be shot or bumped, and the ultimate cannot reach it either.
+## - When a player comes near (within `trigger_range` left or right, on about the same layer) → it **emerges**: the tread slides aside and the mech rises (`emerge_time`),
+## and collisions come back once it is out.
+## - Once out it **chases** like D (the spider legs can walk, jump onto platforms and climb walls).
+## - Within `spin_range` → it stops and **spins in place** (`spin_time`): the claw sweep frames play while it flips left and right quickly,
+## and halfway through **it hits both sides** (anyone within `spin_radius`). After the spin it **rests a moment** (`rest_time`) — the chance to hit back.
 
 enum State { BURIED, EMERGING, HUNTING, SPINNING, RESTING }
 
 @export_group("Burrow")
 @export var trigger_range := 110.0
-## 和它的高度差在这以内才算「同一层」（不然楼上走过去它就钻出来了）。
+## Only within this height difference does a player count as "on the same layer" (otherwise walking past upstairs would bring it out).
 @export var trigger_height := 48.0
 @export var emerge_time := 0.7
 @export var emerge_event := &"chaser_alert"
@@ -21,11 +21,11 @@ enum State { BURIED, EMERGING, HUNTING, SPINNING, RESTING }
 @export_group("Spin")
 @export var spin_range := 40.0
 @export var spin_time := 0.8
-## 转到多久的时候打（这时候爪臂正扫过身边）。
+## When in the spin it hits (the claw is sweeping past at that point).
 @export var spin_hit_at := 0.4
 @export var spin_radius := 46.0
 @export var spin_damage := 48
-## 每隔多久翻一次身（快速左右翻 = 转圈）。
+## How often it flips around (flipping left and right fast = spinning).
 @export var spin_flip := 0.1
 @export var rest_time := 0.7
 
@@ -42,7 +42,7 @@ func _ready() -> void:
 	bury()
 
 
-## 埋回去（关卡一开始就是这个样子）。
+## Bury it again (how it starts in a level).
 func bury() -> void:
 	state = State.BURIED
 	collision_layer = 0
@@ -81,7 +81,7 @@ func _physics_process(delta: float) -> void:
 				state = State.HUNTING
 
 
-## 埋着的时候终极武器炸不着（它在地底下）。
+## The ultimate cannot reach it while buried (it is underground).
 func hit_by_ultimate(from: Node = null) -> void:
 	if is_buried():
 		return
@@ -99,7 +99,7 @@ func _someone_near() -> bool:
 func _start_emerging() -> void:
 	state = State.EMERGING
 	_left = emerge_time
-	# 钻出来就冲着最近的那个人
+	# When it emerges it faces the nearest player
 	var players := players_by_distance()
 	if not players.is_empty():
 		facing = signi(players[0].global_position.x - global_position.x)
@@ -147,7 +147,7 @@ func _spin(delta: float) -> void:
 		_left = rest_time
 
 
-## 转到一半：身边（左右两边都算）的人挨一下。
+## Halfway through the spin: anyone beside it (both sides count) takes a hit.
 func _land_spin() -> void:
 	for player in players_by_distance():
 		if player.body_center().distance_to(body_center()) <= spin_radius:

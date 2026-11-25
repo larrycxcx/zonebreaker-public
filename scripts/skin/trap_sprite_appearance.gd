@@ -1,14 +1,14 @@
 class_name TrapSpriteAppearance
 extends Appearance
-## 机关的贴图外观：一条 8 帧的动画（32×64 一帧），玩法告诉它第几帧就画第几帧——
-## 不自己按时间播，**画面和判定永远是同一帧**。
-## 液压机还有一根活塞杆：从天花板（`set_mount()`）一直接到这一帧的顶上，一行图竖着平铺。
+## Sprite look for traps: an 8-frame animation (32×64 per frame), drawing whichever frame gameplay says —
+## it does not play on its own timer, so **the picture and the hit check are always on the same frame**.
+## The hydraulic press also has a piston rod: from the ceiling (`set_mount()`) down to the top of the current frame, one row of image tiled vertically.
 
 @export var strip: Texture2D
 @export var rod: Texture2D
 @export var frames := 8
 
-## 活塞杆从哪儿开始（本地坐标的 y，负数 = 在这一帧上面）。没有杆子的（闸门）不用管。
+## Where the piston rod starts (local y, negative = above this frame). Traps without a rod (the gate) can ignore it.
 var _mount := 0.0
 var _frame := 0
 

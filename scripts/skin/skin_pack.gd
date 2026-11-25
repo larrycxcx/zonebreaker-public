@@ -1,116 +1,116 @@
 class_name SkinPack
 extends Resource
-## 素材包：一套可整体替换的游戏素材。目前只有音效，第 4 步会把贴图、背景、音乐也加进来。
+## A skin pack: a whole set of game assets that can be swapped as one. Only sound effects for now; step 4 adds sprites, backdrops and music.
 ##
-## 新建一个素材包：在编辑器里新建 SkinPack 资源（.tres），`fallback` 指向默认包
-## （res://skins/default/default_skin.tres），然后只在 `sounds` 里填想替换的事件——
-## 没填的事件自动沿用备用包的声音。再把项目设置 game/skin 指向新的 .tres 即可。
-## 同一个事件想要多个变体轮流/随机播放，用 AudioStreamRandomizer 当那个声音（默认包的 player_shoot 就是这样）。
+## Making a new skin pack: create a SkinPack resource (.tres) in the editor with `fallback` pointing at the default pack
+## (res://skins/default/default_skin.tres), then fill in only the events you want to replace under `sounds` —
+## events left out keep using the fallback pack's sounds. Then point the project setting game/skin at the new .tres.
+## For several variants of one event played in turn / at random, use an AudioStreamRandomizer as that sound (the default pack's player_shoot does this).
 
-## 游戏会发出的全部音效事件，以及什么时候触发。这是素材包的「接口约定」：
-## 做素材的人照这个清单准备声音；test_audio.gd 会检查默认包覆盖了这里的每一项，
-## 并且每一项都真的会在游戏里被触发。加新事件时两边一起改。
+## Every sound event the game emits, and when it fires. This is the skin pack's "interface contract":
+## whoever makes the assets prepares sounds from this list; test_audio.gd checks that the default pack covers every entry here,
+## and that every entry really fires in the game. When adding an event change both.
 const SOUND_EVENTS := {
-	&"player_shoot": "玩家每开一枪",
-	&"jump": "玩家起跳",
-	&"player_hurt": "玩家掉血（没死）",
-	&"player_death": "玩家血量归零",
-	&"player_down": "双人：玩家血量归零但还能救，倒在地上等队友",
-	&"player_revive": "双人：队友走过来把倒地的人拉起来",
-	&"menu_move": "菜单里光标上下移动",
-	&"menu_select": "菜单里确认一项（暂停打开也算）",
-	&"menu_back": "菜单里返回上一层（暂停关闭也算）",
-	&"stamina_exhausted": "玩家体力跑光",
-	&"enemy_shoot": "巡逻兵 A/B/C 开枪（每颗子弹一次，B 连发时响多次）",
-	&"turret_shoot": "炮台开火",
-	&"flyer_shoot": "E 往下开火",
-	&"enemy_hit": "敌人被打中但没死",
-	&"enemy_death": "敌人被消灭",
-	&"enemy_prone": "敌人 C 跟着玩家趴下（炮台不会趴下）",
-	&"chaser_alert": "D 发现玩家、开始冲锋",
-	&"bullet_impact": "任何子弹撞到墙、地面、矮通道等实心物体",
-	&"game_over": "玩家死亡后出现 GAME OVER",
-	&"level_clear": "Boss 倒下、这一关打完了",
-	&"grenade_throw": "玩家扔出一颗手雷",
-	&"grenade_bounce": "手雷撞到地面或墙弹起来",
-	&"explosion": "手雷爆炸",
-	&"weapon_switch": "玩家切换武器",
-	&"ultimate_start": "玩家发动终极武器（定格开始）",
-	&"ultimate_blast": "终极武器消灭屏幕内的敌人（定格结束）",
-	&"boss_appear": "Boss 出场（第一次进入屏幕）",
-	&"boss_enrage": "Boss 掉到半血以下、换一套打法（只报一次）",
-	&"hammer_smash": "抡锤的敌人起手（砸到地上还要等几帧）",
+	&"player_shoot": "the player fires a shot",
+	&"jump": "the player jumps",
+	&"player_hurt": "the player loses health (without dying)",
+	&"player_death": "the player's health reaches zero",
+	&"player_down": "co-op: the player's health reaches zero but they can still be saved, lying on the ground waiting for the partner",
+	&"player_revive": "co-op: the partner walks over and pulls the downed player up",
+	&"menu_move": "the cursor moves up / down in a menu",
+	&"menu_select": "an item is confirmed in a menu (opening the pause menu counts too)",
+	&"menu_back": "going back a level in a menu (closing the pause menu counts too)",
+	&"stamina_exhausted": "the player runs out of stamina",
+	&"enemy_shoot": "patroller A/B/C fires (once per bullet, several times for B's burst)",
+	&"turret_shoot": "a turret fires",
+	&"flyer_shoot": "E fires downward",
+	&"enemy_hit": "an enemy is hit but not killed",
+	&"enemy_death": "an enemy is destroyed",
+	&"enemy_prone": "enemy C goes prone after the player (turrets never go prone)",
+	&"chaser_alert": "D spots the player and starts charging",
+	&"bullet_impact": "any bullet hits something solid such as a wall, the ground or a crawl passage",
+	&"game_over": "after the player dies, shows GAME OVER",
+	&"level_clear": "Boss falls; the stage is cleared",
+	&"grenade_throw": "the player throws a grenade",
+	&"grenade_bounce": "a grenade bounces off the ground or a wall",
+	&"explosion": "a grenade explodes",
+	&"weapon_switch": "the player switches weapons",
+	&"ultimate_start": "the player fires the ultimate (the freeze starts)",
+	&"ultimate_blast": "the ultimate destroys the enemies on screen (the freeze ends)",
+	&"boss_appear": "Boss appears (first time on screen)",
+	&"boss_enrage": "Boss drops below half health and switches tactics (reported once)",
+	&"hammer_smash": "a hammer enemy starts its swing (a few frames before it hits the ground)",
 }
 
-## 背景音乐的用途，以及什么时候放。
+## Purposes of the background music, and when each plays.
 const MUSIC_KEYS := {
-	&"intro": "主菜单",
-	&"level": "关卡里（关卡加载时开始，死了重开不会从头放）",
-	&"boss": "Boss 出场之后",
+	&"intro": "main menu",
+	&"level": "in a stage (starts when the stage loads; a restart after dying does not start it over)",
+	&"boss": "Boss has appeared",
 }
 
-## 全部角色外观的键，以及各是谁。做素材的人照这张表准备外观场景（根节点挂 Appearance 脚本）。
-## 自制包只填想替换的；没填的角色用它自己场景里带的默认外观（现在的占位方块）。
-## **这张表是给做素材的人看的说明，不是白名单**：运行时查的是 `appearances.get(键)`——
-## 字典，什么键都认。后面 23 关各有各的敌人和 Boss，新键会一直加，
-## 拿它当白名单的话「加一种敌人」就得改这个常量（DLC 更是改不到）。
+## Keys of every character appearance, and who each one is. Whoever makes the assets prepares appearance scenes from this list (root node with the Appearance script).
+## A custom pack only fills in what it replaces; characters left out use the default look in their own scene (the placeholder blocks for now).
+## **This list is documentation for whoever makes the assets, not a whitelist**: at run time the lookup is `appearances.get(key)` —
+## a dictionary that accepts any key. Each of the 23 stages brings its own enemies and boss and new keys keep coming;
+## as a whitelist, "adding an enemy" would mean editing this constant (and a DLC could not edit it at all).
 const APPEARANCE_KEYS := {
-	&"biker": "玩家可选的角色：Biker",
-	&"punk": "玩家可选的角色：Punk",
-	&"cyborg": "玩家可选的角色：Cyborg",
-	&"walker": "巡逻兵的基础场景（关卡里不直接放，放的是下面三种）",
-	&"1_a": "巡逻兵 A（只打水平）",
-	&"1_b": "巡逻兵 B（连发，会斜射）",
-	&"1_c": "巡逻兵 C（射程远，会斜射、会趴下）",
-	&"1_f": "敌人 F（扔手雷的巡逻兵）",
-	&"1_g": "炮台",
-	&"1_e": "敌人 E（飞行）",
-	&"1_d": "敌人 D（追击）",
+	&"biker": "Selectable character: Biker",
+	&"punk": "Selectable character: Punk",
+	&"cyborg": "Selectable character: Cyborg",
+	&"walker": "the patroller base scene (never placed in levels directly; the three below are)",
+	&"1_a": "patroller A (level shots only)",
+	&"1_b": "patroller B (bursts, shoots diagonally)",
+	&"1_c": "patroller C (long range, shoots diagonally, goes prone)",
+	&"1_f": "enemy F (patroller that throws grenades)",
+	&"1_g": "turret",
+	&"1_e": "enemy E (flying)",
+	&"1_d": "enemy D (chaser)",
 	&"1_boss": "Boss A",
-	# 发射物（外观根节点同样挂 Appearance；子弹会收到 aim(飞行方向)，素材包按方向挑贴图，见 ProjectileAppearance）
-	&"player_bullet": "玩家的子弹",
-	&"enemy_bullet": "敌人的子弹（巡逻兵）",
-	&"boss_bullet": "Boss A 导弹扇形的子弹",
-	&"turret_bullet": "炮台的炮弹",
-	&"flyer_bullet": "E 往下打的子弹",
-	&"player_grenade": "玩家的手雷",
-	&"enemy_grenade": "F 打出来的手雷",
-	# 地形（平台 platform.tscn 用；外观场景根节点挂 TerrainAppearance 这类有 fit(大小) 的外观）
-	&"terrain_ground": "地面",
-	&"terrain_ledge": "浮空的单向平台",
-	&"terrain_stone": "墙、矮通道顶块这类实心块",
+	# Projectiles (the appearance's root also has Appearance; bullets get aim(flight direction) and the pack picks an image by direction, see ProjectileAppearance)
+	&"player_bullet": "the player's bullets",
+	&"enemy_bullet": "enemy bullets (patrollers)",
+	&"boss_bullet": "Boss A missile-fan bullets",
+	&"turret_bullet": "turret shells",
+	&"flyer_bullet": "E downward bullets",
+	&"player_grenade": "the player's grenades",
+	&"enemy_grenade": "F batted grenades",
+	# Terrain (used by platform.tscn; the appearance scene's root is an appearance with fit(size), such as TerrainAppearance)
+	&"terrain_ground": "ground",
+	&"terrain_ledge": "floating one-way platform",
+	&"terrain_stone": "solid blocks such as walls and crawl passage roofs",
 }
 
-## 全部特效的键。没填的用 Fx 节点上配的默认场景。
+## Keys of every effect. Ones left out use the default scenes set on the Fx node.
 const EFFECT_KEYS := {
-	&"muzzle_flash": "开枪时的枪口闪光",
-	&"hit_spark": "子弹打中角色",
-	&"impact_spark": "子弹打在墙、地面上",
-	&"explosion": "手雷爆炸",
+	&"muzzle_flash": "muzzle flash when firing",
+	&"hit_spark": "a bullet hits a character",
+	&"impact_spark": "a bullet hits a wall or the ground",
+	&"explosion": "a grenade explodes",
 }
 
-## 在编辑器里显示的名字。
+## Name shown in the editor.
 @export var display_name := ""
-## 事件名 → 声音。
+## Event name → sound.
 @export var sounds: Dictionary[StringName, AudioStream] = {}
-## 角色外观：皮肤键（`APPEARANCE_KEYS`）→ 外观场景，根节点要挂 `Appearance` 脚本。
+## Character appearances: skin key (`APPEARANCE_KEYS`) → appearance scene, whose root must have the `Appearance` script.
 @export var appearances: Dictionary[StringName, PackedScene] = {}
-## 特效：特效键（`EFFECT_KEYS`）→ 场景。
+## Effects: effect key (`EFFECT_KEYS`) → scene.
 @export var effects: Dictionary[StringName, PackedScene] = {}
-## 关卡背景（视差滚动的几层画，纯显示）。留空就没有背景，用项目的清屏色。
+## Stage backdrop (a few layers of parallax art, display only). Empty means no backdrop; the project's clear colour shows.
 @export var backdrop: PackedScene
-## 光照层：盖在背景、装饰、地形上面、敌人和玩家下面的一层（根节点一般是 `ScreenLight`），纯显示。
-## 留空就没有。
+## Lighting layer: a layer over the backdrop, scenery and terrain and under the enemies and players (the root is usually a `ScreenLight`), display only.
+## Empty means none.
 @export var lighting: PackedScene
-## HUD 外观（根节点挂 SpriteHud 这类有 show_health / show_stamina / … 的脚本）。留空就用 HUD 自带的占位方块。
+## HUD appearance (root with a script such as SpriteHud providing show_health / show_stamina / …). Empty uses the HUD's own placeholder blocks.
 @export var hud: PackedScene
-## 背景音乐：用途（`MUSIC_KEYS`）→ 曲子。没有的用途就静音（默认包一首都没有）。
+## Background music: purpose (`MUSIC_KEYS`) → track. A purpose with no track goes silent (the default pack has none).
 @export var music: Dictionary[StringName, AudioStream] = {}
-## 这个包里没有的东西去哪里找。自制素材包一般指向默认包；默认包自己留空。
+## Where to look for things this pack does not have. Custom packs usually point at the default pack; the default pack leaves it empty.
 @export var fallback: SkinPack
 
 
-## 找某个事件的声音：先看自己，没有再问备用包，都没有返回 null。
+## Find the sound for an event: look here first, then ask the fallback pack; null if neither has it.
 func find_sound(event: StringName) -> AudioStream:
 	var stream: AudioStream = sounds.get(event)
 	if stream != null:
@@ -118,7 +118,7 @@ func find_sound(event: StringName) -> AudioStream:
 	return fallback.find_sound(event) if fallback != null else null
 
 
-## 找某个角色的外观场景：先看自己，没有再问备用包，都没有返回 null（= 用角色场景里自带的）。
+## Find a character's appearance scene: look here first, then ask the fallback pack; null if neither has it (= use the one built into the character's scene).
 func find_appearance(key: StringName) -> PackedScene:
 	var scene: PackedScene = appearances.get(key)
 	if scene != null:
@@ -126,21 +126,21 @@ func find_appearance(key: StringName) -> PackedScene:
 	return fallback.find_appearance(key) if fallback != null else null
 
 
-## 找背景场景：先看自己，没有再问备用包。
+## Find the backdrop scene: look here first, then ask the fallback pack.
 func find_backdrop() -> PackedScene:
 	if backdrop != null:
 		return backdrop
 	return fallback.find_backdrop() if fallback != null else null
 
 
-## 找光照层：先看自己，没有再问备用包（和背景一个规矩——背景是从哪个包来的，光照也跟着来）。
+## Find the lighting layer: look here first, then ask the fallback pack (same rule as the backdrop — the lighting comes from wherever the backdrop comes from).
 func find_lighting() -> PackedScene:
 	if lighting != null:
 		return lighting
 	return fallback.find_lighting() if fallback != null else null
 
 
-## 找某个用途的背景音乐：先看自己，没有再问备用包。
+## Find the background music for a purpose: look here first, then ask the fallback pack.
 func find_music(key: StringName) -> AudioStream:
 	var stream: AudioStream = music.get(key)
 	if stream != null:
@@ -148,10 +148,10 @@ func find_music(key: StringName) -> AudioStream:
 	return fallback.find_music(key) if fallback != null else null
 
 
-## 找包里的一个文件（相对包目录，比如 `biker/portrait.png`）：先看自己，没有再问备用包。
-## **不是每个包都装着全套东西**——每关的包只放这一关独有的，角色、界面这些 23 关共用，
-## 只在最底下那个包里有一份。头像一开始是直接按当前包的目录拼路径的，
-## 打完第二关回主菜单时当前包是工业区、那儿一个角色目录都没有，三个头像就全空了。
+## Find a file in the pack (relative to the pack folder, e.g. `biker/portrait.png`): look here first, then ask the fallback pack.
+## **Not every pack holds the full set** — each stage's pack only has what is unique to that stage, while characters, UI and so on are shared by all 23 stages
+## and only exist once, in the pack at the bottom. Portraits were first built from the current pack's folder directly,
+## so returning to the main menu after clearing stage 2 the current pack was the industrial one, which has no character folders, and all three portraits were blank.
 func find_file(relative: String) -> String:
 	if not resource_path.is_empty():
 		var path := "%s/%s" % [resource_path.get_base_dir(), relative]
@@ -160,14 +160,14 @@ func find_file(relative: String) -> String:
 	return fallback.find_file(relative) if fallback != null else ""
 
 
-## 找 HUD 外观：先看自己，没有再问备用包。
+## Find the HUD appearance: look here first, then ask the fallback pack.
 func find_hud() -> PackedScene:
 	if hud != null:
 		return hud
 	return fallback.find_hud() if fallback != null else null
 
 
-## 找某个特效的场景，规则同上。
+## Find the scene for an effect, same rule as above.
 func find_effect(key: StringName) -> PackedScene:
 	var scene: PackedScene = effects.get(key)
 	if scene != null:

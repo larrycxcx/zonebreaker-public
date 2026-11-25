@@ -1,19 +1,19 @@
 class_name StagedSpriteAppearance
 extends Appearance
-## 分阶段换图的可破坏物（第五关的毒气罐）：**每打掉一截换一张更破的图**，玩家看得出还差几下。
-## 和箱子那套（`CrateSpriteAppearance`，越打越暗、打烂播散架）不一样，这里的素材本身就画了每个破损阶段：
-## 完好（几种颜色，按位置固定挑一种）→ 打裂 → 碎一半 → 只剩一圈碎片（打烂之后一直停在这张，碰撞已经撤了）。
-## 玩法只调 `show_damage(打到几成, 打烂了没有)`，和别的机关一样不碰贴图。
+## A breakable object that swaps images in stages (stage 5's gas capsules): **every chunk knocked off shows a more broken image**, so the player can see how many hits are left.
+## Unlike the crate (`CrateSpriteAppearance`, darker the more it is hit, falling-apart clip when broken), this art draws each stage of damage itself:
+## intact (several colours, one picked by position) → cracked → half shattered → just a ring of shards (it stays on this one once broken; the collision is gone by then).
+## Gameplay only calls `show_damage(how damaged, broken or not)`, and like other traps never touches the sprites.
 
-## 完好时的几种样子（随机挑一种，按节点位置算，换台机器也一样）。
+## The intact looks (one picked at random, worked out from the node position, so it is the same on any machine).
 @export var intact: Array[Texture2D] = []
-## 打裂、碎一半（按打到几成依次换）。
+## Cracked, half shattered (switched in turn as the damage grows).
 @export var cracked: Array[Texture2D] = []
-## 打烂之后留在地上的碎片。
+## The shards left on the floor once broken.
 @export var debris: Texture2D
-## 贴图左上角相对节点原点画在哪（素材比判定框宽一点，往左让一半）。
+## Where the texture's top-left corner is drawn relative to the node origin (the art is a little wider than the hitbox, shifted left by half the difference).
 @export var at := Vector2.ZERO
-## 挨打时横着抖几像素
+## How many pixels it shakes sideways when hit
 const SHAKE := 1.0
 
 var _stage := 0.0
@@ -41,7 +41,7 @@ func _process(delta: float) -> void:
 		position.x = SHAKE if int(_shake * 60.0) % 2 == 0 and _shake > 0.0 else 0.0
 
 
-## 现在画哪张：0..1 的破损程度均分给「完好 + 每一张裂的」，打烂了是碎片。
+## Which image to draw now: 0..1 damage split evenly over "intact + each cracked image"; shards once broken.
 func current() -> Texture2D:
 	if _broken:
 		return debris

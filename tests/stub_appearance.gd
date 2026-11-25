@@ -1,8 +1,8 @@
 extends Appearance
-## 测试用的替身外观：什么都不画，只记下玩法调了哪些接口。
+## A stand-in appearance for tests: draws nothing, only records which interface methods gameplay called.
 ##
-## 用它 `set_script()` 换掉真正的外观之后，游戏必须照常运行、判定一点都不变——
-## 这就是「玩法不依赖外观」最直接的证据。换皮肤要做的事，和这里做的是同一件事。
+## After swapping out the real look with `set_script()` the game has to run as usual with the hit checks completely unchanged —
+## the most direct evidence that "gameplay does not depend on the look". Making a new skin is the same thing as what is done here.
 
 var calls: Array[String] = []
 

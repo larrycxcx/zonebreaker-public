@@ -1,33 +1,33 @@
 class_name HydraulicPress
 extends Node2D
-## 第二关的机关「液压机」：从天花板吊下来的活塞，**砸下来就压到地面**，碰到扣血。
+## Stage 2's trap, the "hydraulic press": a piston hanging from the ceiling that **slams all the way down to the floor**; touching it hurts.
 ##
-## 节点原点是这一帧画面（32×64）的左上角，摆的时候让底边落在地面上。
-## **收着的时候锤头底边在第 31 行**，底下正好留出 32 像素——站着的人走得过去；
-## 砸下来锤头到第 63 行，整条压到底，**趴下也躲不掉**。躲法只有一个：看准它收上去的空当冲过去。
-## 一排几台错开节奏（`phase`），所以那个空当是一台接一台地开。
+## The node origin is the top-left corner of the frame (32×64), placed with the bottom edge on the floor.
+## **Retracted, the bottom of the head is on row 31**, leaving exactly 32 pixels underneath — a standing player can walk through;
+## slammed down the head reaches row 63, pressing all the way, and **lying prone does not save you**. The only way through: dash past when it pulls up.
+## A row of presses is staggered (`phase`), so the gap opens one press after another.
 ##
-## 判定只看这一帧锤头和杆子占了哪儿（`HEAD`，按 `Hammer.png` 每一帧量出来的），
-## 和外观无关：默认皮肤画色块、素材包画贴图，规则一样。**没有碰撞体**——它不挡人也不挡子弹，只是碰不得。
-## 只伤玩家（敌人路过不管它）。
+## The hit check only looks at where the head and rod are in this frame (`HEAD`, measured from each frame of `Hammer.png`),
+## independent of the look: the default skin draws blocks, the pack draws sprites, and the rules are the same. **No collision shape** — it blocks neither people nor bullets, it just must not be touched.
+## Only hurts players (enemies walking past ignore it).
 
 @export var skin_key := &"trap_press"
-## 错开几秒（同一排的几台填不同的数）。
+## Seconds of offset (presses in the same row get different values).
 @export var phase := 0.0
 @export var damage := 50
-## 活塞杆从哪儿吊下来（世界坐标的 y）：天花板的底边。外观按它把杆子往上接，规则用不到。
+## Where the piston rod hangs from (world y): the bottom of the ceiling. The look extends the rod up to it; the rules do not use it.
 @export var mount_y := 0.0
-## 每一帧停多久：收着歇一会儿 → 很快砸下去 → 压着停一下 → 慢慢收回来。
+## How long each frame holds: rest retracted → slam down quickly → hold down a moment → pull back up slowly.
 @export var durations: Array[float] = [1.2, 0.05, 0.05, 0.1, 0.12, 0.12, 0.12, 0.12]
 
 const SIZE := Vector2(32, 64)
-## 每一帧锤头的上沿、下沿（帧内的行号）。量自 `Hammer.png`。
+## Top and bottom of the head in each frame (row numbers within the frame). Measured from `Hammer.png`.
 const HEAD := [Vector2i(10, 31), Vector2i(27, 53), Vector2i(44, 63), Vector2i(40, 62),
 	Vector2i(42, 63), Vector2i(32, 53), Vector2i(22, 43), Vector2i(12, 33)]
-## 杆子的左右（帧内的列）。锤头是满宽 32。
+## Left and right of the rod (columns within the frame). The head is the full 32 wide.
 const ROD := Vector2i(7, 24)
-## 判定比画面让 2 像素：收回去最后那一帧锤头底边在第 33 行，正好擦着站着的人的头顶——
-## 画面上看是「已经收回去了」，这时候挨一下会觉得冤。
+## The hit check gives 2 pixels compared with the picture: in the last frame of pulling back the bottom of the head is on row 33, just grazing a standing player's head —
+## on screen it looks "already retracted", and getting hit then would feel unfair.
 const GRACE := 2
 
 var frame := 0
@@ -56,7 +56,7 @@ func _physics_process(delta: float) -> void:
 			player.take_damage(roundi(damage * Stage.damage_scale()), head_center(), self)
 
 
-## 这一帧锤头和杆子占了哪些地方（世界坐标）。
+## Where the head and rod are in this frame (world coordinates).
 func danger_rects() -> Array[Rect2]:
 	var head: Vector2i = HEAD[frame]
 	var bottom := float(head.y + 1 - GRACE)
@@ -78,12 +78,12 @@ func head_center() -> Vector2:
 	return global_position + Vector2(SIZE.x / 2.0, (head.x + head.y) / 2.0)
 
 
-## 锤头底边离地面还有多高（测试用：收着的时候站着的人过得去）。
+## How high the bottom of the head is above the floor (for tests: retracted, a standing player gets through).
 func clearance() -> float:
 	return SIZE.y - float(HEAD[frame].y + 1 - GRACE)
 
 
-## 占位色块画什么（世界坐标转成本地）。
+## What the placeholder colour blocks draw (world coordinates converted to local).
 func art_rects(at_frame: int) -> Array[Rect2]:
 	var keep := frame
 	frame = at_frame

@@ -1,44 +1,44 @@
 class_name Grenade
 extends CharacterBody2D
-## 手雷：沿抛物线飞。直接碰到目标立刻爆炸；撞到地面、墙会弹一下（bounces 次），之后再碰到就爆炸；
-## 最长 fuse 秒强制爆炸。爆炸伤害半径内的敌人：直接砸中的、以及在爆炸中心的受 max_damage，
-## 越往边缘越少（边缘 min_damage），范围外没有伤害。不伤玩家；实心物体挡住的敌人不受伤（规则同 Sight）。
-## 单向平台和玩家一样：往上飞时穿过、往下落时落在上面（move_and_collide 本身就遵守单向碰撞）。
+## Grenade: flies in an arc. Hitting a target directly explodes at once; hitting the ground or a wall bounces (bounces times), and after that the next touch explodes;
+## it explodes after at most fuse seconds. The explosion hurts enemies within the radius: one hit directly and those at the centre take max_damage,
+## less toward the edge (min_damage at the edge), nothing outside. It does not hurt players; enemies shielded by solid objects are unhurt (same rule as Sight).
+## One-way platforms behave as for the player: passed through on the way up, landed on on the way down (move_and_collide already respects one-way collision).
 
-## 扔出去的速度（沿瞄准方向）和额外的上抛速度：瞄准方向 × throw_speed + 向上 lift。
-## 往正下方丢（空中按 S）时不加上抛。
+## Throw speed (along the aim) and extra upward toss: aim direction × throw_speed + lift upward.
+## Throwing straight down (S in the air) adds no upward toss.
 @export var throw_speed := 320.0
 @export var lift := 440.0
 @export var gravity := 1400.0
-## 反弹后保留多少速度。
+## Share of speed kept after a bounce.
 @export var bounciness := 0.45
-## 能弹几次，之后再撞到东西就爆炸。
+## How many bounces before the next hit explodes.
 @export var bounces := 1
-## 最长多久一定爆炸（秒）。
+## Longest time before it explodes no matter what (seconds).
 @export var fuse := 1.5
 @export var blast_radius := 56.0
-## 爆炸中心（和直接砸中）的伤害，以及范围边缘的伤害，中间按距离线性过渡。
+## Damage at the blast centre (and on a direct hit) and at the edge of the range; linear with distance in between.
 @export var max_damage := 3
-## 炸到谁就给谁挂上的异常状态（留空就没有）。
+## Status applied to whatever it hits (empty for none).
 @export var status: StatusEffect
 @export var min_damage := 1
 
-## 场上的手雷都在这个组里（Boss A 躲手雷时靠它找）。
+## Every grenade in play is in this group (Boss A uses it to dodge grenades).
 const GROUP := &"grenades"
-## 这颗手雷打谁：玩家扔的填 enemy 层（8），敌人 F 扔的填 player 层（2）。
-## 直接命中和爆炸都只找这一层，所以谁也炸不到自己人、炸不到自己。
+## Who this grenade hits: the enemy layer (8) when thrown by the player, the player layer (2) when thrown by enemy F.
+## Direct hits and the explosion only look at this layer, so nobody can hurt their own side or themselves.
 @export_flags_2d_physics var target_layer := 8
-## 素材包里用哪一项画它（`SkinPack.APPEARANCE_KEYS`）。只管长什么样，玩家和 F 的手雷规则完全一样。
+## Which entry of the skin pack draws it (`SkinPack.APPEARANCE_KEYS`). Only the look; the player's and F's grenade rules are exactly the same.
 @export var skin_key := &""
-## 炸开时报告哪个事件：特效层（`Fx`）按它画——手雷是 `explosion`（一团火），
-## 第五关科学家的酸液瓶是 `acid_splash`（一团绿色的酸液溅开）。规则完全一样，只是画面不同。
+## Which event to report when it bursts: the effects layer (`Fx`) draws from it — a grenade is `explosion` (a fireball),
+## stage 5's scientist acid flask is `acid_splash` (a splash of green acid). Same rules, different visuals.
 @export var blast_event := &"explosion"
 
-## 谁扔的（武器槽发射时填）。敌人被炸死时奖励记在这个人头上，双人各算各的。
+## Who threw it (filled in by the weapon slot). An enemy blown up by it rewards this player; in co-op each counts their own.
 var shooter: Node
 
 var exploded := false
-## 撞到过地面/平台顶面（弹起来过）。之后它就是「在地上」贴地弹跳的手雷，Boss A 会躲；撞墙反弹不算。
+## Has hit the ground / a platform top (bounced up). From then on it is a grenade "on the ground" bouncing along, which Boss A dodges; bouncing off a wall does not count.
 var landed := false
 
 var _age := 0.0
@@ -47,7 +47,7 @@ var _bounces_left := 0
 @onready var _contact: Area2D = $Contact
 
 
-## 武器槽发射时调用（在加入场景树之前）。
+## Called by the weapon slot when firing (before being added to the scene tree).
 func launch(direction: Vector2) -> void:
 	velocity = direction * throw_speed
 	if direction.y < 0.9:
@@ -82,13 +82,13 @@ func _physics_process(delta: float) -> void:
 
 
 func _on_contact(body: Node2D) -> void:
-	# 能受伤害的都算直接命中（玩家和敌人都有同名同签名的 take_damage）。
+	# Anything that can take damage counts as a direct hit (players and enemies both have take_damage with the same name and signature).
 	if body.has_method("take_damage"):
 		explode(body)
 
 
-## direct_hit：直接砸中的那个目标，受满伤害。
-## 按武器和攻击力放大伤害（武器槽在发射时调，加入场景树之前）：中心和边缘一起放大。
+## direct_hit: the target hit directly, which takes full damage.
+## Scale the damage by the weapon and attack stat (called by the weapon slot when firing, before joining the tree): centre and edge scale together.
 func scale_damage(factor: float) -> void:
 	max_damage = maxi(1, roundi(max_damage * factor))
 	min_damage = maxi(1, roundi(min_damage * factor))
@@ -99,7 +99,7 @@ func explode(direct_hit: Node2D = null) -> void:
 		return
 	exploded = true
 	GameEvents.report(blast_event, self)
-	# 炸得到谁、怎么衰减都在 `Blast` 里，自爆的机器人用的是同一套
+	# Who it reaches and how it falls off live in `Blast`; the suicide robot uses the same
 	var space := get_world_2d().direct_space_state
 	for victim in Blast.victims(space, global_position, blast_radius, target_layer):
 		victim.take_damage(damage_at(victim, direct_hit), global_position, shooter)
@@ -108,7 +108,7 @@ func explode(direct_hit: Node2D = null) -> void:
 	queue_free()
 
 
-## 这个目标该受多少伤害：直接砸中的满伤害；其余按到爆炸中心的距离，中心 max_damage、边缘 min_damage。
+## How much damage this target takes: a direct hit takes full damage; others by distance to the blast centre, max_damage at the centre and min_damage at the edge.
 func damage_at(victim: Node2D, direct_hit: Node2D = null) -> int:
 	if victim == direct_hit:
 		return max_damage

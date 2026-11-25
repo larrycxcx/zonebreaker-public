@@ -1,40 +1,40 @@
 class_name GameTest
 extends RefCounted
-## 行为测试基类。子类里每个 `test_` 开头的方法就是一条用例，由 `run_tests.gd` 自动发现并执行。
+## Base class for behaviour tests. Every method starting with `test_` in a subclass is one case, found and run automatically by `run_tests.gd`.
 ##
-## 这些测试是「跑起来看结果」的集成测试：真的实例化主场景、真的模拟按键、真的等物理帧，
-## 所以能抓到纯语法检查抓不到的问题（碰撞层配错、射线打不到、状态机卡死等）。
-## 为此会直接读写被测对象的私有成员（`_primary.cooldown_left` 之类），这是有意为之，
-## 比为测试在游戏代码里开一堆公开接口更划算。
+## These are "run it and look at the result" integration tests: they really instantiate the main scene, really simulate key presses and really wait for physics frames,
+## so they catch problems a plain syntax check cannot (wrong collision layers, rays that miss, state machines that get stuck, etc.).
+## For this they read and write private members of the objects under test (`_primary.cooldown_left` and so on) — on purpose;
+## it is cheaper than opening up a pile of public interfaces in the game code just for tests.
 
-## 项目里应该定义的全部输入动作，test_input_actions_exist 逐个检查。
+## Every input action the project should define; test_input_actions_exist checks them one by one.
 const ACTIONS := ["move_left", "move_right", "jump", "crouch", "sprint", "aim_up", "aim_down", "shoot", "switch_weapon", "ultimate"]
 
-## 数值是 RPG 式的（玩家 120 血、敌人 20 血起），测试按「几下」来写：
-## 敌人打 1 级玩家一下扣 HIT（挨 3 下死），玩家一发子弹打敌人扣 SHOT（巡逻兵挨 2 发死）。
+## Numbers are RPG-style (players 120 health, enemies from 20), and tests are written in "hits":
+## one enemy hit on a level 1 player costs HIT (dead in 3 hits), one player bullet on an enemy costs SHOT (a patroller dies in 2).
 const HIT := 40
 const SHOT := 10
 
-## 由 runner 注入。SceneTree 脚本里 `await tree.physics_frame` 才能推进物理。
+## Injected by the runner. In a SceneTree script `await tree.physics_frame` is what advances physics.
 var tree: SceneTree
 var main: Node
 var player: Player
-## 双人时的 2 号玩家（reset_scene 传 players = 2 才有），单人时是 null。
+## Player 2 in co-op (only present when reset_scene is given players = 2), null when playing alone.
 var player2: Player
 var results: Array[Dictionary] = []
-## 这条用例里 GameEvents 报告过的事件名，按先后顺序。reset_scene() 时清空。
+## The event names GameEvents reported during this case, in order. Cleared by reset_scene().
 var events: Array[StringName] = []
 
 
-## 第三方素材在不在（公开版去掉了，见 `tools/export_public.py`）。拿赛博朋克包当标志：别的包都 fallback 到它。
+## Whether the third-party art is present (the public build strips it, see `tools/export_public.py`). The cyberpunk pack is used as the marker: every other pack falls back to it.
 const THIRD_PARTY_ART := "res://skins/cyberpunk/cyberpunk_skin.tres"
 
-## 这条用例跳过了没有（runner 读它，算进「跳过」而不是「通过」）。
+## Whether this case was skipped (the runner reads it and counts it as "skipped" rather than "passed").
 var skipped := false
 
 
-## **这条用例测的是素材本身**（贴图、字模、某个区的包）：素材不在就跳过，返回 true。
-## 用法：用例第一行 `if needs_art(): return`。只测规则的用例别加——公开版照样要守住规则。
+## **This case tests the art itself** (sprites, font, a zone's pack): skip it when the art is missing and return true.
+## Usage: `if needs_art(): return` as the first line of the case. Do not add it to cases that only test rules — the public build has to guard the rules too.
 func needs_art() -> bool:
 	if ResourceLoader.exists(THIRD_PARTY_ART):
 		return false
@@ -51,9 +51,9 @@ func frames(count: int) -> void:
 		await tree.physics_frame
 
 
-## 按一下就松（「每按一次触发一次」的动作：跳跃、切武器、菜单里的上下和确认）。
-## **要按住至少两帧**：`Input.action_press()` 模拟的按下要到**下一个物理帧**才算 just_pressed，
-## 只按一帧就松，轮到判定时键已经松了，什么也不会发生。
+## Press and release (for "once per press" actions: jump, switching weapons, up / down and confirm in menus).
+## **Hold it for at least two frames**: a press simulated by `Input.action_press()` only counts as just_pressed on **the next physics frame**,
+## and released after one frame the key is already up when the check comes round, so nothing happens.
 func tap(action: StringName) -> void:
 	Input.action_press(action)
 	await frames(2)
@@ -61,42 +61,42 @@ func tap(action: StringName) -> void:
 	await frames(1)
 
 
-## 松开所有游戏动作（跳过引擎自带的 ui_*）。
-## 直接遍历 InputMap 而不是用 ACTIONS 列表：新加了动作却忘了登记的话，
-## 某条用例按下的键就会一直按着带进后面的用例（向上瞄准刚踩过这个坑）。
+## Release every game action (skipping the engine's own ui_*).
+## Walks the InputMap directly instead of the ACTIONS list: if a new action was added but not registered,
+## a key pressed by one case would stay held into the following cases (aiming up just fell into this).
 func release_all_input() -> void:
 	for action in InputMap.get_actions():
 		if not String(action).begins_with("ui_"):
 			Input.action_release(action)
 
 
-## 重新加载一份主场景。
-## 默认清掉所有敌人：巡逻兵走遍了整块地面，测纯操作时如果不清场，
-## 玩家一传送过去就会吃接触伤害被击飞，后面一连串断言都会莫名其妙地失败。
-## 默认也移除 Level/Walls 下的竖墙：墙会挡路、挡子弹、挡视线，而大部分用例测的是和墙无关的机制，
-## 不该因为关卡里掩体摆放的调整而失败。测墙本身的用例传 keep_walls = true。
-## `skin` 传了就用它加载这一关（角色在 _ready 里按当前包装外观，所以必须在加载之前定好）；
-## 不传就恢复默认包。
-## `scene` 默认是**测试关**（`main.tscn`，1280 宽、地面一整条）；正式关卡传它自己的路径。
-## `stage` 是这一关的强度（敌人血量 / 伤害 / 奖励的倍率），**必须在加载之前定**——
-## 敌人在 `_ready` 里就按它缩放。留空 = 倍率全 1，老用例跑的就是这一档。
+## Load a fresh copy of the main scene.
+## All enemies are cleared by default: patrollers walk the whole floor, and when testing pure controls without clearing them,
+## the player teleported over takes contact damage and gets knocked away, and a whole chain of assertions fails mysteriously.
+## The upright walls under Level/Walls are removed by default too: walls block movement, bullets and sight, while most cases test mechanics unrelated to walls
+## and should not fail because cover in the level was moved around. Cases testing walls themselves pass keep_walls = true.
+## If `skin` is given the stage is loaded with it (characters install their look from the current pack in _ready, so it has to be set before loading);
+## without it the default pack is restored.
+## `scene` defaults to **the test level** (`main.tscn`, 1280 wide, one continuous floor); real stages pass their own path.
+## `stage` is this stage's strength (multipliers for enemy health / damage / rewards) and **must be set before loading** —
+## enemies scale by it in `_ready`. Empty = all multipliers 1, which is what the old cases run at.
 func reset_scene(keep_enemies := false, keep_walls := false, skin: SkinPack = null, players := 1,
 		scene := "res://scenes/main.tscn", stage: LevelInfo = null) -> void:
 	release_all_input()
-	# **手柄绑定是改 InputMap 的**（`Session.claim_pads()`），那是全局状态：
-	# 哪条用例认领过手柄，不还原就会带进后面所有用例。
+	# **Pad bindings are changed in the InputMap** (`Session.claim_pads()`), which is global state:
+	# if a case claimed pads and it is not restored, it leaks into every following case.
 	Session.reset_pads()
 	free_scene()
-	# 终极武器会暂停整棵树：用例中途出错、没等到恢复，也不能把暂停带进下一条用例。
+	# The ultimate pauses the whole tree: if a case fails halfway before it resumes, the pause must not be carried into the next case.
 	tree.paused = false
-	# 素材包是全局状态：换过包的用例如果中途出错没换回来，会影响后面所有用例，所以每次都恢复默认包。
+	# The skin pack is global state: a case that switched packs and failed before switching back would affect every case after it, so the default pack is restored every time.
 	Skins.use(skin if skin != null else Skins.default_skin())
-	# 「打的是哪一关」也是全局状态（敌人按它缩放强度）：默认回到「没有关卡」= 倍率全 1
+	# "Which stage is being played" is global state too (enemies scale by it): reset to "no stage" = all multipliers 1
 	Stage.use(stage)
-	# 成长进度也是全局状态：每条用例都从新开一局开始（1 级、初始武器），并且不读写玩家的真实存档
+	# Progression is global state too: every case starts from a new game (level 1, starting weapons), without reading or writing the player's real save
 	Progress.persist = false
 	Progress.new_game()
-	# 几个人玩也是全局状态（Session），每条用例都设一遍，默认单人
+	# The number of players is global state too (Session); set it in every case, single player by default
 	Session.set_player_count(players)
 	events.clear()
 	if not GameEvents.event_happened.is_connected(_record_event):
@@ -114,8 +114,8 @@ func reset_scene(keep_enemies := false, keep_walls := false, skin: SkinPack = nu
 	await frames(2)
 
 
-## 在关卡里临时搭一堵实心竖墙（和关卡里的竖墙同样的做法：platform.tscn，16px 宽，立在地面上），返回它。
-## 测「墙」这个机制本身时用它，不依赖关卡里墙摆在哪、有没有（Wall3 就是为了试 Boss 难度拆掉的）。
+## Put up a temporary solid upright wall in the level (the same way as the level's walls: platform.tscn, 16px wide, standing on the ground) and return it.
+## Used when testing the "wall" mechanic itself, so it does not depend on where or whether the level has walls (Wall3 was removed to try out the boss difficulty).
 func add_wall(x: float, height: float, wall_name := "TestWall") -> Platform:
 	var w: Platform = load("res://scenes/platform.tscn").instantiate()
 	w.name = wall_name
@@ -125,8 +125,8 @@ func add_wall(x: float, height: float, wall_name := "TestWall") -> Platform:
 	return w
 
 
-## 瞬移玩家之后让摄像机立刻跟上。摄像机每帧是在物理更新**之后**才跟的，瞬移那一帧敌人看到的还是上一帧的画面范围——
-## 敌人「在屏幕里就看得见玩家」，这一帧就可能误把玩家看见（D 还会带着 2 秒记忆追过来）。
+## Make the camera catch up right after teleporting the player. The camera follows **after** the physics update each frame, so on the teleport frame enemies still see last frame's view —
+## enemies "see the player when on screen", so on that frame they might spot the player by mistake (and D would come chasing with its 2-second memory).
 func snap_camera() -> void:
 	var camera := camera_rig()
 	if camera != null:
@@ -134,19 +134,19 @@ func snap_camera() -> void:
 		camera.force_update_scroll()
 
 
-## 关卡共用的摄像机（跟两个玩家的中点，不再挂在玩家身上）。
+## The camera shared by the level (following the midpoint of the two players, no longer hung on the player).
 func camera_rig() -> CameraRig:
 	return main.get_node_or_null("Camera2D") as CameraRig
 
 
-## 关卡里的敌人（只要真正的敌人）。敌人的子弹和手雷也挂在 Enemies 下（敌人死了它们照样飞完），
-## 而敌人在屏幕里就会开火，所以一加载关卡 Enemies 下就可能有子弹——遍历敌人要用这个，别直接 get_children()。
+## The enemies in the level (only real enemies). Enemy bullets and grenades also hang under Enemies (they finish their flight after the enemy dies),
+## and enemies fire as soon as they are on screen, so right after loading there may be bullets under Enemies — use this to walk the enemies, not get_children() directly.
 func enemies() -> Array:
 	return main.get_node("Enemies").get_children().filter(func(node: Node) -> bool: return node is Enemy)
 
 
-## 只留下指定名字的敌人，其它全部移除。
-## 敌人现在都会射击，测某一个敌人时必须清掉其它的，否则别人的子弹会污染结果。
+## Keep only the enemies with the given names and remove all the rest.
+## Every enemy shoots now, so testing one enemy means clearing the others, or their bullets would contaminate the result.
 func keep_only_enemies(names: Array) -> void:
 	for enemy in main.get_node("Enemies").get_children():
 		if not names.has(String(enemy.name)):
@@ -168,18 +168,18 @@ func free_scene() -> void:
 	player = null
 
 
-## 角色外观里叫这个名字的方块（枪、枪管之类）。外观都挂在 `Visual` 上的 Appearance 里。
+## The block with this name in a character's look (gun, barrel and so on). Looks live in the Appearance on `Visual`.
 func art(actor: Node, art_name: String) -> CanvasItem:
 	return actor.get_node("Visual").get_node_or_null(NodePath(art_name)) as CanvasItem
 
 
-## 敌人身上那根会跟着瞄准转的枪管（外观层的 turning_gun 指定）。
+## The gun barrel on an enemy that turns with its aim (set by turning_gun on the appearance layer).
 func turning_gun(enemy: Enemy) -> Control:
 	var appearance: Appearance = enemy.get_node("Visual")
 	return appearance.get_node_or_null(appearance.turning_gun) as Control
 
 
-## 某个动作绑定的键盘按键（physical_keycode），忽略手柄绑定。
+## The keyboard keys bound to an action (physical_keycode), ignoring pad bindings.
 func keyboard_keys(action: StringName) -> Array:
 	var keys := []
 	for event in InputMap.action_get_events(action):
@@ -188,8 +188,8 @@ func keyboard_keys(action: StringName) -> Array:
 	return keys
 
 
-## 按碰撞层收集场上还活着的子弹（4 = 玩家子弹，16 = 敌人子弹）。
-## 子弹命中后立刻消失，所以判断「有没有开火」要逐帧采样，不能事后再数。
+## Collect the live bullets in play by collision layer (4 = player bullets, 16 = enemy bullets).
+## Bullets vanish as soon as they hit, so "did it fire" has to be sampled frame by frame, not counted afterwards.
 func bullets(layer: int, node: Node = null) -> Array:
 	var found := []
 	for child in (node if node != null else main).get_children():

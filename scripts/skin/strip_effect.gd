@@ -1,7 +1,7 @@
 class_name StripEffect
 extends Node2D
-## 一次性的帧动画特效（一排正方形的帧，中心对准节点原点）：播一遍就自己删掉。纯显示，没有碰撞。
-## 第五关酸液瓶摔碎时那团酸液（`Acid2` 那张）用它。`radius` 是 `Fx` 照爆炸半径设的，这里用不上（素材不缩放）。
+## A one-shot frame-animation effect (a row of square frames, centred on the node origin): plays once, then deletes itself. Display only, no collision.
+## Used for the splash of acid when a stage 5 acid flask shatters (the `Acid2` image). `radius` is set by `Fx` from the blast radius and is not used here (the art is not scaled).
 
 @export var strip: Texture2D
 @export var frames := 6

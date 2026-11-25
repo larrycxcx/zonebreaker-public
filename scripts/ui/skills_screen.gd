@@ -1,17 +1,17 @@
 class_name SkillsScreen
 extends Control
-## 加点界面：每个在场的玩家一栏，显示角色名、等级、剩余技能点和四个属性，按一下加一点。
+## Skill screen: one column per player present, showing the character name, level, remaining skill points and the four stats; one press adds a point.
 ##
-## 双人时**两栏同时显示**，各按各的手柄（每栏只听自己那个玩家的输入）。
-## 属性值显示「现在是多少」，加过点的后面跟一个 `+加了多少`。
-## 界面一律英文大写（素材包的字模没有汉字，见 CLAUDE.md）。
+## In co-op **both columns show at once**, each driven by its own pad (each column only listens to its own player's input).
+## Stat values show "what it is now", with a `+how much was added` after the ones with points in them.
+## The UI is always English upper case (the pack's font has no Chinese glyphs, see CLAUDE.md).
 
-## 两个玩家都按了返回（或者单人按了返回）。
+## Both players pressed back (or the single player did).
 signal closed
 
 const COLUMN_WIDTH := 300.0
 const ROW_HEIGHT := 26.0
-## 属性名在界面上怎么写。
+## How stat names are written in the UI.
 const STAT_LABELS := {&"life": "LIFE", &"attack": "ATTACK", &"defense": "DEFENSE", &"speed": "SPEED"}
 
 var _columns: Array[Dictionary] = []
@@ -23,7 +23,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-## 给这几个玩家各摆一栏。
+## Lay out a column for each of these players.
 func build(players: Array[Player]) -> void:
 	for child in get_children():
 		child.queue_free()
@@ -76,7 +76,7 @@ func _build_column(who: Player, at: Vector2) -> Dictionary:
 	return column
 
 
-## 菜单项本身不显示文字（属性名是单独画的），只借它来收键和画光标。
+## The menu items themselves show no text (stat names are drawn separately); it is only borrowed to take keys and draw the cursor.
 func _blank_rows(count: int) -> Array[String]:
 	var rows: Array[String] = []
 	for i in count:
@@ -91,7 +91,7 @@ func _on_chosen(row: int, who: Player) -> void:
 				_refresh(column)
 
 
-## `MenuList.cancelled` 不带参数，所以这里只收 bind 进来的那个玩家。
+## `MenuList.cancelled` has no argument, so this only takes the player bound in.
 func _on_cancelled(who: Player) -> void:
 	for column in _columns:
 		if column["who"] == who:
@@ -106,8 +106,8 @@ func _refresh(column: Dictionary) -> void:
 	column["head"].add_theme_color_override("font_color", UiKit.GOLD if progress.points > 0 else UiKit.DIM)
 	for i in Balance.STATS.size():
 		var stat: StringName = Balance.STATS[i]
-		# 金色那列写的是**投了几点**，不是属性涨了多少：每点加的量各不相同
-		# （生命 +10、攻击 +1、防御速度 +5），照实写出来玩家会以为自己按了不一样的键。
+		# The gold column shows **how many points were put in**, not how much the stat grew: each point adds a different amount
+		# (life +10, attack +1, defence / speed +5), and writing the real amounts would make players think they pressed different keys.
 		var spent: int = progress.allocated.get(stat, 0)
 		column["rows"][i]["value"].text = str(roundi(progress.stat(stat)))
 		column["rows"][i]["bonus"].text = "+%d" % spent if spent > 0 else ""

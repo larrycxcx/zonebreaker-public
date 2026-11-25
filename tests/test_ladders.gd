@@ -1,8 +1,8 @@
 extends GameTest
-## 梯子（2026-10 加的，为分层关卡做准备）：`scripts/ladder.gd` + `Player._climb()`。
+## Ladders (added in 2026-10, preparing for layered stages): `scripts/ladder.gd` + `Player._climb()`.
 ##
-## 用测试关搭一个两层：y=200 一层实心楼板，中间留一个 32 宽的洞，洞里一架梯子通到地面（320）。
-## 清掉关卡自带的单向浮台，免得「爬上去了」量的是踩着别的台子上去的。
+## Build two layers on the test level: a solid floor at y=200 with a 32-wide hole in the middle, and a ladder in the hole down to the ground (320).
+## Clear the level's own one-way platforms, so "climbed up" does not measure getting up via some other platform.
 
 const GROUND_Y := 320.0
 const UPPER_Y := 200.0
@@ -144,7 +144,7 @@ func test_too_far_to_one_side_you_cannot_grab_it() -> void:
 
 
 func test_the_ladder_blocks_nothing_but_its_cap() -> void:
-	# 敌人不爬梯子：梯子对它们来说不存在（盖子是单向平台，横着穿得过去）
+	# Enemies do not climb ladders: to them the ladder does not exist (the cover is a one-way platform they pass through sideways)
 	await open_two_floors()
 	var ladder := main.get_node("Level").get_children().filter(func(n: Node) -> bool: return n is Ladder)[0] as Ladder
 	var bodies := ladder.find_children("*", "CollisionObject2D", true, false)
@@ -152,7 +152,7 @@ func test_the_ladder_blocks_nothing_but_its_cap() -> void:
 	check("and the cap is one-way", ladder.cap_body().one_way)
 
 
-# ---------------------------------------------------------------- 画面
+# ---------------------------------------------------------------- Picture
 
 func test_climbing_shows_the_climb_and_hides_the_gun_arms() -> void:
 	if needs_art(): return

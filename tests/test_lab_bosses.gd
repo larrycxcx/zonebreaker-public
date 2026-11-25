@@ -1,8 +1,8 @@
 extends GameTest
-## 第五关（实验室）的两个 Boss：中段小 Boss「变异枪手」（`BossGunner`）、关底 Boss（以后加在这里）。
+## Stage 5's (lab) two bosses: the mid-level boss "mutant gunner" (`BossGunner`) and the stage boss (to be added here later).
 ##
-## 小 Boss 和用户定的：一间闸门封住的房间，**打死它不算通关**；招式按固定顺序轮着来——
-## 蓄力激光（趴下躲）→ 边走边打的激光弹 → 枪托冲撞，贴脸插一记前踢；血过半蓄力激光变成两道（先低后高，不能一直趴着）。
+## The mid-level boss as agreed with the user: a room sealed by gates, **killing it does not clear the stage**; its moves come in a fixed order —
+## charged laser (dodge prone) → laser bolts fired while walking → rifle-butt lunge, with a front kick when you are point blank; below half health the charged laser becomes two beams (low then high, so you cannot just stay prone).
 
 const PACK := "res://skins/lab/lab_skin.tres"
 const GUNNER := "res://scenes/boss_5_mid.tscn"
@@ -14,7 +14,7 @@ func pack() -> SkinPack:
 	return load(PACK) as SkinPack
 
 
-## 只留地面（测试关的浮台、墙会挡激光、挡人）。
+## Ground only (the test level's floating platforms and walls would block the laser and people).
 func open_floor(skin: SkinPack = null) -> void:
 	await reset_scene(false, false, skin)
 	for node in main.get_node("Level").get_children():
@@ -30,12 +30,12 @@ func gunner_at(x: float) -> BossGunner:
 	return boss
 
 
-## 一个站好了、出场了、什么都还没开始打的小 Boss（招式由用例自己挑）。
+## A mid-level boss that is in place, has appeared and has not started attacking (each case picks the move).
 func ready_gunner(x: float) -> BossGunner:
 	var boss := gunner_at(x)
 	await frames(4)
 	boss.appear()
-	# 在画面里的话它这几帧可能已经自己出场、打了一招：全部归位
+	# On screen it may already have appeared by itself and used a move during these frames: reset everything
 	boss.move = BossGunner.Move.IDLE
 	boss.velocity = Vector2.ZERO
 	boss._left = 99.0
@@ -141,7 +141,7 @@ func test_below_half_health_it_fires_low_then_high() -> void:
 	for i in int(boss.beam_time * 60.0) * 2 + 40:
 		await tree.physics_frame
 		if boss.is_firing():
-			# 激光永远从枪口出去（素材里没有举高枪的姿势，高的那道靠蹦起来打）
+			# The laser always leaves from the muzzle (the art has no raised-gun pose; the high beam comes from hopping)
 			from_the_gun = from_the_gun and is_equal_approx(boss.beam_height() - boss.global_position.y, boss.beam_low)
 			if heights.size() == 2:
 				airborne = airborne or not boss.is_on_floor()
@@ -163,7 +163,7 @@ func test_point_blank_it_kicks_you_away() -> void:
 	await open_floor()
 	var boss := await ready_gunner(400)
 	boss.facing = -1
-	# 40：在踢的范围里，又没贴到身上（贴上了先吃接触伤害，无敌帧会把踢那一下吞掉）
+	# 40: within kick range but not touching (touching, contact damage comes first and the invincibility frames would swallow the kick)
 	player.global_position = Vector2(360, STAND_Y)
 	await frames(2)
 	var full := player.health
@@ -254,12 +254,12 @@ func test_the_gunner_runs_in_the_pack_without_errors() -> void:
 		and boss.hud_portrait().resource_path.contains("lab"), str(boss.hud_portrait()))
 
 
-# --- 关底 Boss「生化舱」 ---
+# --- Stage boss, the "biopod" ---
 
 const POD := "res://scenes/boss_5.tscn"
 
 
-## 一个出场了、飘在测试关地面上空、什么都还没开始打的生化舱。
+## A biopod that has appeared, floats above the test level's ground and has not started attacking.
 func ready_pod(x: float) -> BossPod:
 	var boss := (load(POD) as PackedScene).instantiate() as BossPod
 	main.get_node("Enemies").add_child(boss)
@@ -306,7 +306,7 @@ func test_the_moves_come_in_a_fixed_order_too() -> void:
 		BossPod.Move.CANNON, BossPod.Move.CHARGE], str(seen))
 
 
-## 让它在玩家旁边扫一次，返回玩家掉了多少血（`prone` = 一直趴着）。
+## Have it sweep once beside the player and return how much health the player lost (`prone` = staying prone throughout).
 func sweep_at(boss: BossPod, prone: bool) -> int:
 	player.global_position = Vector2(240, STAND_Y)
 	if prone:

@@ -1,6 +1,6 @@
 extends GameTest
-## Boss A（四条腿的导弹机甲）：体型大、会跳、不会趴下；不追击，靠导弹巢打扇形弹幕（地面上才打，走动中照样打），
-## 接触会伤人；躲开「落过地」贴地弹跳的手雷，不躲空中的手雷；终极武器一次扣 1/4 血。
+## Boss A (the four-legged missile mech): big, jumps, never goes prone; does not chase, fires fans from its missile pod (only on the ground, but also while walking),
+## hurts on contact; dodges grenades that "have landed" and bounce along the floor, not grenades in the air; one ultimate takes 1/4 of its health.
 
 const GRENADE_SCENE := "res://scenes/grenade.tscn"
 const NORMAL_ENEMIES := [
@@ -11,7 +11,7 @@ const NORMAL_ENEMIES := [
 var boss: BossMissile
 
 
-## 只留 Boss A（出生点 x=1200），玩家站在 player_x。玩家血量调得很高，免得被 Boss 打死打乱用例。
+## Keep only Boss A (spawn x=1200), with the player at player_x. The player's health is set very high so being killed by the boss does not spoil the case.
 func start(player_x := 940.0) -> void:
 	await reset_scene(true)
 	keep_only_enemies(["BossMissile"])
@@ -20,11 +20,11 @@ func start(player_x := 940.0) -> void:
 	player.global_position = Vector2(player_x, 304)
 	player.velocity = Vector2.ZERO
 	await frames(5)
-	# 玩家站得靠左时 Boss 的中心可能刚好压在屏幕边上还没出场；这里直接让它出场，出场规则由 test_boss.gd 测。
+	# With the player standing far left the boss's centre may sit right on the screen edge without having appeared; make it appear directly here, the entrance rule is tested by test_boss.gd.
 	boss.appear()
 
 
-## 让 Boss 原地不动、不跳、不开枪（测躲手雷时排除其它动作的干扰）。
+## Keep the boss still: no moving, jumping or shooting (to rule out other actions when testing grenade dodging).
 func hold_still() -> void:
 	boss.roam_speed = 0.0
 	boss._jump_timer = 999.0
@@ -35,13 +35,13 @@ func hold_still() -> void:
 	boss._burst_left = 0
 
 
-## 移走 Boss 区域那块平台（只测手雷、不关心地形的用例用）。
+## Remove the platform in the boss area (for cases that only test grenades and do not care about terrain).
 func clear_high_ground() -> void:
 	main.get_node("Level/BossPlatform").free()
 
 
-## 把 Boss 摆到 x、玩家摆到它左边 distance 处（Boss 会走动，扔手雷的用例需要固定的距离）。
-## 摆在 1200：从那里往左 220~320px 是一段没有平台的空地，抛物线不会中途落在平台上。
+## Put the boss at x and the player distance to its left (the boss walks around, and the grenade cases need a fixed distance).
+## At 1200: 220~320px to the left of that is an empty stretch without platforms, so the arc never lands on a platform halfway.
 func park_boss_and_player(distance: float, x := 1200.0) -> void:
 	boss.global_position = Vector2(x, 296)
 	boss.velocity = Vector2.ZERO
@@ -54,7 +54,7 @@ func shape_size(body: Node) -> Vector2:
 	return ((body.get_node("CollisionShape2D") as CollisionShape2D).shape as RectangleShape2D).size
 
 
-## 在 pos 放一颗静止的手雷（关掉它自己的物理，只当一个「在那里的手雷」）。
+## Put a still grenade at pos (with its own physics off, just "a grenade lying there").
 func place_grenade(pos: Vector2, landed: bool) -> Grenade:
 	var grenade: Grenade = load(GRENADE_SCENE).instantiate()
 	grenade.landed = landed
@@ -107,7 +107,7 @@ func test_roams_near_home_without_chasing() -> void:
 	check("jumps high", 296.0 - top > 60.0, "%.1f px" % (296.0 - top))
 
 
-## 把玩家钉在 x 处若干帧（Boss 会撞它、打它，不钉住位置会被推开），返回最后两者的水平距离。
+## Pin the player at x for some frames (the boss bumps and shoots it; without pinning it would be pushed away), returning their final horizontal distance.
 func pin_player_at(x: float, frame_count := 120) -> float:
 	for i in frame_count:
 		player.global_position = Vector2(x, 304)
@@ -118,8 +118,8 @@ func pin_player_at(x: float, frame_count := 120) -> float:
 
 
 func test_backs_off_when_the_player_gets_close() -> void:
-	# 贴脸时边退边打。逐帧看：只要玩家在 close_range 以内，它就不该朝玩家这边走
-	#（只看最后的距离不行，随机游走本来也会走开）。
+	# In your face it backs off while firing. Frame by frame: as long as the player is within close_range it must not walk toward the player
+	#(looking only at the final distance is not enough; random wandering also walks away).
 	await start()
 	var spot := boss.global_position.x - 40.0
 	var toward := 0
@@ -135,7 +135,7 @@ func test_backs_off_when_the_player_gets_close() -> void:
 			if signf(boss.velocity.x) == signf(offset):
 				toward += 1
 	check("setup: the player did get close", close_frames > 10, str(close_frames))
-	# 允许一两帧的过渡：玩家是瞬间被挪到它面前的，那一帧它还带着上一帧的速度
+	# Allow a frame or two of transition: the player was moved in front of it instantly, and on that frame it still carries last frame's velocity
 	check("never walks into a player in its face", toward <= 2, "%d of %d frames" % [toward, close_frames])
 	check("ends up out of arm's reach", absf(boss.global_position.x - spot) > boss.close_range - 20.0,
 		"%.1f px apart" % absf(boss.global_position.x - spot))
@@ -143,12 +143,12 @@ func test_backs_off_when_the_player_gets_close() -> void:
 
 
 func test_steps_closer_when_the_player_is_far() -> void:
-	# 远处（但在射程内）会压上来找开火位置
+	# Far away (but within range) it closes in to find a firing spot
 	await start()
 	var spot := boss._home.x - 400.0
 	var before := absf(boss.global_position.x - spot)
 	await pin_player_at(spot, 360)
-	# 最后 120 帧一直待在交战距离上：随机游走的话会晃回远处去
+	# For the last 120 frames it stays at fighting distance: random wandering would drift back far away
 	var worst := 0.0
 	var gap := 0.0
 	for i in 60:
@@ -165,12 +165,12 @@ func test_steps_closer_when_the_player_is_far() -> void:
 
 
 func test_cornered_at_the_edge_of_its_ground() -> void:
-	# 被逼到地盘边上就不再后退（宁可被贴脸也不退出去）。
-	# 关卡右墙正好在地盘边界外侧，光靠墙也能挡住，所以这里把地盘临时收窄，测的是边界本身。
+	# Pushed to the edge of its ground it stops backing off (better to be in your face than to leave).
+	# The level's right wall is just outside the edge of its ground and would stop it on its own, so the ground is narrowed temporarily here to test the edge itself.
 	await start()
 	boss.roam_range = 80.0
 	var edge := boss._home.x + boss.roam_range
-	# 玩家在它左边逼近，它只能往右退，右边就是地盘边界
+	# With the player closing in from the left it can only back off to the right, where the edge of its ground is
 	boss.global_position = Vector2(edge - 20.0, 296)
 	await pin_player_at(edge - 90.0, 360)
 	check("holds the edge of its ground", boss.global_position.x <= edge + 16.0,
@@ -182,7 +182,7 @@ func test_cornered_at_the_edge_of_its_ground() -> void:
 func test_ground_is_wider_than_before() -> void:
 	await start()
 	check("the boss ground covers most of the boss area", boss.roam_range >= 140.0, str(boss.roam_range))
-	# 玩家远在射程外：它自己随机游走，应该用上比老范围（±64）宽得多的地方，但不越界
+	# The player is far out of range: it wanders on its own and should use a much wider area than the old range (±64), without crossing the edge
 	player.global_position = Vector2(boss._home.x - 600.0, 304)
 	player.velocity = Vector2.ZERO
 	var reach := 0.0
@@ -243,11 +243,11 @@ func test_ignores_a_grenade_in_the_air() -> void:
 
 
 func test_grenade_lands_and_is_dodged() -> void:
-	# 真的扔一颗：落在 Boss 前面、弹向它，Boss 躲开，不掉血
+	# Really throw one: it lands in front of the boss and bounces toward it; the boss dodges and loses no health
 	await start()
-	clear_high_ground() # 这条只测躲手雷，别让抛物线打在平台上
+	clear_high_ground() # This one only tests dodging grenades; do not let the arc hit a platform
 	hold_still()
-	await park_boss_and_player(320.0) # 手雷平地扔出去约 220px，落在 Boss 前面
+	await park_boss_and_player(320.0) # A grenade thrown on flat ground travels about 220px, landing in front of the boss
 	player.facing = 1
 	player.switch_weapon()
 	Input.action_press("shoot")
@@ -268,7 +268,7 @@ func test_grenade_lands_and_is_dodged() -> void:
 
 
 func test_grenade_in_the_air_hits_directly() -> void:
-	# 近一点扔：还在空中就砸到 Boss 身上，Boss 不躲，吃满伤害
+	# Throw from closer: still in the air it hits the boss; the boss does not dodge and takes full damage
 	await start()
 	clear_high_ground()
 	hold_still()
@@ -293,7 +293,7 @@ func test_grenade_in_the_air_hits_directly() -> void:
 
 
 func test_a_wall_bounce_is_not_landing() -> void:
-	# 手雷撞墙弹回来仍然是「空中」的手雷，Boss 不躲；只有撞到地面/平台顶面才算落地
+	# A grenade bouncing back off a wall is still an "in the air" grenade, and the boss does not dodge; only hitting the ground / a platform top counts as landing
 	await start()
 	var grenade: Grenade = load(GRENADE_SCENE).instantiate()
 	grenade.launch(Vector2.RIGHT)
@@ -313,7 +313,7 @@ func test_a_wall_bounce_is_not_landing() -> void:
 
 
 func test_the_boss_platform_is_plain_terrain() -> void:
-	# 原来玩家趴下时 Boss 会跳上这块平台打斜下；扇形本来就打得到趴着的人，那套拿掉了，平台只是普通地形
+	# The boss used to jump onto this platform to fire down when the player lay prone; the fan reaches prone players anyway, so that went and the platform is ordinary terrain
 	await start()
 	var p: Platform = main.get_node("Level/BossPlatform")
 	check("the boss area still has its platform", p != null and p.one_way)
@@ -321,9 +321,9 @@ func test_the_boss_platform_is_plain_terrain() -> void:
 	check("the boss no longer has a high-ground behaviour", not ("high_ground" in boss))
 
 
-# ---------------------------------------------------------------- 导弹扇形
+# ---------------------------------------------------------------- Missile fan
 
-## 让 Boss 站定、不跳（开火照常），玩家站在 player_x。
+## Keep the boss standing, not jumping (firing as usual), with the player at player_x.
 func stand_and_face(player_x: float) -> void:
 	boss.roam_speed = 0.0
 	boss.back_off_speed = 0.0
@@ -335,7 +335,7 @@ func stand_and_face(player_x: float) -> void:
 	await frames(10)
 
 
-## 等下一轮扇形，返回这一轮打出来的子弹（同一帧出膛的那一批）。
+## Wait for the next fan and return the bullets of that round (the batch that left on the same frame).
 func next_volley(limit := 200) -> Array:
 	boss._fire_timer = minf(boss._fire_timer, 0.05)
 	for i in limit:
@@ -367,18 +367,18 @@ func test_a_volley_is_a_fan() -> void:
 	var all_from_pod := true
 	var detail := []
 	for b: Bullet in volley:
-		# 出膛后已经飞了一小段：它的飞行直线要穿过导弹巢口，而且离巢口不远
+		# Having flown a short way since leaving: its flight line must pass through the pod mouth, and not far from it
 		var off := b.global_position - muzzle
 		var miss := absf(off.cross(b.direction))
 		detail.append("%.2f/%.1f" % [miss, off.length()])
 		all_from_pod = all_from_pod and miss < 0.5 and off.length() < 20.0
-	check("all of them leave from the missile pod", all_from_pod, "偏离/距离 %s" % [detail])
+	check("all of them leave from the missile pod", all_from_pod, "offset / distance %s" % [detail])
 	check("the missiles are the boss's own", volley.all(func(b: Bullet) -> bool: return b.skin_key == &"boss_bullet"))
 	check("and the ultimate can clear them", volley.all(func(b: Bullet) -> bool: return b.is_in_group(&"enemy_bullets")))
 
 
 func test_the_fan_is_centred_on_the_player() -> void:
-	# 中心那一发对准玩家的身体中心（站着、趴着都一样，趴下时中心更低，扇形跟着往下压）
+	# The middle missile aims at the player's body centre (standing or prone alike; prone the centre is lower and the fan follows it down)
 	for case in [[-220.0, false], [-140.0, false], [-220.0, true]]:
 		await start()
 		await stand_and_face(boss.global_position.x + case[0])
@@ -390,7 +390,7 @@ func test_the_fan_is_centred_on_the_player() -> void:
 		var want := (player.body_center() - boss._muzzle_position()).normalized()
 		check("fan centre aims at the player %.0fpx away%s" % [absf(case[0]), " (prone)" if case[1] else ""],
 			boss.fan_center.angle_to(want) < deg_to_rad(1.0), "%s vs %s" % [boss.fan_center, want])
-		# 整扇对称地摊在中心两侧：只看「有一发朝中心」的话，整扇偏到一边也照样成立
+		# The whole fan spreads symmetrically around the centre: checking only "one missile points at the centre" would still pass if the whole fan leaned to one side
 		var offsets: Array[float] = []
 		for bullet: Bullet in volley:
 			offsets.append(boss.fan_center.angle_to(bullet.direction))
@@ -398,13 +398,13 @@ func test_the_fan_is_centred_on_the_player() -> void:
 		for o in offsets:
 			mean += o / maxf(offsets.size(), 1.0)
 		check("and the fan spreads evenly on both sides of it", volley.size() == boss.fan_count and absf(mean) < deg_to_rad(0.5),
-			"平均偏 %.1f°" % rad_to_deg(mean))
+			"mean offset %.1f°" % rad_to_deg(mean))
 
 
 func test_the_fan_only_points_forward() -> void:
-	# 导弹巢朝前：玩家几乎在正上方时，扇形中心也最多抬到 fan_max_angle，不会朝正上或身后打
+	# The pod faces forward: with the player almost straight above, the fan centre lifts to fan_max_angle at most, never firing straight up or behind
 	await start()
-	boss.fire_fan(player) # 先随便打一轮，确保朝向已定
+	boss.fire_fan(player) # Fire a round first so the facing is settled
 	var up_close := Node2D.new()
 	main.add_child(up_close)
 	up_close.global_position = boss._muzzle_position() + Vector2(boss.facing * 10.0, -200.0)
@@ -426,7 +426,7 @@ func test_turns_to_face_the_player_before_firing() -> void:
 
 
 func test_gaps_open_up_with_distance() -> void:
-	# 扇形是能躲的：在交战距离上，相邻两发之间的空隙比玩家站着还宽，站到缝里就躲开了
+	# The fan can be dodged: at fighting distance, the gap between neighbouring missiles is wider than a standing player, so standing in a gap dodges it
 	await start()
 	var distance := boss.close_range * 2.0
 	var gap := 2.0 * distance * tan(deg_to_rad(boss.fan_spread / 2.0))
@@ -434,7 +434,7 @@ func test_gaps_open_up_with_distance() -> void:
 
 
 func test_lying_down_does_not_dodge_the_fan() -> void:
-	# 原来趴下能躲 Boss 的水平子弹；扇形瞄的是身体中心，趴着照样挨打
+	# Lying prone used to dodge the boss's level shots; the fan aims at the body centre, so prone still gets hit
 	await start()
 	await stand_and_face(boss.global_position.x - 200.0)
 	Input.action_press("crouch")
@@ -454,7 +454,7 @@ func test_fires_only_on_the_ground_and_while_walking() -> void:
 	await start(900)
 	var shots := []
 	boss.shot_fired.connect(func() -> void: shots.append({"air": not boss.is_on_floor(), "vx": boss.velocity.x}))
-	# 空中：起跳后冷却清零，落地之前一发都不该打
+	# In the air: the cooldown resets on take-off, and not a single shot before landing
 	for i in 120:
 		await frames(1)
 		if boss.is_on_floor():
@@ -474,7 +474,7 @@ func test_fires_only_on_the_ground_and_while_walking() -> void:
 		if not shots.is_empty():
 			break
 	check("setup: it did land again", landed)
-	# 地上：走动中照样开火
+	# On the ground: it keeps firing while walking
 	for i in 480:
 		player._invincible_timer = 1000.0
 		await frames(1)

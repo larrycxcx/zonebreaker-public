@@ -1,19 +1,19 @@
-"""生成正式关卡场景（scenes/level_N.tscn）。
+"""Generates the real stage scenes (scenes/level_N.tscn).
 
-    python tools/level_build.py          # 全部关卡
-    python tools/level_build.py 2        # 只生成第二关
-    python tools/level_build.py demo     # 用户示意图那一屏（scenes/map_demo.tscn）
-    python tools/level_build.py --check  # 只自检，不写文件
+    python tools/level_build.py          # all stages
+    python tools/level_build.py 2        # only generate stage 2
+    python tools/level_build.py demo     # the screen of the user's sketch (scenes/map_demo.tscn)
+    python tools/level_build.py --check  # only self-check, without writing files
 
-**为什么用脚本生成**：正式关卡 12800 宽 = 20 屏，手写几百个节点没法迭代——
-调一下节奏就要重排一整屏。和 `skin_build.py` 那套是一个路子：规则和数字写在脚本里，产物进仓库。
+**Why a script generates them**: a real stage is 12800 wide = 20 screens, and hand-writing hundreds of nodes makes iterating impossible —
+tweaking the pacing would mean rearranging a whole screen. The same approach as `skin_build.py`: rules and numbers live in the script, the output goes into the repo.
 
-**两种关卡**（2026-10 起）：
-**全部四关都是格子地图**：`level1_map.py` … `level4_map.py` 画，`map_build.py` 找路自检、挑砖、写场景
-（见 CLAUDE.md「梯子与分层关卡」）。第四关是**竖着的**一整根竖井（40 × 450 格）。
-原来那两套生成器（横向的「段落表」、纵向的 `vlevel_build.py`）都随着关卡换成格子地图删掉了。
+**Kinds of stages** (since 2026-10):
+**All the stages are grid maps**: drawn in `level1_map.py` … `level4_map.py`, with `map_build.py` finding paths for the self-check, choosing tiles and writing scenes
+(see "Ladders and layered stages" in CLAUDE.md). Stage 4 is one **vertical** shaft (40 × 450 cells).
+The two old generators (the horizontal "segment table" and the vertical `vlevel_build.py`) were both deleted when the stages switched to grid maps.
 
-这里只剩：几把公用的尺子、每关的敌人表、`STAGES` 那张总表、写场景用的文件头和平台节点。
+What is left here: a few shared rulers, each stage's enemy table, the `STAGES` master table, and the file header and platform nodes used to write scenes.
 """
 import os
 import sys
@@ -23,33 +23,33 @@ sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCENES = os.path.join(HERE, "..", "scenes")
 
-# ---------------------------------------------------------------- 公用的尺子
+# ---------------------------------------------------------------- Shared rulers
 
-## 地面顶边的 y。
+## The y of the ground's top edge.
 GROUND_Y = 320.0
-## 画面多高。摄像机的 limit_bottom 用它。
+## How tall the view is. Used for the camera's limit_bottom.
 SCREEN_H = 360.0
-## 站在地上的敌人 / 玩家的 y：判定框 32 高、原点在正中，所以是地面顶边往上 16。
+## The y of enemies / players standing on the ground: the hitbox is 32 tall with the origin in the middle, so 16 above the ground's top edge.
 STAND = 16.0
-## Boss A 的判定框 48 高，原点在正中 → 顶边往上 24。
+## Boss A's hitbox is 48 tall with the origin in the middle → 24 above the top edge.
 BOSS_STAND = 24.0
 
-## 从天而降的 2-A 吊在画面顶边以上的这个高度，玩家走到脚下才砸下来。
+## The height above the top of the view where the 2-A dropping from the sky hangs, falling only when the player walks underneath.
 HANG_Y = -40.0
 
-## 机关的场景（第二关的液压机和闸门）。
+## Trap scenes (stage 2's hydraulic press and blast gate).
 PRESS_SCENE = "res://scenes/trap_press.tscn"
 GATE_SCENE = "res://scenes/trap_gate.tscn"
 
-## 敌人在关卡里叫什么：键 `1_a` → `1-A`、`1_boss` → `1-Boss`。
-## **编号带着关卡号**：23 关每关都有自己的一套敌人，字母只是这一关的序号（不代表打法），
-## 所以第二关的就是 `2-A`、`2-B`……字母不带关卡号的话很快就不够分了。
+## What enemies are called in the stage: key `1_a` → `1-A`, `1_boss` → `1-Boss`.
+## **The number includes the stage**: each of the 23 stages has its own set of enemies, and the letter is only an index within that stage (it says nothing about how it fights),
+## so stage 2's are `2-A`, `2-B`…; without the stage number the letters would soon run out.
 def enemy_label(kind):
 	level, _, rest = kind.partition("_")
 	return "%s-%s" % (level, "Boss" if rest == "boss" else rest.upper())
 
 
-## 敌人类型 → 场景路径。键就是地图 / 段落表里写的名字。
+## Enemy type → scene path. The keys are the names written in the maps / segment tables.
 ENEMIES_1 = {
 	"1_a": "res://scenes/enemy_1_a.tscn",
 	"1_b": "res://scenes/enemy_1_b.tscn",
@@ -61,13 +61,13 @@ ENEMIES_1 = {
 	"1_boss": "res://scenes/boss_1.tscn",
 }
 
-## 装饰物：名字 → 横着排了几帧（1 = 静止）。**纯显示，没有碰撞**（`scripts/prop.gd`）。
+## Props: name → how many frames side by side (1 = still). **Display only, no collision** (`scripts/prop.gd`).
 PROP_FRAMES_1 = {"fountain": 4}
 
 
-# ---------------------------------------------------------------- 第二关（工业区）
+# ---------------------------------------------------------------- Stage 2 (industrial zone)
 #
-# 分层的格子地图（`level2_map.py`），这里只留它的敌人表和会动的装饰。
+# A layered grid map (`level2_map.py`); only its enemy table and animated props are kept here.
 
 PROP_FRAMES_2 = {"screen": 4, "conveyor": 4}
 
@@ -82,10 +82,10 @@ ENEMIES_2 = {
 }
 
 
-# ---------------------------------------------------------------- 第三关（酒吧街）
+# ---------------------------------------------------------------- Stage 3 (bar street)
 #
-# 分层的格子地图（`level3_map.py`）。这一关**没有会飞的**，也**没有会动的装饰**：
-# 酒瓶、酒杯、飞钞、飘牌摆在地上像能捡的东西（2026-10 试玩反馈），都不要。
+# A layered grid map (`level3_map.py`). This stage has **no flyers** and **no animated props**:
+# bottles, glasses, flying banknotes and swinging signs lying on the ground look like pickups (2026-10 playtest feedback), so none of them.
 
 PROP_FRAMES_3 = {}
 
@@ -99,12 +99,12 @@ ENEMIES_3 = {
 	"3_boss": "res://scenes/boss_3.tscn",
 }
 
-## 脚底在原点下方几像素，**和别人不一样的**才写：3-E 趴在地上只有 12 高（判定框 28×12），
-## 独轮机甲的判定框 56 高。按 `STAND` / `BOSS_STAND` 摆的话一个陷进地里、一个悬在半空。
+## How many pixels below the origin the feet are, written only for **those that differ**: 3-E lies on the ground and is only 12 tall (hitbox 28×12),
+## and the unicycle mech's hitbox is 56 tall. Placed by `STAND` / `BOSS_STAND`, one would sink into the ground and the other float in mid-air.
 STAND_3 = {"3_e": 6.0, "3_boss": 28.0}
 
 SECTIONS_3 = [
-	("Sidewalk", {                                # 街口：认识 3-B，第一次见贴地的 3-E
+	("Sidewalk", {                                # Street corner: meet 3-B, and the first ground-hugging 3-E
 		"props": [("counter", 300, GROUND_Y), ("sign2", 620, GROUND_Y),
 			("counter2", 940, GROUND_Y)],
 		"ledges": [(260, 256, 96), (420, 208, 96), (640, 256, 112), (860, 208, 96),
@@ -112,7 +112,7 @@ SECTIONS_3 = [
 		"enemies": [("3_b", 840, GROUND_Y), ("3_a", 960, GROUND_Y), ("3_b", 880, 208),
 			("3_e", 1020, GROUND_Y), ("3_b", 1100, 248), ("3_a", 1220, GROUND_Y)],
 	}),
-	("Awnings", {                                 # 踩着雨棚往上爬，跳劈的 3-C 从上面扑下来
+	("Awnings", {                                 # Climbing up the awnings, the leaping 3-C pounces from above
 		"ledges": [(100, 264, 96), (260, 216, 96), (420, 168, 128), (620, 160, 240),
 			(900, 216, 96), (1080, 256, 112)],
 		"walls": [(180, 40)],
@@ -123,7 +123,7 @@ SECTIONS_3 = [
 			("3_b", 820, 160), ("3_b", 950, 216), ("3_b", 1140, 256),
 			("3_a", 1150, GROUND_Y)],
 	}),
-	("Cellar", {                                  # 矮通道 + 堵死的下层：出口站着壮汉
+	("Cellar", {                                  # A low tunnel + a blocked lower level: a brute stands at the exit
 		"crawl": [(200, 200), (800, 180)],
 		"blocks": [(520, 64, 112)],
 		"ledges": [(340, 248, 80), (400, 208, 64), (440, 160, 240), (720, 248, 96),
@@ -132,14 +132,14 @@ SECTIONS_3 = [
 			("3_b", 760, 248), ("3_d", 1040, GROUND_Y), ("3_c", 1040, 200),
 			("3_a", 1200, GROUND_Y), ("3_b", 1200, 256)],
 	}),
-	("Gutters", {                                 # 坑区：3-E 守着坑边，要跳过它的子弹又要跳过坑
+	("Gutters", {                                 # Pit area: 3-E guards the pit edge, so you have to jump its bullets and the pit
 		"gaps": [(300, 96), (620, 88), (940, 100)],
 		"ledges": [(180, 248, 96), (460, 264, 96), (760, 248, 112), (1080, 256, 96)],
 		"enemies": [("3_b", 200, 248), ("3_e", 500, GROUND_Y), ("3_c", 500, 264),
 			("3_d", 800, GROUND_Y), ("3_b", 800, 248), ("3_e", 880, GROUND_Y),
 			("3_f", 1060, GROUND_Y), ("3_b", 1120, 256), ("3_a", 1240, GROUND_Y)],
 	}),
-	("Bouncers", {                                # 壮汉的地盘：正面打不动，得绕
+	("Bouncers", {                                # The brutes' turf: you cannot beat them head-on, you have to go around
 		"props": [("counter2", 400, GROUND_Y), ("sign2", 1000, GROUND_Y)],
 		"ledges": [(220, 256, 96), (460, 256, 80), (560, 208, 112), (900, 256, 96),
 			(1020, 256, 80), (1120, 208, 96)],
@@ -148,7 +148,7 @@ SECTIONS_3 = [
 			("3_b", 600, 208), ("3_d", 860, GROUND_Y), ("3_b", 940, 256),
 			("3_f", 1060, GROUND_Y), ("3_d", 1180, GROUND_Y), ("3_c", 1160, 208)],
 	}),
-	("Carts", {                                   # 长直路上的炮车，上面一条高路
+	("Carts", {                                   # Cannon carts on the long straight road, with a high road above
 		"props": [("cabinet", 300, GROUND_Y)],
 		"ledges": [(160, 256, 96), (340, 208, 96), (480, 160, 256), (820, 256, 96),
 			(980, 208, 96), (1140, 256, 96)],
@@ -159,7 +159,7 @@ SECTIONS_3 = [
 			("3_e", 900, GROUND_Y), ("3_c", 1020, 208), ("3_b", 1160, 256),
 			("3_f", 1200, GROUND_Y)],
 	}),
-	("Rooftops", {                                # 一路踩雨棚过坑，3-C 在棚子之间跳来跳去
+	("Rooftops", {                                # Crossing the pits on awnings all the way, with 3-Cs leaping between the awnings
 		"gaps": [(360, 92), (820, 96)],
 		"ledges": [(180, 264, 96), (320, 216, 112), (520, 264, 96), (700, 216, 112),
 			(900, 264, 96), (1080, 216, 112)],
@@ -167,7 +167,7 @@ SECTIONS_3 = [
 			("3_e", 640, GROUND_Y), ("3_c", 740, 216), ("3_b", 940, 264),
 			("3_a", 1000, GROUND_Y), ("3_c", 1120, 216), ("3_b", 1200, GROUND_Y)],
 	}),
-	("Crossfire", {                               # 三层交叉火力，底下还有一条贴地的
+	("Crossfire", {                               # Three-layer crossfire, with a ground-hugger below too
 		"ledges": [(120, 264, 128), (340, 208, 128), (560, 152, 160), (820, 208, 128),
 			(1040, 264, 128)],
 		"gaps": [(700, 92)],
@@ -176,7 +176,7 @@ SECTIONS_3 = [
 			("3_b", 860, 208), ("3_d", 980, GROUND_Y), ("3_b", 1080, 264),
 			("3_a", 1200, GROUND_Y)],
 	}),
-	("BackAlley", {                               # 后巷：坑、矮通道、壮汉和刀客挤在一起
+	("BackAlley", {                               # Back alley: pits, a low tunnel, brutes and knifemen crowded together
 		"crawl": [(160, 180), (660, 160)],
 		"gaps": [(420, 96), (900, 100), (1090, 92)],
 		"ledges": [(320, 248, 96), (520, 184, 96), (840, 248, 64), (1020, 248, 64)],
@@ -186,7 +186,7 @@ SECTIONS_3 = [
 			("3_b", 560, 184), ("3_b", 860, 248), ("3_e", 870, GROUND_Y),
 			("3_d", 1040, GROUND_Y), ("3_c", 1040, 248), ("3_b", 1250, GROUND_Y)],
 	}),
-	("BossArena", {                               # Boss 区：**整片实地、没有墙**，它在地上滚
+	("BossArena", {                               # Boss area: **solid ground all over, no walls**, it rolls along the ground
 		"props": [("counter", 260, GROUND_Y), ("cabinet2", 640, GROUND_Y)],
 		"walls": [(40, 56)],
 		"ledges": [(180, 248, 96), (360, 200, 96), (560, 248, 112),
@@ -197,9 +197,9 @@ SECTIONS_3 = [
 	}),
 ]
 
-# ---------------------------------------------------------------- 第四关（地下室，纵向往上爬）
+# ---------------------------------------------------------------- Stage 4 (basement, climbed vertically)
 #
-# 竖着的格子地图（`level4_map.py`），这里只留它的敌人表、矮的那种站多高、会动的装饰。
+# A vertical grid map (`level4_map.py`); only its enemy table, how high the short ones stand, and animated props are kept here.
 
 ENEMIES_4 = {
 	"4_a": "res://scenes/enemy_4_a.tscn",
@@ -210,13 +210,13 @@ ENEMIES_4 = {
 	"4_f": "res://scenes/enemy_4_f.tscn",
 	"4_boss": "res://scenes/boss_4.tscn",
 }
-## 蜘蛛炮台矮（判定框 22 高），脚底在原点下方 11。
+## The spider turret is short (hitbox 22 tall), with the feet 11 below the origin.
 STAND_4 = {"4_e": 11.0}
 PROP_FRAMES_4 = {"smoke": 6}
 
-# ---------------------------------------------------------------- 第五关（实验室）
+# ---------------------------------------------------------------- Stage 5 (lab)
 #
-# 分层的格子地图（`level5_map.py`）。中段有一间小 Boss 的房间（门 `[` `]`，见 `ArenaDoor`）。
+# A layered grid map (`level5_map.py`). Midway there is a mid-level boss room (doors `[` `]`, see `ArenaDoor`).
 
 ENEMIES_5 = {
 	"5_a": "res://scenes/enemy_5_a.tscn",
@@ -228,18 +228,18 @@ ENEMIES_5 = {
 	"5_mid": "res://scenes/boss_5_mid.tscn",
 	"5_boss": "res://scenes/boss_5.tscn",
 }
-## 变异枪手的判定框 48 高，脚底在原点下方 24（它的名字不以 _boss 结尾，得点名）。
+## The mutant gunner's hitbox is 48 tall with the feet 24 below the origin (its name does not end in _boss, so it has to be named).
 STAND_5 = {"5_mid": 24.0}
 PROP_FRAMES_5 = {"generator": 4, "valve": 4, "scanner": 6, "camera": 6}
 
-# ---------------------------------------------------------------- 一关 = 一条配置
+# ---------------------------------------------------------------- One stage = one entry
 #
-# 加一关就往这张表里加一条，跑 `python tools/level_build.py 2`。
-# 关卡之间**什么都不共用**：敌人、装饰、地图各写各的——23 关里每一关的敌人和素材都不一样，
-# 共用一份只会让「调第二关的节奏」把第一关也改掉。
+# To add a stage, add an entry to this table and run `python tools/level_build.py 2`.
+# Stages **share nothing**: enemies, props and maps are each written separately — every one of the 23 stages has different enemies and art,
+# and sharing one copy would only mean that "tuning stage 2's pacing" changes stage 1 too.
 STAGES = {
-	# 全部是**格子地图**：`levelN_map.py` 画、`map_build.py` 查路和写场景，
-	# `theme` 是那个区的一套砖（`map_build.THEMES`）
+	# All are **grid maps**: drawn in `levelN_map.py`, with `map_build.py` checking paths and writing the scene;
+	# `theme` is that zone's tile set (`map_build.THEMES`)
 	"1": {
 		"out": "level_1.tscn", "root": "Level1", "prop_dir": "cyberpunk", "map": "level1_map",
 		"theme": "green", "enemies": ENEMIES_1, "prop_frames": PROP_FRAMES_1,
@@ -253,7 +253,7 @@ STAGES = {
 		"out": "level_3.tscn", "root": "Level3", "prop_dir": "bar_street", "map": "level3_map",
 		"theme": "bar", "enemies": ENEMIES_3, "prop_frames": PROP_FRAMES_3, "stand": STAND_3,
 	},
-	# 第四关是**竖着的**格子地图（2026-10 从原来那套纵向段落表换过来）：一整根竖井，450 行高
+	# Stage 4 is a **vertical** grid map (switched from the old vertical segment table in 2026-10): one whole shaft, 450 rows tall
 	"4": {
 		"out": "level_4.tscn", "root": "Level4", "prop_dir": "basement", "map": "level4_map",
 		"theme": "basement", "enemies": ENEMIES_4, "prop_frames": PROP_FRAMES_4, "stand": STAND_4,
@@ -266,7 +266,7 @@ STAGES = {
 
 
 def use_stage(key):
-	"""把这一关「哪种敌人脚底离原点多远」那张表装进全局（`stand_of()` 读它）。"""
+	"""Load this stage's table of "how far each enemy type's feet are from the origin" into the globals (`stand_of()` reads it)."""
 	global STAND_BY
 	STAND_BY = STAGES[key].get("stand", {})
 
@@ -275,13 +275,13 @@ STAND_BY = {}
 
 
 def stand_of(kind):
-	"""脚底在原点下方几像素：表里点了名的按表，否则 Boss 24、别人 16。"""
+	"""How many pixels below the origin the feet are: by the table if named there, otherwise 24 for bosses and 16 for the rest."""
 	if kind in STAND_BY:
 		return STAND_BY[kind]
 	return BOSS_STAND if kind.endswith("_boss") else STAND
 
 
-# ---------------------------------------------------------------- 写场景
+# ---------------------------------------------------------------- Writing scenes
 
 HEAD = """[gd_scene format=3]
 
@@ -313,28 +313,28 @@ def platform(name, parent, x, y, w, h, one_way=False, skin=None):
 
 
 def build_map_demo(write):
-	"""用户示意图那一屏（`level_maps.DEMO`），生成到 scenes/map_demo.tscn，不进选关列表。"""
+	"""The screen of the user's sketch (`level_maps.DEMO`), generated into scenes/map_demo.tscn, not in the stage select list."""
 	import level_maps
 	import map_build as mb
 	level = mb.MapLevel(level_maps.DEMO, level_maps.DEMO_ENEMIES, ENEMIES_2, lambda kind: STAND)
-	problems = mb.check(level, safe_cols=0)   # 示意图那一屏本来就只有一屏，敌人都在里面
+	problems = mb.check(level, safe_cols=0)   # The sketch is only one screen to begin with, with all the enemies on it
 	if problems:
-		print("格子地图自检没过：")
+		print("The grid map failed its self-check:")
 		for p in problems:
 			print("  -", p)
 		sys.exit(1)
 	mb.build(level, os.path.join(SCENES, "map_demo.tscn"), "MapDemo", "industrial", write,
 		PROP_FRAMES_2, level_maps.DEMO_PROPS, level_maps.DEMO_DECOR)
-	print("示意图那一段：%d 格宽（%d 像素）" % (level.width, level.width * mb.CELL))
-	print("  实心 %d 块、单向 %d、梯子 %d、液压机 %d、闸门 %d、敌人 %d"
+	print("The sketch segment: %d cells wide (%d pixels)" % (level.width, level.width * mb.CELL))
+	print("  solid %d, one-way %d, ladders %d, presses %d, gates %d, enemies %d"
 		% (len(level.solids), len(level.ledges), len(level.ladders), len(level.presses),
 			len(level.gates), len(level.enemies)))
 	if write:
-		print("  写入 scenes/map_demo.tscn")
+		print("  writing scenes/map_demo.tscn")
 
 
 def build_map_level(key, write):
-	"""分层的格子地图（第一关 `level1_map.py`、第二关 `level2_map.py`）→ scenes/level_N.tscn。"""
+	"""Layered grid maps (stage 1 `level1_map.py`, stage 2 `level2_map.py`) → scenes/level_N.tscn."""
 	import importlib
 	import map_build as mb
 	import map_canvas
@@ -347,21 +347,21 @@ def build_map_level(key, write):
 	problems = mb.check(level, chasers=plan.CHASERS, min_enemies=plan.MIN_ENEMIES)
 	if problems:
 		map_canvas.dump(rows)
-		print("格子地图自检没过：")
+		print("The grid map failed its self-check:")
 		for p in problems:
 			print("  -", p)
 		sys.exit(1)
 	mb.build(level, os.path.join(SCENES, stage["out"]), stage["root"], stage["prop_dir"], write,
 		stage["prop_frames"], props, decor)
 	if level.vertical:
-		print("第 %s 关（纵向）：%d × %d 格（%d 屏高）" % (key, level.width, level.height, level.height * 16 // 360))
+		print("Stage %s (vertical): %d × %d cells (%d screens tall)" % (key, level.width, level.height, level.height * 16 // 360))
 	else:
-		print("第 %s 关（分层）：%d 格宽（%d 屏）" % (key, level.width, level.width // 40))
-	print("  实心 %d 块、单向 %d、梯子 %d、液压机 %d、闸门 %d、箱子 %d、油桶 %d、敌人 %d、装饰 %d"
+		print("Stage %s (layered): %d cells wide (%d screens)" % (key, level.width, level.width // 40))
+	print("  solid %d, one-way %d, ladders %d, presses %d, gates %d, crates %d, barrels %d, enemies %d, props %d"
 		% (len(level.solids), len(level.ledges), len(level.ladders), len(level.presses),
 			len(level.gates), len(level.crates), len(level.barrels), len(level.enemies), len(level.props)))
 	if write:
-		print("  写入 scenes/%s" % stage["out"])
+		print("  writing scenes/%s" % stage["out"])
 
 
 def main():
@@ -372,14 +372,14 @@ def main():
 	wanted = [a for a in sys.argv[1:] if not a.startswith("--")] or list(STAGES)
 	for key in wanted:
 		if key not in STAGES:
-			sys.exit("没有第 %s 关（有的是 %s）" % (key, "、".join(STAGES)))
+			sys.exit("There is no stage %s (available: %s)" % (key, ", ".join(STAGES)))
 		use_stage(key)
 		build_stage(key, write)
 
 
 def build_stage(key, write):
 	if not STAGES[key].get("map"):
-		sys.exit("第 %s 关没有配格子地图" % key)
+		sys.exit("Stage %s has no grid map configured" % key)
 	build_map_level(key, write)
 
 

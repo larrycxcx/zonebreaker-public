@@ -1,12 +1,12 @@
 class_name Blast
-## 爆炸的共用规则：**炸得到谁、各受多少伤害**。手雷和自爆的机器人用的是同一套。
+## Shared explosion rules: **who gets hit and how much damage each takes**. Grenades and the suicide robot use the same ones.
 ##
-## 规则写两遍迟早会分叉（一边改了半径、另一边没改），所以和 `Sight`（「两点之间有没有实心物体」）
-## 一样提出来放一个地方。谁能被炸到由 `target_layer` 决定，所以两边都炸不到自己人。
+## Rules written twice drift apart sooner or later (one side changes the radius, the other does not), so like `Sight` ("is anything solid between two points")
+## they live in one place. Who can be hit is decided by `target_layer`, so neither side can hit its own.
 
 
-## 这一圈里炸得到的目标：在半径内、能 `take_damage`、**中间没被实心物体挡住**。
-## 挡住就炸不到，和敌人的视线同一条规则（`Sight.is_clear`）。
+## Targets within reach: inside the radius, able to `take_damage`, and **not shielded by anything solid**.
+## Shielded means unhurt — the same rule as an enemy's line of sight (`Sight.is_clear`).
 static func victims(space: PhysicsDirectSpaceState2D, at: Vector2, radius: float,
 		layer: int) -> Array[Node2D]:
 	var circle := CircleShape2D.new()
@@ -20,7 +20,7 @@ static func victims(space: PhysicsDirectSpaceState2D, at: Vector2, radius: float
 		var victim := hit["collider"] as Node2D
 		if victim == null or not victim.has_method("take_damage"):
 			continue
-		# 已经打死、正排队等删的不再算一次（否则事件会报两遍、奖励发两份）
+		# Already dead and queued for deletion: do not count it again (otherwise the event fires twice and the reward is paid twice)
 		if victim is Enemy and (victim as Enemy).health <= 0:
 			continue
 		if Sight.is_clear(space, at, victim.global_position):
@@ -28,8 +28,8 @@ static func victims(space: PhysicsDirectSpaceState2D, at: Vector2, radius: float
 	return out
 
 
-## 离爆炸中心这么远该受多少伤害：**中心 `max_damage`、边缘 `min_damage`，线性**。
-## 所以站在边上只擦一下，正中间才是满伤害——躲的办法是离远点，不是硬扛。
+## Damage at this distance from the centre: **`max_damage` at the centre, `min_damage` at the edge, linear**.
+## So standing at the edge only grazes you and the centre is full damage — the way to dodge is distance, not toughing it out.
 static func damage_at(distance: float, radius: float, max_damage: int, min_damage: int) -> int:
 	var falloff := clampf(distance / maxf(1.0, radius), 0.0, 1.0)
 	return roundi(lerpf(max_damage, min_damage, falloff))

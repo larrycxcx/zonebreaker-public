@@ -1,30 +1,30 @@
 extends CanvasLayer
-## HUD：左上角血条、体力条、当前武器、终极武器剩余次数、等级 / 经验 / 金钱，死亡时显示提示；
-## Boss 出场时右上角显示它的头像和血条（血条从右往左减少，Boss 死了隐藏）。
+## HUD: health bar, stamina bar, current weapon, ultimate charges left, level / XP / money in the top left, with a message on death;
+## when a boss appears its portrait and health bar show at the top right (the bar shrinks right to left and hides when the boss dies).
 ##
-## 这里只管「显示什么」。场景自带的是占位方块；当前素材包有 HUD 外观（`SkinPack.hud`，比如 SpriteHud）时，
-## 同样的状态会转交给外观去画，占位方块照常更新（测试和逻辑都读它们）但不再画出来——和角色换皮肤同一个思路。
+## This only decides "what to show". The scene comes with placeholder blocks; when the current skin pack has a HUD appearance (`SkinPack.hud`, e.g. SpriteHud),
+## the same state is handed to the appearance to draw, and the placeholder blocks keep updating (tests and logic read them) but are no longer drawn — the same idea as character skins.
 
-## 两个人共用、只由左边那套显示的部分（现在只有 Boss 血条）。右边那套既不显示也不跟着挪。
-## **「GAME OVER」不在这儿**：那行字归 `DeathScreen` 写，见那边的说明。
+## Parts shared by both players and shown only by the left HUD (only the boss bar now). The right HUD neither shows nor moves them.
+## **"GAME OVER" is not here**: that line belongs to `DeathScreen`; see the note there.
 const SHARED_PARTS := ["BossBar"]
 
 const STAMINA_READY := Color(0.45, 0.85, 0.4)
-## 体力低于能重新起跑的门槛时变色，提示玩家现在跑不动。
+## The bar changes colour when stamina is below the threshold for running again, telling the player they cannot run right now.
 const STAMINA_TIRED := Color(0.85, 0.5, 0.25)
 
 var _ultimate_pips: Array[ColorRect] = []
-## 这套 HUD 显示第几号玩家（双人时左右各一套）。
+## Which player this HUD shows (one on each side in co-op).
 @export var player_index := 0
-## 摆在屏幕右边（2 号玩家那套）：场景是按左边画的，这里把每一块横向镜像过去。
+## Placed on the right side of the screen (player 2's): the scene is drawn for the left, and every part is mirrored horizontally here.
 @export var mirrored := false
-## 显示两个人共用的那些（Boss 血条、死亡提示）。双人时只有左边那套显示，否则两套叠在一起。
+## Show the parts shared by both players (boss bar, death message). In co-op only the left HUD shows them, otherwise the two would overlap.
 @export var shows_shared := true
 
 var _player: Player
-## 右上角正在显示的 Boss。
+## The boss currently shown at the top right.
 var _boss: Boss
-## 素材包的 HUD 外观；没有就是 null，只用占位方块。
+## The skin pack's HUD appearance; null if there is none, then only the placeholder blocks are used.
 var _look: Node
 
 @onready var _health_bar: ColorRect = $HealthBar
@@ -63,7 +63,7 @@ func _ready() -> void:
 	player.stamina_changed.connect(_on_stamina_changed)
 	player.weapon_switched.connect(_on_weapon_switched)
 	player.ultimate_ammo_changed.connect(_on_ultimate_changed)
-	# 直接读当前值，不依赖 Player._ready 里那次 emit 的先后顺序。
+	# Read the current values directly instead of relying on the order of the emit in Player._ready.
 	_on_health_changed(player.health, player.max_health)
 	_on_stamina_changed(player.stamina, player.max_stamina)
 	_on_weapon_switched(player.current_weapon, player.current_slot().weapon)
@@ -71,21 +71,21 @@ func _ready() -> void:
 		_on_ultimate_changed(player.ultimate_ammo(), player.ultimate_weapon.max_ammo)
 
 
-## HUD 上的字和菜单用同一套位图字体（`UiKit`），不是 Godot 自带那套。
-## 字体在场景里设不了——`.fnt` 要当 FontFile 加载，而且以后界面美术进 `SkinPack` 时这里只改一行。
+## HUD text uses the same bitmap font as the menus (`UiKit`), not Godot's built-in one.
+## The font cannot be set in the scene — the `.fnt` has to be loaded as a FontFile, and when UI art moves into `SkinPack` only one line changes here.
 func _use_pixel_font() -> void:
 	_progress_label.add_theme_font_override("font", UiKit.font())
-	# 关卡里的天空挺亮的，白字糊在上面看不清；金色和别的 HUD 零件也是一路的
+	# The sky in the stages is quite bright and white text blurs into it; gold also matches the other HUD parts
 	_progress_label.add_theme_color_override("font_color", UiKit.GOLD)
 	_progress_label.add_theme_font_size_override("font_size", UiKit.TEXT_SIZE)
-	# 背后垫一层暗影：HUD 的字是直接压在关卡画面上的，天空一亮笔画就糊成一团。
-	# 位图字体描不了边（引擎的描边要字模自带轮廓数据），影子是把同一张图再画一遍，管用。
+	# A dark shadow behind the text: HUD text sits right on top of the level, and against a bright sky the strokes blur together.
+	# A bitmap font cannot be outlined (the engine's outline needs outline data in the glyphs); the shadow draws the same image again, which works.
 	_progress_label.add_theme_color_override("font_shadow_color", Color(0.04, 0.05, 0.11, 0.95))
 	_progress_label.add_theme_constant_override("shadow_offset_x", 1)
 	_progress_label.add_theme_constant_override("shadow_offset_y", 1)
 
 
-## 素材包有 HUD 外观就装上，占位方块改成透明（不画，但照常更新）。
+## If the skin pack has a HUD appearance, install it and make the placeholder blocks transparent (not drawn, but still updated).
 func _add_look() -> void:
 	var scene := Skins.hud()
 	if scene == null:
@@ -97,11 +97,11 @@ func _add_look() -> void:
 		placeholder.modulate.a = 0.0
 
 
-## 把这套 HUD 整体挪到屏幕另一边（2 号玩家那套）。
-## **整块一起挪、不逐个镜像**：素材包的 HUD 外观（SpriteHud）里血条、体力条是脚本按坐标画出来的，不是节点，
-## 逐个镜像就得让 `hud.gd` 知道人家内部怎么摆——那是外观自己的事。整块挪则不用知道，挪它的根节点就行。
-## 挪多远由场景自己说了算：左边那套离屏幕边多远，右边也留多远。
-## 共用的那几块（Boss 血条、死亡提示）不挪，它们归左边那套管。
+## Move this whole HUD to the other side of the screen (player 2's).
+## **Move it as one piece, do not mirror the parts one by one**: in the pack's HUD appearance (SpriteHud) the health and stamina bars are drawn by script from coordinates, not nodes;
+## mirroring them one by one would make `hud.gd` know how the appearance lays itself out — that is the appearance's business. Moving it as a whole needs none of that, just its root node.
+## How far to move is up to the scene: as far from the right edge as the left HUD is from the left edge.
+## The shared parts (boss bar, death message) do not move; they belong to the left HUD.
 func _mirror() -> void:
 	var width := float(ProjectSettings.get_setting("display/window/size/viewport_width", 640))
 	var margin := _health_bar.offset_left
@@ -114,7 +114,7 @@ func _mirror() -> void:
 		control.offset_right += shift
 	if _look != null:
 		(_look as Control).position.x += shift
-	# 那行字（等级 / 经验 / 金钱）比别的宽得多，单独贴着右边、文字靠右
+	# That line of text (level / XP / money) is much wider than anything else, so it is pinned to the right on its own and right-aligned
 	var label_width := _progress_label.offset_right - _progress_label.offset_left
 	_progress_label.offset_right = width - margin
 	_progress_label.offset_left = _progress_label.offset_right - label_width
@@ -122,10 +122,10 @@ func _mirror() -> void:
 	_ultimate_row.alignment = BoxContainer.ALIGNMENT_END
 
 
-## 跟着挪的那几块：自己场景里除了共用部分和那行字之外的顶层控件（那行字单独安排）。
-## **素材包的外观（`Look`）也要排除**：它下面几行单独挪一次，留在这里会被挪两次，
-## 直接飞出屏幕——双人时 2 号的 HUD 因此整套都看不见（试玩才发现，老测试只断言了
-## 「比左边那套靠右 200px」，飞到 1016 照样算通过）。
+## The parts that move along: the top-level controls of this scene except the shared parts and that line of text (which is placed separately).
+## **The pack's appearance (`Look`) must be excluded as well**: it is moved once on its own a few lines below; left in here it would be moved twice
+## and fly right off the screen — in co-op player 2's whole HUD was invisible because of this (found in playtesting; the old test only asserted
+## "200px to the right of the left HUD", and ending up at 1016 still passed).
 func _movable() -> Array[Control]:
 	var found: Array[Control] = []
 	for child in get_children():
@@ -137,8 +137,8 @@ func _movable() -> Array[Control]:
 	return found
 
 
-## 异常状态那一行（2026-11 第五关的中毒）：进度那两行底下，绿字写着身上挂着什么。
-## 位置照抄进度那行（双人右边那套也跟着贴右、靠右对齐），所以它在 `_mirror()` 之后才摆。
+## The status line (2026-11, stage 5 poison): under the two progress lines, green text saying what you are afflicted with.
+## Its position copies the progress line (the right HUD in co-op is pinned right and right-aligned too), so it is placed after `_mirror()`.
 const STATUS_NAMES := {&"poison": "POISON"}
 var _status_label: Label
 
@@ -168,17 +168,17 @@ func _refresh_status() -> void:
 	_status_label.text = "  ".join(names)
 
 
-## 状态那一行（测试用）。
+## The status line (for tests).
 func status_label() -> Label:
 	return _status_label
 
 
-## 素材包的 HUD 外观（测试用），没有返回 null。
+## The skin pack's HUD appearance (for tests), null if there is none.
 func look() -> Node:
 	return _look
 
 
-## 血量按比例显示（RPG 式的数值血量，一百多点，不再一点一格）。
+## Health is shown as a proportion (RPG-style health of a hundred-odd points, no longer one cell per point).
 func _on_health_changed(health: int, max_health: int) -> void:
 	var ratio := clampf(float(health) / max_health, 0.0, 1.0) if max_health > 0 else 0.0
 	_health_fill.size.x = roundf(_health_bar.size.x * ratio)
@@ -200,7 +200,7 @@ func _on_weapon_switched(_index: int, weapon: Weapon) -> void:
 		_look.show_weapon(weapon.look)
 
 
-## 剩余的用武器自己的颜色，用掉的变暗。
+## Remaining charges in the weapon's own colour, used ones darkened.
 func _on_ultimate_changed(ammo: int, max_ammo: int) -> void:
 	while _ultimate_pips.size() < max_ammo:
 		var pip := ColorRect.new()
@@ -215,7 +215,7 @@ func _on_ultimate_changed(ammo: int, max_ammo: int) -> void:
 		_look.show_ultimate(ammo, max_ammo)
 
 
-## 同时只显示一个 Boss：后出场的替换先出场的。
+## Only one boss is shown at a time: one that appears later replaces the earlier one.
 func _on_boss_appeared(boss: Node2D) -> void:
 	if _boss != null and is_instance_valid(_boss):
 		_boss.health_changed.disconnect(_on_boss_health_changed)
@@ -230,7 +230,7 @@ func _on_boss_appeared(boss: Node2D) -> void:
 	_on_boss_health_changed(_boss.health, _boss.max_health)
 
 
-## 血条靠右对齐的头像，从右往左减少，所以填充条贴右边。
+## The bar sits right next to the portrait and shrinks right to left, so the fill is pinned to the right.
 func _on_boss_health_changed(health: int, max_health: int) -> void:
 	var ratio := float(health) / max_health if max_health > 0 else 0.0
 	_boss_fill.size.x = roundf(_boss_health.size.x * ratio)
@@ -246,16 +246,16 @@ func _on_boss_died() -> void:
 		_look.hide_boss()
 
 
-## 等级、金钱一行，经验和没花的技能点一行。
-## **分两行是宽度逼的**：挤成一行最宽要 414px，双人时左右两套会在屏幕中间撞上；
-## 分两行之后 20 级时最宽 289px，两套各占半边（308px）还剩得下
-## （`test_menus.gd` 按字模的实际字宽量着）。
-## 再往上经验曲线（每级 ×1.5）会把数字撑到七位数、这一行就装不下了——
-## 那是数值的事，真练得到那么高的时候一起调，别在这儿截字。
-## **一律英文大写**：菜单和 HUD 用的是同一套规矩（素材包的字模没有汉字，见 CLAUDE.md）。
+## Level and money on one line, XP and unspent skill points on another.
+## **Two lines because of width**: squeezed into one it is up to 414px wide, and in co-op the two HUDs would collide in the middle of the screen;
+## on two lines it is at most 289px at level 20, which fits in each half (308px)
+## (`test_menus.gd` measures it with the font's real glyph widths).
+## Further up the XP curve (×1.5 per level) the numbers grow to seven digits and the line no longer fits —
+## that is a balance matter, to be adjusted together if anyone really gets that high; do not truncate the text here.
+## **Always English upper case**: the menus and the HUD follow the same rule (the pack's font has no Chinese glyphs, see CLAUDE.md).
 func _on_progress_changed() -> void:
 	var me := Progress.of(player_index)
-	# 满级之后经验不再累计（`xp_to_next` 返回 0），写 `XP 0/0` 会让人以为是 bug
+	# At max level XP no longer accumulates (`xp_to_next` returns 0); `XP 0/0` would look like a bug
 	var second := "XP MAX" if me.is_max_level() else "XP %s/%s" % [
 		UiKit.number(me.xp), UiKit.number(me.balance.xp_to_next(me.level))]
 	if me.points > 0:

@@ -1,9 +1,9 @@
-"""生成 Boss 头像的像素占位图（16×16 PNG），输出到 skins/default/portraits/。
+"""Generates pixel placeholder images for boss portraits (16×16 PNG), output to skins/default/portraits/.
 
     python tools/portrait_gen.py
 
-只用标准库。每个头像是一张字符画：一个字符一个像素，颜色见 PALETTE。
-改头像就改这里的字符画再重新生成，不要手改 png。第 4 步换正式美术时整个替换掉。
+Standard library only. Each portrait is a character picture: one character per pixel, colours in PALETTE.
+To change a portrait, change the character picture here and regenerate; do not edit the png by hand. Replaced entirely when the real art comes in step 4.
 """
 import os
 import struct
@@ -12,19 +12,19 @@ import zlib
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "skins", "default", "portraits")
 
 PALETTE = {
-    ".": (22, 18, 20, 255),     # 背景
-    "#": (140, 84, 36, 255),    # 脸（和场景里 Boss A 身体同色）
-    "d": (88, 50, 20, 255),     # 暗部
-    "h": (77, 84, 92, 255),     # 头盔
-    "H": (120, 128, 138, 255),  # 头盔高光
-    "v": (255, 77, 51, 255),    # 护目镜
-    "w": (240, 235, 220, 255),  # 牙
-    "b": (44, 54, 92, 255),     # 铁球
-    "B": (96, 112, 150, 255),   # 铁球高光
-    "r": (214, 62, 46, 255),    # 红环 / 头冠
-    "m": (138, 160, 186, 255),  # 机甲外壳
-    "M": (186, 204, 224, 255),  # 外壳高光
-    "t": (150, 110, 60, 255),   # 天线
+    ".": (22, 18, 20, 255),     # background
+    "#": (140, 84, 36, 255),    # face (the same colour as Boss A's body in the scene)
+    "d": (88, 50, 20, 255),     # shadow
+    "h": (77, 84, 92, 255),     # helmet
+    "H": (120, 128, 138, 255),  # helmet highlight
+    "v": (255, 77, 51, 255),    # goggles
+    "w": (240, 235, 220, 255),  # teeth
+    "b": (44, 54, 92, 255),     # iron ball
+    "B": (96, 112, 150, 255),   # iron ball highlight
+    "r": (214, 62, 46, 255),    # red ring / crown
+    "m": (138, 160, 186, 255),  # mech shell
+    "M": (186, 204, 224, 255),  # shell highlight
+    "t": (150, 110, 60, 255),   # antenna
 }
 
 PORTRAITS = {
@@ -46,7 +46,7 @@ PORTRAITS = {
         "....########....",
         "................",
     ],
-    # Boss 2「机械操作员」：一个带红环的铁球，顶上一撮红色头冠。
+    # Boss 2 "machine operator": an iron ball with a red ring and a tuft of red crown on top.
     "2_boss": [
         "................",
         "......r..r......",
@@ -65,7 +65,7 @@ PORTRAITS = {
         "......bbbb......",
         "................",
     ],
-    # Boss 3「独轮机甲」：方头方脑的机体，顶上一根天线。
+    # Boss 3 "unicycle mech": a boxy body with an antenna on top.
     "3_boss": [
         "................",
         ".......t........",
@@ -84,7 +84,7 @@ PORTRAITS = {
         "................",
         "................",
     ],
-    # 第五关中段小 Boss「变异枪手」：红色的大头盔，一条护目镜。
+    # Stage 5's mid-level boss "mutant gunner": a big red helmet with a strip of goggles.
     "5_mid": [
         "................",
         "......rrrr......",
@@ -103,7 +103,7 @@ PORTRAITS = {
         "................",
         "................",
     ],
-    # 第五关 Boss「生化舱」：一个绿色的舱体，中间一只眼。
+    # Stage 5's boss "biopod": a green pod with one eye in the middle.
     "5_boss": [
         "................",
         ".....mmmmmm.....",
@@ -122,7 +122,7 @@ PORTRAITS = {
         "................",
         "................",
     ],
-    # Boss 4「骷髅头」：一个白骷髅，两只红眼。
+    # Boss 4 "skull": a white skull with two red eyes.
     "4_boss": [
         "................",
         ".....wwwwww.....",

@@ -1,14 +1,14 @@
 extends GameTest
-## 敌人分类：A（单发，220px，只站着）、B（连发 4~6 颗，220px，只站着）、
-## C（单发，400px，会跟着玩家趴下），以及炮台（400px，12 血）。
+## Enemy types: A (single shot, 220px, standing only), B (bursts of 4~6, 220px, standing only),
+## C (single shot, 400px, goes prone after the player), and the turret (400px, 12 health).
 
 
-## 玩家停在这里时离所有敌人都在射程外（摆好的敌人在 x=900，最远射程 400）。
+## With the player parked here every enemy is out of range (the enemy set up is at x=900, the longest range is 400).
 const PARKED_X := 80.0
 
 
-## 把一个巡逻兵固定在 x=900 朝左站着，不再走动。玩家先停在射程外：
-## 如果准备阶段就在射程内，敌人会先按默认冷却开一枪，之后测试改的节奏就看不出来了。
+## Fix a patroller standing at x=900 facing left, no longer walking. The player waits out of range first:
+## if it were in range during setup, the enemy would fire once on the default cooldown, hiding the rhythm the test changes afterwards.
 func _setup_duel(enemy_name: String) -> Enemy:
 	await reset_scene(true)
 	keep_only_enemies([enemy_name])
@@ -22,21 +22,21 @@ func _setup_duel(enemy_name: String) -> Enemy:
 		(enemy as EnemyWalker).move_speed = 0.0
 		(enemy as EnemyWalker)._apply_facing()
 	await frames(2)
-	# 敌人在屏幕里就会开火：摆位之前它在原来的位置可能已经开过一枪，别把那段冷却带进观察窗口
+	# Enemies fire when on screen: before being moved it may have fired from where it was; do not carry that cooldown into the observation window
 	enemy._fire_timer = 0.0
 	enemy._burst_left = 0
 	return enemy
 
 
-## 玩家站到敌人正前方 distance 处。玩家设为无敌，免得被击退或打死打断观察。
+## The player stands distance in front of the enemy. The player is made invincible so being knocked back or killed does not interrupt the observation.
 func _step_in_front(enemy: Enemy, distance: float) -> void:
 	player.global_position = Vector2(enemy.global_position.x - distance, 304)
 	player.velocity = Vector2.ZERO
 
 
-## 玩家在敌人前方 distance 处站 frame_count 帧，记下每颗子弹是第几帧射出的，
-## 再按间隔分成一轮一轮的连发（同一轮相邻两颗隔 9~10 帧，两轮之间隔 fire_interval）。
-## 观察结束后把玩家移走、再等一会儿，让最后一轮打完，避免被截断成「1 颗」。
+## The player stands distance in front of the enemy for frame_count frames, recording which frame each bullet was fired on,
+## then splits them into bursts by gap (9~10 frames between shots of a burst, fire_interval between bursts).
+## After observing, move the player away and wait a little so the last burst finishes instead of being cut off as "1 shot".
 func _observe_bursts(enemy: Enemy, distance: float, frame_count: int) -> Array:
 	var shot_frames := []
 	var frame := [0]
@@ -83,7 +83,7 @@ func test_type_a_fires_single_shots() -> void:
 
 
 func test_type_b_fires_bursts_of_two_or_three() -> void:
-	# 连发颗数是随机的，固定种子让结果可重复。
+	# The burst size is random; a fixed seed makes the result repeatable.
 	seed(40521836)
 	var b := await _setup_duel("WalkerB")
 	b.fire_interval = 0.6
@@ -122,7 +122,7 @@ func test_burst_finishes_even_if_the_player_leaves() -> void:
 		if shots[0] > 0:
 			break
 	check("the burst started as soon as the player stepped in", shots[0] == 1, str(shots[0]))
-	# 第一颗打出后玩家立刻跑出射程，这一轮也要打完。
+	# After the first shot the player runs out of range at once, and the burst still has to finish.
 	player.global_position = Vector2(PARKED_X, 304)
 	await frames(40)
 	check("the rest of the burst still comes out", shots[0] == 2 or shots[0] == 3, str(shots[0]))
@@ -144,7 +144,7 @@ func test_only_type_c_goes_prone() -> void:
 
 
 func test_type_c_outranges_a_and_b() -> void:
-	# 360px：在 C 的 400px 射程内，在 A/B 的 220px 射程外。
+	# 360px: inside C's 400px range, outside A/B's 220px range.
 	for enemy_name in ["WalkerA", "WalkerB", "WalkerC"]:
 		var enemy := await _setup_duel(enemy_name)
 		var bursts := await _observe_bursts(enemy, 360.0, 60)
@@ -167,12 +167,12 @@ func test_turret_range_is_200() -> void:
 	turret.global_position = Vector2(1000, 304)
 	var shots := [0]
 	turret.shot_fired.connect(func(): shots[0] += 1)
-	player.global_position = Vector2(580, 304) # 210px，射程外
+	player.global_position = Vector2(580, 304) # 210px, out of range
 	for i in 60:
 		player._invincible_timer = 1000.0
 		await tree.physics_frame
 	check("turret holds fire at 420px", shots[0] == 0, str(shots[0]))
-	player.global_position = Vector2(620, 304) # 190px，射程内
+	player.global_position = Vector2(620, 304) # 190px, in range
 	for i in 30:
 		player._invincible_timer = 1000.0
 		await tree.physics_frame
@@ -192,7 +192,7 @@ func test_turret_takes_six_hits() -> void:
 	player._visual.scale.x = 1
 	await frames(3)
 
-	# 真打子弹：前 10 颗打不死，第 12 颗打死。
+	# Real bullets: the first 10 do not kill it, the 12th does.
 	var deaths := []
 	turret.died.connect(func(): deaths.append(true))
 	for i in 6:

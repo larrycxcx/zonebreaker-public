@@ -1,29 +1,29 @@
 class_name LetterGrid
 extends Control
-## 用手柄打字：一格一个字母的网格，上下左右挪、A 输入、B 完成。
+## Typing with a pad: a grid with one letter per cell; move up / down / left / right, A enters, B finishes.
 ##
-## 名字只允许**大写字母、数字和空格**（素材包的字模就只有这些，见 CLAUDE.md），
-## 所以这张网格正好 6×6 装下 A–Z 和 0–9，最后一行放空格、退格、完成。
+## Names only allow **upper-case letters, digits and spaces** (that is all the pack's font has, see CLAUDE.md),
+## so this grid is exactly 6×6 to hold A–Z and 0–9, with space, backspace and done on the last row.
 ##
-## 只听一个玩家的键（`listens_to`），所以双人时两个人可以各改各的名字，互不干扰。
+## It only listens to one player's keys (`listens_to`), so in co-op both players can edit their own names without getting in each other's way.
 
-## 名字改了。
+## The name changed.
 signal changed(text: String)
-## 打完了（按了 OK 或者 B）。
+## Finished (OK or B pressed).
 signal done
 
 const COLUMNS := 6
-## 格子要比字宽出一截：最后一行那三个词（SPC / DEL / OK）占两列，
-## 一列 17px 的时候 34px 刚好被字填满，三个词挤成一串「SPCDELOK」。
+## Cells must be noticeably wider than the text: the three words on the last row (SPC / DEL / OK) take two columns each,
+## and at 17px per column the 34px was filled exactly by the text, squeezing the three words into one string "SPCDELOK".
 const CELL := Vector2(21, 16)
-## 最后一行那三个宽格子。名字短是因为格子只有两列宽（`SPACE` 那么长会压到旁边那格上）。
+## The three wide cells on the last row. The names are short because a cell is only two columns wide (something as long as `SPACE` would spill onto the next cell).
 const SPACE := "SPC"
 const BACK := "DEL"
 const OK := "OK"
 
-## 听第几号玩家的键。
+## Which player's keys to listen to.
 var listens_to := 0
-## 正在编辑的名字。
+## The name being edited.
 var text := ""
 
 var _cells: Array[String] = []
@@ -36,7 +36,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
-## 摆出网格。`start` 是进来时已有的名字。
+## Lay out the grid. `start` is the name already there on entering.
 func build(start: String, player_index: int) -> void:
 	listens_to = player_index
 	text = start
@@ -47,7 +47,7 @@ func build(start: String, player_index: int) -> void:
 	_cells.append_array([SPACE, BACK, OK])
 	var rows := int(ceil(float(_cells.size() - 3) / COLUMNS)) + 1
 	size = Vector2(COLUMNS * CELL.x, rows * CELL.y)
-	# 垫在底下的盒子比字母格宽不少：盖住整栏才像个面板，不然背后的属性数字会从缝里露出来
+	# The box underneath is quite a bit wider than the letter cells: covering the whole column makes it look like a panel, otherwise the stat numbers behind it would show through the gaps
 	add_child(UiKit.box(Rect2(-10.0, -8.0, size.x + 150.0, size.y + 14.0)))
 	for i in _cells.size():
 		var label := UiKit.label(_cells[i], Rect2(_cell_at(i), _cell_size(i)), UiKit.DIM,
@@ -57,7 +57,7 @@ func build(start: String, player_index: int) -> void:
 	_refresh()
 
 
-## 第几格摆在哪。最后三格（空格 / 退格 / 完成）单独占一行，一格两列宽。
+## Where each cell goes. The last three cells (space / backspace / done) get a row of their own, each two columns wide.
 func _cell_at(index: int) -> Vector2:
 	if index < _cells.size() - 3:
 		return Vector2((index % COLUMNS) * CELL.x, (index / COLUMNS) * CELL.y)

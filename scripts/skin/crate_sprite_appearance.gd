@@ -1,15 +1,15 @@
 class_name CrateSpriteAppearance
 extends Appearance
-## 机关的一条贴图（油桶 1 帧、箱子 8 帧）。箱子：`Chest.png` 前三帧一模一样（完好），
-## 所以「越打越破」靠**挨一下抖一下、越打越暗**；打烂了把后几帧（3~7，掀开散架）播一遍。
-## 玩法只调 `show_damage(打到几成, 打烂了没有)`，和别的机关一样不碰贴图。油桶连这个都不调，一直是第 0 帧。
+## One strip of trap sprites (barrel 1 frame, crate 8 frames). Crate: the first three frames of `Chest.png` are identical (intact),
+## so "more broken the more you hit it" is done by **a shake on each hit and getting darker**; once broken the last frames (3~7, lid flying, falling apart) play once.
+## Gameplay only calls `show_damage(how damaged, broken or not)`, and like other traps never touches the sprites. The barrel does not even call that; it stays on frame 0.
 
 @export var strip: Texture2D
 @export var frames := 8
 @export var break_fps := 12.0
-## 贴图左上角相对节点原点画在哪（箱子原点在左上角、油桶在桶底正中）
+## Where the texture's top-left corner is drawn relative to the node origin (the crate's origin is its top-left corner, the barrel's the middle of its base)
 @export var at := Vector2.ZERO
-## 挨打时横着抖几像素
+## How many pixels it shakes sideways when hit
 const SHAKE := 1.0
 
 var _stage := 0.0
@@ -49,7 +49,7 @@ func _frame() -> int:
 
 
 func _draw() -> void:
-	# 只有一帧的（绿区那只木箱）没有散架动画：打烂了就直接不画
+	# Single-frame ones (the green zone's wooden crate) have no break-apart animation: once broken it is simply not drawn
 	if strip == null or (_broken and frames < 4):
 		return
 	var w := strip.get_width() / float(frames)

@@ -1,28 +1,28 @@
 class_name Stage
 extends RefCounted
-## 「现在打的是哪一关」——敌人按它缩放强度，奖励按它缩放。
+## "Which stage is being played" — enemies scale their strength by it, rewards scale by it.
 ##
-## 23 关用的是**同一批敌人**，靠每关一组倍率拉开强度（`LevelInfo` 里的三个 scale），
-## 不为每关重做一套敌人场景。所以难度 DLC 也很便宜：同样的场景，另一套 `LevelInfo` 换倍率就行。
+## The 23 stages use **the same enemies**, with one set of multipliers per stage setting the difficulty (the three scales in `LevelInfo`),
+## instead of a new set of enemy scenes per stage. That makes difficulty DLC cheap too: the same scenes with another set of `LevelInfo` multipliers.
 ##
-## **是个静态变量，不是 autoload**：它只是一份数据，没有信号也不进场景树。
-## 关卡加载之前由 `MainMenu`（或测试）设好；没设就是 null，所有倍率都是 1——
-## 测试关（`main.tscn`）跑的就是这一档，老测试因此一条都不用改。
+## **A static variable, not an autoload**: it is only data, with no signals and nothing in the scene tree.
+## Set by `MainMenu` (or tests) before a stage loads; unset means null and every multiplier is 1 —
+## which is what the test level (`main.tscn`) runs at, so none of the old tests had to change.
 
-## 正在打的那一关。null = 没设（测试关、或者直接加载场景调试）。
+## The stage being played. null = not set (the test level, or loading a scene directly while debugging).
 static var current: LevelInfo
 
 
-## 换一关（**关卡加载之前**调）。这一关配了素材包就顺手换上：
-## 地砖、背景、音乐、敌人贴图都从包里来，而敌人和平台在各自的 `_ready` 里就要问包要外观，
-## 所以必须赶在场景实例化之前换好。没配包就不动（用项目设置里那个）。
+## Switch stage (call **before the stage loads**). If the stage has a skin pack, switch to it too:
+## tiles, backdrop, music and enemy sprites all come from the pack, and enemies and platforms ask the pack for their look in their own `_ready`,
+## so it has to be switched before the scene is instantiated. Without a pack nothing changes (the one from the project settings stays).
 static func use(level: LevelInfo) -> void:
 	current = level
 	if level != null and level.skin != null:
 		Skins.use(level.skin)
 
 
-## 回到「没有关卡」的状态：所有倍率都是 1。
+## Back to "no stage": every multiplier is 1.
 static func clear() -> void:
 	current = null
 

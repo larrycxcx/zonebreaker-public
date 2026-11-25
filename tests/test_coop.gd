@@ -1,9 +1,9 @@
 extends GameTest
-## 双人（第一步：输入分开、敌人认两个玩家）。
+## Co-op (step 1: separate inputs, enemies aware of two players).
 ##
-## 守的东西：双人时才生成 2 号；两套输入互不干扰；方向键双人时归 2 号、切回单人还给 1 号；
-## 每个 2 号动作都有键盘和 2 号手柄的绑定；敌人打**最近的、打得着的**那个（最近的躲墙后就打另一个），
-## 死掉的玩家不再被当目标；终极武器让两个人一起无敌。
+## What it guards: player 2 only spawns in co-op; the two input sets do not interfere; the arrow keys belong to player 2 in co-op and go back to player 1 when returning to single player;
+## every player 2 action has both a keyboard and a pad 2 binding; enemies shoot **the nearest player they can hit** (if the nearest hides behind a wall they shoot the other),
+## dead players are no longer targets; the ultimate makes both players invincible.
 
 const P1_ACTIONS := ["move_left", "move_right", "jump", "crouch", "sprint", "shoot", "switch_weapon", "ultimate", "aim_down", "aim_up"]
 
@@ -18,7 +18,7 @@ func pads_of(action: StringName) -> Array:
 		return event is InputEventJoypadButton or event is InputEventJoypadMotion)
 
 
-# ---------------------------------------------------------------- 谁在场
+# ---------------------------------------------------------------- Who is present
 
 func test_the_second_player_only_shows_up_in_two_player() -> void:
 	await reset_scene()
@@ -30,7 +30,7 @@ func test_the_second_player_only_shows_up_in_two_player() -> void:
 		and absf(player2.global_position.y - player.global_position.y) < 1.0, str(player2.global_position - player.global_position))
 
 
-# ---------------------------------------------------------------- 输入分开
+# ---------------------------------------------------------------- Separate inputs
 
 func test_every_action_has_a_second_player_copy() -> void:
 	for action in P1_ACTIONS:
@@ -67,7 +67,7 @@ func test_each_player_answers_only_to_its_own_keys() -> void:
 	check("the second player's key moves only the second player",
 		player2.global_position.x - start[1] > 10.0 and absf(player.global_position.x - start[0]) < 1.0,
 		"P1 %.1f, P2 %.1f" % [player.global_position.x - start[0], player2.global_position.x - start[1]])
-	# 上一段松手后 2 号还有惯性，会再滑一小段：停稳了再看下一段
+	# After letting go, player 2 still slides a little with momentum: wait until it settles before the next part
 	player.velocity = Vector2.ZERO
 	player2.velocity = Vector2.ZERO
 	await frames(2)
@@ -95,7 +95,7 @@ func test_the_second_player_shoots_with_its_own_key() -> void:
 			shots.all(func(shot: Bullet) -> bool: return absf(shot.global_position.x - player2.global_position.x) < 60.0), str(shots.size()))
 
 
-# ---------------------------------------------------------------- 共用摄像机
+# ---------------------------------------------------------------- Shared camera
 
 func test_the_camera_belongs_to_the_level_not_to_a_player() -> void:
 	await reset_scene()
@@ -104,13 +104,13 @@ func test_the_camera_belongs_to_the_level_not_to_a_player() -> void:
 
 
 func test_solo_keeps_the_camera_on_the_one_player() -> void:
-	# 单人时中点就是这个玩家本人，画面和摄像机还挂在玩家身上那会儿一模一样。
+	# With one player the midpoint is that player, and the view is exactly as when the camera was still on the player.
 	await reset_scene()
 	player.global_position = Vector2(400, 304)
 	await frames(3)
 	check("the camera sits on the player", absf(camera_rig().global_position.x - player.global_position.x) < 0.5,
 		"%.1f vs %.1f" % [camera_rig().global_position.x, player.global_position.x])
-	# 对照：单人永远夹不到人，走到哪都不会被镜头推着走
+	# Control: alone, nobody is ever clamped; wherever you go the camera never pushes you along
 	var spot := player.global_position
 	await frames(5)
 	check("and never pushes them around", absf(player.global_position.x - spot.x) < 0.5, str(player.global_position - spot))
@@ -126,16 +126,16 @@ func test_co_op_follows_the_middle_of_the_two() -> void:
 
 
 func test_neither_player_can_be_pushed_off_screen() -> void:
-	# 魂斗罗的规矩：镜头跟中点，谁落在画面外就被拖回来。分头走只能走到画面两边为止。
+	# Contra's rule: the camera follows the midpoint, and whoever falls outside the view is dragged back. Splitting up only works up to the edges of the view.
 	await reset_scene(false, false, null, 2)
 	player.global_position = Vector2(200, 304)
 	player2.global_position = Vector2(1100, 304)
 	await frames(3)
 	var view := camera_rig().view_rect()
-	check("setup: they are further apart than one screen", view.size.x < 900.0, "画面宽 %.0f" % view.size.x)
+	check("setup: they are further apart than one screen", view.size.x < 900.0, "view width %.0f" % view.size.x)
 	for who in [player, player2]:
 		check("%s is back inside the view" % who.name, view.grow(-1.0).has_point(who.global_position),
-			"x=%.1f，画面 %.1f..%.1f" % [who.global_position.x, view.position.x, view.end.x])
+			"x=%.1f, view %.1f..%.1f" % [who.global_position.x, view.position.x, view.end.x])
 	check("and they really did get dragged together",
 		absf(player2.global_position.x - player.global_position.x) < 900.0,
 		"%.1f" % absf(player2.global_position.x - player.global_position.x))
@@ -155,11 +155,11 @@ func test_a_dead_player_neither_drags_the_camera_nor_gets_dragged() -> void:
 		"%.1f vs %.1f" % [camera_rig().global_position.x, player.global_position.x])
 
 
-# ---------------------------------------------------------------- 2 号玩家长什么样
+# ---------------------------------------------------------------- What player 2 looks like
 
 func test_the_two_players_wear_different_characters() -> void:
 	if needs_art(): return
-	# 同屏两个人得看得出谁是谁：两个座位默认拿两套不同的外观。
+	# Two players on one screen must be told apart: by default the two seats get two different looks.
 	var skin := load(CYBERPUNK) as SkinPack
 	await reset_scene(false, false, skin, 2)
 	var one: Node = player.get_node("Visual")
@@ -174,11 +174,11 @@ func test_the_two_players_wear_different_characters() -> void:
 
 func test_the_look_comes_from_the_character_not_the_seat() -> void:
 	if needs_art(): return
-	# 外观是角色自己的属性：1 号玩家照样可以是 Punk。
+	# The look belongs to the character: player 1 can be Punk too.
 	var skin := load(CYBERPUNK) as SkinPack
 	await reset_scene(false, false, skin, 1)
 	check("setup: the first seat starts on the default look", player.progress.look == &"biker", str(player.progress.look))
-	# 换个外观再重开这一关（进度不重置，就像菜单里选完角色进关一样）
+	# Switch looks and restart the stage (progress is not reset, just like entering a stage after choosing characters in the menu)
 	Progress.of(0).look = &"cyborg"
 	free_scene()
 	main = load("res://scenes/main.tscn").instantiate()
@@ -193,7 +193,7 @@ func test_the_look_comes_from_the_character_not_the_seat() -> void:
 
 
 func test_a_different_character_changes_nothing_about_the_rules() -> void:
-	# 换外观不能换规则：两个人的判定框、出膛点、跳跃高度必须一模一样。
+	# Changing the look must not change the rules: the two players' hitboxes, muzzles and jump heights must be exactly the same.
 	var skin := load(CYBERPUNK) as SkinPack
 	await reset_scene(false, false, skin, 2)
 	player.global_position = Vector2(200, 304)
@@ -208,9 +208,9 @@ func test_a_different_character_changes_nothing_about_the_rules() -> void:
 		check("same muzzle aiming %s" % aim, one == two, "%s vs %s" % [one, two])
 
 
-# ---------------------------------------------------------------- 濒死与营救
+# ---------------------------------------------------------------- Near death and revival
 
-## 把两个人放到互相够不着的地方，免得刚倒地就被顺手救起来。
+## Put the two players out of each other's reach, so the one who goes down is not revived on the spot.
 func stand_apart() -> void:
 	player.global_position = Vector2(200, 304)
 	player2.global_position = Vector2(560, 304)
@@ -221,7 +221,7 @@ func stand_apart() -> void:
 
 
 func test_solo_death_is_still_just_death() -> void:
-	# 一个人玩没人来救，倒地只会变成站着等死，所以单人根本不进这个状态。
+	# Alone nobody can come to help, and going down would only mean waiting to die, so single player never enters this state.
 	await reset_scene()
 	player.take_damage(player.max_health)
 	await frames(2)
@@ -247,7 +247,7 @@ func test_a_downed_player_cannot_be_shot_or_moved() -> void:
 	await reset_scene(false, false, null, 2)
 	await stand_apart()
 	player2.take_damage(player2.max_health)
-	# 先让倒计时走掉半秒，这样「被打了一下又回到满格」一眼就看得出来
+	# Let half a second of the countdown run first, so "hit once and back to full" is obvious at a glance
 	await frames(30)
 	var left := player2.down_time_left()
 	var spot := player2.global_position
@@ -259,7 +259,7 @@ func test_a_downed_player_cannot_be_shot_or_moved() -> void:
 	check("a stray shot takes nothing off", player2.health == 0, str(player2.health))
 	check("and does not put the countdown back to the top",
 		player2.down_time_left() < left and player2.down_time_left() < player2.down_time - 0.4,
-		"满格 %.1f，挨打前 %.2f，挨打后 %.2f" % [player2.down_time, left, player2.down_time_left()])
+		"full %.1f, before the hit %.2f, after the hit %.2f" % [player2.down_time, left, player2.down_time_left()])
 	check("and they cannot walk away", absf(player2.global_position.x - spot.x) < 2.0,
 		str(player2.global_position - spot))
 	check("nor fire", bullets(4).is_empty(), str(bullets(4).size()))
@@ -295,7 +295,7 @@ func test_a_team_mate_who_walks_over_picks_you_up() -> void:
 	check("and a moment of safety", player2.is_invincible())
 
 
-## 一段时间里「身上的透明度」变了几次 —— 也就是闪了几下。
+## How many times "the alpha on the body" changed over a period — i.e. how many blinks.
 func blinks_in(who: Player, seconds: float) -> int:
 	var visual: CanvasItem = who.get_node("Visual")
 	var last := visual.modulate.a
@@ -309,7 +309,7 @@ func blinks_in(who: Player, seconds: float) -> int:
 
 
 func test_a_downed_player_blinks_faster_as_time_runs_out() -> void:
-	# 倒计时不写成 HUD 上的数字，而是**人身上越闪越快**：队友的眼睛本来就盯着人。
+	# The countdown is not a number on the HUD but **a body blinking faster and faster**: the partner's eyes are on the characters anyway.
 	await reset_scene(false, false, null, 2)
 	await stand_apart()
 	player2.down_time = 4.0
@@ -318,7 +318,7 @@ func test_a_downed_player_blinks_faster_as_time_runs_out() -> void:
 	check("setup: down, not dead", player2.is_downed())
 	var early := await blinks_in(player2, 1.0)
 	check("it blinks while it waits", early > 0, str(early))
-	# 跳到快没时间的时候
+	# Skip ahead to when time is nearly up
 	player2._down_timer = 0.8
 	var late := await blinks_in(player2, 0.6)
 	check("and blinks faster near the end", float(late) / 0.6 > float(early) / 1.0,
@@ -326,8 +326,8 @@ func test_a_downed_player_blinks_faster_as_time_runs_out() -> void:
 
 
 func test_being_revived_stops_the_blinking() -> void:
-	# **用精灵图那套皮肤跑**：占位方块的 `revive()` 顺手把 modulate 整个设回白色，
-	# 所以就算忘了把闪烁归零也看不出来；精灵图的 `revive()` 只退出倒地动画，不碰透明度。
+	# **Run with the sprite skin**: the placeholder blocks' `revive()` sets modulate all the way back to white,
+	# so forgetting to reset the blink would not show; the sprite `revive()` only leaves the death clip and never touches alpha.
 	await reset_scene(false, false, load(CYBERPUNK) as SkinPack, 2)
 	await stand_apart()
 	player2.take_damage(player2.max_health)
@@ -344,7 +344,7 @@ func test_being_revived_stops_the_blinking() -> void:
 func test_nobody_comes_and_the_countdown_runs_out() -> void:
 	await reset_scene(false, false, null, 2)
 	await stand_apart()
-	player2.down_time = 0.3 # 别让用例等十秒
+	player2.down_time = 0.3 # Do not make the case wait ten seconds
 	player2.take_damage(player2.max_health)
 	await frames(2)
 	check("setup: down, not dead", player2.is_downed())
@@ -362,7 +362,7 @@ func test_the_level_only_restarts_once_both_are_out() -> void:
 	player.down_time = 0.2
 	player2.down_time = 0.2
 	player.take_damage(player.max_health)
-	# 等久一点：1 号的倒计时走完、真死了，连 game_over 该响的那半秒也过了
+	# Wait a bit longer: player 1's countdown has run out and they are really dead, plus the half second when game_over would sound
 	await frames(90)
 	check("setup: the first player really is dead", not player.is_alive() and not player.is_downed(),
 		"alive %s, downed %s" % [player.is_alive(), player.is_downed()])
@@ -377,7 +377,7 @@ func test_the_level_only_restarts_once_both_are_out() -> void:
 	check("only once nobody is left", events.has(&"game_over"), str(events))
 
 
-# ---------------------------------------------------------------- 左右两套 HUD
+# ---------------------------------------------------------------- Left and right HUDs
 
 const CYBERPUNK := "res://skins/cyberpunk/cyberpunk_skin.tres"
 
@@ -412,7 +412,7 @@ func test_the_two_huds_sit_on_opposite_sides() -> void:
 
 func test_the_skinned_hud_is_mirrored_too() -> void:
 	if needs_art(): return
-	# 素材包的 HUD 外观是另一棵树，镜像要一起做，否则右边那套画面还留在左边
+	# The skin pack's HUD appearance is a separate tree and has to be mirrored too, otherwise the right HUD's picture stays on the left
 	var skin := load(CYBERPUNK) as SkinPack
 	await reset_scene(false, false, skin, 2)
 	check("setup: the pack really brought a HUD look", main.get_node("HUD").look() != null)
@@ -420,32 +420,32 @@ func test_the_skinned_hud_is_mirrored_too() -> void:
 	var right: Control = main.get_node("HUD2").look()
 	check("the second player's art moved to the right", right.position.x > left.position.x + 200.0,
 		"%.0f vs %.0f" % [left.position.x, right.position.x])
-	# **还得在屏幕里**：只断言「靠右 200px」的话，挪两次飞到 1016 也算通过（试玩才发现）
+	# **It also has to be on screen**: asserting only "200px further right", being moved twice to 1016 still passed (found in playtesting)
 	var screen := float(ProjectSettings.get_setting("display/window/size/viewport_width", 640))
 	var bars: Control = main.get_node("HUD2/HealthBar")
 	check("and stayed on screen", right.position.x < screen, "%.0f vs %.0f" % [right.position.x, screen])
 	check("right where the placeholder bars went", absf(right.position.x - bars.position.x) < 24.0,
 		"%.0f vs %.0f" % [right.position.x, bars.position.x])
-	# 它画出来的东西也跟着走了：武器槽是外观里的节点，位置按外观根节点算
+	# What it draws moves along too: the weapon slot is a node in the appearance, positioned relative to the appearance root
 	var slot_left: Control = left.get_node("WeaponSlot")
 	var slot_right: Control = right.get_node("WeaponSlot")
 	check("so does what it draws", slot_right.global_position.x > slot_left.global_position.x + 200.0,
 		"%.0f vs %.0f" % [slot_left.global_position.x, slot_right.global_position.x])
 
 
-## Boss 血条是两个人共用的，所以它**只能摆在正上方居中**——右上角是 2 号玩家的地盘。
-## 占位 HUD 早就挪过来了，素材包那套（`SpriteHud`）当时忘了跟着挪，双人时和 2 号的血条叠在一起。
+## The boss bar is shared by both players, so it **can only go at the top centre** — the top right is player 2's territory.
+## The placeholder HUD moved long ago; the skin pack's one (`SpriteHud`) forgot to follow and overlapped player 2's health bar in co-op.
 func test_the_boss_bar_keeps_clear_of_the_second_player() -> void:
 	if needs_art(): return
 	var skin := load(CYBERPUNK) as SkinPack
 	await reset_scene(false, false, skin, 2)
 	var screen := float(ProjectSettings.get_setting("display/window/size/viewport_width", 640))
-	# 占位的那条
+	# The placeholder one
 	var placeholder: Control = main.get_node("HUD/BossBar")
 	var here := placeholder.position.x + placeholder.size.x / 2.0
 	check("the placeholder bar sits in the middle", absf(here - screen / 2.0) < 24.0,
 		"%.0f vs %.0f" % [here, screen / 2.0])
-	# 素材包那条：血条左端到头像框右端算一整块
+	# The skin pack one: from the left end of the bar to the right end of the portrait frame as one block
 	var look: SpriteHud = main.get_node("HUD").look()
 	check("setup: the pack really brought a HUD look", look != null)
 	if look == null:
@@ -455,7 +455,7 @@ func test_the_boss_bar_keeps_clear_of_the_second_player() -> void:
 		panel.position.x + panel.size.x - look.boss_bar_at.x, 1.0)
 	check("and so does the skin's", absf(block.position.x + block.size.x / 2.0 - screen / 2.0) < 24.0,
 		"%.0f..%.0f" % [block.position.x, block.position.x + block.size.x])
-	# 2 号玩家那套整个在右边：Boss 那一块不能伸进去
+	# Player 2's HUD is entirely on the right: the boss block must not reach into it
 	var theirs: Control = main.get_node("HUD2").look()
 	check("it stops short of the second player's HUD",
 		block.position.x + block.size.x <= theirs.position.x,
@@ -492,7 +492,7 @@ func test_the_shared_parts_show_up_once() -> void:
 	await frames(2)
 	check("the boss bar is on the first player's HUD", (main.get_node("HUD/BossBar") as Control).visible)
 	check("and never on the second's", not (main.get_node("HUD2/BossBar") as Control).visible)
-	# 两个人都倒下、倒计时也走完（双人时血空了是倒地，不是直接死）
+	# Both players down and their countdowns over (in co-op running out of health means going down, not dying outright)
 	player.down_time = 0.05
 	player2.down_time = 0.05
 	player.take_damage(player.max_health)
@@ -508,9 +508,9 @@ func test_the_shared_parts_show_up_once() -> void:
 
 
 func test_game_over_waits_until_nobody_is_left() -> void:
-	# 一个人倒下不算输：队友还站着，这一关就还没完，那一页不该弹出来。
+	# One player going down is not a loss: while the partner is standing the stage is not over, and that screen must not pop up.
 	await reset_scene(false, false, null, 2)
-	# 站开一点：队友走到跟前会自动把倒地的人救起来，挨着的话第一个永远死不了
+	# Stand apart: the partner walking up revives a downed player automatically, so standing next to each other the first would never die
 	player.global_position = Vector2(200, 304)
 	player2.global_position = Vector2(500, 304)
 	main.game_over_delay = 0.05
@@ -537,7 +537,7 @@ func test_game_over_waits_until_nobody_is_left() -> void:
 	tree.paused = false
 
 
-# ---------------------------------------------------------------- 各存各的成长进度
+# ---------------------------------------------------------------- Separate progress for each
 
 const SAVE_FOR_TEST := "user://test_coop_progress.json"
 
@@ -613,7 +613,7 @@ func test_the_save_holds_both_players() -> void:
 
 
 func test_a_save_from_before_co_op_still_loads() -> void:
-	# 双人之前的存档是一份进度直接摊在最外层，没有 players 这一项。读到那种就当成 1 号的。
+	# Saves from before co-op had one progress record at the top level, with no players entry. Read like that, it counts as player 1's.
 	await reset_scene(false, false, null, 2)
 	var file := FileAccess.open(SAVE_FOR_TEST, FileAccess.WRITE)
 	file.store_string(JSON.stringify({"level": 3, "xp": 4, "money": 99, "points": 2}))
@@ -627,7 +627,7 @@ func test_a_save_from_before_co_op_still_loads() -> void:
 	drop_test_save()
 
 
-# ---------------------------------------------------------------- 敌人认两个玩家
+# ---------------------------------------------------------------- Enemies aware of two players
 
 func test_an_enemy_goes_for_the_nearest_player_it_can_see() -> void:
 	await reset_scene(true, false, null, 2)
@@ -635,12 +635,12 @@ func test_an_enemy_goes_for_the_nearest_player_it_can_see() -> void:
 	var d: EnemyChaser = main.get_node("Enemies/ChaserD")
 	d.global_position = Vector2(600, 306)
 	d.velocity = Vector2.ZERO
-	player.global_position = Vector2(300, 304)   # 远
-	player2.global_position = Vector2(700, 304)  # 近
+	player.global_position = Vector2(300, 304)   # Far
+	player2.global_position = Vector2(700, 304)  # Near
 	snap_camera()
 	await frames(5)
 	check("it charges the nearer player", d.is_chasing and d.velocity.x > 0.0, "vx %.1f" % d.velocity.x)
-	# 近的那个躲到墙后：改打看得见的那个（不是简单挑最近的）
+	# The near one hides behind a wall: shoot the visible one instead (not simply the nearest)
 	add_wall(660, 60)
 	await frames(5)
 	check("with the nearer one behind a wall, it goes for the other", d.velocity.x < 0.0, "vx %.1f" % d.velocity.x)

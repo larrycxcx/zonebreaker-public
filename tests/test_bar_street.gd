@@ -1,10 +1,10 @@
 extends GameTest
-## 酒吧街素材包（第三关那一套，`tools/terrain_build.py` 从 Bar Street Tileset 生成）。
+## The bar street skin pack (stage 3's set, generated from the Bar Street Tileset by `tools/terrain_build.py`).
 ##
-## 守的和工业区那组是同一批：**一个区只装自己独有的、其余顺着 fallback 拿**、
-## 地砖别挑成半格的、背景补到画面底、换皮肤不改变规则。
-## 这一关独有的一条：**这套素材是「街景立面」不是地形包**（砖墙、窗、卷帘、遮阳棚），
-## 所以挑出来的三种地形是「砖地 / 遮阳棚 / 卷帘门」，不是「草地 / 浮台 / 石砖」。
+## It guards the same things as the industrial zone suite: **a zone only holds what is unique to it and takes the rest through the fallback**,
+## tiles not picked as half cells, the backdrop extended to the bottom of the view, switching skins does not change the rules.
+## One thing unique to this stage: **this art is "street facades", not a terrain pack** (brick walls, windows, shutters, awnings),
+## so the three terrains picked are "brick ground / awning / shutter", not "grass / floating platform / stone block".
 
 const PACK := "res://skins/bar_street/bar_street_skin.tres"
 const ART := "res://skins/bar_street"
@@ -26,7 +26,7 @@ func platforms() -> Array[Platform]:
 	return out
 
 
-# ---------------------------------------------------------------- 只装自己独有的
+# ---------------------------------------------------------------- Only what is unique to it
 
 func test_the_pack_brings_terrain_a_backdrop_and_its_own_track() -> void:
 	if needs_art(): return
@@ -63,7 +63,7 @@ func test_the_track_is_this_zone_and_loops_cleanly() -> void:
 	if track == null:
 		return
 	check("it belongs to this zone", track.resource_path.begins_with(ART), track.resource_path)
-	# **循环的曲子必须是 OGG**：MP3 编码器会在开头结尾各补一小段静音，转一圈能听出来接缝
+	# **Looping tracks must be OGG**: MP3 encoders add a little silence at the start and end, and the seam is audible on every loop
 	check("and it is an ogg", track is AudioStreamOggVorbis, track.get_class())
 
 
@@ -80,7 +80,7 @@ func test_each_zone_plays_its_own_track() -> void:
 	check("three zones, three different tracks", heard.size() == 3, str(heard.keys()))
 
 
-# ---------------------------------------------------------------- 地砖挑得对不对
+# ---------------------------------------------------------------- Are the tiles picked right
 
 func test_the_terrain_art_is_this_zone_and_not_another() -> void:
 	if needs_art(): return
@@ -93,7 +93,7 @@ func test_the_terrain_art_is_this_zone_and_not_another() -> void:
 
 func test_no_terrain_tile_is_half_empty() -> void:
 	if needs_art(): return
-	# 这套里 16 高的薄条（遮阳棚）和整砖混在一起。拿薄条当地面顶砖的话上半截是透明的。
+	# In this set the 16-tall thin strips (awnings) are mixed with the full tiles. Using a thin strip as the ground's top tile leaves its upper half transparent.
 	for name: String in ["ground", "ledge", "stone"]:
 		var img := zone_art("terrain/%s.png" % name)
 		var empty := 0
@@ -105,13 +105,13 @@ func test_no_terrain_tile_is_half_empty() -> void:
 					break
 			if blank:
 				empty += 1
-		check("%s has no blank rows" % name, empty == 0, "%d 行是空的（%dx%d）"
+		check("%s has no blank rows" % name, empty == 0, "%d rows are empty (%dx%d)"
 			% [empty, img.get_width(), img.get_height()])
 
 
 func test_the_backdrop_reaches_the_bottom_of_the_screen() -> void:
 	if needs_art(): return
-	# 素材只有 324 高，关卡里有坑，坑那一块会露出清屏色——生成时往下补到画面底。
+	# The art is only 324 tall and the stages have pits, which would show the clear colour — the build extends it down to the bottom of the view.
 	for layer: String in ["sky", "far", "mid", "near", "street"]:
 		var img := zone_art("backdrop/%s.png" % layer)
 		check("%s covers the whole screen" % layer, img.get_height() >= SCREEN_HEIGHT,
@@ -122,10 +122,10 @@ func test_the_backdrop_reaches_the_bottom_of_the_screen() -> void:
 		if back.get_pixel(x, SCREEN_HEIGHT - 1).a < 1.0:
 			gaps += 1
 	check("the backmost layer is solid along the bottom row, so pits never show the clear colour",
-		gaps == 0, "%d 列是透的" % gaps)
+		gaps == 0, "%d columns are see-through" % gaps)
 
 
-# ---------------------------------------------------------------- 接上去以后
+# ---------------------------------------------------------------- Once plugged in
 
 func test_every_platform_wears_this_zone_terrain() -> void:
 	if needs_art(): return
@@ -156,7 +156,7 @@ func test_the_backdrop_goes_in_behind_everything() -> void:
 		and backdrop.find_children("*", "CollisionShape2D", true, false).is_empty())
 
 
-# ---------------------------------------------------------------- 换皮肤不改变规则
+# ---------------------------------------------------------------- Switching skins does not change the rules
 
 func measure(skin: SkinPack) -> Dictionary:
 	await reset_scene(false, true, skin)
@@ -191,20 +191,20 @@ func test_this_zone_changes_nothing_about_the_rules() -> void:
 		str(blocks))
 	for key: String in blocks:
 		check("%s is the same in this zone" % key, blocks[key] == street[key],
-			"方块 %s，酒吧街 %s" % [blocks[key], street[key]])
+			"blocks %s, bar street %s" % [blocks[key], street[key]])
 
 
-# ---------------------------------------------------------------- 这一关的敌人
+# ---------------------------------------------------------------- This stage's enemies
 
-## 皮肤键 → [帧宽, 帧高, 锚点 x, 锚点 y]。**3-E 的锚点往下挪了**：
-## 它趴在地上只有 11px 高，判定框 28×12，锚点不挪的话贴图会陷进地里。
+## Skin key → [frame width, frame height, anchor x, anchor y]. **3-E's anchor is moved down**:
+## lying on the ground it is only 11px tall with a 28×12 hitbox, and without moving the anchor its sprite would sink into the floor.
 const ENEMIES := {
-	&"3_a": [80, 56, 40, 40],   # 刀客：蓄一下急冲去刺
-	&"3_b": [80, 56, 40, 40],   # 枪手：巡逻 + 射击 + 真斜射
-	&"3_c": [80, 56, 40, 40],   # 剑客：跳向玩家、落地横扫
-	&"3_d": [80, 56, 40, 40],   # 壮汉：正面扛伤害，不冲锋
-	&"3_e": [80, 56, 40, 49],   # 鲨鱼机：固定在地面，贴着地面开枪
-	&"3_f": [80, 56, 40, 40],   # 炮车：慢速移动的炮台
+	&"3_a": [80, 56, 40, 40],   # knifeman: winds up, then lunges to stab
+	&"3_b": [80, 56, 40, 40],   # gunman: patrols + shoots + real diagonal shots
+	&"3_c": [80, 56, 40, 40],   # swordsman: leaps at the player, slashes on landing
+	&"3_d": [80, 56, 40, 40],   # brute: soaks damage from the front, does not charge
+	&"3_e": [80, 56, 40, 49],   # shark bot: fixed to the floor, shoots along the floor
+	&"3_f": [80, 56, 40, 40],   # cannon cart: a slow-moving turret
 }
 const STAND_Y := 304.0
 
@@ -255,13 +255,13 @@ func test_the_art_is_mirrored_left_and_right() -> void:
 					continue
 				if right.get_pixel(x, y) != left.get_pixel(sx, y):
 					wrong += 1
-		check("%s mirrors about its anchor" % key, wrong == 0, "%d 个像素对不上" % wrong)
+		check("%s mirrors about its anchor" % key, wrong == 0, "%d pixels do not match" % wrong)
 
 
 func test_everyone_stands_on_the_same_line() -> void:
 	if needs_art(): return
-	# 脚底落在锚点下方 16px（生成脚本的约定）。**3-E 的锚点另算**：
-	# 它的贴图照样是脚底在帧底边，只是外观场景把锚点往下挪了，好对上矮判定框。
+	# Feet land 16px below the anchor (the build script's convention). **3-E's anchor is different**:
+	# its sprite still has the feet on the bottom edge of the frame; only the appearance scene moved the anchor down to match the short hitbox.
 	for key: StringName in ENEMIES:
 		var spec: Array = ENEMIES[key]
 		var img := sheet(key, "idle")
@@ -272,17 +272,17 @@ func test_everyone_stands_on_the_same_line() -> void:
 					lowest = y
 					break
 		check("%s has its feet on the generator's ground line" % key, lowest == 40 + 16 - 1,
-			"最低一行 y=%d" % lowest)
+			"lowest row y=%d" % lowest)
 
 
 func test_the_gunman_brings_real_diagonal_art() -> void:
 	if needs_art(): return
-	# **第二关 2-C 缺的就是这个**：那套素材只画了水平开火，斜着打时画面是水平端枪的。
-	# 这一关的枪手自带三个角度，所以规则和画面终于对得上。
+	# **This is exactly what stage 2's 2-C lacks**: that art only draws level shots, so diagonal shots show the gun held level.
+	# This stage's gunman comes with three angles, so the rules and the picture finally agree.
 	check("it has a level firing pose", has_clip(&"3_b", "attack_level"))
 	check("and one for aiming up", has_clip(&"3_b", "attack_up"))
 	check("and one for aiming down", has_clip(&"3_b", "attack_down"))
-	# 三组得真的不一样（照搬同一张的话等于没画）
+	# The three sets must really differ (copying the same one would mean drawing nothing)
 	var level := sheet(&"3_b", "attack_level").get_data()
 	check("the three are really different poses",
 		sheet(&"3_b", "attack_up").get_data() != level
@@ -298,7 +298,7 @@ func test_the_ones_that_fight_have_the_frames_their_behaviour_needs() -> void:
 	check("3-F has a firing pose", has_clip(&"3_f", "attack_level"))
 
 
-# ---------------------------------------------------------------- 接上去的三种
+# ---------------------------------------------------------------- The three plugged in
 
 func test_the_gunman_patrols_and_shoots_off_the_level() -> void:
 	await reset_scene(false, true, pack())
@@ -320,8 +320,8 @@ func test_the_gunman_patrols_and_shoots_off_the_level() -> void:
 
 
 func test_the_cannon_lobs_grenades_instead_of_shooting() -> void:
-	# 2026-10 试玩后改的：原来是开枪连发的炮台，现在**从炮管里打手雷**——
-	# 整套就是第一关 F 那个「只扔手雷」的行为（`EnemyGrenadier`），只是慢慢挪、出手点在炮管口。
+	# Changed after a 2026-10 playtest: it used to be a turret firing bursts, now it **fires grenades from its barrel** —
+	# the whole thing is stage 1 F's "grenades only" behaviour (`EnemyGrenadier`), just moving slowly with the release point at the barrel's mouth.
 	await reset_scene(false, true, pack())
 	var cannon := spawn("res://scenes/enemy_3_f.tscn", Vector2(500, STAND_Y)) as EnemyGrenadier
 	check("it is a grenadier", cannon != null)
@@ -333,7 +333,7 @@ func test_the_cannon_lobs_grenades_instead_of_shooting() -> void:
 	check("it loads enemy grenades (they only hurt players)", cannon.grenade_scene != null
 		and cannon.grenade_scene.resource_path == "res://scenes/enemy_grenade.tscn",
 		str(cannon.grenade_scene))
-	# 炮管口是按贴图量的（原来开枪时的出膛点就是这个），F 的那个是挥棒弧光的位置
+	# The barrel mouth is measured from the art (it was the muzzle position when it used to shoot); F's is where the bat swing arcs
 	check("they leave from the barrel, not from F's bat swing",
 		cannon.throw_offset == Vector2(18, -9), str(cannon.throw_offset))
 	cannon.facing = 1
@@ -342,7 +342,7 @@ func test_the_cannon_lobs_grenades_instead_of_shooting() -> void:
 	var thrown: Array[Node2D] = []
 	var shots: Array[int] = []
 	cannon.shot_fired.connect(func() -> void: shots.append(1))
-	# `launch_projectile()` 是加进树**之后**才摆位置的，所以只记下节点，过一帧再看它在哪
+	# `launch_projectile()` positions the node **after** adding it to the tree, so only remember the node and look where it is a frame later
 	var watch := func(node: Node) -> void:
 		if node is Grenade:
 			thrown.append(node as Node2D)
@@ -361,8 +361,8 @@ func test_the_cannon_lobs_grenades_instead_of_shooting() -> void:
 
 
 func test_the_shark_is_bolted_down_and_fires_along_the_floor() -> void:
-	# **这一关的新规矩**：现有的敌人站着开枪，子弹离地 21~25，趴下能躲过。
-	# 这个贴着地面打，**趴下躲不掉，只能跳过去**——正好反过来。
+	# **This stage's new rule**: existing enemies fire standing, with bullets 21~25 above the floor, and lying prone dodges them.
+	# This one fires along the floor: **lying prone does not dodge it, only jumping over does** — exactly the other way round.
 	await reset_scene(false, true, pack())
 	var shark := spawn("res://scenes/enemy_3_e.tscn", Vector2(500, STAND_Y)) as Enemy
 	await frames(4)
@@ -373,7 +373,7 @@ func test_the_shark_is_bolted_down_and_fires_along_the_floor() -> void:
 	var floor_y: float = shark.global_position.y + size.y / 2.0
 	var muzzle: float = shark.level_muzzle_position().y
 	check("and its gun hugs the floor", floor_y - muzzle < Player.CROUCH_HEIGHT,
-		"离地 %.0f，趴下高 %.0f" % [floor_y - muzzle, Player.CROUCH_HEIGHT])
+		"above floor %.0f, prone height %.0f" % [floor_y - muzzle, Player.CROUCH_HEIGHT])
 
 
 func test_crouching_does_not_dodge_the_shark() -> void:
@@ -397,11 +397,11 @@ func test_crouching_does_not_dodge_the_shark() -> void:
 		"%d -> %d" % [before, player.health])
 
 
-# ---------------------------------------------------------------- 三种新打法
+# ---------------------------------------------------------------- Three new attacks
 
 func test_the_knifeman_winds_up_before_it_lunges() -> void:
-	# **蓄力那一下就是留给玩家的**：冲起来比玩家走路（180）快得多，跑是跑不掉的，
-	# 只能在它定住的那零点几秒里跳开。没有这段预兆就成了没法躲。
+	# **The wind-up is the player's window**: the lunge is much faster than the player's walk (180), so running does not work,
+	# only jumping away in the fraction of a second it freezes. Without that warning it would be undodgeable.
 	await reset_scene(false, true, pack())
 	var knife := spawn("res://scenes/enemy_3_a.tscn", Vector2(500, STAND_Y)) as EnemyLunger
 	knife.facing = -1
@@ -427,7 +427,7 @@ func test_the_knifeman_winds_up_before_it_lunges() -> void:
 
 
 func test_the_lunge_commits_to_one_direction() -> void:
-	# 起手之后它认准那个方向冲出去，不跟着人转——跟着转的话「跳开就躲掉了」就没意义了
+	# After starting it lunges in that direction without turning to follow — if it followed, "jumping away dodges it" would be pointless
 	await reset_scene(false, true, pack())
 	var knife := spawn("res://scenes/enemy_3_a.tscn", Vector2(500, STAND_Y)) as EnemyLunger
 	knife.facing = -1
@@ -439,13 +439,13 @@ func test_the_lunge_commits_to_one_direction() -> void:
 		if knife.is_winding_up():
 			break
 	check("setup: winding up, facing the player", knife.is_winding_up() and knife.facing == -1)
-	player.global_position = Vector2(700, STAND_Y)      # 绕到背后
+	player.global_position = Vector2(700, STAND_Y)      # Get behind it
 	await frames(10)
 	check("it still goes the way it committed to", knife.facing == -1, str(knife.facing))
 
 
 func test_the_swordsman_leaps_over_things() -> void:
-	# 它是这一关唯一会主动越过地形的——矮墙挡不住它，躲在掩体后面慢慢打对它不管用
+	# It is the only enemy in this stage that actively crosses terrain — low walls do not stop it, so hiding behind cover and chipping away does not work on it
 	await reset_scene(false, true, pack())
 	var sword := spawn("res://scenes/enemy_3_c.tscn", Vector2(500, STAND_Y)) as EnemyLeaper
 	player.global_position = Vector2(420, STAND_Y)
@@ -457,7 +457,7 @@ func test_the_swordsman_leaps_over_things() -> void:
 		if sword.is_leaping():
 			break
 	check("it leaps", sword.is_leaping())
-	# **高度要在起跳之后量**：上面那个循环是在变成「空中」那一帧就跳出来的，那会儿还没升起来
+	# **Measure the height after take-off**: the loop above exits on the very frame it becomes "airborne", before it has risen
 	var highest: float = sword.global_position.y
 	for i in 60:
 		await tree.physics_frame
@@ -467,7 +467,7 @@ func test_the_swordsman_leaps_over_things() -> void:
 
 
 func test_stepping_aside_dodges_the_landing_slash() -> void:
-	# 落点在起跳那一刻就定了，人往旁边走一步那一刀就落空
+	# The landing spot is fixed the moment it jumps; one step aside and the slash misses
 	await reset_scene(false, true, pack())
 	var sword := spawn("res://scenes/enemy_3_c.tscn", Vector2(500, STAND_Y)) as EnemyLeaper
 	sword.contact_damage = 0
@@ -480,8 +480,8 @@ func test_stepping_aside_dodges_the_landing_slash() -> void:
 			break
 	check("setup: it is in the air", sword.is_leaping())
 	var before: int = player.health
-	# **跑到另一边，而且要留在它够得着的范围里**：跑太远的话它就算会掉头也不会掉，
-	# 这条用例就什么都没测到（第一版放到 820，超出 `leap_range` 了）。
+	# **Run to the other side, but stay within its reach**: run too far and it would not turn around even if it could,
+	# and this case would test nothing (the first version went to 820, beyond `leap_range`).
 	var behind: float = sword.global_position.x + 90.0
 	for i in 120:
 		await tree.physics_frame
@@ -495,31 +495,31 @@ func test_stepping_aside_dodges_the_landing_slash() -> void:
 
 
 func test_the_brute_shrugs_off_shots_from_the_front() -> void:
-	# 胸甲和护肩都在身前：**从正面打伤害减半，从背后是全额**。
-	# 逼你绕后、跳过去、或者把手雷扔过它头顶（抛物线会落在它身后）。
+	# Breastplate and pauldrons are in front: **hits from the front do half damage, hits from behind full damage**.
+	# It forces you to get behind it, jump over it, or lob a grenade over its head (the arc lands behind it).
 	await reset_scene(false, true, pack())
 	var brute := spawn("res://scenes/enemy_3_d.tscn", Vector2(500, STAND_Y)) as EnemyBrute
 	await frames(2)
 	check("it really has armour", brute.front_armour < 1.0, str(brute.front_armour))
-	# **朝向要在挨打那一刻定**：它会转过去朝着玩家走，`await` 一帧朝向就变了，
-	# 「正面」那一下会变成背后——第一版就是这么量反的。
+	# **The facing has to be fixed at the moment of the hit**: it turns to walk toward the player, so after one `await` the facing has changed,
+	# and the "front" hit becomes a hit from behind — which is how the first version measured it backwards.
 	player.global_position = Vector2(-4000, STAND_Y)
 	brute.facing = 1
 	var full: int = brute.health
-	brute.take_damage(40, Vector2(600, STAND_Y), player)        # 它面朝右，这是正面
+	brute.take_damage(40, Vector2(600, STAND_Y), player)        # It faces right: this is the front
 	var from_front: int = full - brute.health
 	brute.health = full
-	brute.take_damage(40, Vector2(400, STAND_Y), player)        # 背后
+	brute.take_damage(40, Vector2(400, STAND_Y), player)        # From behind
 	var from_behind: int = full - brute.health
 	check("a shot from the front is blunted", from_front < from_behind,
-		"正面 %d，背后 %d" % [from_front, from_behind])
+		"front %d, back %d" % [from_front, from_behind])
 	check("and from behind it lands in full", from_behind == 40, str(from_behind))
 	check("the front hit matches the armour",
 		from_front == maxi(1, roundi(40 * brute.front_armour)), str(from_front))
 
 
 func test_the_brute_does_not_charge() -> void:
-	# 说好的「不冲锋」：它就是一堵慢慢压过来的墙，走位全在玩家手上
+	# As promised, "no charging": it is just a wall slowly pressing in, and positioning is entirely up to the player
 	await reset_scene(false, true, pack())
 	var brute := spawn("res://scenes/enemy_3_d.tscn", Vector2(500, STAND_Y)) as EnemyBrute
 	check("it never moves faster than it walks", brute.charge_speed <= brute.move_speed,
@@ -535,7 +535,7 @@ func test_the_brute_does_not_charge() -> void:
 
 
 func test_armour_does_not_apply_to_damage_with_no_direction() -> void:
-	# 来源不明的（持续伤害、掉出关卡）不减——护甲挡的是打过来的东西，不是所有伤害
+	# Unknown sources (damage over time, falling out of the stage) are not reduced — the armour stops things that hit it, not all damage
 	await reset_scene(false, true, pack())
 	var brute := spawn("res://scenes/enemy_3_d.tscn", Vector2(500, STAND_Y)) as EnemyBrute
 	await frames(2)
@@ -546,7 +546,7 @@ func test_armour_does_not_apply_to_damage_with_no_direction() -> void:
 	check("an undirected hit lands in full", full - brute.health == 40, str(full - brute.health))
 
 
-# ---------------------------------------------------------------- 这一关的 Boss
+# ---------------------------------------------------------------- This stage's boss
 
 func spawn_boss() -> BossWheel:
 	var boss := (load("res://scenes/boss_3.tscn") as PackedScene).instantiate() as BossWheel
@@ -556,9 +556,9 @@ func spawn_boss() -> BossWheel:
 	return boss
 
 
-## 摆好 Boss 和玩家。**墙要去掉**（第二个参数 false）：测试关 x=800 那道墙正好在它和玩家之间，
-## 而它是**站在地上**的——视线从身体中心发出，会被墙挡住，`find_target()` 一直是 null，
-## 它就什么也不做。前两个 Boss 要么飞要么高，射线从墙顶过去了，所以没撞上这个。
+## Place the boss and the player. **The walls have to go** (second argument false): the test level's wall at x=800 sits right between it and the player,
+## and it **stands on the ground** — its sight comes from its body centre and is blocked by the wall, `find_target()` stays null,
+## and it does nothing. The previous two bosses either fly or are tall, their rays passing over the wall, so they never ran into this.
 func face_the_mech(player_at: Vector2) -> BossWheel:
 	await reset_scene(false, false, pack())
 	var boss := spawn_boss()
@@ -576,7 +576,7 @@ func test_the_mech_is_a_boss_and_stands_on_the_ground() -> void:
 	await reset_scene(false, false, pack())
 	var boss := spawn_boss()
 	check("it is a boss", boss is Boss)
-	# **前两个 Boss 一个飞一个走，这个是地面重装**：踩着独轮滚，受重力
+	# **Of the previous two bosses one flew and one walked; this one is heavy ground armour**: it rolls on a single wheel and feels gravity
 	check("it is not a floating one", boss.motion_mode == CharacterBody2D.MOTION_MODE_GROUNDED)
 	check("it brings a portrait from this pack's art",
 		boss.hud_portrait() != null
@@ -587,7 +587,7 @@ func test_the_mech_is_a_boss_and_stands_on_the_ground() -> void:
 
 
 func test_its_three_moves_come_round_in_turn() -> void:
-	# **三招轮着来，不是随机挑**：打两轮就能背下节奏，死了也知道自己错在哪。
+	# **Three moves in rotation, not picked at random**: two rounds and you know the rhythm, and when you die you know what went wrong.
 	var boss := await face_the_mech(Vector2(640, STAND_Y))
 	var seen: Array[int] = []
 	for i in 900:
@@ -608,7 +608,7 @@ func test_its_three_moves_come_round_in_turn() -> void:
 
 
 func test_the_roll_is_telegraphed() -> void:
-	# 蓄力那一下就是留给玩家跳开的。没有预兆就成了没法躲。
+	# The wind-up is the player's window to jump away. Without a warning it would be undodgeable.
 	var boss := await face_the_mech(Vector2(640, STAND_Y))
 	check("there really is a wind-up", boss.roll_windup > 0.2, str(boss.roll_windup))
 	var held := true
@@ -629,7 +629,7 @@ func test_the_roll_is_telegraphed() -> void:
 
 
 func test_the_lob_arcs_over_cover() -> void:
-	# **这一招专治「躲在平台后面慢慢磨」**：炸弹是抛物线，越得过掩体。
+	# **This move is the answer to "chipping away from behind a platform"**: the bomb flies in an arc and clears cover.
 	var boss := await face_the_mech(Vector2(640, STAND_Y))
 	var thrown: Array[Node] = []
 	for i in 900:
@@ -645,7 +645,7 @@ func test_the_lob_arcs_over_cover() -> void:
 	if thrown.is_empty():
 		return
 	var bomb := thrown[0] as Grenade
-	# 抛物线：出手时是斜着往上的，不是直着飞
+	# An arc: it leaves angled upward, not flying straight
 	check("and it really arcs, not flies straight", bomb.velocity.y < 0.0, str(bomb.velocity))
 	check("towards the player", signf(bomb.velocity.x) == signf(640.0 - boss.global_position.x),
 		str(bomb.velocity))
@@ -654,9 +654,9 @@ func test_the_lob_arcs_over_cover() -> void:
 
 
 func test_it_never_leaves_its_patch() -> void:
-	# 不追出地盘——走位是玩家的事（和前两个 Boss 一个道理）。
-	# **不能只断言「没超出它自己的 `roam_range`」**：把那个数调大它自然就不超了，等于什么都没测。
-	# 要测的是「它不会朝玩家一路压过来」。
+	# It does not chase out of its ground — positioning is the player's job (same idea as the previous two bosses).
+	# **Asserting only "it never left its own `roam_range`" is not enough**: raise that number and it naturally never leaves, which tests nothing.
+	# What has to be tested is "it does not press all the way toward the player".
 	var boss := await face_the_mech(Vector2(200, STAND_Y))
 	var home: Vector2 = boss._home
 	var strayed := 0.0
@@ -668,9 +668,9 @@ func test_it_never_leaves_its_patch() -> void:
 		strayed = maxf(strayed, absf(boss.global_position.x - home.x) - boss.roam_range)
 		closest = minf(closest, absf(boss.global_position.x - 200.0))
 	check("it stays in its patch", strayed < 40.0, "%.0f" % strayed)
-	check("and never comes over to get you", closest > 300.0, "最近 %.0f" % closest)
-	# **地盘要装得进 Boss 区**：它左右各漫游 `roam_range`，整块不能超过一屏，
-	# 否则关卡里给它摆的那片平台就够不着它了（这条约束是关卡设计给的，不是它自己的）。
+	check("and never comes over to get you", closest > 300.0, "closest %.0f" % closest)
+	# **Its ground has to fit inside the boss area**: it wanders `roam_range` each way, and the whole thing must not exceed one screen,
+	# or the platforms the stage gives it would not reach it (this constraint comes from the level design, not from the boss).
 	check("and its patch fits on one screen", boss.roam_range * 2.0 <= 640.0,
 		str(boss.roam_range))
 
@@ -721,4 +721,4 @@ func test_the_boss_skin_changes_nothing_about_the_rules() -> void:
 		})
 	for key: String in out[0]:
 		check("%s is the same with either skin" % key, out[0][key] == out[1][key],
-			"方块 %s，酒吧街 %s" % [out[0][key], out[1][key]])
+			"blocks %s, bar street %s" % [out[0][key], out[1][key]])

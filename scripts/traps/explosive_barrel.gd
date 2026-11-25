@@ -1,21 +1,21 @@
 class_name ExplosiveBarrel
 extends StaticBody2D
-## 油桶（2026-10 用户要的机关）：摆在敌人旁边，**开枪打中就炸**，炸到附近的敌人——**也炸到玩家自己**。
+## Explosive barrel (a trap the user asked for in 2026-10): placed next to enemies, **it explodes when shot**, hitting nearby enemies — **and the player too**.
 ##
-## - 挂在 **enemy 层**（不挡路：玩家和敌人的 mask 里都没有这一层），所以**玩家的子弹和手雷打得到它，
-##   敌人的子弹打不到**——不会被敌人自己打爆。玩家的 Hurtbox 只认 `Enemy`，碰到它不扣血。
-## - 一枪就炸。爆炸用手雷那一套（`Blast`：半径内、中间没被实心挡住的才炸得到，中心 `max_damage`
-##   往边缘线性降到 `min_damage`），**敌人和玩家都炸**——引爆时得离远点。画面由 `Fx` 按 `explosion` 事件画。
-## - 旁边的油桶也在 enemy 层上，会被一起炸到——**能连锁**。
-## - 炸死的敌人记在**开枪的那个玩家**头上（`take_damage` 的第三个参数一路传下去）。
-## 节点原点在**桶身正中**（和敌人一样：`Blast` 按原点量距离、看视线，原点贴着地面的话射线会擦着地板被挡掉）。
+## - It is on the **enemy layer** (it blocks nobody: neither the players' nor the enemies' mask includes that layer), so **the players' bullets and grenades can hit it,
+## but enemy bullets cannot** — enemies never blow it up themselves. The player's Hurtbox only reacts to `Enemy`, so touching it does no damage.
+## - One shot sets it off. The explosion is the grenade's (`Blast`: only things within the radius and not shielded by anything solid are hit, `max_damage` at the centre
+## falling linearly to `min_damage` at the edge), **hitting enemies and players alike** — keep your distance when setting it off. The visual is drawn by `Fx` from the `explosion` event.
+## - Neighbouring barrels are on the enemy layer too and get hit as well — **chain reactions**.
+## - Enemies it kills are credited to **the player who fired** (passed all the way down as the third argument of `take_damage`).
+## The node origin is **the middle of the barrel** (like enemies: `Blast` measures distance and sight from the origin; an origin on the floor would have the ray graze the floor and get blocked).
 
 @export var skin_key := &"trap_barrel"
 @export var blast_radius := 56.0
 @export var max_damage := 80
 @export var min_damage := 30
 
-## 判定框按贴图里桶身那一块（18×22，上面 4 行是空的）
+## The hitbox matches the barrel body in the art (18×22; the top 4 rows are empty)
 const SIZE := Vector2(18, 22)
 const ENEMY_LAYER := 8
 const PLAYER_LAYER := 2
@@ -35,9 +35,9 @@ func take_damage(_amount: int, _source_position := Vector2.INF, from: Node = nul
 		return
 	exploded = true
 	_shooter = from
-	# 炸开那一下就别再挡子弹了（同一帧后面的子弹穿过去，不会撞在一个已经没了的桶上）
+	# Once it bursts it should not stop bullets any more (later bullets in the same frame pass through instead of hitting a barrel that is gone)
 	collision_layer = 0
-	# 物理回调里不能再查形状（`Blast.victims` 要查），挪到这一帧末尾
+	# Shapes cannot be queried inside a physics callback (`Blast.victims` has to), so move it to the end of this frame
 	_explode.call_deferred()
 
 
@@ -53,11 +53,11 @@ func _explode() -> void:
 		if victim == self:
 			continue
 		var hurt := Blast.damage_at(at.distance_to(victim.global_position), blast_radius, max_damage, min_damage)
-		# 链式：别的油桶也是 take_damage，传的还是开枪的那个人
+		# Chain: other barrels take_damage too, still passing on the player who fired
 		victim.take_damage(roundi(hurt * Stage.damage_scale()), at, _shooter if _shooter != null else self)
 	queue_free()
 
 
-## 占位外观（`TrapBlocks`）画的形状：一个红桶。
+## The shape drawn by the placeholder look (`TrapBlocks`): a red barrel.
 func art_rects(_frame: int) -> Array[Rect2]:
 	return [Rect2(-SIZE / 2.0, SIZE)]

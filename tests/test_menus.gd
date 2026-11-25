@@ -1,8 +1,8 @@
 extends GameTest
-## 暂停界面和加点界面。
+## The pause menu and the skill screen.
 ##
-## 守的东西：两个玩家都能暂停、暂停时关卡真的停了、终极武器定格那两秒抢不走暂停、
-## 加点界面按一下真的加一点、双人时两栏各按各的、加完点玩家身上的属性跟着变、返回能一层层退出来。
+## What it guards: both players can pause, the stage really stops while paused, the ultimate's two-second freeze cannot have its pause stolen,
+## one press on the skill screen really adds one point, in co-op each column follows its own player, stats on the player change after spending points, and back steps out level by level.
 
 const STATS := 4
 
@@ -18,12 +18,12 @@ func skills() -> SkillsScreen:
 	return null
 
 
-## 用第几号玩家的那套键按一下。
+## Press once with the keys of a given player.
 func tap_as(player_index: int, action: StringName) -> void:
 	await tap(action if player_index == 0 else StringName("p%d_%s" % [player_index + 1, action]))
 
 
-# ---------------------------------------------------------------- 暂停
+# ---------------------------------------------------------------- Pause
 
 func test_pausing_stops_the_level() -> void:
 	await reset_scene()
@@ -44,16 +44,16 @@ func test_pausing_stops_the_level() -> void:
 
 
 func test_a_closed_menu_does_not_listen() -> void:
-	# 踩过的坑：菜单藏起来时只看 `visible`（那是节点自己的开关，父节点藏了它还是 true），
-	# 结果没暂停的时候照样在收键——游戏里随手按「下下 A」就选中了 QUIT，整个进程直接退出。
+	# A pitfall we hit: hiding the menu only checked `visible` (a node's own switch, still true when a parent is hidden),
+	# so it kept taking keys while not paused — pressing "down down A" in the game picked QUIT and the whole process exited.
 	await reset_scene()
 	player.global_position = Vector2(200, 304)
 	await frames(2)
 	check("setup: the menu is closed", not menu().is_open())
 	var list: MenuList = menu().menu_list()
 	check("setup: its cursor is on the first item", list.index == 0, str(list.index))
-	# 先只按一下「下」：这时候光标要是动了，再按「下 A」就会选中 QUIT 把进程关掉，
-	# 测试连报错的机会都没有，所以断言卡在这一步，不往下走。
+	# Press only "down" once first: if the cursor moved now, pressing "down A" would pick QUIT and close the process,
+	# leaving the test no chance to even report an error, so the assertion stops at this step and goes no further.
 	await tap(&"aim_down")
 	check("moving the stick while playing does not move a hidden cursor", list.index == 0, str(list.index))
 	await tap(&"jump")
@@ -71,7 +71,7 @@ func test_reopening_puts_the_gold_box_back_on_resume() -> void:
 	await tap(&"cancel")
 	await tap(&"pause")
 	check("it reopens on RESUME", list.index == PauseMenu.RESUME, str(list.index))
-	# 光标框是直接赋值挪过来的（不是按键走的那条路），框得跟着，不然它会留在 SKILLS 上
+	# The cursor box was moved by direct assignment (not the key-press path); the box has to follow, or it would stay on SKILLS
 	check("and the gold box is on RESUME too",
 		list._cursor.position.is_equal_approx(list.highlight_box(PauseMenu.RESUME).position),
 		"%s vs %s" % [list._cursor.position, list.highlight_box(PauseMenu.RESUME).position])
@@ -80,7 +80,7 @@ func test_reopening_puts_the_gold_box_back_on_resume() -> void:
 
 func test_either_player_can_pause() -> void:
 	await reset_scene(false, false, null, 2)
-	# `pause` 一个动作绑了两个手柄的 Start，所以不分谁按
+	# `pause` is one action bound to the Start button of both pads, so it does not matter who presses
 	var pads := InputMap.action_get_events(&"pause").filter(func(e: InputEvent) -> bool:
 		return e is InputEventJoypadButton)
 	var devices := pads.map(func(e: InputEvent) -> int: return e.device)
@@ -90,7 +90,7 @@ func test_either_player_can_pause() -> void:
 
 
 func test_the_ultimate_freeze_keeps_the_pause_button_out() -> void:
-	# 终极武器也用 tree.paused 定格，两边抢着改会互相解掉对方
+	# The ultimate also freezes things with tree.paused; fighting over it the two would undo each other
 	await reset_scene()
 	player.global_position = Vector2(200, 304)
 	await frames(2)
@@ -108,13 +108,13 @@ func test_the_ultimate_freeze_keeps_the_pause_button_out() -> void:
 	await tap(&"cancel")
 
 
-# ---------------------------------------------------------------- 死亡选择
+# ---------------------------------------------------------------- Death choice
 
 func death() -> DeathScreen:
 	return main.get_node("DeathScreen")
 
 
-## 把玩家打死，等那一页弹出来。**先把两段延时调短**（默认 0.5 + 0.7 秒），省得每条用例等 72 帧。
+## Kill the player and wait for that screen to pop up. **Shorten the two delays first** (0.5 + 0.7 seconds by default), so each case does not wait 72 frames.
 func die_and_wait() -> void:
 	main.game_over_delay = 0.05
 	main.respawn_delay = 0.1
@@ -132,7 +132,7 @@ func test_dying_offers_a_choice_instead_of_just_reloading() -> void:
 	check("setup: alive and running", player.is_alive() and not death().is_open())
 	await die_and_wait()
 	check("the choice comes up", death().is_open())
-	# 「GAME OVER」写在这一层上，不在 HUD 上：压暗那层就在这儿，写在 HUD 上会被压暗、灰得看不清
+	# "GAME OVER" is written on this layer, not the HUD: the darkening layer is here, and written on the HUD it would be darkened into an unreadable grey
 	check("and it says what happened", death()._title.visible and death()._title.text == "GAME OVER",
 		death()._title.text)
 	check("with retry and main menu on it", death().menu_list()._items == DeathScreen.ITEMS,
@@ -159,7 +159,7 @@ func test_retry_lets_the_level_run_again() -> void:
 
 
 func test_the_death_screen_keeps_the_pause_button_out() -> void:
-	# 两边都在改 `tree.paused`，抢起来会互相把对方解掉（终极武器定格那条是同一个道理）
+	# Both change `tree.paused`, and fighting over it they would undo each other (the same reason as the ultimate freeze)
 	await reset_scene()
 	player.global_position = Vector2(200, 304)
 	await frames(2)
@@ -183,7 +183,7 @@ func test_main_menu_leaves_the_level() -> void:
 	await frames(3)
 	check("the level is left for the menu", tree.current_scene is MainMenu, str(tree.current_scene))
 	check("and nothing is left frozen", not tree.paused)
-	# **收干净**：菜单还挂在树上的话，后面的用例一按 A 就被它当成「菜单确认」接走（见 CLAUDE.md 踩过的坑）
+	# **Clean up**: with the menu still in the tree, the next case pressing A would have it taken as a "menu confirm" (see the pitfalls in CLAUDE.md)
 	tree.unload_current_scene()
 	await frames(2)
 
@@ -200,14 +200,14 @@ func test_the_hud_writes_in_the_pixel_font() -> void:
 	await frames(2)
 	var label: Label = hud().get_node("ProgressLabel")
 	var font := label.get_theme_font("font")
-	# 正文用的是小那套字模（10px）；大那套 14px 留给标题，两套都只按整数倍放大
+	# Body text uses the small font (10px); the big 14px one is kept for titles, and both are only ever scaled by integers
 	check("the level / cash line uses the pack's small font",
 		font != null and font.resource_path == UiKit.FONT_SMALL,
 		"" if font == null else font.resource_path)
 	check("in gold, not white", label.get_theme_color("font_color") == UiKit.GOLD,
 		str(label.get_theme_color("font_color")))
-	# HUD 的字直接压在关卡画面上，天空一亮笔画就糊成一团，背后得垫一层暗影。
-	# **看颜色，不能只看偏移**：Label 自带的主题里偏移本来就是 1，是影子的颜色默认全透明。
+	# HUD text sits right on top of the level, and against a bright sky the strokes blur together, so it needs a dark shadow behind it.
+	# **Look at the colour, not just the offset**: in Label's built-in theme the offset is already 1, and the shadow colour is fully transparent by default.
 	var shade := label.get_theme_color("font_shadow_color")
 	check("with a shadow behind it that is dark and solid",
 		shade.get_luminance() < 0.2 and shade.a > 0.5, str(shade))
@@ -217,10 +217,10 @@ func test_the_hud_writes_in_the_pixel_font() -> void:
 
 
 func test_the_progress_line_leaves_room_for_the_other_player() -> void:
-	# 双人时左右各一套，挤成一行的话（LV / XP / CASH / PTS）最宽要 414px，在屏幕中间就撞上了
+	# In co-op there is one on each side, and squeezed into one line (LV / XP / CASH / PTS) it is up to 414px wide, colliding in the middle of the screen
 	await reset_scene()
 	await frames(2)
-	# 20 级是这个游戏现实的上限（经验每级 ×1.5，再往上数字就有七位了，见 hud.gd 的说明）
+	# Level 20 is the realistic ceiling of this game (XP ×1.5 per level, beyond that the numbers reach seven digits, see the note in hud.gd)
 	var me := player.progress
 	me.level = 20
 	me.xp = me.balance.xp_to_next(20) - 1
@@ -241,7 +241,7 @@ func test_the_progress_line_leaves_room_for_the_other_player() -> void:
 		"%.0f > %.0f" % [widest, half])
 
 
-# ---------------------------------------------------------------- 加点
+# ---------------------------------------------------------------- Spending points
 
 func test_spending_a_point_raises_the_stat_and_the_player() -> void:
 	await reset_scene()
@@ -252,9 +252,9 @@ func test_spending_a_point_raises_the_stat_and_the_player() -> void:
 	check("setup: there are points to spend", points > 0, str(points))
 	await tap(&"pause")
 	await tap(&"aim_down")        # RESUME -> SKILLS
-	await tap(&"jump")            # 进加点界面
+	await tap(&"jump")            # Into the skill screen
 	check("the skills screen is up", skills() != null)
-	await tap(&"jump")            # 第一项是 LIFE，加一点
+	await tap(&"jump")            # The first item is LIFE, add a point
 	check("one point is gone", player.progress.points == points - 1, str(player.progress.points))
 	check("life went up", player.progress.stat(Balance.LIFE) > before, str(player.progress.stat(Balance.LIFE)))
 	check("and the player got tougher right away", player.max_health > before,
@@ -279,7 +279,7 @@ func test_the_cursor_picks_which_stat_gets_the_point() -> void:
 
 
 func test_the_skills_screen_also_counts_points_not_stat_points() -> void:
-	# 和人物设置界面同一条规矩：金色那列写投了几点，不写属性涨了多少（生命一点涨 10）。
+	# The same rule as character setup: the gold column shows points put in, not how much the stat grew (a point of life adds 10).
 	await reset_scene()
 	await frames(2)
 	await tap(&"pause")
@@ -287,7 +287,7 @@ func test_the_skills_screen_also_counts_points_not_stat_points() -> void:
 	await tap(&"jump")
 	var rows: Array = skills()._columns[0]["rows"]
 	check("setup: nothing spent yet", rows[0]["bonus"].text == "", rows[0]["bonus"].text)
-	await tap(&"jump")            # 第一项是 LIFE
+	await tap(&"jump")            # The first item is LIFE
 	check("one point in life reads as +1", rows[0]["bonus"].text == "+1", rows[0]["bonus"].text)
 	check("and the value beside it is the real one",
 		rows[0]["value"].text == str(roundi(player.progress.stat(Balance.LIFE))), rows[0]["value"].text)
@@ -318,14 +318,14 @@ func test_in_co_op_each_player_spends_their_own_points() -> void:
 	await tap(&"jump")
 	check("the screen shows a column for each player", skills() != null)
 	var before := [player.progress.points, player2.progress.points]
-	await tap_as(1, &"aim_down")   # 2 号把光标挪到 ATTACK
+	await tap_as(1, &"aim_down")   # Player 2 moves the cursor to ATTACK
 	await tap_as(1, &"jump")
 	check("the second player spent one", player2.progress.points == before[1] - 1, str(player2.progress.points))
 	check("on their own attack", player2.progress.allocated.get(Balance.ATTACK, 0) == 1,
 		str(player2.progress.allocated))
 	check("the first player's points are untouched", player.progress.points == before[0], str(player.progress.points))
 	check("and so are their stats", player.progress.allocated.is_empty(), str(player.progress.allocated))
-	# 两个人都按返回才退出加点界面
+	# The skill screen only closes once both players press back
 	await tap_as(0, &"cancel")
 	check("one player backing out is not enough", skills() != null)
 	await tap_as(1, &"cancel")

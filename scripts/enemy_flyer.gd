@@ -1,29 +1,29 @@
 class_name EnemyFlyer
 extends Enemy
-## 敌人 E：会飞，不受重力。在固定高度附近以波浪轨迹来回巡逻，水平速度和普通敌人一样。
-## 看见下方的玩家（水平 follow_range 以内，或者它自己在屏幕里；并且看得见）就开始跟随：在上空朝玩家水平移动，
-## 玩家在它**垂直下方**（水平距离 below_width 以内）时竖直向下开火。
-## 「在屏幕里就算看见」是为了公平：玩家看得见它的时候它也得有反应，不能被屏幕里的玩家白打。子弹和其它子弹一样穿过单向平台，被地面、墙、矮通道这些实心物体挡住。
-## 跟随中看不见玩家或玩家水平离开 follow_range 以外，memory_time 秒后放弃，就地继续巡逻。
+## Enemy E: flies, no gravity. Patrols back and forth along a wave near a fixed height, at the same horizontal speed as ordinary enemies.
+## When it sees a player below (within follow_range horizontally, or it is on screen itself; and in sight) it starts following: moving horizontally above the player,
+## and fires straight down when the player is **directly below** it (within below_width horizontally).
+## "On screen counts as seeing" is for fairness: when the player can see it, it has to react, not be shot for free from the screen. Its bullets pass through one-way platforms like any other and are stopped by solid things like the ground, walls and crawl passages.
+## While following, if it loses sight of the player or the player moves beyond follow_range horizontally, it gives up after memory_time seconds and patrols where it is.
 
 @export var move_speed := 60.0
-## 跟随玩家时的水平速度。
+## Horizontal speed while following the player.
 @export var follow_speed := 60.0
-@export_enum("左:-1", "右:1") var start_direction := -1
-## 巡逻范围：巡逻中心左右各多少像素。
+@export_enum("Left:-1", "Right:1") var start_direction := -1
+## Patrol range: so many pixels left and right of the patrol centre.
 @export var patrol_distance := 180.0
-## 波浪的振幅（像素）和周期（秒）。
+## Amplitude (pixels) and period (seconds) of the wave.
 @export var wave_amplitude := 16.0
 @export var wave_period := 2.0
-## 玩家和它的水平距离在这个范围内，就算在它「垂直下方」。
+## A player within this horizontal distance counts as "directly below" it.
 @export var below_width := 20.0
-## 跟随时玩家水平离开多远就算跟丢。
+## How far the player must move away horizontally while being followed to count as lost.
 @export var follow_range := 280.0
 @export var memory_time := 1.5
 
 var is_following := false
 
-## 波浪围绕的高度和巡逻中心。出生时取当前位置，用 set_anchor() 可以改。
+## The height the wave runs around and the patrol centre. Taken from the position at spawn; set_anchor() can change it.
 var _base_y := 0.0
 var _patrol_center_x := 0.0
 var _wave_time := 0.0
@@ -37,7 +37,7 @@ func _ready() -> void:
 	set_anchor(global_position)
 
 
-## 把它放到 position，并以这里为波浪高度和巡逻中心。
+## Put it at position and use that as the wave height and patrol centre.
 func set_anchor(position_: Vector2) -> void:
 	global_position = position_
 	_base_y = position_.y
@@ -60,13 +60,13 @@ func _physics_process(delta: float) -> void:
 			velocity.x = 0.0
 			_memory_left -= delta
 			if _memory_left <= 0.0:
-				# 跟丢了：以现在的位置为中心继续巡逻，而不是飞回出生点。
+				# Lost the player: patrol around where it is now instead of flying back to its spawn point.
 				is_following = false
 				_patrol_center_x = global_position.x
 	else:
 		velocity.x = move_speed * facing
 
-	# 波浪：每帧把高度拉到正弦曲线上的目标值。
+	# Wave: every frame pull the height toward the target on the sine curve.
 	var wave_y := _base_y + wave_amplitude * sin(TAU * _wave_time / wave_period)
 	velocity.y = (wave_y - global_position.y) / delta
 	move_and_slide()
@@ -77,7 +77,7 @@ func _physics_process(delta: float) -> void:
 	try_shoot(delta, target if below else null)
 
 
-## 能跟随的玩家：在它下方、水平够得着（follow_range 以内，或者自己在屏幕里）、看得见（视线从枪口往下）。
+## A player it can follow: below it, within reach horizontally (inside follow_range, or it is on screen itself), and in sight (looking down from the muzzle).
 func can_target(player: Player) -> bool:
 	var offset := player.global_position - global_position
 	if offset.y <= 0.0 or (absf(offset.x) > follow_range and not is_partly_on_screen()):
@@ -98,7 +98,7 @@ func _follow(delta: float, target: Node2D) -> void:
 		velocity.x = 0.0
 
 
-## 巡逻到范围边缘、或者撞到墙就掉头。
+## Turn around at the edge of the patrol range or on hitting a wall.
 func _should_turn_around() -> bool:
 	var past_edge := (global_position.x - _patrol_center_x) * facing >= patrol_distance
 	return past_edge or is_on_wall()

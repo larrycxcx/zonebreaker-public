@@ -1,18 +1,18 @@
 extends GameTest
-## 敌人 E（飞行）：不受重力、固定高度波浪巡逻、玩家到正下方才开火并在上空跟随、
-## 子弹竖直向下且穿过单向平台、实心物体挡视线、跟丢后放弃。
+## Enemy E (flying): no gravity, patrols along a wave at a fixed height, only fires and follows overhead when the player is right below,
+## bullets go straight down through one-way platforms, solid things block its sight, it gives up after losing the player.
 
 const ALTITUDE := 88.0
 
 
-## 只留 E，把它放到 pos 作为波浪高度和巡逻中心；玩家先停在远处（E 在屏幕外，看不见玩家）。
+## Keep only E, put at pos as the wave height and patrol centre; the player waits far away first (E off screen, cannot see the player).
 func _setup_flyer(pos: Vector2, keep_walls := false) -> EnemyFlyer:
 	await reset_scene(true, keep_walls)
 	keep_only_enemies(["FlyerE"])
 	var e: EnemyFlyer = main.get_node("Enemies/FlyerE")
 	e.set_anchor(pos)
 	e.velocity = Vector2.ZERO
-	# 关卡加载那两帧里它可能已经看见玩家、开始跟随了（跟丢后还记 1.5 秒）：从头开始
+	# In the two frames of loading it may already have seen the player and started following (remembering for 1.5 seconds after losing them): start over
 	e.is_following = false
 	player.global_position = Vector2(pos.x + 700.0 if pos.x < 640.0 else pos.x - 700.0, 304)
 	player.velocity = Vector2.ZERO
@@ -36,7 +36,7 @@ func test_e_is_configured() -> void:
 	check("E has a gun", e.bullet_scene != null)
 	check("E's muzzle is on its body, not inside Visual", e.get_node_or_null("Muzzle") != null and e.get_node_or_null("Visual/Muzzle") == null)
 	check("E never goes prone", not e.can_go_prone)
-	# 飞行高度要高过所有平台和墙，包括波浪最低点。
+	# The flying height must be above every platform and wall, including the lowest point of the wave.
 	var lowest_top := INF
 	for node in main.get_node("Level").get_children():
 		if node is Platform and String(node.name).begins_with("Platform") or node.name == "CrawlBlock":
@@ -61,7 +61,7 @@ func test_e_patrols_in_a_wave() -> void:
 	var top := INF
 	var bottom := -INF
 	var x0 := e.global_position.x
-	for i in 150: # 2.5 秒，超过一个 2 秒的周期
+	for i in 150: # 2.5 seconds, more than one 2-second period
 		await tree.physics_frame
 		top = minf(top, e.global_position.y)
 		bottom = maxf(bottom, e.global_position.y)
@@ -77,7 +77,7 @@ func test_e_patrols_within_its_range() -> void:
 	var turns := 0
 	var last_facing := e.facing
 	var farthest := 0.0
-	for i in 600: # 10 秒，够来回好几趟
+	for i in 600: # 10 seconds, enough for several trips back and forth
 		await tree.physics_frame
 		farthest = maxf(farthest, absf(e.global_position.x - 400.0))
 		if e.facing != last_facing:
@@ -88,10 +88,10 @@ func test_e_patrols_within_its_range() -> void:
 
 
 func test_e_follows_a_player_it_sees_but_fires_only_straight_down() -> void:
-	# E 在屏幕里看得见下方的玩家就飞过去（玩家看得见它的时候它也得有反应）；开火还是只在正下方
+	# On screen, E flies over to a player it can see below (it has to react when the player can see it); it still only fires straight down
 	var e := await _setup_flyer(Vector2(400, ALTITUDE))
 	e.move_speed = 0.0
-	e.follow_speed = 0.0 # 飞不过去：玩家一直在侧面
+	e.follow_speed = 0.0 # It does not fly over: the player stays to the side
 	_put_player(500.0)
 	var shots := 0
 	for i in 90:
@@ -103,7 +103,7 @@ func test_e_follows_a_player_it_sees_but_fires_only_straight_down() -> void:
 
 
 func test_e_ignores_a_player_it_cannot_see() -> void:
-	# 自己在屏幕外、玩家又在 follow_range 外：看不见，照常巡逻
+	# Off screen itself and the player beyond follow_range: cannot see, patrols as usual
 	var e := await _setup_flyer(Vector2(400, ALTITUDE))
 	_put_player(1100.0)
 	await frames(60)
@@ -141,7 +141,7 @@ func test_e_follows_the_player_overhead() -> void:
 	_put_player(400.0)
 	await frames(5)
 	check("E is following", e.is_following)
-	# 玩家往右挪 120px：E 以跟随速度飞过去，重新对准后接着开火。
+	# The player moves 120px right: E flies over at follow speed, lines up again and keeps firing.
 	_put_player(520.0)
 	var shots := [0]
 	e.shot_fired.connect(func(): shots[0] += 1)
@@ -155,7 +155,7 @@ func test_e_follows_the_player_overhead() -> void:
 
 
 func test_e_bullets_pass_through_platforms() -> void:
-	# 玩家站在 Platform1（单向，x 160..256，y 256..272）正下方，E 在它上空。
+	# The player stands right under Platform1 (one-way, x 160..256, y 256..272), with E above it.
 	var e := await _setup_flyer(Vector2(208, ALTITUDE))
 	e.move_speed = 0.0
 	_put_player(208.0)
@@ -169,11 +169,11 @@ func test_e_bullets_pass_through_platforms() -> void:
 
 
 func test_solid_blocks_hide_the_player_from_e() -> void:
-	# 玩家趴在矮通道（CrawlBlock，实心，x 592..352，y 240..148）里，E 在正上方。
+	# The player lies in the crawl passage (CrawlBlock, solid, x 592..352, y 240..148), with E right above.
 	var e := await _setup_flyer(Vector2(324, ALTITUDE))
 	e.move_speed = 0.0
 	player.global_position = Vector2(648, 304)
-	player._set_crouching(true) # 直接趴下放进去，站着会和顶板重叠
+	player._set_crouching(true) # Put them in already prone; standing they would overlap the roof
 	Input.action_press("crouch")
 	var shots := 0
 	for i in 120:
@@ -189,7 +189,7 @@ func test_e_gives_up_after_losing_the_player() -> void:
 	_put_player(400.0)
 	await frames(5)
 	check("E is following", e.is_following)
-	_put_player(1120.0) # 一下子跑出 follow_range
+	_put_player(1120.0) # Suddenly run beyond follow_range
 	var gave_up_at := -1
 	for i in 180:
 		await tree.physics_frame

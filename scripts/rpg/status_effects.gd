@@ -1,24 +1,24 @@
 class_name StatusEffects
 extends RefCounted
-## 一个角色身上正挂着的异常状态：计时、按间隔扣血、到时间解除。玩家和敌人各有一个（`statuses`），
-## 由角色每个物理帧调 `tick(delta)`，扣血通过 `on_damage` 回调交给角色自己（玩家、敌人扣血的方式不一样）。
+## The statuses currently on one character: timing, damage at intervals, removal when time is up. Players and enemies each have one (`statuses`);
+## the character calls `tick(delta)` every physics frame, and damage is handed back to the character through the `on_damage` callback (players and enemies lose health differently).
 ##
-## 同一种状态再中一次：**刷新持续时间**（取剩余和新时间里长的那个），不叠加伤害。
-## 抗性由角色在挂之前给（`apply(effect, resist)`）：持续时间 × (1 - 抗性)，1 = 免疫、根本挂不上。
+## Getting the same status again: **the duration is refreshed** (the longer of the remaining and the new time); damage does not stack.
+## The character supplies the resistance before applying it (`apply(effect, resist)`): duration × (1 - resistance), 1 = immune, never applied at all.
 
-## 某个状态挂上 / 解除（外观、HUD 以后接这个）。
+## A status was applied / removed (the appearance and HUD hook into this later).
 signal changed(id: StringName, active: bool)
 
-## 每跳扣血时调它：func(amount: int) -> void。
+## Called on every damage tick: func(amount: int) -> void.
 var on_damage: Callable
 
 ## id → {effect, left, next_tick}
 var _active := {}
-## 计时的容差：帧时长累加有浮点误差，「1 秒、每 0.25 秒一跳」的最后一跳正好落在结束那一刻，不留余量就会漏掉。
+## Timing tolerance: summing frame times accumulates floating-point error, and the last tick of "1 second, one tick every 0.25 s" lands exactly at the end; without some slack it would be missed.
 const EPSILON := 0.0001
 
 
-## 挂上一个状态，返回是否挂上了（完全免疫、持续时间为 0 就不挂）。
+## Apply a status; returns whether it was applied (not when fully immune or the duration is 0).
 func apply(effect: StatusEffect, resist := 0.0) -> bool:
 	if effect == null or effect.id == &"":
 		return false
@@ -52,17 +52,17 @@ func tick(delta: float) -> void:
 			changed.emit(id, false)
 
 
-## 现在挂着这个状态吗。
+## Is this status on right now?
 func has(id: StringName) -> bool:
 	return _active.has(id)
 
 
-## 这个状态还剩多久（没挂返回 0）。
+## Time left on this status (0 if it is not on).
 func time_left(id: StringName) -> float:
 	return _active[id]["left"] if _active.has(id) else 0.0
 
 
-## 所有状态合起来：移动速度乘多少、能不能行动。
+## All statuses combined: the movement speed multiplier and whether the character can act.
 func move_scale() -> float:
 	var scale := 1.0
 	for entry: Dictionary in _active.values():
@@ -77,8 +77,8 @@ func can_act() -> bool:
 	return true
 
 
-## 全部解除。**先清空再发信号**：听信号的（HUD 那行字）收到时会回头查 `has()`，
-## 反过来的话它查到的状态还挂着，那行 POISON 就一直不消失（写中毒的测试时撞到的）。
+## Remove everything. **Clear first, then emit**: listeners (the HUD's status line) look back with `has()` when they get the signal,
+## and the other way round they would still find the status on, so the POISON line never went away (hit while writing the poison tests).
 func clear() -> void:
 	var ids := _active.keys()
 	_active.clear()

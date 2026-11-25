@@ -1,17 +1,17 @@
 extends GameTest
-## 手柄操作：每个动作都有手柄绑定，按键分配符合约定，并用模拟的手柄事件（Input.parse_input_event）
-## 实测死区、全速移动、斜推不误触发趴下/瞄准等只有摇杆才有的行为。
+## Pad controls: every action has a pad binding, the button layout follows the convention, and simulated pad events (Input.parse_input_event)
+## measure dead zones, full-speed movement, and diagonal pushes not triggering prone / aiming by accident — behaviour only sticks have.
 ##
-## 按键约定（Xbox 布局，PS 手柄对应位置相同）：
-##   移动 左摇杆/十字键左右 · 跳跃 A · 开火 RT · 切换武器 X · 向上瞄准 左摇杆上/十字键上 · 向下瞄准 左摇杆下/十字键下
-##   · 趴下 LT · 奔跑 LB
+## Button convention (Xbox layout, the same positions on a PS pad):
+## move left stick / d-pad left and right · jump A · fire RT · switch weapon X · aim up left stick up / d-pad up · aim down left stick down / d-pad down
+## · prone LT · run LB
 
 const OPEN_X := 400.0
 
 
-## 模拟的输入事件默认要等下一轮主循环开始才被处理。如果上一帧卡了一下，这一轮主循环会连续补跑好几个物理帧，
-## 用例在补帧期间发出事件、只等几帧就检查，事件可能还没被处理——第一次跑这组用例时 A 键跳跃就这样偶发失败过
-## （人为制造卡顿可以 20 次复现 20 次）。所以发完事件立刻 flush，让它在当前物理帧就生效，结果稳定。
+## Simulated input events are only processed when the next main loop iteration starts. If the previous frame stalled, this iteration runs several physics frames in a row to catch up,
+## and a case sending an event during the catch-up and checking after a few frames may find it not processed yet — the A jump failed intermittently like this the first time this suite ran
+## (an artificial stall reproduces it 20 times out of 20). So flush right after sending, making it take effect on the current physics frame for stable results.
 func joy_button(index: JoyButton, pressed: bool) -> void:
 	var event := InputEventJoypadButton.new()
 	event.device = 0
@@ -30,7 +30,7 @@ func joy_axis(axis: JoyAxis, value: float) -> void:
 	Input.flush_buffered_events()
 
 
-## 摇杆、扳机回中，按钮全部松开。每条用例开头结尾都调用，免得手柄状态带进别的用例。
+## Sticks and triggers back to centre, every button released. Called at the start and end of every case so pad state does not leak into other cases.
 func joy_neutral() -> void:
 	for axis in [JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y, JOY_AXIS_TRIGGER_LEFT, JOY_AXIS_TRIGGER_RIGHT]:
 		joy_axis(axis, 0.0)
@@ -50,7 +50,7 @@ func has_button(action: StringName, index: JoyButton) -> bool:
 	return InputMap.action_get_events(action).any(func(e): return e is InputEventJoypadButton and e.button_index == index)
 
 
-## 只在界面里用、玩的时候碰不到的动作（Godot 自带的 ui_*，以及我们的 menu_*）。
+## Actions only used in the UI and unreachable while playing (Godot's own ui_*, plus our menu_*).
 func _menu_only(action: StringName) -> bool:
 	var name := String(action)
 	return name.begins_with("ui_") or name.begins_with("menu_") or name.begins_with("p2_menu_")
@@ -76,9 +76,9 @@ func test_gamepad_layout() -> void:
 	check("shoot: RT", has_axis("shoot", JOY_AXIS_TRIGGER_RIGHT, true))
 	check("X is no longer a fire button", not has_button("shoot", JOY_BUTTON_X))
 	check("switch weapon: RB", has_button("switch_weapon", JOY_BUTTON_RIGHT_SHOULDER))
-	# 换武器挪到食指上（RB），拇指不用离开 A；X 空出来留给以后的动作。
-	# **玩的时候** X 上不许有动作——菜单里的删除（`menu_delete`）用的就是它，那是打完关卡才碰得到的界面，
-	# 和「打着打着误按 X」是两回事。
+	# Weapon switching moved to the index finger (RB) so the thumb never leaves A; X is left free for future actions.
+	# **While playing** X must have no action — deleting in menus (`menu_delete`) uses it, but that is a screen only reached after a stage,
+	# which is something else entirely from "pressing X by accident mid-fight".
 	var game_actions := InputMap.get_actions().filter(func(a): return not _menu_only(a))
 	check("X is free during play", game_actions.all(func(a): return not has_button(a, JOY_BUTTON_X)), str(game_actions.filter(func(a): return has_button(a, JOY_BUTTON_X))))
 	check("and the menu's delete is what took it", has_button(&"menu_delete", JOY_BUTTON_X))
@@ -113,7 +113,7 @@ func test_half_a_stick_push_walks_at_full_speed() -> void:
 func test_small_stick_drift_is_ignored() -> void:
 	await start()
 	var x0 := player.global_position.x
-	joy_axis(JOY_AXIS_LEFT_X, 0.2) # 死区 0.3 以内：摇杆回中不准时的漂移
+	joy_axis(JOY_AXIS_LEFT_X, 0.2) # Within the 0.3 dead zone: drift from a stick not returning to centre exactly
 	await frames(30)
 	check("a 40% push does not move the player", absf(player.global_position.x - x0) < 0.5, "moved %.2f" % (player.global_position.x - x0))
 	joy_neutral()
@@ -156,7 +156,7 @@ func test_lt_lies_down() -> void:
 	check("releasing LT stands up", not player.is_crouching)
 
 func test_running_with_a_slightly_diagonal_stick() -> void:
-	# 往右推的时候手指难免带一点上下：不能因此突然趴下或举枪。
+	# Pushing right, the finger inevitably adds a little up or down: that must not suddenly make you lie down or raise the gun.
 	await start()
 	joy_axis(JOY_AXIS_LEFT_X, 0.9)
 	joy_axis(JOY_AXIS_LEFT_Y, 0.4)
@@ -205,7 +205,7 @@ func test_rb_switches_weapons() -> void:
 
 
 func test_rb_switches_while_firing_and_jumping() -> void:
-	# 换武器挪到食指上的理由：拇指按着 A 跳、食指扣着 RT 开火时，照样能换武器
+	# The reason weapon switching moved to the index finger: with the thumb on A to jump and the index finger on RT to fire, you can still switch weapons
 	await start()
 	joy_button(JOY_BUTTON_A, true)
 	joy_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)
@@ -219,7 +219,7 @@ func test_rb_switches_while_firing_and_jumping() -> void:
 
 func test_lb_sprints() -> void:
 	await start()
-	player.global_position = Vector2(740, 304) # 矮通道右边的空地，够跑
+	player.global_position = Vector2(740, 304) # The empty ground right of the crawl passage, room enough to run
 	joy_axis(JOY_AXIS_LEFT_X, 1.0)
 	joy_button(JOY_BUTTON_LEFT_SHOULDER, true)
 	await frames(20)
@@ -232,16 +232,16 @@ func test_cannot_fire_while_lying_down_on_the_gamepad() -> void:
 	joy_axis(JOY_AXIS_TRIGGER_LEFT, 1.0)
 	await frames(5)
 	player.current_slot().cooldown_left = 0.0
-	# 按住 LT 趴下再推摇杆：趴着爬行，不能开枪。
+	# Hold LT to lie down, then push the stick: crawling prone, no firing.
 	joy_axis(JOY_AXIS_LEFT_X, 0.9)
 	joy_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)
 	await frames(20)
 	check("crawling with the stick: RT does not fire", player.is_crouching and bullets(4).is_empty(), str(bullets(4).size()))
-	# 摇杆回中：趴着不动，照样不能开枪。
+	# Stick back to centre: lying still, still no firing.
 	joy_axis(JOY_AXIS_LEFT_X, 0.0)
 	await frames(20)
 	check("lying still: RT does not fire either", player.is_crouching and bullets(4).is_empty(), str(bullets(4).size()))
-	# 松开 LT 站起来：马上就能打。
+	# Release LT to stand up: you can fire right away.
 	joy_axis(JOY_AXIS_TRIGGER_LEFT, 0.0)
 	await frames(10)
 	check("RT fires again once standing", not player.is_crouching and not bullets(4).is_empty(), str(bullets(4).size()))

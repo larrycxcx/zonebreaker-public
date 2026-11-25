@@ -1,45 +1,45 @@
 class_name Equipment
 extends Resource
-## 一件装备（资源文件）：装在哪个位置、值多少钱、给哪些属性加成、抗哪些异常状态。只有数据。
-## 武器（`Weapon`）也是装备：枪和手雷各占一个位置，种类、外观、属性都可以不同。
-## 以后的纯属性装备（护甲、饰品）直接用这个类，不用新写脚本。
+## A piece of gear (resource file): which slot it goes in, its price, which stats it boosts, which statuses it resists. Data only.
+## Weapons (`Weapon`) are gear too: the gun and the grenade each take a slot, and their kind, look and stats can all differ.
+## Pure stat gear later on (armour, trinkets) uses this class directly, no new script needed.
 
-## 身上的位置，一个位置同时只能穿一件。**顺序就是设置界面里那 8 个格子的顺序**，别打乱。
-## 前两个是武器（枪、手雷），中间五个是护甲的五个部位，最后一个是饰品。
+## Slots on the body; one item per slot at a time. **The order is the order of the 8 boxes in character setup**; do not shuffle it.
+## The first two are weapons (gun, grenade), the middle five are the five armour pieces, the last one is a trinket.
 enum Slot {
-	GUN,      ## 枪（按住连发 / 单发，玩家的主武器）
-	GRENADE,  ## 手雷（榴弹枪）
-	HEAD,     ## 头盔
-	BODY,     ## 胸甲
-	LEGS,     ## 裤子
-	FEET,     ## 靴子
-	HANDS,    ## 手套
-	TRINKET,  ## 饰品
+	GUN,      ## Gun (automatic / single shot, the player's main weapon)
+	GRENADE,  ## Grenade (grenade launcher)
+	HEAD,     ## Helmet
+	BODY,     ## Breastplate
+	LEGS,     ## Trousers
+	FEET,     ## Boots
+	HANDS,    ## Gloves
+	TRINKET,  ## Trinket
 }
 
-## 界面上每个位置怎么称呼（全大写，界面里一律英文，见 CLAUDE.md）。
+## What the UI calls each slot (upper case; the UI is always in English, see CLAUDE.md).
 const SLOT_NAMES := {
 	Slot.GUN: "GUN", Slot.GRENADE: "BOMB", Slot.HEAD: "HEAD", Slot.BODY: "BODY",
 	Slot.LEGS: "LEGS", Slot.FEET: "FEET", Slot.HANDS: "HANDS", Slot.TRINKET: "TRINKET",
 }
 
-## 界面上显示的名字。**英文大写**——素材包的字模没有汉字，写中文会变成一串方块（见 CLAUDE.md）。
+## Name shown in the UI. **English upper case** — the pack's font has no Chinese glyphs and Chinese text turns into a row of boxes (see CLAUDE.md).
 @export var display_name := ""
 @export var slot := Slot.GUN
-## 商店价格。
+## Shop price.
 @export var price := 0
-## 要几级才买得起 / 用得了。商店只卖门槛 ≤ 当前等级的（更高的画灰当胡萝卜）。
-## **没有门槛的话钱一多就能买到过强的东西**，23 关的曲线就塌了。
+## Level needed to buy / use it. The shop only sells items with a requirement ≤ the current level (higher ones are greyed out as a carrot).
+## **Without a requirement, enough money would buy gear far too strong**, and the curve over 23 stages would collapse.
 @export var min_level := 1
-## 属性加成：属性名（`Balance.STATS`）→ 加多少，直接加在属性上（可以是负数：重武器减射速之类）。
+## Stat bonuses: stat name (`Balance.STATS`) → amount added straight to the stat (may be negative: a heavy weapon lowering fire rate and the like).
 @export var bonuses: Dictionary[StringName, float] = {}
-## 异常状态抗性：状态名（`StatusEffect.id`）→ 0..1，1 = 完全免疫。多件装备取最大的那个。
+## Status resistances: status name (`StatusEffect.id`) → 0..1, 1 = fully immune. With several items the highest one counts.
 @export var resist: Dictionary[StringName, float] = {}
-## 商店、背包、人物设置界面里显示的图标（32×32）。留空就画一个空格子。
-## **存路径不存贴图**：图标在素材包里，素材包不在（公开版去掉了第三方素材）的话，
-## 直接引用会让整个 `.tres` 加载失败、连枪都拿不到；存路径的话只是图标空着。
+## Icon shown in the shop, bag and character setup (32×32). Empty draws an empty box.
+## **A path, not the texture**: icons live in the skin pack, and if the pack is missing (the public build strips third-party art)
+## a direct reference would make the whole `.tres` fail to load and you could not even get your gun; with a path only the icon is blank.
 @export_file("*.png") var icon_path := ""
-## 图标本身：路径有文件才加载，没有就是 null（界面画空格子）。也可以直接塞一张（测试用）。
+## The icon itself: only loaded if a file exists at the path, otherwise null (the UI draws an empty box). Can also be set directly (for tests).
 var icon: Texture2D:
 	get:
 		if _icon == null and not icon_path.is_empty() and ResourceLoader.exists(icon_path):

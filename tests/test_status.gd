@@ -1,11 +1,11 @@
 extends GameTest
-## 异常状态的结构（StatusEffect 数据 + StatusEffects 计时）：持续伤害、持续时间、刷新不叠加、抗性（装备 / 敌人自己）、
-## 减速、麻痹（不能动、不能开火）、持续伤害不触发无敌也不击退、武器带状态打中就挂上、持续伤害打死敌人照样给奖励。
-## 游戏里还没有具体的状态（中毒、灼烧、麻痹以后再加），这里用测试现做的。
+## The structure of status effects (StatusEffect data + StatusEffects timing): damage over time, duration, refresh without stacking, resistance (gear / the enemy's own),
+## slowing, paralysis (cannot move or fire), damage over time not triggering invincibility or knockback, weapons with a status applying it on hit, and kills by damage over time still giving rewards.
+## The game has no concrete statuses yet (poison, burning, paralysis come later), so these use ones made by the test.
 
 
 
-## 1 号玩家那一份成长进度。双人时每人一份（`Progress.of(index)`），这一组测的是 1 号。
+## Player 1's progress. In co-op each player has one (`Progress.of(index)`); this suite tests player 1.
 func me() -> PlayerProgress:
 	return Progress.of(0)
 
@@ -28,7 +28,7 @@ func paralysis(seconds := 1.0) -> StatusEffect:
 	return effect
 
 
-# ---------------------------------------------------------------- 计时本身
+# ---------------------------------------------------------------- The timing itself
 
 func test_damage_ticks_for_the_duration_then_stops() -> void:
 	var s := StatusEffects.new()
@@ -63,7 +63,7 @@ func test_resistance_shortens_and_immunity_blocks() -> void:
 	check("full resistance: immune", not s.apply(dot(&"burn", 1, 2.0), 1.0) and not s.has(&"burn"))
 
 
-# ---------------------------------------------------------------- 玩家身上
+# ---------------------------------------------------------------- On the player
 
 func test_the_player_takes_poison_without_iframes_or_knockback() -> void:
 	await reset_scene()
@@ -120,7 +120,7 @@ func test_slows_stack_with_crouching() -> void:
 	player.is_crouching = false
 
 
-# ---------------------------------------------------------------- 武器带状态、敌人身上
+# ---------------------------------------------------------------- Weapons with a status, on enemies
 
 func test_a_weapon_with_a_status_puts_it_on_what_it_hits() -> void:
 	await reset_scene(true)
@@ -164,7 +164,7 @@ func test_enemies_can_resist_and_burning_to_death_pays() -> void:
 	check("and still pays", me().xp == reward, "%d vs %d" % [me().xp, reward])
 
 
-# ---------------------------------------------------------------- 第一个真正的状态：中毒（第五关的毒雾）
+# ---------------------------------------------------------------- The first real status: poison (the gas clouds of stage 5)
 
 const POISON := "res://status/poison.tres"
 const CLOUD := "res://scenes/poison_cloud.tscn"
@@ -207,7 +207,7 @@ func test_standing_in_a_cloud_poisons_you_and_it_lingers_after() -> void:
 
 
 func test_staying_in_the_cloud_does_not_stack() -> void:
-	# 待在里面一直刷新持续时间，但每跳的伤害不变——两秒里掉的血和「中一次毒两秒」一样多
+	# Staying inside keeps refreshing the duration, but the damage per tick is the same — two seconds lose as much health as "poisoned once for two seconds"
 	await reset_scene()
 	var poison := load(POISON) as StatusEffect
 	player.global_position = Vector2(400, 304)

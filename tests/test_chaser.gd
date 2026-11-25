@@ -1,11 +1,11 @@
 extends GameTest
-## 敌人 D（冲锋型）：不开枪不趴下、巡逻用普通速度、240px 内看见玩家就用 150 的冲锋速度（比玩家走路慢）冲过去、
-## 靠碰撞伤人、能跳墙跳平台、墙挡视线、追丢后会放弃。
+## Enemy D (charger): does not shoot or go prone, patrols at normal speed, and when it sees the player within 240px charges at 150 (slower than the player's walk),
+## hurts by contact, jumps walls and platforms, walls block its sight, and it gives up after losing the player.
 
 const GROUND_ENEMY_Y := 306.0
 
 
-## 只留 D，把它摆在地面 x 处朝 facing 站好；玩家先停在远处（射程外）。
+## Keep only D, standing on the ground at x facing facing; the player waits far away (out of range) first.
 func _setup_chaser(x: float, facing: int, keep_walls := false) -> EnemyChaser:
 	await reset_scene(true, keep_walls)
 	keep_only_enemies(["ChaserD"])
@@ -21,10 +21,10 @@ func _setup_chaser(x: float, facing: int, keep_walls := false) -> EnemyChaser:
 	return d
 
 
-## 追击中每帧结束时，D 都应该面朝它正在追的位置（画面就是在这之后画的）。
-## 光看「最后追没追到」不够：如果追击时也按巡逻规则在悬崖/墙前掉头，
-## 它下一帧会重新转回来、照样追到，但画面上会看到它背对着玩家冲过来。
-## 例外：玩家在正下方、它正走向平台边缘准备下去的时候（_drop_direction != 0），朝向由那个方向决定。
+## While chasing, at the end of every frame D should face the spot it is chasing (the picture is drawn after this).
+## Looking only at "did it catch up in the end" is not enough: if it also turned around at ledges / walls by the patrol rules while chasing,
+## it would turn back the next frame and catch up anyway, but on screen it would come charging with its back to the player.
+## Exception: with the player right below and it walking toward the platform edge to go down (_drop_direction != 0), that direction decides the facing.
 func _facing_wrong_way(d: EnemyChaser) -> bool:
 	var offset_x := d._last_seen.x - d.global_position.x
 	return d.is_chasing and d._drop_direction == 0 and absf(offset_x) > 4.0 and d.facing != signi(offset_x)
@@ -67,7 +67,7 @@ func test_d_charges_when_it_sees_the_player() -> void:
 
 
 func test_d_turns_around_for_a_player_behind_it() -> void:
-	# D 看的是直线距离，不分前后：玩家在背后也会转身冲过去（巡逻兵只看正前方）。
+	# D goes by straight-line distance, front or back: it turns and charges even with the player behind it (patrollers only look straight ahead).
 	var d := await _setup_chaser(500.0, 1)
 	_put_player(300.0)
 	await frames(5)
@@ -75,7 +75,7 @@ func test_d_turns_around_for_a_player_behind_it() -> void:
 
 
 func test_d_ignores_a_player_it_cannot_see() -> void:
-	# 在 240px 外、自己又不在屏幕里：发现不了玩家，照常巡逻
+	# Beyond 240px and not on screen itself: it cannot spot the player and patrols as usual
 	var d := await _setup_chaser(1000.0, 1)
 	_put_player(240.0)
 	await frames(30)
@@ -84,7 +84,7 @@ func test_d_ignores_a_player_it_cannot_see() -> void:
 
 
 func test_d_sees_the_player_whenever_it_is_on_screen() -> void:
-	# 玩家看得见它的时候它也得看得见玩家：在屏幕里，就算隔着 260px（超过 240）也会冲过来
+	# When the player can see it, it has to see the player: on screen it charges even from 260px away (beyond 240)
 	var d := await _setup_chaser(500.0, 1)
 	_put_player(240.0)
 	await frames(5)
@@ -120,7 +120,7 @@ func test_d_hurts_by_touching_the_player() -> void:
 
 
 func test_walls_block_d_vision() -> void:
-	# Wall2：x 800..816，高 56。D 在墙右边，玩家在墙左边，距离 140px（在 240 以内）。
+	# Wall2: x 800..816, 56 tall. D right of the wall, the player left of it, 140px apart (within 240).
 	var d := await _setup_chaser(900.0, 1, true)
 	_put_player(760.0)
 	var ever_chased := false
@@ -135,7 +135,7 @@ func test_walls_block_d_vision() -> void:
 
 
 func test_d_follows_the_player_over_a_wall() -> void:
-	# D 先看见玩家（中间没墙），玩家再翻过 Wall2 逃跑：D 要追到最后看见的位置并跳墙追过去。
+	# D sees the player first (no wall between), then the player escapes over Wall2: D has to chase to where it last saw them and jump the wall after them.
 	var d := await _setup_chaser(1040.0, -1, true)
 	_put_player(880.0)
 	await frames(5)
@@ -159,7 +159,7 @@ func test_d_follows_the_player_over_a_wall() -> void:
 
 
 func test_d_jumps_up_onto_a_platform() -> void:
-	# 玩家站在 Platform1（单向，x 160..256，顶面 y=256）上，D 在下面的地面上。
+	# The player stands on Platform1 (one-way, x 160..256, top y=256), D on the ground below.
 	var d := await _setup_chaser(380.0, -1)
 	_put_player(208.0, 240.0)
 	var landed := false
@@ -173,7 +173,7 @@ func test_d_jumps_up_onto_a_platform() -> void:
 
 
 func test_d_charges_off_its_platform() -> void:
-	# 关卡里的真实摆放：D 在 Platform6（x 1000..1096，顶面 y=184）上，玩家走到下面的地面上。
+	# The real placement in the level: D on Platform6 (x 1000..1096, top y=184), the player walking on the ground below.
 	await reset_scene(true, true)
 	keep_only_enemies(["ChaserD"])
 	var d: EnemyChaser = main.get_node("Enemies/ChaserD")
@@ -197,7 +197,7 @@ func test_d_gives_up_after_losing_the_player() -> void:
 	_put_player(360.0)
 	await frames(5)
 	check("D is chasing", d.is_chasing)
-	_put_player(1120.0) # 突然跑出 240px 外
+	_put_player(1120.0) # Suddenly run more than 240px away
 	var gave_up_at := -1
 	for i in 240:
 		await tree.physics_frame
@@ -210,8 +210,8 @@ func test_d_gives_up_after_losing_the_player() -> void:
 
 
 func test_d_gets_down_when_the_player_is_right_below() -> void:
-	# D 站在 Platform1（单向，x 160..256，顶面 y=256）正中间，玩家就在它正下方的地面上。
-	# 单向平台不挡视线，D 一直看得见玩家；它必须自己走下平台，而不是停在头顶干等。
+	# D stands in the middle of Platform1 (one-way, x 160..256, top y=256), with the player on the ground right below it.
+	# One-way platforms do not block sight, so D can always see the player; it has to walk off the platform itself, not wait above their head.
 	await reset_scene(true)
 	keep_only_enemies(["ChaserD"])
 	var d: EnemyChaser = main.get_node("Enemies/ChaserD")
@@ -224,8 +224,8 @@ func test_d_gets_down_when_the_player_is_right_below() -> void:
 		await tree.physics_frame
 		if reached_ground_at < 0 and d.is_on_floor() and d.global_position.y > 300.0:
 			reached_ground_at = i
-		# 不能一碰到玩家就跳出：D 是边往下掉边撞上玩家的，那时它还没落地，
-		# 提前 break 会让「它确实自己下来了」这条断言永远看不到落地那一帧。
+		# Do not break out the moment it touches the player: D runs into the player while falling, before it has landed,
+		# and breaking early would mean the assertion "it really came down by itself" never sees the landing frame.
 		hurt = hurt or player.health < player.max_health
 	check("D walks off the platform to get to the player below", reached_ground_at >= 0, "D at %s" % d.global_position)
 	check("and then reaches the player", hurt)
@@ -233,8 +233,8 @@ func test_d_gets_down_when_the_player_is_right_below() -> void:
 
 
 func test_one_way_platform_sides_do_not_make_d_jump() -> void:
-	# D 站在 Wall2 顶上（x 800..816，顶面 y=264），正前方是 Platform5（单向，x 840..936，y 248..264）的侧面，
-	# 高度正好对着它的前方检测射线。单向平台横着能穿过去，D 应该直接走过去追玩家，而不是当成墙起跳。
+	# D stands on top of Wall2 (x 800..816, top y=264), and right ahead is the side of Platform5 (one-way, x 840..936, y 248..264),
+	# exactly at the height of its forward check ray. One-way platforms can be passed through sideways, so D should walk straight through after the player instead of jumping as if it were a wall.
 	await reset_scene(true, true)
 	keep_only_enemies(["ChaserD"])
 	var d: EnemyChaser = main.get_node("Enemies/ChaserD")
@@ -254,7 +254,7 @@ func test_one_way_platform_sides_do_not_make_d_jump() -> void:
 	check("D gets down to the player", d.global_position.y > 300.0, "D at %s" % d.global_position)
 
 
-## D 冲锋时，玩家往反方向跑，隔 1 秒前后比较双方的距离。
+## While D charges the player runs the other way; compare their distance one second apart.
 func _gap_after_running_away(sprint: bool) -> Array:
 	var d := await _setup_chaser(760.0, 1)
 	_put_player(840.0)
@@ -263,7 +263,7 @@ func _gap_after_running_away(sprint: bool) -> Array:
 	Input.action_press("move_right")
 	if sprint:
 		Input.action_press("sprint")
-	await frames(20) # 先让双方都加速到稳定速度
+	await frames(20) # Let both speed up to a steady speed first
 	var gap_before := player.global_position.x - d.global_position.x
 	await frames(60)
 	var gap_after := player.global_position.x - d.global_position.x
@@ -280,15 +280,15 @@ func test_walking_away_keeps_ahead_of_d() -> void:
 func test_sprinting_away_outruns_d() -> void:
 	var r := await _gap_after_running_away(true)
 	check("D was chasing", r[0])
-	# 奔跑 270 对冲锋 150，一秒拉开约 120px。
+	# Running at 270 against a charge of 150 opens about 120px in a second.
 	check("sprinting away opens a clear gap", r[2] - r[1] > 80.0, "%.1f -> %.1f" % [r[1], r[2]])
 
 
-# ---------------------------------------------------------------- 撞上之后弹开
+# ---------------------------------------------------------------- Bouncing back after a bump
 
 func test_d_bounces_off_instead_of_sitting_on_the_player() -> void:
-	# 不弹开的话它会一直贴在玩家身上，无敌帧一过又扣一次血——玩家被顶在角落就只能站着挨打。
-	# **别摆在 x 592..704**：那底下是矮通道，净空 30px，32px 高的敌人会被卡在里面动不了
+	# Without the bounce it would stay glued to the player and hit again as soon as the invincibility frames ran out — a player pinned in a corner could only stand and take it.
+	# **Do not place it at x 592..704**: that is under the crawl passage with 30px of clearance, and a 32px-tall enemy gets stuck in there
 	var d := await _setup_chaser(500.0, -1)
 	_put_player(400.0)
 	var health_before := player.health
@@ -299,7 +299,7 @@ func test_d_bounces_off_instead_of_sitting_on_the_player() -> void:
 	check("setup: D got to the player", player.health < health_before, str(player.health))
 	check("and got shoved back", d.is_bouncing())
 	var gap_at_hit := absf(d.global_position.x - player.global_position.x)
-	# 玩家原地不动（挨打的击退过后就停下），看它退开多远
+	# The player stands still (stopping after the knockback of the hit); see how far it backs off
 	player.velocity = Vector2.ZERO
 	var widest := gap_at_hit
 	for i in int(d.bounce_time * 60.0) + 6:
@@ -313,7 +313,7 @@ func test_d_bounces_off_instead_of_sitting_on_the_player() -> void:
 
 
 func test_d_does_not_drain_the_player_while_bouncing() -> void:
-	# 撞一下、退开、再来：一次撞击只该扣一次血，不是贴着一路扣下去。
+	# Hit, back off, again: one bump should cost one hit of health, not keep draining it while glued on.
 	var d := await _setup_chaser(500.0, -1)
 	_put_player(400.0)
 	var start := player.health

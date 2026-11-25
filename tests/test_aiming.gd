@@ -1,6 +1,6 @@
 extends GameTest
-## 魂斗罗式 16 方向瞄准：W + 左右边走边斜上，只按 W 原地正上；S + 左右边走边斜下，只按 S 地面上斜下、空中正下；
-## W、S 同时按抵消；趴下（Ctrl / LT）时一律水平。另外确认按键：S/↓ 是向下瞄准，Ctrl/LT 趴下，Alt/LB 奔跑。
+## Contra-style aiming: W + left/right is diagonally up while walking, W alone straight up on the spot; S + left/right diagonally down while walking, S alone diagonally down on the ground and straight down in the air;
+## W and S together cancel out; always level while prone (Ctrl / LT). Also confirms the keys: S/↓ aims down, Ctrl/LT goes prone, Alt/LB runs.
 
 const OPEN_X := 400.0
 
@@ -22,7 +22,7 @@ func release(actions: Array) -> void:
 		Input.action_release(action)
 
 
-## 按住这些键若干帧，返回瞄准方向。
+## Hold these keys for some frames and return the aim direction.
 func aim_with(actions: Array, hold := 3) -> Player.Aim:
 	press(actions)
 	await frames(hold)
@@ -32,7 +32,7 @@ func aim_with(actions: Array, hold := 3) -> Player.Aim:
 	return result
 
 
-## 开一枪，返回这颗子弹（没开出来返回 null）。
+## Fire one shot and return that bullet (null if none came out).
 func fire_once() -> Bullet:
 	player.current_slot().cooldown_left = 0.0
 	Input.action_press("shoot")
@@ -50,7 +50,7 @@ func key_event(physical_keycode: Key, pressed: bool) -> void:
 	Input.flush_buffered_events()
 
 
-# ---------------------------------------------------------------- 按键
+# ---------------------------------------------------------------- Keys
 
 func test_keyboard_layout() -> void:
 	await reset_scene()
@@ -74,7 +74,7 @@ func test_real_s_and_ctrl_keys() -> void:
 	check("releasing Ctrl stands up", not player.is_crouching)
 
 
-# ---------------------------------------------------------------- 瞄准规则
+# ---------------------------------------------------------------- Aiming rules
 
 func test_aim_on_the_ground() -> void:
 	await start()
@@ -126,7 +126,7 @@ func test_gun_follows_the_aim() -> void:
 		await frames(2)
 
 
-# ---------------------------------------------------------------- 子弹
+# ---------------------------------------------------------------- Bullets
 
 func test_bullet_directions_and_muzzles() -> void:
 	await start()
@@ -150,7 +150,7 @@ func test_bullet_directions_and_muzzles() -> void:
 			check("%s: flies %s" % [c[2], c[1]], bullet.direction.is_equal_approx(c[1]), str(bullet.direction))
 			check("%s: drawn along its path" % c[2], is_equal_approx(bullet.rotation, c[1].angle()), "%.3f" % bullet.rotation)
 			var offset: Vector2 = bullet.global_position - center
-			# 出膛点在身体外、朝子弹飞的那一边。
+			# The muzzle is outside the body, on the side the bullet flies to.
 			check("%s: leaves from the side it flies toward" % c[2], offset.dot(c[1]) > 12.0, str(offset))
 			bullet.free()
 		await frames(12)
@@ -183,7 +183,7 @@ func test_walking_while_firing_diagonally() -> void:
 
 
 func test_diagonal_down_on_flat_ground_hits_the_ground() -> void:
-	# 和魂斗罗一样：在平地上斜下开枪，枪口离地面只有几个像素，子弹马上打在地上。
+	# Like Contra: firing diagonally down on flat ground, the muzzle is only a few pixels above the floor and the bullet hits the ground at once.
 	await start()
 	Input.action_press("aim_down")
 	await frames(2)
@@ -194,7 +194,7 @@ func test_diagonal_down_on_flat_ground_hits_the_ground() -> void:
 	check("with an impact sound", events.has(&"bullet_impact"))
 
 
-# ---------------------------------------------------------------- 实战
+# ---------------------------------------------------------------- In action
 
 func test_diagonal_up_hits_a_flyer() -> void:
 	await reset_scene(true)
@@ -203,14 +203,14 @@ func test_diagonal_up_hits_a_flyer() -> void:
 	player.global_position = Vector2(200, 304)
 	player.velocity = Vector2.ZERO
 	await frames(5)
-	# 斜上 90°：出膛点在身体中心右上 (18, -18)，要升 198px 到 E 的高度，就得往右 198px。
+	# Diagonally up at 90°: the muzzle is up and right of the body centre at (18, -18); rising 198px to E's height means going 198px right.
 	flyer.set_anchor(Vector2(200 + 18 + 198, 88))
 	flyer.move_speed = 0.0
-	flyer.follow_speed = 0.0 # 它看见玩家会飞过来：定住，才好测斜射的弹道
+	flyer.follow_speed = 0.0 # It flies over when it sees the player: freeze it so the diagonal trajectory can be tested
 	flyer.wave_amplitude = 0.0
 	var deaths := []
 	flyer.died.connect(func(): deaths.append(true))
-	# 每发都回到原位按住 W + 右开一枪（边走边斜上）；走一帧只挪 1.5px，不影响瞄准线。
+	# Each shot goes back to the start position and fires holding W + right (diagonally up while walking); one frame of walking only moves 1.5px, which does not affect the aim line.
 	for shot in 4:
 		player.global_position = Vector2(200, 304)
 		player.velocity = Vector2.ZERO
@@ -224,7 +224,7 @@ func test_diagonal_up_hits_a_flyer() -> void:
 
 
 func test_shooting_down_through_a_platform() -> void:
-	# 玩家站在 Platform1（单向，x 160..128，顶面 y=256）上起跳往下打，巡逻兵 A 在平台正下方的地面上。
+	# The player stands on Platform1 (one-way, x 160..128, top y=256) and jumps to fire down, with patroller A on the ground right below the platform.
 	await reset_scene(true)
 	keep_only_enemies(["WalkerA"])
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
@@ -251,14 +251,14 @@ func test_shooting_down_through_a_platform() -> void:
 
 
 func test_diagonal_down_from_a_ledge() -> void:
-	# 玩家站在 Platform1 右边缘朝右斜下打，巡逻兵在右下方的地面上。
+	# The player stands on the right edge of Platform1 and fires diagonally down to the right, with the patroller on the ground below to the right.
 	await reset_scene(true)
 	keep_only_enemies(["WalkerA"])
 	var walker: EnemyWalker = main.get_node("Enemies/WalkerA")
 	player.global_position = Vector2(240, 240)
 	player.velocity = Vector2.ZERO
 	await frames(10)
-	# 出膛点在 (258, 248)，90° 往下到巡逻兵身体中线 y=306 要走 58px。
+	# The muzzle is at (258, 248); going down at 90° to the patroller's body centre line at y=306 takes 58px.
 	walker.global_position = Vector2(258 + 58, 306)
 	walker.move_speed = 0.0
 	walker.facing = 1

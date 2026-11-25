@@ -1,32 +1,32 @@
 class_name PlayerProgress
 extends RefCounted
-## 一个角色的成长进度：名字、外观、等级、经验、金钱、技能点和加点、背包里的装备、身上的装备。
+## One character's progression: name, look, level, XP, money, skill points and how they are spent, gear in the bag, gear equipped.
 ##
-## **身份是角色，不是座位**：存档里是一份角色名册，开局时每个玩家从名册里挑一个（或新建）坐进去。
-## 名册和座位都归 autoload `Progress` 管，它还管存档和杀敌奖励发给谁。
-## **放在关卡外面**：玩家死了重开关卡时整个关卡连同玩家节点都会重建，这些东西不能记在玩家身上——
-## 死亡后全部保留（设计如此，允许刷）。玩家出生时从自己这一份读属性和武器，属性一变就重新读（`stats_changed`）。
+## **The identity is the character, not the seat**: the save holds a roster of characters, and at the start each player picks one from it (or creates one) to sit in.
+## The roster and the seats both belong to the autoload `Progress`, which also handles saving and who gets each kill reward.
+## **It lives outside the stage**: when a player dies and the stage restarts, the whole stage including the player node is rebuilt, so none of this can be stored on the player —
+## everything is kept after death (by design; grinding is allowed). A player reads its stats and weapons from its own progress on spawn, and again whenever the stats change (`stats_changed`).
 ##
-## 属性 = 初始值（Balance.base）+ 加点 × 每点加多少 + 身上所有装备的加成，再按 Balance.cap 封顶。
+## Stat = starting value (Balance.base) + points × per-point gain + the bonuses of all equipped gear, capped by Balance.cap.
 
-## 属性（加点、换装备、升级）变了。玩家据此重新计算血量上限、伤害、冷却、冲刺时长。
+## Stats changed (points spent, gear changed, level up). The player recomputes max health, damage, cooldowns and sprint length from it.
 signal stats_changed
-## 经验、金钱、等级、技能点任何一个变了（HUD 显示用）。
+## Any of XP, money, level or skill points changed (for the HUD).
 signal progress_changed
 signal leveled_up(level: int)
-## 任何一处变了，`Progress` 听着存档。
+## Anything changed; `Progress` listens and saves.
 signal changed
 
-## 新开一局时身上的武器。
+## Weapons carried when starting a new game.
 const STARTING_GEAR: Array[String] = ["res://weapons/rifle.tres", "res://weapons/grenade.tres"]
-## 没挑外观时用哪套。
+## Which look to use when none was picked.
 const DEFAULT_LOOK := &"biker"
-## 名字最多几个字符。界面上那一栏和存档列表都是按这个宽度排的。
+## Maximum name length. The name field in the UI and the save list are laid out for this width.
 const NAME_LIMIT := 10
 
 
-## 把玩家敲进来的名字收拾成能存的样子：大写、只留字母数字和空格、掐掉两头的空格、限长。
-## 界面一律英文大写（素材包的字模就只有这些，见 CLAUDE.md）。
+## Tidy up a typed name into something that can be saved: upper case, letters, digits and spaces only, trimmed at both ends, length limited.
+## The UI is always English upper case (the pack's font only has these, see CLAUDE.md).
 static func sanitize_name(raw: String) -> String:
 	var kept := ""
 	for ch in raw.to_upper():
@@ -36,28 +36,28 @@ static func sanitize_name(raw: String) -> String:
 
 var balance: Balance
 
-## 角色名（全大写字母、数字和空格，见 `sanitize_name()`）。名册里不允许重名。
+## Character name (upper-case letters, digits and spaces, see `sanitize_name()`). No duplicate names in the roster.
 var character_name := ""
-## 用哪套外观（皮肤键）。纯装饰，随时可换，不影响任何规则。
+## Which look to use (skin key). Purely cosmetic, can change any time, affects no rule.
 var look := DEFAULT_LOOK
-## 玩这个角色玩了多久（秒）。只在关卡里累加，菜单和暂停不算。
+## How long this character has been played (seconds). Only counted in stages; menus and pause do not count.
 var played_seconds := 0.0
-## 上次存档的时间（`Time.get_datetime_string_from_system()`），存档列表里显示。
+## When it was last saved (`Time.get_datetime_string_from_system()`), shown in the save list.
 var saved_at := ""
 
 var level := 1
-## 这个角色**打到第几关**了：已经解锁几关（1 = 只解锁了第一关）。
-## **记在角色身上**，不是全局——每个角色是自己的一周目，新建一个从第 1 关开始，和名册的设计一致。
+## **How far this character has got**: how many stages are unlocked (1 = only the first).
+## **Stored on the character**, not globally — each character is its own playthrough, and a new one starts at stage 1, consistent with the roster design.
 var reached := 1
 var xp := 0
 var money := 0
-## 还没分配的技能点。
+## Skill points not spent yet.
 var points := 0
-## 每个属性加了几点。
+## Points spent on each stat.
 var allocated: Dictionary[StringName, int] = {}
-## 拥有的装备（含身上穿着的）。
+## Gear owned (including what is equipped).
 var owned: Array[Equipment] = []
-## 身上的装备：位置 → 装备。
+## Gear equipped: slot → item.
 var equipped: Dictionary[int, Equipment] = {}
 
 
@@ -66,7 +66,7 @@ func _init(from_balance: Balance) -> void:
 	new_game()
 
 
-## 从头开始：1 级、没钱、只有初始武器，外加几个可以马上花的技能点（`Balance.starting_points`）。
+## Start from scratch: level 1, no money, only the starting weapons, plus a few skill points to spend right away (`Balance.starting_points`).
 func new_game() -> void:
 	played_seconds = 0.0
 	level = 1
@@ -84,9 +84,9 @@ func new_game() -> void:
 	progress_changed.emit()
 
 
-# ---------------------------------------------------------------- 属性
+# ---------------------------------------------------------------- Stats
 
-## 某个属性现在是多少。
+## The current value of a stat.
 func stat(name: StringName) -> float:
 	var value: float = balance.base.get(name, 0.0) + allocated.get(name, 0) * balance.per_point.get(name, 0.0)
 	for item: Equipment in equipped.values():
@@ -96,7 +96,7 @@ func stat(name: StringName) -> float:
 	return value
 
 
-## 对某个异常状态的抗性（0..1）：身上装备里最大的那个。
+## Resistance to a status (0..1): the highest among the equipped gear.
 func resistance(status: StringName) -> float:
 	var best := 0.0
 	for item: Equipment in equipped.values():
@@ -104,23 +104,23 @@ func resistance(status: StringName) -> float:
 	return clampf(best, 0.0, 1.0)
 
 
-## 身上某个位置的装备，没有返回 null。
+## The item equipped in a slot, null if none.
 func gear(slot: Equipment.Slot) -> Equipment:
 	return equipped.get(slot)
 
 
-# ---------------------------------------------------------------- 经验、等级、技能点、金钱
+# ---------------------------------------------------------------- XP, level, skill points, money
 
-## 满级了吗。满级之后经验不再累计（`xp_to_next` 返回 0，界面上显示 MAX）。
-## 关卡一加载就开始记时长（`main.gd` 每帧调 `tick_playtime()`），所以「没玩过」不能卡在 0 上——
-## 坐进去那几帧也会记上一点。给一秒宽限：真玩过的哪怕只玩了几秒也留着，
-## 只有「坐下就又站起来」的才算没玩过。
+## At max level? At max level XP no longer accumulates (`xp_to_next` returns 0, the UI shows MAX).
+## Play time starts counting as soon as a stage loads (`main.gd` calls `tick_playtime()` every frame), so "never played" cannot mean exactly 0 —
+## the few frames after sitting down add a little too. Allow one second of grace: anyone who really played, even for a few seconds, is kept;
+## only "sat down and got straight back up" counts as never played.
 const UNPLAYED_GRACE := 1.0
 
 
-## 这个角色**一分钟都没玩过、一点也没加过**吗。菜单里按 NEW 就现开一个角色，
-## 退回去重选时靠它判断上一个该不该留在名册里（见 `Progress.take_seat()`）。
-## 名字和外观不算——改个名、换张脸还没决定要不要玩，不该因此在存档列表里占一行。
+## Has this character **never been played for a minute and never been changed at all**? Choosing NEW in the menu creates a character on the spot,
+## and when going back to choose again this decides whether the previous one stays in the roster (see `Progress.take_seat()`).
+## Name and look do not count — renaming or changing the face without deciding to play should not take up a row in the save list.
 func is_untouched() -> bool:
 	return (played_seconds < UNPLAYED_GRACE and allocated.is_empty()
 		and level == 1 and xp == 0 and money == 0)
@@ -153,8 +153,8 @@ func add_money(amount: int) -> void:
 	_changed(false)
 
 
-## 把加在某个属性上的点退回来一个。这个属性一点都没加过就退不了，返回是否退了。
-## **只退得回自己加的**：初始值是底，退不到底下去。
+## Take back one point spent on a stat. Not possible if the stat has no points in it; returns whether a point was taken back.
+## **Only your own points can be taken back**: the starting value is the floor, you cannot go below it.
 func unspend_point(name: StringName) -> bool:
 	if allocated.get(name, 0) <= 0:
 		return false
@@ -166,13 +166,13 @@ func unspend_point(name: StringName) -> bool:
 	return true
 
 
-## 这个属性已经到顶了吗（加点 + 装备加起来碰到 `Balance.cap`）。
+## Has this stat hit its cap (points + gear together reaching `Balance.cap`)?
 func is_capped(name: StringName) -> bool:
 	return balance.cap.has(name) and stat(name) >= balance.cap[name]
 
 
-## 把一个技能点加到某个属性上。没点数、属性名不对、**或者这个属性已经到顶**都不加，返回是否加上了。
-## 到顶了还收的话，点数扣了、`allocated` 加了，`stat()` 却夹在上限不动——玩家看不出自己在白扔点数。
+## Spend a skill point on a stat. Nothing happens without points, with a wrong stat name, **or when the stat is already capped**; returns whether it was spent.
+## Accepting points at the cap would take the point and increase `allocated` while `stat()` stays clamped at the cap — the player could not tell they were throwing points away.
 func spend_point(name: StringName) -> bool:
 	if points <= 0 or not Balance.STATS.has(name) or is_capped(name):
 		return false
@@ -182,9 +182,9 @@ func spend_point(name: StringName) -> bool:
 	return true
 
 
-# ---------------------------------------------------------------- 商店、装备
+# ---------------------------------------------------------------- Shop, gear
 
-## 买一件装备：钱够就扣钱放进背包，返回是否买成。已经有了的不重复买。
+## Buy an item: if there is enough money, pay and put it in the bag; returns whether it was bought. Items already owned are not bought again.
 func buy(item: Equipment) -> bool:
 	if item == null or owned.has(item) or money < item.price:
 		return false
@@ -194,7 +194,7 @@ func buy(item: Equipment) -> bool:
 	return true
 
 
-## 脱下某个位置的装备（东西还在背包里）。本来就空着就什么都不做。
+## Take off the item in a slot (it stays in the bag). Does nothing if the slot is already empty.
 func unequip(slot: Equipment.Slot) -> bool:
 	if not equipped.has(slot):
 		return false
@@ -203,13 +203,13 @@ func unequip(slot: Equipment.Slot) -> bool:
 	return true
 
 
-## 这件装备够不够得着（等级门槛）。**买得到但穿不上**：钱多的时候先屯着，练到级再穿——
-## 没有这道门槛的话，刷够钱就能提前穿上顶级货，23 关的曲线当场塌掉。
+## Can this item be used yet (level requirement)? **You can buy it before you can wear it**: with money to spare, stock up first and wear it once you have the level —
+## without the requirement, enough grinding for money would let you wear top gear early and the curve over 23 stages would collapse right there.
 func can_equip(item: Equipment) -> bool:
 	return item != null and item.min_level <= level
 
 
-## 穿上背包里的一件装备（同一位置原来那件留在背包里）。等级不够穿不上。
+## Equip an item from the bag (whatever was in that slot stays in the bag). Not possible without the level.
 func equip(item: Equipment) -> bool:
 	if item == null or not owned.has(item) or not can_equip(item):
 		return false
@@ -218,18 +218,18 @@ func equip(item: Equipment) -> bool:
 	return true
 
 
-## 卖出的价钱：**原价的一半**。游戏里不掉装备，所以卖出不会变成刷钱的漏洞。
+## Selling price: **half the original price**. The game does not drop gear, so selling cannot become a money exploit.
 static func sell_price(item: Equipment) -> int:
 	return 0 if item == null else item.price / 2
 
 
-## 卖得掉吗。**白给的东西卖不掉**（初始的步枪和手雷没标价，和 `Catalog.gear_for_sale()` 同一条线）：
-## 卖价是 0，让它卖得掉的话玩家能把自己唯一一把枪换成零块钱，纯粹是个坑。
+## Can it be sold? **Free items cannot be sold** (the starting rifle and grenade have no price; the same line as `Catalog.gear_for_sale()`):
+## they would sell for 0, and allowing it would let the player swap their only gun for nothing — a pure trap.
 static func can_sell(item: Equipment) -> bool:
 	return item != null and item.price > 0
 
 
-## 卖掉一件装备（**身上穿着的也能卖**，会自动脱下来）。返回卖了多少钱，没卖成是 0。
+## Sell an item (**equipped items can be sold too**, they are taken off automatically). Returns the money received, 0 if nothing was sold.
 func sell(item: Equipment) -> int:
 	if item == null or not owned.has(item) or not can_sell(item):
 		return 0
@@ -242,22 +242,22 @@ func sell(item: Equipment) -> int:
 	return paid
 
 
-## 把这件穿上（`wear`）或者脱下（不 wear）之后，四个属性会变成多少。
-## 商店里那行「现在 → 之后」就靠它；**算完把身上恢复原样**，不真的换。
-## 一把武器**在这个角色手上**的实际数字：每发伤害、每秒几发、弹药上限（-1 = 无限）。
-## 商店和人物设置都读它——攻击力和速度都算进去了，所以同一把枪在不同角色手里写出来的数不一样。
+## What the four stats would become after putting this on (`wear`) or taking it off (not wear).
+## The shop's "now → after" line comes from this; **the gear is put back afterwards**, nothing is really changed.
+## A weapon's real numbers **in this character's hands**: damage per shot, shots per second, ammo cap (-1 = unlimited).
+## The shop and character setup both read this — attack and speed are included, so the same gun shows different numbers for different characters.
 ##
-## 伤害是照着武器槽真正发射时那一套算的（`WeaponSlot.fire()` → `scale_damage(power × 攻击倍率)`），
-## 两边错开的话界面上写的就是一个骗人的数。
-## 子弹看 `damage`、手雷看 `max_damage`（中心那一下），所以两种武器写出来的都是**一次打满能打多少**。
+## Damage is worked out exactly as the weapon slot does when really firing (`WeaponSlot.fire()` → `scale_damage(power × attack multiplier)`);
+## if the two drifted apart, the UI would show a misleading number.
+## Bullets use `damage`, grenades `max_damage` (the centre hit), so both kinds show **the most a single hit can do**.
 func weapon_numbers(weapon: Weapon) -> Dictionary:
 	if weapon == null:
 		return {}
 	var out := {
 		&"rate": 1.0 / maxf(0.01, weapon.cooldown * Balance.cooldown_scale(stat(Balance.SPEED))),
 	}
-	# **弹药无限的就不写这一项**：`max_ammo` 是 -1，照抄出来界面上就是一行 `AMMO -1`。
-	# 步枪和手雷都是无限的，所以这一行只有终极武器那种有限弹药的才出现。
+	# **Unlimited ammo is not listed**: `max_ammo` is -1, and copied as is the UI would show a line saying `AMMO -1`.
+	# The rifle and grenade are both unlimited, so this line only appears for limited ammo like the ultimate.
 	if weapon.max_ammo >= 0:
 		out[&"ammo"] = float(weapon.max_ammo)
 	var damage := _projectile_damage(weapon)
@@ -266,8 +266,8 @@ func weapon_numbers(weapon: Weapon) -> Dictionary:
 	return out
 
 
-## 发射物本身打多少。**`instantiate()` 不会跑 `_ready`**（要加进场景树才会），
-## 所以这儿造一个出来读完就扔是安全的，不会挂进分组、不会去问皮肤包要外观。
+## How much the projectile itself deals. **`instantiate()` does not run `_ready`** (that only happens once added to the tree),
+## so creating one here, reading it and throwing it away is safe: it joins no groups and does not ask the skin pack for a look.
 func _projectile_damage(weapon: Weapon) -> float:
 	if weapon.projectile == null:
 		return 0.0
@@ -296,7 +296,7 @@ func stat_preview(item: Equipment, wear: bool) -> Dictionary:
 	return out
 
 
-# ---------------------------------------------------------------- 存档（`Progress` 负责读写文件）
+# ---------------------------------------------------------------- Save data (`Progress` reads and writes the file)
 
 func to_dict() -> Dictionary:
 	return {
@@ -315,7 +315,7 @@ func from_dict(data: Dictionary) -> void:
 	played_seconds = float(data.get("played", 0.0))
 	saved_at = String(data.get("saved_at", ""))
 	level = int(data.get("level", 1))
-	# 老存档没有这一项，读进来就是「只解锁了第一关」
+	# Old saves do not have this; read in, it means "only the first stage unlocked"
 	reached = maxi(1, int(data.get("reached", 1)))
 	xp = int(data.get("xp", 0))
 	money = int(data.get("money", 0))

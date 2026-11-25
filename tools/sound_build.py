@@ -1,19 +1,19 @@
-"""从音效包生成赛博朋克皮肤包的音效和音乐，输出到 skins/cyberpunk/sfx/ 和 skins/cyberpunk/music/。
+"""Generates the cyberpunk skin pack's sound effects and music from the sound pack, output to skins/cyberpunk/sfx/ and skins/cyberpunk/music/.
 
-    python tools/sound_build.py            # 全部重新生成
-    python tools/sound_build.py --check    # 只检查，不写文件
+    python tools/sound_build.py            # regenerate everything
+    python tools/sound_build.py --check    # only check, without writing files
 
-素材来源：CraftPix 的音效包（art_in/default/sound/，不进仓库）：29 个音效（44.1kHz 16bit 立体声 WAV）+ 5 首音乐。
-包里不少音效和这个游戏无关（狗叫、乌鸦、开关门），能对上的按 `SOUNDS` 表处理：
-- **去掉开头的静音**，再按需要**截短**（结尾 30ms 淡出，免得咔哒一声）。连发的枪声原本 0.88 秒，截到 0.2 秒，
-  否则一串子弹的声音糊成一片；终极武器定格的声音截到 2 秒，正好是定格的时长。
-- **变调不做任何音频处理**：只改 WAV 头里的采样率（`rate`）。0.8 = 播得慢一点、音调低一点——巡逻兵和炮台用同一个激光声，
-  靠降调和玩家的分开；手雷弹地用升调的 Bump。
-- `gain` 是音量倍数：开枪这种每秒响好几下的放轻一点。
-包里对不上的事件（跳跃、体力耗尽、敌人趴下、D 发现玩家）不输出，素材包里不填，照旧回落到默认包的 8-bit 音效。
+Art source: CraftPix's sound pack (art_in/default/sound/, not in the repo): 29 sound effects (44.1kHz 16bit stereo WAV) + 5 music tracks.
+Many sounds in the pack have nothing to do with this game (dogs barking, crows, doors opening and closing); those that fit are processed by the `SOUNDS` table:
+- **Leading silence is removed**, then **trimmed** as needed (a 30ms fade-out at the end so it does not click). The automatic gunshot is 0.88 seconds and is trimmed to 0.2,
+  or a string of shots would blur together; the ultimate freeze sound is trimmed to 2 seconds, exactly the length of the freeze.
+- **Pitch shifting does no audio processing**: it only changes the sample rate in the WAV header (`rate`). 0.8 = played a bit slower and lower — patrollers and turrets use the same laser sound as the player,
+  set apart by lowering the pitch; the grenade bounce uses a pitched-up Bump.
+- `gain` is a volume multiplier: sounds like gunfire that go off several times a second are made a bit quieter.
+Events without a match in the pack (jump, stamina exhausted, enemy lying down, D spotting the player) are not output and not filled in the skin pack, falling back to the default pack's 8-bit sounds as before.
 
-音乐：MP3 原样复制（`MUSIC`）。**关卡那首已经换成自己做的 `level.ogg`**（2026-09），不再从这里生成，
-所以 `MUSIC` 里只剩 Boss 那首（Track Race，节奏最紧的一条）。
+Music: MP3s copied as is (`MUSIC`). **The stage track has been replaced by our own `level.ogg`** (2026-09) and is no longer generated here,
+so `MUSIC` only has the boss track left (Track Race, the tightest rhythm of them).
 """
 import os
 import shutil
@@ -25,7 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PACK = os.path.join(HERE, "..", "art_in", "default", "sound")
 OUT = os.path.join(HERE, "..", "skins", "cyberpunk")
 
-# 事件 → (源文件, 截到几秒（None 不截）, 采样率倍数, 音量倍数)
+# Event → (source file, trimmed to how many seconds (None = no trim), sample rate multiplier, volume multiplier)
 SOUNDS = {
 	"player_shoot": ("Blaster laser", 0.2, 1.0, 0.55),
 	"enemy_shoot": ("Blaster laser", 0.2, 0.8, 0.5),
@@ -45,19 +45,19 @@ SOUNDS = {
 	"weapon_switch": ("Press", 0.3, 1.0, 0.6),
 	"game_over": ("Access denied", None, 1.0, 0.9),
 }
-# 用途 → 素材包里的曲名。**关卡那首不在这里**：换成自己做的 `skins/cyberpunk/music/level.ogg` 了
-# （OGG 循环没有接缝，MP3 会在开头结尾各补一小段静音）。加回来的话会把它盖掉。
-# intro（主菜单那首）暂时不放：包里那首 Track Intro 不合适，等找到合适的再填回来。
-# 接口还在（`SkinPack.MUSIC_KEYS` 里的 `intro`、主菜单的 `Music.play(&"intro")` 都没动），
-# 所以以后只要把曲子放进包里就能响。
+# Purpose → track name in the art pack. **The stage track is not here**: it was replaced by our own `skins/cyberpunk/music/level.ogg`
+# (OGG loops without a seam, while MP3 pads a little silence at each end). Adding it back would overwrite it.
+# intro (the main menu track) is left out for now: Track Intro in the pack does not fit, and will be filled back in once a suitable one turns up.
+# The interface is still there (`intro` in `SkinPack.MUSIC_KEYS` and `Music.play(&"intro")` in the main menu are untouched),
+# so later just putting a track in the pack makes it play.
 MUSIC = {"boss": "Track race"}
-SILENCE = 300    # 开头低于这个振幅（16bit）的都当静音去掉
-FADE = 0.03      # 结尾淡出几秒
+SILENCE = 300    # Leading samples below this amplitude (16bit) are removed as silence
+FADE = 0.03      # Seconds of fade-out at the end
 
 
 def read(name):
 	with wave.open(os.path.join(PACK, "Sounds", name + ".wav")) as w:
-		assert w.getsampwidth() == 2, "%s 不是 16bit" % name
+		assert w.getsampwidth() == 2, "%s is not 16bit" % name
 		channels, rate = w.getnchannels(), w.getframerate()
 		raw = w.readframes(w.getnframes())
 	samples = list(struct.unpack("<%dh" % (len(raw) // 2), raw))
@@ -90,14 +90,14 @@ def save(path, channels, rate, samples):
 def main():
 	write = "--check" not in sys.argv
 	if not os.path.isdir(PACK):
-		sys.exit("找不到音效素材 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(PACK))
-	print("音效：")
+		sys.exit("Cannot find the sound art %s (it is not in the repo, unpack it in yourself)" % os.path.normpath(PACK))
+	print("Sound effects:")
 	for event, (name, seconds, rate_scale, gain) in SOUNDS.items():
 		channels, rate, samples = process(name, seconds, rate_scale, gain)
 		if write:
 			save(os.path.join(OUT, "sfx", event + ".wav"), channels, rate, samples)
 		print("  sfx/%s.wav  %.2fs  ← %s" % (event, len(samples) / channels / rate, name))
-	print("音乐：")
+	print("Music:")
 	for key, name in MUSIC.items():
 		if write:
 			os.makedirs(os.path.join(OUT, "music"), exist_ok=True)

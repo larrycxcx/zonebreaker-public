@@ -1,20 +1,20 @@
 class_name PoisonCloud
 extends Node2D
-## 一团毒雾（2026-11，第五关）：在原地停一会儿，**站在里面的玩家中毒**（`status/poison.tres`），
-## 出来之后中毒还会持续一阵（状态自己的持续时间）。待在里面就一直刷新，不叠加伤害。
-## 5_f（天花板上的发射器）滴下来的毒液落地就炸成一团这个；以后别的东西也能放。
+## A poison cloud (2026-11, stage 5): it hangs where it is for a while and **players standing inside get poisoned** (`status/poison.tres`);
+## after leaving, the poison lasts a little longer (the status's own duration). Staying inside keeps refreshing it; damage does not stack.
+## The drops dripped by 5_f (the ceiling emitter) burst into one of these on landing; other things could release them later.
 ##
-## 节点原点是毒雾的中心。判定是一个圆（`radius`），和玩家的判定框相交就算在里面。
-## 外观只管画（素材包是 `Acid2` 那团慢慢散开的毒雾，占位是一个半透明的绿圈），玩法和外观无关。
-## 只伤玩家；不挡人、不挡子弹（没有碰撞体）。
+## The node origin is the centre of the cloud. The hit check is a circle (`radius`); touching the player's hitbox counts as inside.
+## The look only draws (the pack draws `Acid2`, a cloud slowly spreading out; the placeholder a translucent green circle); gameplay does not depend on it.
+## Only hurts players; blocks neither people nor bullets (no collision shape).
 
 const GROUP := &"poison_clouds"
 
 @export var skin_key := &"poison_cloud"
 @export var status: StatusEffect = preload("res://status/poison.tres")
-## 判定圆的半径：素材里毒雾散开到最大时直径约 48。
+## Radius of the hit circle: fully spread, the cloud in the art is about 48 across.
 @export var radius := 24.0
-## 停多久（秒）。
+## How long it lasts (seconds).
 @export var lifetime := 1.8
 
 var age := 0.0
@@ -39,19 +39,19 @@ func _physics_process(delta: float) -> void:
 	_show()
 
 
-## 这个框和毒雾那个圆相交吗（世界坐标）。
+## Does this box touch the cloud's circle (world coordinates)?
 func touches(box: Rect2) -> bool:
 	var nearest := Vector2(clampf(global_position.x, box.position.x, box.end.x),
 		clampf(global_position.y, box.position.y, box.end.y))
 	return nearest.distance_to(global_position) <= radius
 
 
-## 散到几成了（0 刚炸开 → 1 散完）。
+## How far it has spread (0 just burst → 1 fully gone).
 func progress() -> float:
 	return clampf(age / lifetime, 0.0, 1.0)
 
 
-## 占位色块（`TrapBlocks`）不画圆，这里给它一块方的；外观有 `show_progress` 的走那条。
+## The placeholder blocks (`TrapBlocks`) do not draw circles, so give them a square here; a look with `show_progress` takes that route instead.
 func art_rects(_frame: int) -> Array[Rect2]:
 	return [Rect2(Vector2(-radius, -radius), Vector2(radius, radius) * 2.0)]
 

@@ -1,6 +1,6 @@
 extends GameTest
-## 武器结构：玩家的武器是一个资源文件（Weapon），运行时状态在武器槽（WeaponSlot）里。
-## 这组用例确认「只换武器文件就能改变开火行为」——射速、连发/单发、弹药上限、音效事件都来自武器，不在玩家代码里。
+## The weapon structure: the player's weapon is a resource file (Weapon), and the runtime state lives in the weapon slot (WeaponSlot).
+## These cases confirm that "swapping only the weapon file changes how it fires" — fire rate, automatic / single shot, ammo cap and sound event all come from the weapon, not the player code.
 
 const OPEN_X := 400.0
 
@@ -12,7 +12,7 @@ func start() -> void:
 	await frames(10)
 
 
-## 一把只在测试里用的武器，发射普通子弹。
+## A weapon only used in tests, firing ordinary bullets.
 func make_weapon(cooldown: float, automatic := true, max_ammo := -1, fire_event := &"player_shoot") -> Weapon:
 	var weapon := Weapon.new()
 	weapon.projectile = load("res://scenes/bullet.tscn")
@@ -23,8 +23,8 @@ func make_weapon(cooldown: float, automatic := true, max_ammo := -1, fire_event 
 	return weapon
 
 
-## 按住开火键若干帧，返回这段时间里开了几枪。
-## 数的是开火事件，不是场上的子弹：子弹能飞 1.2 秒，前几次开的枪还在场上，按子弹数会重复算。
+## Hold the fire key for a number of frames and return how many shots were fired in that time.
+## It counts fire events, not bullets in the scene: bullets live 1.2 seconds, the first shots are still around, and counting bullets would count them twice.
 func hold_fire(frame_count: int, fire_event := &"player_shoot") -> int:
 	var before := events.count(fire_event)
 	Input.action_press("shoot")

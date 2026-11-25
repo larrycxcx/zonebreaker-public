@@ -1,18 +1,18 @@
 class_name BossPod
 extends Boss
-## 第五关的**关底 Boss「生化舱」**（素材 `lab-tileset/boss/3`）。2026-11 和用户定的：会飞、横扫激光、三向炮、缩壳。
+## Stage 5's **stage boss, the "biopod"** (art `lab-tileset/boss/3`). Agreed with the user in 2026-11: it flies, sweeps a beam, has a three-way cannon and a shell.
 ##
-## 招式**按固定顺序轮着来**（`ROTATION`）：横扫激光 → 三向炮 → 缩壳 → 三向炮，打两轮就背得下来。
-## 1. **横扫激光**：在空中停住蓄力（`charge_time`，预警），然后一边出光一边**往下压**（`sweep_speed`），
-##    一直压到激光离地 `chest` 高（站着的人胸口）、停一下（`sweep_hold`）。激光打到墙为止（单向平台不挡）。
-##    **躲法**：站在台子上的人跳下来，地上的人**趴下**——压到底的那一道从趴着的人头顶过去。
-## 2. **三向炮**：飘到玩家斜上方，按玩家在哪挑炮——正下方用**正下炮**、斜下方用**斜下炮**、别处用**水平炮**
-##    （素材自带三门：`Attack4_1/2/3`），每次一串（基类那套连发）。
-## 3. **缩壳**：缩成一个圆壳（`shell_time`），**这段时间打不动**（子弹、手雷、终极武器都不扣血），
-##    张开那一下朝四面八方打一圈子弹（`ring_count`），躲法是站进两发之间。
-## **血过半**：节奏变快（`enrage_rush`），横扫压到底之后**再扫回去**（人刚站起来、刚跳回台子就挨），
-## 一串炮多打两发，一圈子弹更密。只报一次 `boss_enrage`。
-## 不出地盘（`roam_range`）；飞行高度按脚下的地面算（第一次行动时往下量一次）。
+## Its moves come **in a fixed order** (`ROTATION`): beam sweep → three-way cannon → shell → three-way cannon; two rounds and you know it by heart.
+## 1. **Beam sweep**: stops in the air to charge (`charge_time`, the warning), then fires while **pressing down** (`sweep_speed`)
+## until the beam is `chest` above the floor (a standing player's chest), and holds there a moment (`sweep_hold`). The beam stops at walls (one-way platforms do not block it).
+## **Dodge**: players on platforms jump down, players on the floor **lie prone** — the beam at the bottom passes over prone players.
+## 2. **Three-way cannon**: floats diagonally above the player and picks a cannon by where the player is — **down cannon** right below, **diagonal cannon** below to the side, **level cannon** otherwise
+## (the art has all three: `Attack4_1/2/3`), one burst each time (the base class burst).
+## 3. **Shell**: closes into a round shell (`shell_time`); **nothing hurts it meanwhile** (bullets, grenades and the ultimate deal no damage),
+## and when it opens it fires a ring of bullets in every direction (`ring_count`); dodge by standing between two shots.
+## **Below half health**: faster rhythm (`enrage_rush`), after pressing down the sweep **goes back up** (hits players who just stood up or jumped back onto a platform),
+## two extra shots per cannon burst and a denser ring. `boss_enrage` is reported only once.
+## It does not leave its ground (`roam_range`); its flying height is measured from the floor below it (measured once, on its first action).
 
 enum Move { HOVER, CHARGE, SWEEP, SWEEP_BACK, CANNON, SHELL }
 enum Cannon { DOWN, DIAGONAL, LEVEL }
@@ -21,10 +21,10 @@ const ROTATION := [Move.CHARGE, Move.CANNON, Move.SHELL, Move.CANNON]
 
 @export_group("Flight")
 @export var roam_range := 220.0
-## 平时飘在离地多高。
+## Normal hovering height above the floor.
 @export var hover_height := 150.0
 @export var fly_speed := 90.0
-## 打炮时飘到玩家旁边多远（斜下炮正好够得着）。
+## How far beside the player it floats while firing the cannon (just within reach of the diagonal cannon).
 @export var side_offset := 110.0
 
 @export_group("Sweep")
@@ -33,9 +33,9 @@ const ROTATION := [Move.CHARGE, Move.CANNON, Move.SHELL, Move.CANNON]
 @export var sweep_hold := 0.3
 @export var beam_damage := 56
 @export var beam_range := 640.0
-## 激光的半粗（素材那条 12 行粗）。
+## Half thickness of the beam (the beam in the art is 12 rows thick).
 @export var beam_half := 6.0
-## 压到底时激光离地多高：站着的人胸口（站着 32 高，趴下只有 12）。
+## Height of the beam above the floor at the bottom of the sweep: a standing player's chest (32 tall standing, only 12 prone).
 @export var chest := 29.0
 
 @export_group("Cannon")
@@ -50,9 +50,9 @@ const ROTATION := [Move.CHARGE, Move.CANNON, Move.SHELL, Move.CANNON]
 @export var enrage_rush := 0.7
 @export var rest_time := 0.8
 
-## 激光从哪儿出（相对原点、朝右时）：眼睛前沿；素材里那条激光的中心比机身中心低 2。
+## Where the beam comes out (relative to the origin, facing right): the front of the eye; in the art the beam's centre is 2 below the centre of the hull.
 const BEAM_ORIGIN := Vector2(19, 2)
-## 三门炮的炮口（相对原点、朝右时），按贴图量的：不开火那一帧炮管的末端。
+## Muzzles of the three cannons (relative to the origin, facing right), measured on the art: the end of the barrel in the frame that is not firing.
 const CANNON_MUZZLES := {
 	Cannon.DOWN: Vector2(3, 31),
 	Cannon.DIAGONAL: Vector2(18, 29),
@@ -97,7 +97,7 @@ func _boss_process(delta: float) -> void:
 			if _left <= 0.0:
 				_start(Move.SWEEP)
 		Move.SWEEP:
-			# 最后一步只走到底线为止，不冲过去
+			# The last step only goes as far as the bottom line, never past it
 			velocity.y = minf(sweep_speed / _rush(), (sweep_floor() - beam_height()) / delta)
 			_burn()
 			if beam_height() >= sweep_floor() - 0.01:
@@ -109,7 +109,7 @@ func _boss_process(delta: float) -> void:
 					else:
 						_rest()
 		Move.SWEEP_BACK:
-			# 二阶段：压到底再扫回去
+			# Phase 2: press down, then sweep back up
 			velocity.y = -sweep_speed / _rush()
 			_burn()
 			if global_position.y <= hover_y():
@@ -160,7 +160,7 @@ func _rush() -> float:
 	return enrage_rush if _enraged else 1.0
 
 
-## 缩着壳的时候什么都打不动（终极武器对 Boss 也是走这里扣血，所以一起挡住了）。
+## Nothing hurts it while it is in its shell (the ultimate also deals boss damage through here, so it is blocked too).
 func take_damage(amount: int, source_position := Vector2.INF, from: Node = null) -> void:
 	if is_shelled():
 		return
@@ -172,14 +172,14 @@ func take_damage(amount: int, source_position := Vector2.INF, from: Node = null)
 		GameEvents.report(&"boss_enrage", self)
 
 
-# --- 激光 ---
+# --- Beam ---
 
-## 平时飘的高度（原点的 y）。
+## Normal hovering height (origin y).
 func hover_y() -> float:
 	return _floor_y - hover_height
 
 
-## 横扫压到底时激光的高度。
+## Height of the beam at the bottom of the sweep.
 func sweep_floor() -> float:
 	return _floor_y - chest
 
@@ -224,9 +224,9 @@ func _show_beam() -> void:
 	_visual.call(&"show_beam", state, length, BEAM_ORIGIN.y)
 
 
-# --- 三向炮 ---
+# --- Three-way cannon ---
 
-## 基类每一串开始时调一次：按玩家在哪挑炮。
+## Called once by the base class at the start of every burst: pick a cannon by where the player is.
 func shoot_direction() -> Vector2:
 	cannon = pick_cannon(_nearest())
 	_play(CANNON_CLIPS[cannon])
@@ -257,7 +257,7 @@ func _muzzle_position() -> Vector2:
 	return global_position + Vector2(at.x * facing, at.y)
 
 
-# --- 缩壳 ---
+# --- Shell ---
 
 func is_shelled() -> bool:
 	return move == Move.SHELL
@@ -268,7 +268,7 @@ func _set_shell(on: bool) -> void:
 		_visual.call(&"show_shell", on)
 
 
-## 张开那一下：朝四面八方打一圈（二阶段多一半）。
+## When it opens: a ring of bullets in every direction (half as many again in phase 2).
 func _pop_shell() -> void:
 	var count := ring_count + (ring_count / 2 if _enraged else 0)
 	for i in count:
@@ -281,9 +281,9 @@ func _pop_shell() -> void:
 	GameEvents.report(shoot_event, self)
 
 
-# --- 走位 ---
+# --- Movement ---
 
-## 歇着的时候飘在哪：自己那一侧、离地 `hover_height`。
+## Where it floats while resting: on its own side, `hover_height` above the floor.
 func _rest_spot(target: Node2D) -> Vector2:
 	var x := _home.x
 	if target != null:

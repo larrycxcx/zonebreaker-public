@@ -1,14 +1,14 @@
 class_name PoisonDrip
 extends CharacterBody2D
-## 一滴毒液（第五关天花板上的发射器 5-F 滴下来的）：往下掉，**碰到地面、单向台子或者玩家就炸成一团毒雾**
-## （`PoisonCloud`），自己没了。本身不伤人——伤人的是那团毒雾（中毒）。
-## 掉得出关卡就算了（2 秒保底）。只认 world 层（单向台子也接得住：往下落时 `move_and_collide` 本来就守单向规则）。
+## A drop of poison (dripped by stage 5's ceiling emitter 5-F): it falls and **bursts into a poison cloud on touching the ground, a one-way ledge or a player**
+## (`PoisonCloud`), and is gone. The drop itself hurts nobody — the cloud does (poison).
+## If it falls out of the stage, so be it (2-second safety limit). It only reacts to the world layer (one-way ledges catch it too: falling down, `move_and_collide` already follows the one-way rule).
 
 @export var cloud_scene: PackedScene = preload("res://scenes/poison_cloud.tscn")
 @export var skin_key := &"poison_drip"
 @export var gravity := 900.0
 @export var start_speed := 60.0
-## 毒雾的中心摆在落点上面多高（毒雾半径 24，中心离地这么高正好糊住站着的人的下半身）。
+## How high above the landing point the cloud's centre goes (the cloud's radius is 24; at this height it covers a standing player's lower body).
 @export var cloud_lift := 18.0
 const SIZE := Vector2(8, 12)
 const LIFETIME := 2.0
@@ -46,7 +46,7 @@ func _physics_process(delta: float) -> void:
 			return
 
 
-## 炸开：在落点（`floor` 是落点那条线的世界坐标）上面放一团毒雾。
+## Burst: put a poison cloud above the landing point (`floor` is the world position of the landing line).
 func pop(floor: Vector2) -> void:
 	if burst:
 		return

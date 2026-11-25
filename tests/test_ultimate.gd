@@ -1,13 +1,13 @@
 ﻿extends GameTest
-## 终极武器：K / 手柄 Y 瞬时发动，每条命 4 次。
-## 发动时清掉所有敌人子弹、整个场景定格 2 秒（玩家和敌人都不能动），玩家无敌到恢复后 0.5 秒；
-## 定格结束时消灭发动那一刻屏幕内的所有敌人（不管血量），屏幕外的不受影响。
+## The ultimate: K / pad Y fires it instantly, 4 times per life.
+## Firing clears all enemy bullets and freezes the whole scene for 2 seconds (neither player nor enemies can move), with the player invincible until 0.5 seconds after it ends;
+## when the freeze ends it destroys every enemy that was on screen at the moment it fired (regardless of health), and those off screen are unaffected.
 
 const ENEMY_BULLET_SCENE := "res://scenes/enemy_bullet.tscn"
 
 
-## 玩家站在 x=200（摄像机在关卡最左，屏幕 = x 0..320）。
-## 只留两个炮台（12 血，最耐打）：Turret2 挪到屏幕内，Turret1 留在 x=1160 屏幕外。
+## The player stands at x=200 (camera at the far left of the stage, screen = x 0..320).
+## Only keep the two turrets (12 health, the toughest): Turret2 moved on screen, Turret1 left off screen at x=1160.
 func start() -> void:
 	await reset_scene(true)
 	keep_only_enemies(["Turret1", "Turret2"])
@@ -22,7 +22,7 @@ func use_ultimate() -> void:
 	Input.action_release("ultimate")
 
 
-## 等定格结束，返回定格持续了多少个物理帧（超过 limit 帧还没结束就返回 -1）。
+## Wait for the freeze to end and return how many physics frames it lasted (-1 if it has not ended after limit frames).
 func wait_for_unpause(limit := 600) -> int:
 	for i in limit:
 		if not tree.paused:
@@ -53,7 +53,7 @@ func test_freeze_clears_bullets_and_kills_on_screen_enemies() -> void:
 	var far: Enemy = main.get_node("Enemies/Turret1")
 	near.global_position = Vector2(400, 304)
 	await frames(5)
-	# 屏幕内、屏幕外各放几颗敌人子弹，再放一颗玩家子弹
+	# Put a few enemy bullets on screen and off screen, plus one player bullet
 	for x in [120.0, 500.0, 1000.0]:
 		var bullet: Bullet = load(ENEMY_BULLET_SCENE).instantiate()
 		bullet.launch(Vector2.LEFT)
@@ -75,7 +75,7 @@ func test_freeze_clears_bullets_and_kills_on_screen_enemies() -> void:
 	check("player bullets are kept", bullets(4).size() >= 1)
 	check("current weapon unchanged", player.current_weapon == weapon_before)
 
-	# 定格期间：按键无效、谁都不动、敌人不开火
+	# During the freeze: keys do nothing, nobody moves, enemies do not fire
 	var player_pos := player.global_position
 	Input.action_press("move_right")
 	Input.action_press("shoot")
@@ -88,14 +88,14 @@ func test_freeze_clears_bullets_and_kills_on_screen_enemies() -> void:
 	Input.action_release("shoot")
 
 	var took: int = await wait_for_unpause()
-	# 已经等了约 62 帧，总共应该在 2 秒（120 帧）左右
+	# About 62 frames waited already; in total it should be around 2 seconds (120 frames)
 	check("freeze lasts about 2 seconds", took > 40 and took < 80, "%d more frames" % took)
 	await frames(2)
 	check("on-screen enemy destroyed regardless of health", not is_instance_valid(near))
 	check("off-screen enemy untouched", is_instance_valid(far) and far.health == far.max_health)
 	check("ultimate_blast reported", count(&"ultimate_blast") == 1)
 	check("enemy_death reported", count(&"enemy_death") == 1)
-	# 恢复后玩家能正常行动
+	# After it ends the player can act normally
 	var x0 := player.global_position.x
 	Input.action_press("move_right")
 	await frames(10)
@@ -123,11 +123,11 @@ func test_invincible_during_and_just_after() -> void:
 	player.take_damage(HIT)
 	check("no damage during the freeze", player.health == hp)
 	await wait_for_unpause()
-	await frames(10) # 恢复后约 0.17 秒
+	await frames(10) # About 0.17 seconds after it ends
 	player.take_damage(HIT)
 	check("still invincible right after the freeze", player.health == hp)
 	check("shield does not blink the player", player.get_node("Visual").visible)
-	await frames(30) # 0.5 秒已过
+	await frames(30) # 0.5 seconds have passed
 	player.take_damage(HIT)
 	check("can be hurt again afterwards", player.health == hp - HIT)
 
@@ -145,7 +145,7 @@ func test_limited_uses() -> void:
 	check("third press does nothing", not tree.paused and count(&"ultimate_start") == 2)
 	var pips: Array = main.get_node("HUD/UltimateRow").get_children()
 	check("HUD: both pips dimmed", pips[0].color == pips[1].color and pips[0].color != player.ultimate_weapon.hud_color)
-	# 死后重载本关：新的一条命，次数补满
+	# Reloading the stage after death: a new life, the uses refilled
 	await start()
 	check("refilled on a new life", player.ultimate_ammo() == 2)
 
@@ -188,12 +188,12 @@ func test_sounds_play_during_the_freeze() -> void:
 
 
 func test_every_enemy_hit_goes_up_in_a_blast() -> void:
-	# 定格结束那一下，屏幕内每个被打的敌人身上各炸一团（纯画面，Fx 画），屏幕外的不炸
+	# At the end of the freeze, a blast goes off on each enemy hit on screen (only the picture, drawn by Fx), and none off screen
 	await reset_scene(true)
 	keep_only_enemies(["WalkerA", "FlyerE", "Turret1"])
 	player.global_position = Vector2(200, 304)
 	await frames(10)
-	# 记下新加进特效层的节点，这一帧结束再读位置（Fx 是先加进场景、再摆位置的）
+	# Note the nodes newly added to the effects layer and read their positions at the end of this frame (Fx adds them to the scene first, then positions them)
 	var added: Array[Node2D] = []
 	var fx: Node = main.get_node("Fx")
 	var on_added := func(node: Node) -> void:
@@ -201,7 +201,7 @@ func test_every_enemy_hit_goes_up_in_a_blast() -> void:
 			added.append(node as Node2D)
 	fx.child_entered_tree.connect(on_added)
 	await use_ultimate()
-	# 定格期间整棵树暂停：这时记下的位置就是爆炸那一刻敌人所在的位置
+	# During the freeze the whole tree is paused: the positions noted now are where the enemies are at the moment of the blast
 	var on_screen: Array[Vector2] = []
 	var off_screen: Array[Vector2] = []
 	for enemy: Enemy in enemies():

@@ -1,7 +1,7 @@
 extends GameTest
-## 敌人 F（`enemy_walker_f.tscn` / `EnemyGrenadier`）：巡逻兵的一种，不开枪只扔手雷。
-## 手雷规则和玩家的完全一样，区别只有「打谁」：它的手雷炸玩家、不炸敌人，也炸不到它自己。
-## 不追击、不跳跃、不趴下。
+## Enemy F (`enemy_walker_f.tscn` / `EnemyGrenadier`): a kind of patroller that does not shoot and only throws grenades.
+## The grenade rules are exactly the player's; the only difference is who they hit: its grenades hurt the player, not enemies, and cannot hurt itself.
+## No chasing, no jumping, no going prone.
 
 const PLAYER_GRENADE := "res://scenes/grenade.tscn"
 const ENEMY_GRENADE := "res://scenes/enemy_grenade.tscn"
@@ -9,8 +9,8 @@ const ENEMY_GRENADE := "res://scenes/enemy_grenade.tscn"
 var f: EnemyGrenadier
 
 
-## 只留 F，放到关卡右端那段空地上（x 1060..640：头顶没有平台，抛物线不会中途落在平台上，
-## 也避开了 CrawlBlock 那块实心方块）。关卡里它站在 Platform3 上，测行为时平地更好控制。
+## Keep only F, on the empty stretch at the right end of the stage (x 1060..640: no platforms overhead, so the arc never lands on a platform halfway,
+## and clear of the solid CrawlBlock). In the stage it stands on Platform3; flat ground is easier to control for behaviour tests.
 func start(x := 1060.0, player_x := 1260.0) -> void:
 	await reset_scene(true)
 	keep_only_enemies(["WalkerF"])
@@ -19,9 +19,9 @@ func start(x := 1060.0, player_x := 1260.0) -> void:
 	f.velocity = Vector2.ZERO
 	f.facing = 1
 	f._apply_facing()
-	f._throw_timer = 0.0 # 关卡加载时它在屏幕里，可能已经扔过一颗：那段冷却别带进来
+	f._throw_timer = 0.0 # It is on screen when the stage loads and may already have thrown one: do not carry that cooldown in
 	for grenade in tree.get_nodes_in_group(Grenade.GROUP):
-		grenade.free() # 那一颗也别算进来
+		grenade.free() # and do not count that grenade either
 	player.health = 999
 	player.global_position = Vector2(player_x, 304)
 	player.velocity = Vector2.ZERO
@@ -29,13 +29,13 @@ func start(x := 1060.0, player_x := 1260.0) -> void:
 	await frames(5)
 
 
-## 场上所有手雷。按组找而不是只看 main 的直接子节点：
-## 敌人的手雷和敌人子弹一样挂在 Enemies 下面（这样敌人死了手雷还会飞完）。
+## Every grenade in play. Found by group rather than only main's direct children:
+## enemy grenades hang under Enemies like enemy bullets (so they finish their flight after the enemy dies).
 func grenades() -> Array:
 	return tree.get_nodes_in_group(Grenade.GROUP).filter(func(g): return is_instance_valid(g))
 
 
-## 等它扔出一颗手雷，返回那颗；超时返回 null。
+## Wait for it to throw a grenade and return it; null on timeout.
 func wait_for_throw(limit := 480) -> Grenade:
 	for i in limit:
 		await frames(1)
@@ -45,7 +45,7 @@ func wait_for_throw(limit := 480) -> Grenade:
 	return null
 
 
-## 盯着若干帧，只要出现过手雷就返回 true（手雷会爆炸消失，事后再数是数不到的）。
+## Watch for some frames and return true if a grenade ever appeared (grenades explode and vanish, so counting afterwards finds nothing).
 func threw_anything(frame_count := 150) -> bool:
 	for i in frame_count:
 		await frames(1)
@@ -54,7 +54,7 @@ func threw_anything(frame_count := 150) -> bool:
 	return false
 
 
-## 把玩家钉在原地（否则会被爆炸击退，后面的断言全乱）。
+## Pin the player in place (otherwise the blast knocks them back and every following assertion goes wrong).
 func pin_player(x: float, frame_count: int) -> void:
 	for i in frame_count:
 		player.global_position = Vector2(x, 304)
@@ -64,7 +64,7 @@ func pin_player(x: float, frame_count: int) -> void:
 
 func test_config() -> void:
 	await start()
-	# 用 Node 变量来判断：直接写 f is Boss 会因为静态类型不可能匹配而编译不过
+	# Check with a Node variable: writing f is Boss directly does not compile, since the static types can never match
 	var node: Node = f
 	check("F is a normal enemy, not a boss", f is Enemy and not (node is Boss))
 	check("F patrols like the other walkers", f is EnemyWalker)
@@ -74,8 +74,8 @@ func test_config() -> void:
 
 
 func test_grenade_rules_match_the_players() -> void:
-	# 「规则和玩家手雷一样」：除了打谁（target_layer）和颜色，导出的数值必须完全一致。
-	# 伤害按各自目标的单位算：玩家的打敌人（一发子弹 SHOT），F 的打玩家（一下 HIT），都是中心 3 下、边缘 1 下
+	# "Same rules as the player's grenade": apart from who it hits (target_layer) and the colour, the exported values must be exactly the same.
+	# Damage counts in each target's units: the player's hits enemies (one bullet SHOT), F's hits the player (one HIT), both 3 at the centre and 1 at the edge
 	await reset_scene()
 	var mine: Grenade = load(PLAYER_GRENADE).instantiate()
 	var theirs: Grenade = load(ENEMY_GRENADE).instantiate()
@@ -92,7 +92,7 @@ func test_grenade_rules_match_the_players() -> void:
 
 
 func test_patrols_without_jumping() -> void:
-	await start(520, 1000) # 玩家在射程外，免得它忙着扔手雷；F 朝右走几步就会撞上 CrawlBlock 掉头
+	await start(520, 1000) # The player out of range so it does not get busy throwing grenades; walking right a few steps F runs into the CrawlBlock and turns around
 	var moved := false
 	var airborne := false
 	var turned := false
@@ -118,44 +118,44 @@ func test_throws_at_a_player_in_front() -> void:
 
 
 func test_does_not_throw_backwards_or_out_of_range() -> void:
-	# 背后的玩家：不回头，也不扔
+	# A player behind it: it does not turn around and does not throw
 	await start(1060, 860)
 	f.facing = 1
 	f._apply_facing()
 	f.move_speed = 0.0
 	check("no grenade at a player behind it", not await threw_anything())
-	# 太远、自己又在屏幕外：看不见，不扔
+	# Too far and off screen itself: cannot see, does not throw
 	await start(300, 1100)
 	f.move_speed = 0.0
 	check("setup: F is off screen", not f.is_partly_on_screen())
 	check("no grenade at a far player it cannot see", not await threw_anything())
-	# 在屏幕里就算太远也扔（手雷落在半路，当封路）：玩家看得见它的时候它得有反应
-	# 玩家贴着关卡左边，摄像机停在左边界上：F 在 400px 外也还在画面里
+	# On screen it throws even when too far (the grenade lands halfway, blocking the way): it has to react when the player can see it
+	# The player hugs the left of the stage and the camera rests on the left limit: F 400px away is still on screen
 	await start(500, 100)
 	f.facing = -1
 	f._apply_facing()
 	f.move_speed = 0.0
 	check("setup: F is on screen and out of reach", f.is_partly_on_screen() and 400.0 > f.max_throw_distance)
 	check("on screen, a far player still gets a grenade", await threw_anything())
-	# 贴脸：手雷会扔过头，所以也不扔
+	# Face to face: the grenade would overshoot, so it does not throw either
 	await start(300, 300 + f.min_throw_distance - 40.0)
 	f.move_speed = 0.0
 	check("no grenade at a player right in its face", not await threw_anything())
 
 
 func test_does_not_throw_at_a_player_it_cannot_see() -> void:
-	# 中间隔一堵墙：看不见就不扔（和巡逻兵开枪同一套视线规则）
+	# A wall in between: cannot see, does not throw (the same line-of-sight rule as patrollers firing)
 	await start()
 	f.move_speed = 0.0
 	add_wall(1160, 72)
-	# 挡墙之前它已经扔过一颗（冷却从 0 开始），清掉再看
+	# It threw one before the wall went up (the cooldown starts at 0); clear it, then look
 	for g in grenades():
 		g.free()
 	f._throw_timer = 0.0
 	await frames(2)
 	check("setup: the wall blocks its line of sight", f.throw_target() == null)
 	check("holds the grenade when it cannot see the player", not await threw_anything())
-	# 对照组：拆掉墙，同一位置马上就扔
+	# Control group: take the wall away and it throws right away from the same spot
 	main.get_node("Level/Walls/TestWall").free()
 	await frames(2)
 	check("throws as soon as the wall is gone", await threw_anything())
@@ -169,7 +169,7 @@ func test_its_grenade_hurts_the_player() -> void:
 	check("setup: thrown", grenade != null)
 	for i in 180:
 		await frames(1)
-		player.global_position = Vector2(1260, 304) # 钉住，让它真的挨炸
+		player.global_position = Vector2(1260, 304) # Pin them so they really take the blast
 		player.velocity = Vector2.ZERO
 		if not is_instance_valid(grenade):
 			break
@@ -179,7 +179,7 @@ func test_its_grenade_hurts_the_player() -> void:
 func test_its_grenade_spares_enemies_and_itself() -> void:
 	await start()
 	f.move_speed = 0.0
-	# 在落点附近放一个同伴，看它会不会被炸到
+	# Put an ally near the landing point and see whether it gets hit
 	var mate: Enemy = load("res://scenes/enemy_1_a.tscn").instantiate()
 	main.get_node("Enemies").add_child(mate)
 	mate.global_position = Vector2(1244, 304)
@@ -197,11 +197,11 @@ func test_its_grenade_spares_enemies_and_itself() -> void:
 
 
 func test_who_each_grenade_can_hurt() -> void:
-	# 两边的手雷只差「打谁」：在 F 旁边引爆一颗玩家的手雷，它掉血；引爆一颗敌人的手雷，它毫发无伤。
-	# （玩家扔出去的整条抛物线在 test_grenade.gd 里测过，这里只看伤害归属。）
+	# The two kinds of grenade differ only in "who they hit": set off a player grenade next to F and it loses health; set off an enemy grenade and it is unharmed.
+	# (The whole arc of a player's throw is tested in test_grenade.gd; this only looks at who takes the damage.)
 	await start()
 	f.move_speed = 0.0
-	f.max_health = 100 # 血调高一点，一颗手雷炸不死，两种手雷才都试得成
+	f.max_health = 100 # Raise its health a bit so one grenade does not kill it, letting both kinds be tried
 	f.health = 100
 	for path in [PLAYER_GRENADE, ENEMY_GRENADE]:
 		var before := f.health

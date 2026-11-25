@@ -1,32 +1,32 @@
 extends Node
-## 这一局的设置（autoload 单例 Session）：几个人玩。以后主菜单在这里设，关卡按它生成玩家。
+## Settings for this session (the autoload singleton Session): how many players. The main menu sets it later, and the level spawns players from it.
 ##
-## 输入：1 号玩家的动作名就是 `move_left`、`shoot`……，2 号是 `p2_move_left`、`p2_shoot`……（见 `Player.act()`）。
-## 手柄分开：一个座位一只手柄。**哪只手柄是几号，由玩家在标题页按下的那一下决定**（`claim_pads()`），
-## 不是写死 device 0 / 1——Godot 的 device 号是按插入顺序给的，玩家手里的「1 号手柄」
-## 完全可能是 device 1（前一个槽被没拔干净的幽灵设备占着是常事）。
-## 键盘：方向键在单人时是 1 号的备用键；**双人时让给 2 号**（2 号用方向键移动 / 瞄准，
-## `.` 跳、`/` 开火、`,` 趴下、`L` 奔跑、`;` 换武器、`'` 终极武器），切回单人时再还给 1 号。
+## Input: player 1's action names are `move_left`, `shoot`..., player 2's are `p2_move_left`, `p2_shoot`... (see `Player.act()`).
+## Pads are split: one pad per seat. **Which pad is which player is decided by the press on the title screen** (`claim_pads()`),
+## not hard-coded as device 0 / 1 — Godot gives device numbers in plug-in order, and the player's "pad 1"
+## may well be device 1 (an earlier slot held by a ghost device that was not cleanly unplugged is common).
+## Keyboard: the arrow keys are player 1's alternative keys when playing alone; **in co-op they go to player 2** (player 2 moves / aims with the arrows,
+## `.` jumps, `/` fires, `,` goes prone, `L` runs, `;` switches weapons, `'` fires the ultimate), and they go back to player 1 when returning to one player.
 
 const MAX_PLAYERS := 2
-## 双人时从 1 号的动作里拿掉、让给 2 号的键。
+## Keys taken from player 1's actions and given to player 2 in co-op.
 const SHARED_KEYS: Array[int] = [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN]
 
 var player_count := 1
 
-## **最后一只按过键的手柄**的 device 号，-1 = 还没有（或者刚按的是键盘）。
-## 标题页用它决定「谁是 1 号」。
+## Device number of **the last pad that pressed something**, -1 = none yet (or the last press was on the keyboard).
+## The title screen uses it to decide "who is player 1".
 var last_pad := -1
 
-## 借给 2 号的键（动作 → 事件），切回单人时还回去。
+## Keys lent to player 2 (action → event), returned when going back to one player.
 var _lent := {}
-## 每个座位现在绑的是哪只手柄。默认就是 `project.godot` 里配的那样（座位 N ↔ device N）。
+## Which pad each seat is bound to right now. By default as configured in `project.godot` (seat N ↔ device N).
 var _pads: Array[int] = [0, 1]
-## **故意绑了不止一只手柄的动作**（动作名 → 拿来复制的那个手柄事件）：
-## `pause` 就是这种——两个玩家都能暂停，所以它上面有两只手柄的 Start。
-## 按座位重绑会把它压成一只手柄（认领之后只剩一个人能暂停），
-## 所以每次重绑之后都由 `_spread_shared()` 把它重新铺到每只手柄上。
-## **要在任何重绑之前算出来**，不然重绑完就看不出它原来是共用的了。
+## **Actions deliberately bound to more than one pad** (action name → the pad event used as the template):
+## `pause` is one — both players can pause, so it has the Start button of two pads.
+## Rebinding per seat would squash it to one pad (after claiming only one player could pause),
+## so after every rebind `_spread_shared()` spreads it over every pad again.
+## **This must be worked out before any rebinding**, or afterwards there is no way to tell it used to be shared.
 var _shared: Dictionary = {}
 
 
@@ -35,7 +35,7 @@ func _ready() -> void:
 	set_player_count(int(ProjectSettings.get_setting("game/player_count", 1)))
 
 
-## 记下最后按键的是哪只手柄。摇杆要推过死区才算——松手回弹那一下也会发事件。
+## Remember which pad pressed last. A stick only counts once pushed past the dead zone — springing back on release also sends events.
 func _input(event: InputEvent) -> void:
 	if event is InputEventJoypadButton and (event as InputEventJoypadButton).pressed:
 		last_pad = event.device
@@ -44,20 +44,20 @@ func _input(event: InputEvent) -> void:
 			last_pad = event.device
 
 
-# ---------------------------------------------------------------- 哪只手柄是几号
+# ---------------------------------------------------------------- Which pad is which player
 
-## **按下这一下的那只手柄就是 1 号**，其余连着的按顺序往后排。
-## 在标题页（选完几个人玩）调一次。`first` 是 -1（刚才按的是键盘）就什么都不动。
+## **The pad that made this press is player 1**, the other connected ones follow in order.
+## Called once on the title screen (after choosing how many players). If `first` is -1 (the press came from the keyboard), nothing changes.
 ##
-## 为什么要有这个：Godot 的 device 号是**按插入顺序**给的，和玩家心里的「1 号手柄」没关系。
-## 写死「座位 0 ↔ device 0」的话，玩家手里那只如果是 device 1，
-## 他在标题页（谁按都算）一切正常，一到写着 PLAYER 1 的那页就按不动了，
-## 另一只手柄反而能动——2026-09 试玩报的就是这个。
+## Why this is needed: Godot hands out device numbers **in plug-in order**, which has nothing to do with the player's idea of "pad 1".
+## With a hard-coded "seat 0 ↔ device 0", if the pad in the player's hands is device 1,
+## everything works on the title screen (anyone's press counts), but the screen saying PLAYER 1 no longer responds,
+## while the other pad does — exactly what the 2026-09 playtest reported.
 func claim_pads(first: int) -> void:
 	if first < 0:
 		return
-	# **两个座位不能共用一只手柄**：认领的这只本来是别的座位的，就和它对换。
-	# 不换的话，只插了一只手柄又选了双人时，两个座位会同时听同一只——一个人动，两个角色都动。
+	# **Two seats cannot share one pad**: if the pad claimed belonged to another seat, swap them.
+	# Without the swap, with only one pad plugged in and two players chosen, both seats would listen to the same pad — one person moves and both characters move.
 	var was: int = _pads[0]
 	for seat in range(1, MAX_PLAYERS):
 		if _pads[seat] == first:
@@ -71,13 +71,13 @@ func claim_pads(first: int) -> void:
 	_spread_shared()
 
 
-## 这个座位现在绑的是哪只手柄（测试用）。
+## Which pad this seat is bound to right now (for tests).
 func pad_of(seat: int) -> int:
 	return _pads[seat] if seat >= 0 and seat < _pads.size() else -1
 
 
-## 回到 `project.godot` 里配的那样（座位 N ↔ device N）。
-## **InputMap 是全局状态**，测试每条用例都要还原，不然认领过的那一下会带进后面的用例。
+## Back to how `project.godot` configures it (seat N ↔ device N).
+## **InputMap is global state**: every test has to restore it, or a claim made in one test leaks into the following ones.
 func reset_pads() -> void:
 	last_pad = -1
 	for seat in MAX_PLAYERS:
@@ -85,7 +85,7 @@ func reset_pads() -> void:
 	_spread_shared()
 
 
-## 把这个座位所有动作上的**手柄事件**改成这只手柄。键盘那几个事件一个都不碰。
+## Point every **pad event** on this seat's actions at this pad. None of the keyboard events are touched.
 func _bind_pad(seat: int, device: int) -> void:
 	if device < 0:
 		return
@@ -99,15 +99,15 @@ func _bind_pad(seat: int, device: int) -> void:
 		for event in InputMap.action_get_events(action):
 			if not (event is InputEventJoypadButton or event is InputEventJoypadMotion):
 				continue
-			# **erase 之后换一份新的再 add**：直接改拿出来那一份的 `device`，
-			# InputMap 内部按设备分的索引不会跟着更新。
+			# **Erase it, then add a fresh copy**: changing `device` on the copy you got back
+			# does not update InputMap's internal per-device index.
 			InputMap.action_erase_event(action, event)
 			var moved := event.duplicate()
 			moved.device = device
 			InputMap.action_add_event(action, moved)
 
 
-## 哪些动作本来就绑了不止一只手柄。**只在启动时算一次**。
+## Which actions are bound to more than one pad to begin with. **Worked out only once, at start-up**.
 func _find_shared_actions() -> void:
 	for action in InputMap.get_actions():
 		if String(action).begins_with("ui_"):
@@ -123,7 +123,7 @@ func _find_shared_actions() -> void:
 			_shared[action] = sample
 
 
-## 把共用的动作铺到**每个座位现在那只手柄**上，一只一份。
+## Spread the shared actions over **the pad each seat has now**, one copy per pad.
 func _spread_shared() -> void:
 	for action: StringName in _shared:
 		for event in InputMap.action_get_events(action):
@@ -143,14 +143,14 @@ func set_player_count(count: int) -> void:
 		_take_back_shared_keys()
 
 
-# ---------------------------------------------------------------- 界面收键
+# ---------------------------------------------------------------- UI input
 
-## 这个座位的这个动作，**这一帧刚被按下**吗。界面（`MenuList`、`ShopColumn`）收键一律走它。
+## Was this action of this seat **just pressed this frame**? All UI input (`MenuList`, `ShopColumn`) goes through this.
 ##
-## **单人时谁按都算**：按设备分开是为了让双人各按各的，一个人玩没有要分开的对象。
-## 不这么做的话，同一套键在菜单前几页能用、到人物设置和商店（第一个按玩家过滤输入的页面）
-## 就突然失灵——手柄插在第二个槽位上（前一个槽被没拔干净的幽灵设备占着是常事）整页全死，
-## 键盘上的 ↑ 也会从「上移」变成「确认」（单人时 ↑ 是 1 号的跳跃、同时是 2 号的「上」）。
+## **When playing alone anyone's press counts**: splitting by device is so that two players each use their own pad; alone there is nothing to split.
+## Without this, the same keys work on the first few menu pages and suddenly stop at character setup and the shop (the first pages that filter input by player)
+## — with the pad in the second slot (an earlier slot held by a ghost device that was not cleanly unplugged is common) whole pages go dead,
+## and ↑ on the keyboard turns from "move up" into "confirm" (alone, ↑ is player 1's jump and at the same time player 2's "up").
 func just_pressed(action: StringName, seat: int) -> bool:
 	if seat >= 0 and player_count >= 2:
 		return _pressed(action_for(action, seat))
@@ -160,13 +160,13 @@ func just_pressed(action: StringName, seat: int) -> bool:
 	return false
 
 
-## 第几号玩家的那份动作叫什么（1 号不带前缀）。
+## The name of this action for a given player (player 1 has no prefix).
 func action_for(action: StringName, seat: int) -> StringName:
 	return action if seat <= 0 else StringName("p%d_%s" % [seat + 1, action])
 
 
-## **没有这个动作就当没按**：问引擎一个不存在的动作它会报错，而且是每帧报一次。
-## 界面上的动作不是每个玩家都配齐了（以后加第三个座位更是如此）。
+## **An action that does not exist counts as not pressed**: asking the engine about a missing action is an error, reported every frame.
+## Not every player has every UI action configured (even less so if a third seat is ever added).
 func _pressed(action: StringName) -> bool:
 	return InputMap.has_action(action) and Input.is_action_just_pressed(action)
 

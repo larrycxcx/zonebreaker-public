@@ -1,15 +1,15 @@
-"""导出公开版：把仓库里的文件复制一份，**去掉第三方素材**（CraftPix 那几个素材包）。
+"""Export the public version: copy the files in the repo, **leaving out the third-party art** (the CraftPix art packs).
 
-    python tools/export_public.py <输出目录>
+    python tools/export_public.py <output directory>
 
-为什么要有公开版：`skins/` 下除了 `default/` 以外的包都是从第三方素材包生成的，
-授权不允许再分发，所以不能出现在公开仓库里。游戏代码本身对此有准备——
-素材缺了就退回占位版（方块角色、纯色地形、引擎自带字体，`UiKit` / `Skins` / `TileArt` / `Prop`
-各自查文件在不在），规则一点不变；测试里依赖素材的用例会自己跳过（`GameTest.needs_art()`）。
+Why there is a public version: every pack under `skins/` except `default/` is generated from third-party art packs,
+whose licence does not allow redistribution, so they cannot appear in a public repo. The game code is prepared for this —
+when art is missing it falls back to placeholders (block characters, plain-colour terrain, the engine's built-in font; `UiKit` / `Skins` / `TileArt` / `Prop`
+each check whether the file is there), with the rules unchanged; test cases that depend on the art skip themselves (`GameTest.needs_art()`).
 
-复制的是 git 跟踪的文件 + 还没跟踪但没被忽略的新文件（工作区里的版本），
-所以导出前不用先提交。输出目录会先清空。
-公开仓库的**历史**另外处理（`git filter-repo --invert-paths`，路径清单就是下面的 `EXCLUDED`）。
+It copies the files git tracks + new files not tracked yet but not ignored (the working tree versions),
+so there is no need to commit before exporting. The output directory is emptied first.
+The public repo's **history** is handled separately (`git filter-repo --invert-paths`, with the path list being `EXCLUDED` below).
 """
 import os
 import shutil
@@ -18,22 +18,22 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-## 不进公开版的路径（前缀）。**加新的素材包时记得往这里加一条。**
+## Paths (prefixes) left out of the public version. **Remember to add an entry here when adding a new art pack.**
 EXCLUDED = [
     "skins/cyberpunk/",
     "skins/industrial/",
     "skins/bar_street/",
     "skins/basement/",
     "skins/lab/",
-    # 上面那些包的外观场景：只有素材包会引用它们，包不在就是一堆断了链的场景
+    # The visual scenes of the packs above: only the packs reference them, and without the packs they are a pile of scenes with broken links
     "scenes/skins/",
-    # 在 CraftPix 原画上擦掉胳膊做出来的（不是从零画的），算第三方素材的衍生品。
-    # art_src 里其余的（趴姿、爬行、地图）是自己画的，留着。
+    # Made by erasing the arms on CraftPix's original art (not drawn from scratch), so they count as derivatives of third-party art.
+    # The rest of art_src (prone, crawling, maps) was drawn by us and stays.
     "art_src/punk_idle.png",
     "art_src/punk_run.png",
     "art_src/cyborg_idle.png",
     "art_src/cyborg_run.png",
-    # AI 助手的项目说明（本来就不进仓库，这里再保险一次）
+    # The AI assistant's project notes (never in the repo anyway, this is extra insurance)
     "CLAUDE.md",
     "AGENTS.md",
 ]
@@ -57,9 +57,9 @@ def main():
     out = os.path.abspath(sys.argv[1])
     same_drive = os.path.splitdrive(out)[0].lower() == os.path.splitdrive(ROOT)[0].lower()
     if same_drive and os.path.commonpath([out, ROOT]) == ROOT:
-        sys.exit("输出目录不能在仓库里面：%s" % out)
+        sys.exit("The output directory must not be inside the repo: %s" % out)
     if os.path.exists(out):
-        # 保留输出目录里的 .git（公开仓库的工作区），其余清空
+        # Keep the .git in the output directory (the public repo's working tree), empty the rest
         for name in os.listdir(out):
             if name == ".git":
                 continue
@@ -73,7 +73,7 @@ def main():
             continue
         source = os.path.join(ROOT, path)
         if not os.path.isfile(source):
-            continue        # 已删除但还没提交的
+            continue        # Deleted but not committed yet
         target = os.path.join(out, path)
         os.makedirs(os.path.dirname(target), exist_ok=True)
         shutil.copy2(source, target)

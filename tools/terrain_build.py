@@ -1,26 +1,26 @@
-"""从地形素材包生成赛博朋克皮肤包的平台贴图和背景，输出到 skins/cyberpunk/terrain/ 和 skins/cyberpunk/backdrop/。
+"""Generates the cyberpunk skin pack's platform art and backdrop from the terrain art pack, output to skins/cyberpunk/terrain/ and skins/cyberpunk/backdrop/.
 
-    python tools/terrain_build.py            # 全部重新生成
-    python tools/terrain_build.py --check    # 只检查，不写文件
+    python tools/terrain_build.py            # regenerate everything
+    python tools/terrain_build.py --check    # only check, without writing files
 
-素材来源：CraftPix 的 Green Zone Tileset（art_in/default/green-zone-tileset/，不进仓库，授权和其它素材包一样）。
-地砖每块 32×32，都在 Tileset.png 这一张图集里（12 列 × 8 行）。
+Art source: CraftPix's Green Zone Tileset (art_in/default/green-zone-tileset/, not in the repo, same licence as the other art packs).
+Each tile is 32×32, all in the single atlas Tileset.png (12 columns × 8 rows).
 
-**地形不换 TileMap**：关卡还是用 platform.tscn 搭，碰撞体和规则一点不动，只是外观按平台大小用
-「九宫格」画——四个角原样、四条边和中间**平铺**（不拉伸，像素不会糊）。切法写在各自的外观场景里
-（`TerrainAppearance` 的 left / right / top / bottom / hang），这里只负责把用到的地砖拼成一张源图：
-- ground：草皮地面。只取中间那一列（上面草皮顶、下面紧接着它的土层），地面横贯整个关卡，
-  两头的圆角会露在关卡边上，所以不要；地面厚过 32px 就往下铺土。
-- ledge：浮空的单向平台。草顶、底边参差下垂的那一排（左 / 中 / 右）。平台只有 16px 厚，
-  外观取顶上 10 行草面 + 底下 12 行（带下垂的碎块），下垂的部分挂在判定框下面 6px。
-- stone：墙和矮通道的顶块。一整块四边带描边的石砖。**底边是平的**：矮通道只有 30px 净空，
-  挂下垂碎块会让人以为钻不过去。
+**Terrain does not switch to TileMap**: stages are still built from platform.tscn, with colliders and rules untouched; only the look is drawn
+as a "nine-slice" by platform size — the four corners as is, the four edges and the middle **tiled** (not stretched, so pixels do not blur). How it is cut is written in each visual scene
+(`TerrainAppearance`'s left / right / top / bottom / hang); this only assembles the tiles used into one source image:
+- ground: the turf ground. Only the middle column is taken (the turf top with the soil right below it); the ground spans the whole stage,
+  and the rounded ends would show at the edges of the stage, so they are not used; ground thicker than 32px gets more soil below.
+- ledge: the floating one-way platform. The row with a grassy top and a ragged hanging bottom edge (left / middle / right). The platform is only 16px thick,
+  so the look takes the top 10 rows of grass + the bottom 12 rows (with the hanging bits), the hanging part dangling 6px below the hitbox.
+- stone: walls and the top blocks of low tunnels. One whole stone brick with an outline on all four sides. **The bottom edge is flat**: a low tunnel only has 30px of headroom,
+  and hanging bits would make people think they cannot get through.
 
-背景（`2 Background/Day`）五层都是 576×324：1 天空、2 远处楼群、3 远处树林、4 一条地面边、5 近处树林。
-用白天那套：夜晚那套又灰又暗，黑描边的角色和子弹放上去看不清。视差和平铺由 `backdrop` 场景做。
-**背景要往后退**：近处树林原本是 (55,68,110)，和石砖地形的深蓝 (34,42,92) 几乎一样，墙和矮通道顶块会融进背景里——
-挡路挡子弹的东西必须一眼看出来。所以每层往地平线的天空色混一些（`HAZE`，越远混得越多，保留远近层次），
-天空层原样。
+The backdrop (`2 Background/Day`) has five layers, all 576×324: 1 sky, 2 distant buildings, 3 distant trees, 4 a strip of ground edge, 5 nearby trees.
+The daytime set is used: the night set is grey and dark, and black-outlined characters and bullets are hard to see against it. Parallax and tiling are done by the `backdrop` scene.
+**The backdrop has to recede**: the nearby trees were originally (55,68,110), almost the same as the dark blue of the stone terrain (34,42,92), so walls and low tunnel tops would melt into the backdrop —
+things that block the way and bullets have to stand out at a glance. So each layer is mixed a little towards the sky colour at the horizon (`HAZE`, more for further layers, keeping the depth),
+and the sky layer stays as is.
 """
 import os
 import sys
@@ -32,25 +32,25 @@ ART = os.path.join(HERE, "..", "art_in", "default")
 SKINS = os.path.join(HERE, "..", "skins")
 TILE = 32
 
-## **一套地形素材 = 一个「区」**。加一关就往这张表里加一条，跑 `python tools/terrain_build.py industrial`。
-## 地砖有两种取法，素材包怎么给就怎么取：
-##   `atlas` 一张大图集，`terrain` 里写 (行, 列)；
-##   `tiles` 一砖一个文件（带 `%d` 的模板），`terrain` 里写编号。
-## `terrain` 的三个键是玩法认的（`platform.gd` 的 `skin_key`），不能改名：
-##   `ground` 地面（横贯关卡，第二行往下铺）、`ledge` 浮空单向平台（一行三块：左中右）、`stone` 墙和堵块。
+## **One set of terrain art = one "zone"**. To add a stage, add an entry to this table and run `python tools/terrain_build.py industrial`.
+## Tiles can be taken two ways, whichever way the art pack provides them:
+## `atlas` one big atlas, with (row, column) in `terrain`;
+## `tiles` one file per tile (a template with `%d`), with numbers in `terrain`.
+## The three keys of `terrain` are what gameplay recognises (`skin_key` in `platform.gd`) and cannot be renamed:
+## `ground` the ground (spanning the stage, the second row tiled downward), `ledge` floating one-way platforms (one row of three tiles: left, middle, right), `stone` walls and blocks.
 ZONES = {
 	"cyberpunk": {
 		"pack": "green-zone-tileset",
 		"out": "cyberpunk",
 		"atlas": "Tileset.png",
 		"terrain": {"ground": [[(0, 1)], [(1, 1)]], "ledge": [[(4, 0), (4, 1), (4, 2)]], "stone": [[(2, 5)]]},
-		# 分层关卡（2026-10）逐格挑砖用的总图：`Tileset.png` 就是 `1 Tiles/Tile_01..96` 按 12 列排好的，
-		# 原样再排一遍（编号 = 行 × 12 + 列 + 1，和工业区那张一个规矩）
+		# The atlas used by layered stages (2026-10) to pick tiles cell by cell: `Tileset.png` is just `1 Tiles/Tile_01..96` laid out in 12 columns,
+		# laid out again as is (number = row × 12 + column + 1, the same rule as the industrial one)
 		"tiles": "1 Tiles/Tile_%02d.png",
 		"tile_atlas": {"count": 96, "columns": 12},
 		"backdrop_dir": "2 Background/Day",
 		"backdrop": {"sky": "1", "buildings": "2", "trees_far": "3", "ground_line": "4", "trees_near": "5"},
-		# 梯子（2026-10）：中段能竖着无缝平铺。`Ladder2` 少一根横档，不用。别的区没有梯子素材的顺着 fallback 用这张
+		# Ladder (2026-10): the middle section tiles vertically without seams. `Ladder2` is missing a rung, so it is unused. Zones without ladder art use this one via fallback
 		"ladder": {"middle": "3 Objects/Other/Ladder1.png"},
 		"haze": {"sky": 0.0, "buildings": 0.3, "trees_far": 0.4, "ground_line": 0.25, "trees_near": 0.25},
 		"props": {
@@ -72,28 +72,28 @@ ZONES = {
 			"fountain": ("4 Animated objects/Fountain.png", 4),
 		},
 	},
-	# 第三关：酒吧街。地砖是 100 个独立文件，**这套是「街景立面」不是地形包**——
-	# 砖墙、窗、卷帘、遮阳棚，没有现成的「草皮地面」。所以挑的是：
-	# 地面 = 带木梁顶的砖墙（02）压在素砖（05）上；浮台 = **遮阳棚**（07/08/09 左中右，
-	# 在街上踩着店家的雨棚跳，正合这一关的题）；墙和堵块 = 卷帘门（59），
-	# 灰蓝色和棕色砖地分得开，而且「拉下来的卷帘」本身就是「此路不通」的意思。
-	# 背景用 **Night**，再加素材包自带的光照层（`Overlay_illumination.png`）——
-	# Night 那几层本来就是灰的，是**留给光照层上色的**，宣传图那种粉 / 青霓虹就是这两样叠出来的。
-	# （第一版只看了 Night 本身、嫌它灰，换成了 Day，和素材包的样子完全对不上。）
-	# 人和子弹画在光照层上面（见 `ScreenLight`），不被染色，所以不会糊。
+	# Stage 3: bar street. The tiles are 100 separate files, and **this set is a "street facade", not a terrain pack** —
+	# brick walls, windows, shutters, awnings, with no ready-made "turf ground". So the picks are:
+	# ground = the brick wall with a wooden beam top (02) on plain brick (05); ledges = **awnings** (07/08/09 left, middle, right,
+	# jumping on the shops' awnings in the street suits the stage's theme); walls and blocks = the shutter (59),
+	# whose grey-blue stands apart from the brown brick ground, and a "pulled-down shutter" itself means "no way through".
+	# The backdrop uses **Night**, plus the lighting layer that comes with the art pack (`Overlay_illumination.png`) —
+	# the Night layers are grey on purpose, **left for the lighting layer to colour**, and the pink / cyan neon of the promo art comes from stacking the two.
+	# (The first version only looked at Night itself, found it grey and switched to Day, which did not look like the art pack at all.)
+	# People and bullets are drawn above the lighting layer (see `ScreenLight`) and are not tinted, so they stay clear.
 	"bar_street": {
 		"pack": "bar-street-tileset",
 		"out": "bar_street",
 		"tiles": "1 Tiles/Tiles_%02d.png",
-		# 分层关卡（2026-10）逐格挑砖用的总图：100 块排成 10 列（编号 = 行 × 10 + 列 + 1）
+		# The atlas used by layered stages (2026-10) to pick tiles cell by cell: 100 tiles in 10 columns (number = row × 10 + column + 1)
 		"tile_atlas": {"count": 100, "columns": 10},
 		"terrain": {"ground": [[2], [5]], "ledge": {"tiles": [[7, 8, 9]], "crop": 16},
 			"stone": [[59]]},
 		"backdrop_dir": "2 Background/Night",
 		"backdrop": {"sky": "1", "far": "2", "mid": "3", "near": "4", "street": "5"},
-		# 夜景不雾化：远近已经靠灰度分开了，往天空色混只会把光照层要染的那点明暗抹平
+		# No haze at night: near and far are already separated by grey levels, and mixing towards the sky colour would only flatten the light and dark the lighting layer colours
 		"haze": {"sky": 0.0, "far": 0.0, "mid": 0.0, "near": 0.0, "street": 0.0},
-		# 光照层的那张光斑。原图 1800×1200、整张都是糊的，缩一半看不出差别，仓库里省 3/4
+		# The light map of the lighting layer. The original is 1800×1200 and blurry throughout; halved you cannot tell the difference, and it saves 3/4 in the repo
 		"lighting": ("2 Background/Overlay_illumination.png", 2),
 		"facades": "BAR_FACADES",
 		"props": {
@@ -108,33 +108,33 @@ ZONES = {
 			"crate": ("3 Objects/Props/Prop_01.png", 1),
 			"keg": ("3 Objects/Props/Prop_06.png", 1),
 			"bin": ("3 Objects/Props/Prop_11.png", 1),
-			# 酒瓶、酒杯、飞钞、飘牌不要：摆在地上像能捡的东西（见 level_build.py 的 SCATTER_3）
+			# No bottles, glasses, flying banknotes or swinging signs: on the ground they look like pickups (see SCATTER_3 in level_build.py)
 		},
 	},
-	# 第四关：地下室，**纵向往上爬**。这一套是真正的「实心岩体」地形：深紫填充 + 浅蓝描边的砖框，
-	# 九宫格齐全（1/2/4、11/12/14、21/22/24），不像酒吧街那套是街景立面。
-	# 浮台 = 41~44 那排**只有上半格**的薄条（裁到 16 行）；地面（竖井底）= 框顶 2 压在填充 12 上。
-	# **背景不用素材自带的那套**：那是 576×324 的横向画，竖着重复看得出来。
-	# 竖井后面拼一面地下室内墙（`wall`，见 `build_wall()`），竖着无缝平铺。
-	# 光照层和酒吧街是同一张图（逐字节相同），照样用。
+	# Stage 4: basement, **climbed vertically**. This set is real "solid rock" terrain: brick frames with a dark purple fill and light blue outline,
+	# with a complete nine-slice (1/2/4, 11/12/14, 21/22/24), unlike bar street's street facade.
+	# Ledges = the thin strips of 41~44 with **only the top half drawn** (cropped to 16 rows); the ground (shaft bottom) = frame top 2 on fill 12.
+	# **The backdrop does not use the art's own set**: that is a 576×324 horizontal picture, and repeating it vertically shows.
+	# Behind the shaft goes an assembled basement wall (`wall`, see `build_wall()`), tiling vertically without seams.
+	# The lighting layer is the same image as bar street's (byte for byte), used the same way.
 	"basement": {
 		"pack": "basement-tileset",
 		"out": "basement",
 		"tiles": "1 Tiles/Tile_%02d.png",
-		# 格子地图（2026-10 第四关改成竖着的格子地图）逐格挑砖用的总图：70 块排成 10 列
+		# The atlas used by grid maps (stage 4 switched to a vertical grid map in 2026-10) to pick tiles cell by cell: 70 tiles in 10 columns
 		"tile_atlas": {"count": 70, "columns": 10},
 		"terrain": {"ground": [[2], [12]], "ledge": {"tiles": [[41, 42, 44]], "crop": 16},
 			"stone": [[1, 2, 4], [11, 12, 14], [21, 22, 24]]},
 		"wall": {
 			"cols": 20, "rows": 20, "seed": 20261002,
-			# 砖墙按权重随机挑：大部分是整砖，少量带裂缝、更少几块碎了
+			# Brick walls are picked at random by weight: mostly whole bricks, a few cracked, even fewer broken
 			"bricks": [(67, 70), (68, 18), (70, 8), (69, 4)],
-			# 往后压：前面的平台、墙、人才是要看清的东西
+			# Pushed back: the platforms, walls and people in front are what need to be seen clearly
 			"shade": 0.55,
-			# 竖着的管道 / 栅栏，单独一层、滚得比砖墙快一点，看着在砖墙前面
+			# Vertical pipes / fences, a separate layer scrolling a bit faster than the brick wall, so they look in front of it
 			"pipes": {"columns": [2, 7, 13, 17], "tiles": [65, 66, 65, 65], "shade": 0.75},
-			# **素材里那 16 个小灯不用**：试过烘进墙里，缩在画面上是一个个悬空的青绿小亮点，
-			# 看着就是能捡的宝石（第三关酒瓶酒杯那个毛病）。
+			# **The 16 small lights in the art are not used**: tried baked into the wall, shrunk on screen they were floating little cyan-green dots,
+			# looking just like gems to pick up (the same problem as stage 3's bottles and glasses).
 		},
 		"lighting": ("2 Background/Overlay_illumination.png", 2),
 		"props": {
@@ -158,17 +158,17 @@ ZONES = {
 			"grate_moss": ("3 Objects/3 Decoration/8_2.png", 1),
 			"grass": ("3 Objects/3 Decoration/Grass1.png", 1),
 			"grass2": ("3 Objects/3 Decoration/Grass2.png", 1),
-			# 会动的只要蒸汽。Card / Money 不要：摆在地上像能捡的东西（第三关的教训）
+			# The only animated one is steam. No Card / Money: on the ground they look like pickups (the lesson of stage 3)
 			"smoke": ("4 Animated objects/Smoke.png", 6),
 		},
 	},
-	# 第五关：实验室（2026-11）。地砖是 100 个独立文件（`Tiles_01..100`），编号 = 行 × 10 + 列 + 1。
-	# 前 60 块是三种材质的九宫格（每种占 3 列）：1~3 列青色斜纹钢板、4~6 列同款带污渍、7~9 列干净的灰蓝墙板，
-	# 每种第 1~3 行是九宫格、第 4 行是整块的箱子（31 / 37 带 X 撑）、第 6 行是一砖厚的条；
-	# 第 10 列是深色的背景砖（斜纹、斑点、纯色、暗红斑点）；61~100 是两块拼成的大背景墙板（灰、紫，带透明）。
-	# 地面 = 斜纹钢板顶 2 压在身子 12 上；浮台 = 一砖厚的条 51/52/53 的上半截；墙和堵块 = 灰蓝墙板九宫格。
-	# 背景用 **Day**：六层，1 底色、2/3 远处的厂房、4 吊着的机器、5 近处、6 最前面的大柱子。
-	# 素材包里**没有酸液池**（`Acid1/2` 是酸液溅开的特效），新机关是会伸缩的地刺（`Spikes`）。
+	# Stage 5: lab (2026-11). The tiles are 100 separate files (`Tiles_01..100`), number = row × 10 + column + 1.
+	# The first 60 are nine-slices of three materials (3 columns each): columns 1~3 teal diagonal-ridged steel plate, 4~6 the same with stains, 7~9 clean grey-blue wall panels,
+	# each with a nine-slice in rows 1~3, whole crates in row 4 (31 / 37 X-braced), and one-brick-thick strips in row 6;
+	# column 10 is dark background tiles (ridged, speckled, plain, dark red speckled); 61~100 are big background wall panels made of two tiles each (grey, purple, with transparency).
+	# ground = steel plate top 2 on body 12; ledges = the top half of the one-brick-thick strips 51/52/53; walls and blocks = the grey-blue wall panel nine-slice.
+	# The backdrop uses **Day**: six layers, 1 base colour, 2/3 distant factory buildings, 4 hanging machines, 5 nearby, 6 the big pillars in front.
+	# The art pack **has no acid pool** (`Acid1/2` is an acid splash effect); the new trap is extending and retracting spikes (`Spikes`).
 	"lab": {
 		"pack": "lab-tileset",
 		"out": "lab",
@@ -178,25 +178,25 @@ ZONES = {
 			"stone": [[7, 8, 9], [17, 18, 19], [27, 28, 29]]},
 		"backdrop_dir": "2 Background/Day",
 		"backdrop": {"base": "1", "far": "2", "mid": "3", "machines": "4", "near": "5", "pillars": "6"},
-		# 往后退：前景的钢板也是青蓝色，近处那几层不混一点会和地形糊在一起
+		# Recede: the foreground steel plate is teal too, and without a little mixing the near layers would blur together with the terrain
 		"haze": {"base": 0.0, "far": 0.15, "mid": 0.2, "machines": 0.25, "near": 0.3, "pillars": 0.35},
-		# 地刺（6 帧 × 32，收着 → 伸出 → 收回）
+		# Spikes (6 frames × 32, retracted → extended → retracted)
 		"traps": {"spikes": "4 Animated objects/Spikes.png"},
-		# **毒气罐 = 这一关的可打爆障碍**（素材的 `Chest` 是掀盖子的补给箱、帧宽还不齐，不是打得烂的东西）：
-		# `Capsule2~4` 完好（蓝、蓝绿、绿）、5 打裂、6 碎一半、7 只剩一圈碎片。都是 50×48、内容 39×48 靠左。
-		# `Capsule1` 侧面接着一根管子，不进可破坏的那组——它看着是完好的，当装饰摆的话玩家会去打它
+		# **Gas capsules = this stage's breakable obstacles** (the art's `Chest` is a supply box with a lid, with uneven frame widths, not something that breaks):
+		# `Capsule2~4` intact (blue, blue-green, green), 5 cracked, 6 half shattered, 7 only a ring of shards left. All 50×48 with 39×48 of content on the left.
+		# `Capsule1` has a pipe attached to its side and is not in the breakable set — it looks intact, and used as a prop players would try to shoot it
 		"capsules": {"capsule_1": "3 Objects/Capsule2.png", "capsule_2": "3 Objects/Capsule3.png",
 			"capsule_3": "3 Objects/Capsule4.png", "capsule_cracked": "3 Objects/Capsule5.png",
 			"capsule_half": "3 Objects/Capsule6.png", "capsule_debris": "3 Objects/Capsule7.png"},
-		# 原样拷过去的几张（不是地形、装饰、机关的那些）：科学家扔的酸液瓶就是素材里那支绿色小试管（4 帧翻滚）
+		# A few copied as is (not terrain, props or traps): the acid flask the scientists throw is the little green test tube in the art (4 tumbling frames)
 		"copies": {"projectiles/acid_flask/spin.png": "4 Animated objects/Capsule.png",
-			# 小 Boss 房间的门（关着时的样子，开门往天花板里缩）：带红色警示灯的那根门柱
+			# The mid-boss room's door (its closed look; opening, it retracts into the ceiling): the door post with the red warning light
 			"traps/arena_door.png": "3 Objects/Door3.png"},
-		# 酸液溅开（科学家扔的酸液瓶落地时）：72×72 一帧，6 帧
+		# Acid splash (when a scientist's acid flask lands): 72×72 per frame, 6 frames
 		"effects": {"acid_splash": "4 Animated objects/Acid2.png", "acid_drip": "4 Animated objects/Acid1.png"},
 		"props": {
-			# 罐子只摆**碎完的那张**（7）：完好的、打裂的、碎一半的都是还能挡路的阶段，
-			# 当装饰摆的话玩家分不清哪个打得碎、哪个已经能走过去（长得一样的东西规则也要一样）
+			# Only **the fully shattered** capsule (7) is used as a prop: intact, cracked and half shattered are all stages that still block the way,
+			# and used as props players could not tell which can be broken and which can already be walked through (things that look the same must follow the same rules)
 			"capsule_shards": ("3 Objects/Capsule7.png", 1),
 			"chair": ("3 Objects/Chair1.png", 1),
 			"chair2": ("3 Objects/Chair3.png", 1),
@@ -213,33 +213,33 @@ ZONES = {
 			"web2": ("3 Objects/Web4.png", 1),
 			"tube": ("3 Objects/Tube_01.png", 1),
 			"tube_valve": ("3 Objects/Tube_06.png", 1),
-			# 会动的：发电机、阀门、扫描仪、摄像头。Card / Money 不要（像能捡的东西）
+			# Animated: generators, valves, scanners, cameras. No Card / Money (they look like pickups)
 			"generator": ("4 Animated objects/Generator.png", 4),
 			"valve": ("4 Animated objects/Valve.png", 4),
 			"scanner": ("4 Animated objects/Scanner.png", 6),
 			"camera": ("4 Animated objects/Camera.png", 6),
 		},
 	},
-	# 第二关：工业区。地砖是 81 个独立文件，编号 = 行 × 9 + 列 + 1。
-	# **背景第 1 层是底色不是天空**：2 才是天空（只画到地平线 y=247），
-	# 地平线以下露出第 1 层那片雾色，所以两层都不雾化。
+	# Stage 2: industrial zone. The tiles are 81 separate files, number = row × 9 + column + 1.
+	# **Backdrop layer 1 is the base colour, not the sky**: layer 2 is the sky (only drawn down to the horizon at y=247),
+	# and below the horizon layer 1's haze shows, so neither layer is hazed.
 	"industrial": {
 		"pack": "industrial-zone-tileset",
 		"out": "industrial",
 		"tiles": "1 Tiles/IndustrialTile_%02d.png",
-		# 薄条那三块只画了上半格，裁掉下面的空行，否则九宫格会把空白也当成边
+		# The three thin strips only have the top half drawn; crop away the blank rows below, or the nine-slice would treat the blank as an edge too
 		"terrain": {"ground": [[5], [14]], "ledge": {"tiles": [[77, 78, 79]], "crop": 16}, "stone": [[36]]},
 		"backdrop_dir": "2 Background",
 		"backdrop": {"base": "1", "sky": "2", "far": "3", "mid": "4", "near": "5"},
-		# **机关**（2026-10 加的）：液压机（`Hammer.png`，从上面吊下来的活塞）和闸门（`Entry.png`）。
-		# 都是 8 帧 × 32×64，原样输出；液压机另外抽第 0 帧的第 2 行当活塞杆，竖着平铺接到天花板上。
+		# **Traps** (added in 2026-10): the hydraulic press (`Hammer.png`, a piston hanging from above) and the blast gate (`Entry.png`).
+		# Both are 8 frames × 32×64, output as is; the press also takes row 2 of frame 0 as the piston rod, tiled vertically up to the ceiling.
 		"traps": {"press": "4 Animated objects/Hammer.png", "gate": "4 Animated objects/Entry.png",
-			# 可打爆的箱子（2026-10）：8 帧，完好 → 越打越破 → 散架
+			# Breakable crate (2026-10): 8 frames, intact → more broken with each hit → falling apart
 			"chest": "4 Animated objects/Chest.png"},
-		# 分层关卡的砖（2026-10）：81 块按编号原样排成一张 9×9 的总图，`TileArt` 按编号取。
-		# 哪一格用哪块是 `map_build.py` 按形状挑的，这里不挑
+		# Tiles for layered stages (2026-10): the 81 tiles laid out as is by number into one 9×9 atlas, taken by number by `TileArt`.
+		# Which tile each cell uses is picked by shape in `map_build.py`, not here
 		"tile_atlas": {"count": 81, "columns": 9},
-		# 梯子：`Ladder1` 是中段，`Ladder3` 是露出地板的那截扶手（画在梯子顶上面）
+		# Ladder: `Ladder1` is the middle section, `Ladder3` the stretch of rail sticking out above the floor (drawn on top of the ladder)
 		"ladder": {"middle": "3 Objects/Ladder1.png", "top": "3 Objects/Ladder3.png"},
 		"trap_rods": {"press_rod": ("4 Animated objects/Hammer.png", 2)},
 		"haze": {"base": 0.0, "sky": 0.0, "far": 0.62, "mid": 0.5, "near": 0.38},
@@ -252,9 +252,9 @@ ZONES = {
 			"board": ("3 Objects/Board1.png", 1),
 			"fence": ("3 Objects/Fence1.png", 1),
 			"fence_end": ("3 Objects/Fence3.png", 1),
-			# 栏杆的中段（Fence1 左端、Fence2 中段、Fence3 右端，各 32 宽）：分层关卡沿着楼板边拼一排
+			# The middle section of railings (Fence1 left end, Fence2 middle, Fence3 right end, 32 wide each): layered stages put a row together along floor edges
 			"fence_mid": ("3 Objects/Fence2.png", 1),
-			# 墙上编号牌的数字（32×36），叠在紫色圆盘接头上——宣传图墙上那个「4」「3」
+			# The digits of number signs on walls (32×36), laid on the purple disc joints — the "4" and "3" on the promo art's wall
 			"digit_0": ("3 Objects/0.png", 1), "digit_1": ("3 Objects/1.png", 1),
 			"digit_2": ("3 Objects/2.png", 1), "digit_3": ("3 Objects/3.png", 1),
 			"digit_4": ("3 Objects/4.png", 1), "digit_5": ("3 Objects/5.png", 1),
@@ -273,35 +273,35 @@ ZONES = {
 		},
 	},
 }
-# ---------------------------------------------------------------- 酒吧街的楼面
+# ---------------------------------------------------------------- Bar street building fronts
 #
-# 宣传图里街边那一排楼（砖墙、窗户、卷帘、雨棚）**素材包没给成品**，只给了拼楼用的砖（51~100 号
-# 和右上那块蓝色条纹雨棚）。这里按配方拼成一栋一栋的整张图，输出成装饰（`props/facade_N.png`），
-# 关卡生成时沿着地面摆在最后面（`level_build.py` 的 `facades`）——**纯显示**，和别的装饰一个规矩。
+# The row of buildings along the street in the promo art (brick walls, windows, shutters, awnings) **is not provided finished in the art pack**, only the tiles to build them (numbers 51~100
+# and the blue striped awning at the top right). Here they are assembled by recipe into whole buildings, output as props (`props/facade_N.png`),
+# and placed furthest back along the ground when the stage is generated (`facades` in `level_build.py`) — **display only**, by the same rules as other props.
 #
-# 配方从上往下一行一格，格子之间空格分开，`+` 是叠上去（窗户 + 木板、砖墙 + 水管）。
-# 字母表在 `FACADE_TILES`，`.` 是空的（楼顶参差不齐用）。最底下那行贴着地面。
+# A recipe goes top to bottom one cell per tile, cells separated by spaces, `+` stacks on top (window + boards, brick wall + drainpipe).
+# The letters are in `FACADE_TILES`, `.` is empty (for uneven rooflines). The bottom row touches the ground.
 #
-# **楼上只用灰色波浪边的雨棚，不用蓝色条纹那种**：蓝条纹的是关卡里能踩的浮台（`ledge`），
-# 楼面上也挂一排一模一样的，玩家分不清哪个能站（第一版截图一眼就看出来了）。
-# 同理整张楼面**压暗一截**（`FACADE_SHADE`），让它退到能踩、能挡子弹的那些东西后面。
+# **Buildings only use the grey wavy-edged awnings, not the blue striped ones**: the blue striped ones are the ledges you can stand on in the stage (`ledge`),
+# and a row of identical ones on the building fronts would leave players unable to tell which ones hold (obvious at a glance in the first version's screenshots).
+# Likewise the whole building front is **darkened a step** (`FACADE_SHADE`), so it recedes behind the things you can stand on and that block bullets.
 FACADE_SHADE = 0.75
 FACADE_TILES = {
-	"P": 76,                      # 楼顶女儿墙（自己能接自己）
-	"B": 60, "c": 70, "k": 80, "x": 90, "z": 100,   # 砖墙，后四种带裂缝
-	"W": 54, "C": 64, "T": 72, "D": 71, "S": 73, "N": 84, "E": 63,   # 窗：四格 / 窗帘 / 两格 / 黑 / 挂牌 / 纱窗 / 黑洞
-	"-": 51, "_": 53,             # 楼层之间那条腰线 / 平墙
-	"A": 97, "a": 98,             # 拱形门脸（挂着帘子）
-	"U": 86, "u": 96, "O": 55, "o": 65,   # 卷帘 / 门（上下两格）
-	"1": 81, "2": 82, "3": 83,    # 灰色波浪边雨棚（左中右）
-	"b": 57, "d": 68,             # 钉在窗上的木板
-	"#": 77, "%": 88,             # 防盗栏
-	"i": 89, "l": 79,             # 水管
-	"t": 91, "r": 93,             # 咖啡桌、椅子
+	"P": 76,                      # Rooftop parapet (joins itself)
+	"B": 60, "c": 70, "k": 80, "x": 90, "z": 100,   # Brick wall, the last four with cracks
+	"W": 54, "C": 64, "T": 72, "D": 71, "S": 73, "N": 84, "E": 63,   # Windows: four panes / curtains / two panes / dark / with a sign / screen / dark hole
+	"-": 51, "_": 53,             # The band between storeys / plain wall
+	"A": 97, "a": 98,             # Arched shopfront (with a curtain)
+	"U": 86, "u": 96, "O": 55, "o": 65,   # Shutter / door (two cells, top and bottom)
+	"1": 81, "2": 82, "3": 83,    # Grey wavy-edged awning (left, middle, right)
+	"b": 57, "d": 68,             # Boards nailed over a window
+	"#": 77, "%": 88,             # Security bars
+	"i": 89, "l": 79,             # Drainpipe
+	"t": 91, "r": 93,             # Café table, chair
 }
 
 BAR_FACADES = {
-	"facade_1": [                 # 咖啡馆：雨棚、门口摆着桌子
+	"facade_1": [                 # Café: awning, tables by the door
 		"P P P P P",
 		"B W B C B",
 		"k B T B c",
@@ -309,7 +309,7 @@ BAR_FACADES = {
 		"B+1 E+2 E+2 E+2 B+3",
 		"B A a+t A B",
 	],
-	"facade_2": [                 # 高的那栋：一侧挂水管，有几扇钉了木板
+	"facade_2": [                 # The tall one: a drainpipe down one side, some windows boarded up
 		". P P P .",
 		"P B B B P",
 		"B+i W C+# W+b B",
@@ -318,21 +318,21 @@ BAR_FACADES = {
 		"- - - - -",
 		"B+i U u U B",
 	],
-	"facade_3": [                 # 窄的小酒吧：灰雨棚
+	"facade_3": [                 # The narrow little bar: grey awning
 		"P P P",
 		"B S B",
 		"_ W _",
 		"B+1 B+2 B+3",
 		"B A B",
 	],
-	"facade_4": [                 # 关了门的铺子：卷帘、防盗栏
+	"facade_4": [                 # The closed shop: shutters, security bars
 		"P P P P P P",
 		"B D+% B D+# B z",
 		"k B W+b B W k",
 		"- - - - - -",
 		"B U u U u B",
 	],
-	"facade_5": [                 # 一楼是门脸、楼上是公寓
+	"facade_5": [                 # A shopfront on the ground floor, flats upstairs
 		". . P P P P",
 		"P P B C B B",
 		"B W B T B+i x",
@@ -341,7 +341,7 @@ BAR_FACADES = {
 		"B+1 N+2 O+2 N+2 N+2 B+3",
 		"B N o+r N A B",
 	],
-	"facade_6": [                 # 矮墙一截，楼与楼之间的空当
+	"facade_6": [                 # A stretch of low wall, the gap between buildings
 		"P P P P",
 		"B c B+l k",
 		"B T B+l W",
@@ -351,11 +351,11 @@ BAR_FACADES = {
 }
 
 
-## 背景素材只有 324 高，画面是 360——**地面线以下什么都没有**。平时地面盖着看不见，
-## 但关卡里有坑之后，坑那一块就露出清屏色，看着像一块黑砖。
-## 生成时把每层最底下那一行往下重复到这个高度，坑里看到的就是背景本身的延续。
+## The backdrop art is only 324 tall while the view is 360 — **there is nothing below the ground line**. Normally the ground covers it,
+## but once a stage has pits, the clear colour shows through there, looking like a black brick.
+## When generating, each layer's bottom row is repeated down to this height, so what you see in a pit is the backdrop continuing.
 BACKDROP_HEIGHT = 360
-# 往天空色混多少（0 = 原样）。两套素材的天空是同一个色。
+# How much to mix towards the sky colour (0 = as is). Both art sets have the same sky colour.
 HAZE_COLOR = (204, 226, 225)
 
 
@@ -367,7 +367,7 @@ def haze(pixels, amount):
 
 
 def extend_down(pixels, height):
-	"""把最底下那一行往下重复到 height 高。素材只到地平线，坑里要露出背景的延续。"""
+	"""Repeat the bottom row down to height. The art only reaches the horizon, and pits have to show the backdrop continuing."""
 	if len(pixels) >= height:
 		return pixels
 	out = [list(row) for row in pixels]
@@ -378,7 +378,7 @@ def extend_down(pixels, height):
 
 
 def load_tile(zone, pack, atlas, spec):
-	"""取一块地砖。图集那种 `spec` 是 (行, 列)，一砖一文件那种是编号。"""
+	"""Take a tile. For atlases `spec` is (row, column), for one file per tile it is the number."""
 	if atlas is not None:
 		ty, tx = spec
 		return sb.cut(atlas, tx * TILE, ty * TILE, TILE, TILE)
@@ -391,12 +391,12 @@ def build_zone(key, write):
 	pack = os.path.join(ART, zone["pack"])
 	out = os.path.join(SKINS, zone["out"])
 	if not os.path.isdir(pack):
-		sys.exit("找不到地形素材 %s（它不在仓库里，要自己解压进去）" % os.path.normpath(pack))
+		sys.exit("Cannot find the terrain art %s (it is not in the repo, unpack it in yourself)" % os.path.normpath(pack))
 	atlas = None
 	if "atlas" in zone:
 		_, _, atlas = sb.read_png(os.path.join(pack, zone["atlas"]))
-	print("== %s（%s）==" % (key, zone["pack"]))
-	print("地形：")
+	print("== %s (%s) ==" % (key, zone["pack"]))
+	print("Terrain:")
 	for name, spec in zone["terrain"].items():
 		rows = spec["tiles"] if isinstance(spec, dict) else spec
 		art = sb.blank(TILE * len(rows[0]), TILE * len(rows))
@@ -409,20 +409,20 @@ def build_zone(key, write):
 			sb.write_png(os.path.join(out, "terrain", name + ".png"), art)
 		print("  terrain/%s.png  %dx%d" % (name, len(art[0]), len(art)))
 	if "wall" in zone:
-		print("背景（拼出来的内墙）：")
+		print("Backdrop (the assembled inner wall):")
 		for name, art in build_wall(zone, pack).items():
 			if write:
 				sb.write_png(os.path.join(out, "backdrop", name + ".png"), art)
 			print("  backdrop/%s.png  %dx%d" % (name, len(art[0]), len(art)))
 	if "backdrop" in zone:
-		print("背景：")
+		print("Backdrop:")
 	for name, number in zone.get("backdrop", {}).items():
 		source = os.path.join(pack, *zone["backdrop_dir"].split("/"), number + ".png")
 		width, height, pixels = sb.read_png(source)
 		art = extend_down(haze(pixels, zone["haze"][name]), BACKDROP_HEIGHT)
 		if write:
 			sb.write_png(os.path.join(out, "backdrop", name + ".png"), art)
-		print("  backdrop/%s.png  %dx%d（素材 %dx%d，往下补到画面底）  往天空色混 %d%%"
+		print("  backdrop/%s.png  %dx%d (art %dx%d, extended down to the bottom of the view)  hazed towards the sky by %d%%"
 			% (name, len(art[0]), len(art), width, height, zone["haze"][name] * 100))
 	if "lighting" in zone:
 		rel, shrink = zone["lighting"]
@@ -430,8 +430,8 @@ def build_zone(key, write):
 		art = [[pixels[y][x] for x in range(0, width, shrink)] for y in range(0, height, shrink)]
 		if write:
 			sb.write_png(os.path.join(out, "lighting", "glow.png"), art)
-		print("光照：")
-		print("  lighting/glow.png  %dx%d（素材 %dx%d）" % (len(art[0]), len(art), width, height))
+		print("Lighting:")
+		print("  lighting/glow.png  %dx%d (art %dx%d)" % (len(art[0]), len(art), width, height))
 	if "tile_atlas" in zone:
 		spec = zone["tile_atlas"]
 		count, columns = spec["count"], spec["columns"]
@@ -442,12 +442,12 @@ def build_zone(key, write):
 			sb.blit(atlas, tile, ((n - 1) % columns) * TILE, ((n - 1) // columns) * TILE, "tile %d" % n)
 		if write:
 			sb.write_png(os.path.join(out, "tiles", "atlas.png"), atlas)
-		print("砖的总图：")
-		print("  tiles/atlas.png  %dx%d（%d 块）" % (columns * TILE, rows * TILE, count))
+		print("Tile atlas:")
+		print("  tiles/atlas.png  %dx%d (%d tiles)" % (columns * TILE, rows * TILE, count))
 	if "ladder" in zone:
-		print("梯子：")
-		# 左右按中段实际有内容的那几列裁（工业区那张 32 宽、杆子只占左边 23，居中画会偏到一边），
-		# 顶上那截扶手按同样的列裁，两张才对得齐
+		print("Ladder:")
+		# Cropped left and right to the columns of the middle section that actually have content (the industrial one is 32 wide with the rails only in the left 23, so drawn centred it would lean to one side),
+		# and the rail on top is cropped to the same columns so the two line up
 		_, _, mid = sb.read_png(os.path.join(pack, *zone["ladder"]["middle"].split("/")))
 		cols = [x for x in range(len(mid[0])) if any(row[x][3] > 8 for row in mid)]
 		left, right = cols[0], cols[-1] + 1
@@ -455,7 +455,7 @@ def build_zone(key, write):
 			width, height, pixels = sb.read_png(os.path.join(pack, *rel.split("/")))
 			pixels = [row[left:right] for row in pixels]
 			if part == "top":
-				# 扶手只画了下面那截：裁掉上面的空行，底边贴着地板
+				# The rail only has the lower stretch drawn: crop away the blank rows above so the bottom touches the floor
 				rows = [y for y, row in enumerate(pixels) if any(c[3] > 8 for c in row)]
 				pixels = pixels[rows[0]:]
 			name = "ladder" if part == "middle" else "ladder_top"
@@ -463,12 +463,12 @@ def build_zone(key, write):
 				sb.write_png(os.path.join(out, "terrain", name + ".png"), pixels)
 			print("  terrain/%s.png  %dx%d" % (name, len(pixels[0]), len(pixels)))
 	if "traps" in zone:
-		print("机关：")
+		print("Traps:")
 		for name, rel in zone["traps"].items():
 			width, height, pixels = sb.read_png(os.path.join(pack, *rel.split("/")))
 			if write:
 				sb.write_png(os.path.join(out, "traps", name + ".png"), pixels)
-			print("  traps/%s.png  %dx%d（%d 帧）" % (name, width, height, width // 32))
+			print("  traps/%s.png  %dx%d (%d frames)" % (name, width, height, width // 32))
 		for name, (rel, row) in zone.get("trap_rods", {}).items():
 			_, _, pixels = sb.read_png(os.path.join(pack, *rel.split("/")))
 			art = [pixels[row][0:32]]
@@ -486,37 +486,37 @@ def build_zone(key, write):
 			sb.write_png(os.path.join(out, "traps", name + ".png"), pixels)
 		print("  traps/%s.png  %dx%d" % (name, width, height))
 	if "effects" in zone:
-		print("特效：")
+		print("Effects:")
 		for name, rel in zone["effects"].items():
 			width, height, pixels = sb.read_png(os.path.join(pack, *rel.split("/")))
 			if write:
 				sb.write_png(os.path.join(out, "effects", name + ".png"), pixels)
-			print("  effects/%s.png  %dx%d（%d 帧）" % (name, width, height, width // height))
+			print("  effects/%s.png  %dx%d (%d frames)" % (name, width, height, width // height))
 	if "facades" in zone:
-		print("楼面：")
+		print("Building fronts:")
 		for name, recipe in globals()[zone["facades"]].items():
 			art = facade(zone, pack, recipe)
 			if write:
 				sb.write_png(os.path.join(out, "props", name + ".png"), art)
 			print("  props/%s.png  %dx%d" % (name, len(art[0]), len(art)))
-	print("装饰：")
+	print("Props:")
 	for name, (rel, frames) in sorted(zone["props"].items()):
 		width, height, pixels = sb.read_png(os.path.join(pack, *rel.split("/")))
 		if write:
 			sb.write_png(os.path.join(out, "props", name + ".png"), pixels)
 		print("  props/%s.png  %dx%d%s" % (name, width, height,
-			"  %d 帧" % frames if frames > 1 else ""))
+			"  %d frames" % frames if frames > 1 else ""))
 
 
 def build_wall(zone, pack):
-	"""拼竖井后面那面墙，返回 {层名: 像素}。
+	"""Assemble the wall behind the shaft, returning {layer name: pixels}.
 
-	`wall` 一层：砖墙按权重随机挑砖，压暗；
-	`pipes` 一层：几根竖着的管道，其余透明。
+	The `wall` layer: brick walls with tiles picked at random by weight, darkened;
+	the `pipes` layer: a few vertical pipes, the rest transparent.
 
-	**两层都要能竖着无缝平铺**（Parallax2D 竖着重复）：一格一块砖、各自独立，
-	所以图的上边和下边接起来和中间任意两行接起来是一样的。
-	自己写的线性同余、固定种子：产物进仓库，换台机器也得生成一模一样的文件。"""
+	**Both layers have to tile vertically without seams** (Parallax2D repeats them vertically): one tile per cell, each independent,
+	so joining the top and bottom edges of the image is the same as joining any two rows in the middle.
+	A hand-written linear congruential generator with a fixed seed: the output goes into the repo, so another machine has to generate an identical file."""
 	spec = zone["wall"]
 	cols, rows = spec["cols"], spec["rows"]
 	state = [spec["seed"]]
@@ -558,12 +558,12 @@ def build_wall(zone, pack):
 
 
 def facade(zone, pack, recipe):
-	"""按配方拼一栋楼：一格一块砖，`+` 叠上去，`.` 空着。"""
+	"""Assemble a building by recipe: one tile per cell, `+` stacks on top, `.` stays empty."""
 	rows = [line.split() for line in recipe]
 	wide = len(rows[0])
 	for r, row in enumerate(rows):
 		if len(row) != wide:
-			sys.exit("楼面配方第 %d 行有 %d 格，别的行是 %d 格" % (r + 1, len(row), wide))
+			sys.exit("Row %d of a facade recipe has %d cells while the other rows have %d" % (r + 1, len(row), wide))
 	art = sb.blank(TILE * wide, TILE * len(rows))
 	for r, row in enumerate(rows):
 		for c, cell in enumerate(row):
@@ -571,7 +571,7 @@ def facade(zone, pack, recipe):
 				continue
 			for part in cell.split("+"):
 				if part not in FACADE_TILES:
-					sys.exit("楼面配方里有不认识的字母：%s" % part)
+					sys.exit("Unknown letter in a facade recipe: %s" % part)
 				tile = load_tile(zone, pack, None, FACADE_TILES[part])
 				sb.blit(art, tile, c * TILE, r * TILE, "facade")
 	return [[tuple(int(round(p[i] * FACADE_SHADE)) for i in range(3)) + (p[3],) for p in row] for row in art]
@@ -582,7 +582,7 @@ def main():
 	only = [a for a in sys.argv[1:] if not a.startswith("--")]
 	for key in (only if only else ZONES):
 		if key not in ZONES:
-			sys.exit("没有这个区：%s（有的是 %s）" % (key, ", ".join(ZONES)))
+			sys.exit("No such zone: %s (available: %s)" % (key, ", ".join(ZONES)))
 		build_zone(key, write)
 
 

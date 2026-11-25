@@ -1,42 +1,42 @@
 class_name CameraRig
 extends ScreenShake
-## 关卡的摄像机：跟着玩家走，并且**不让任何一个玩家被挤出画面**（魂斗罗式）。
+## The level camera: follows the players and **never lets a player be pushed off screen** (Contra style).
 ##
-## 挂在关卡上，不是挂在玩家身上——双人时两个人共用一台摄像机，镜头跟的是**两人的中点**。
-## 单人时中点就是那个玩家本人，所以画面和以前一模一样（老测试靠这个继续守着）。
+## It sits on the level, not on a player — in co-op both players share one camera that follows **the midpoint between them**.
+## With one player the midpoint is that player, so the view is exactly as before (the old tests keep guarding that).
 ##
-## 每一物理帧做两件事，顺序不能反：先把镜头挪到中点（受关卡边界限制），
-## 再把还活着的玩家夹回画面里。夹的那一下会把落在后面的人往前拖，这正是魂斗罗的规矩：
-## 谁也不能把队友甩出屏幕，想分头走就只能走到画面两边为止。
+## Every physics frame does two things, in this order: first move the view to the midpoint (within the level limits),
+## then clamp the living players back into view. That clamp drags whoever lags behind forward — exactly Contra's rule:
+## nobody can leave their partner off screen; splitting up only works up to the edges of the view.
 ##
-## 这个节点的 `process_physics_priority` 调得很高，好让它在所有玩家都走完之后才跑。
+## This node's `process_physics_priority` is set very high so it runs after all players have moved.
 ##
-## **纵向关（`only_up`）**：画面只往上卷、不往回退（魂斗罗瀑布关那种）。做法是让 `limit_bottom`
-## **只降不升**——画面往上走一点，下边界就跟着收紧，引擎自己会把画面夹住，不用另写一套跟随。
-## 这时镜头跟的是**爬得最高的那个人**而不是两人中点：领头的往上爬，落后的被甩出底边，
-## 掉出底边就按掉坑算（`main.gd` 的判定线跟着画面底边走），捞回到画面里（`Player.fall_out()`）。
+## **Vertical stages (`only_up`)**: the view only scrolls up, never back down (like Contra's waterfall stage). It works by letting `limit_bottom`
+## **only ever go down** — whenever the view moves up, the bottom limit tightens behind it and the engine clamps the view by itself, no separate follow code needed.
+## Here the camera follows **whoever has climbed highest** instead of the midpoint: the leader climbs, the one behind falls off the bottom edge,
+## which counts as falling into a pit (`main.gd`'s fall line follows the bottom of the view), and gets brought back into view (`Player.fall_out()`).
 
-## 玩家身体离画面边缘至少留这么远（半个身宽多一点，整个人都看得见）。
+## Minimum distance between a player's body and the edge of the view (a bit more than half a body, so the whole player is visible).
 const EDGE_MARGIN := 14.0
-## 关卡里那台摄像机在这个分组里：玩家捞回、关卡判定掉坑都要问它画面在哪儿。
+## The level's camera is in this group: bringing a player back and checking for falls both need to ask where the view is.
 const GROUP := &"camera_rig"
 
-## 画面只往上卷（纵向关）。横向关留 false，和以前一模一样。
+## The view only scrolls up (vertical stages). Horizontal stages leave it false, exactly as before.
 @export var only_up := false
-## 纵向关里往上多看多少：领头的人摆在画面中线**往下**这么多。往上爬要看得见头顶的东西；
-## 爬到顶上 Boss 区时，这一偏正好让画面被关卡顶边夹住，**整个 Boss 区一屏全露出来**——
-## 不偏的话人站在 Boss 区地板上，画面以他为中心，Boss 飘高了就出了画面（截图看出来的）。
+## How much further up to look in vertical stages: the leading player sits this far **below** the middle of the view. Climbing up, you need to see what is overhead;
+## at the top boss area this offset makes the level's top edge clamp the view, so **the whole boss area shows on one screen** —
+## without it, with the player on the boss area floor, the view centred on them and a boss floating high left the screen (seen in a screenshot).
 @export var look_ahead := 64.0
 
 
 func _ready() -> void:
 	super()
 	add_to_group(GROUP)
-	# 玩家的 _physics_process 跑完之后再跟镜头，否则跟的是上一帧的位置。
+	# Follow the players after their _physics_process has run, otherwise the view follows last frame's position.
 	process_physics_priority = 100
 
 
-## 关卡里那台摄像机（没有就是 null，比如菜单里）。
+## The level's camera (null if there is none, e.g. in the menu).
 static func find(tree: SceneTree) -> CameraRig:
 	return tree.get_first_node_in_group(GROUP) as CameraRig if tree != null else null
 
@@ -48,12 +48,12 @@ func _physics_process(_delta: float) -> void:
 	global_position = _center_of(players)
 	if only_up:
 		global_position.y = _highest(players) - look_ahead
-		# 画面走到哪儿，下边界就收到哪儿：之后再也回不去了
+		# Wherever the view goes, the bottom limit follows: it can never go back
 		limit_bottom = mini(limit_bottom, ceili(view_rect().end.y))
 	_keep_players_on_screen(players)
 
 
-## 镜头要跟谁：活着的玩家；都死了就跟所有玩家（单人死了那一下镜头还停在尸体上，和以前一样）。
+## Who the camera follows: living players; if all are dead, all players (when a solo player dies the view still rests on the body, as before).
 func _targets() -> Array[Player]:
 	var alive: Array[Player] = []
 	var all: Array[Player] = []
@@ -74,7 +74,7 @@ func _center_of(players: Array[Player]) -> Vector2:
 	return sum / players.size()
 
 
-## 爬得最高的那个人的高度（纵向关镜头跟他）。
+## Height of whoever has climbed highest (the camera follows them in vertical stages).
 func _highest(players: Array[Player]) -> float:
 	var top := INF
 	for player in players:
@@ -82,12 +82,12 @@ func _highest(players: Array[Player]) -> float:
 	return top
 
 
-## 画面在世界里盖住的那块矩形。Camera2D 自己会把画面夹在 limit_* 里面，这里按同样的规则算一遍，
-## 因为我们要在**这一帧**就知道边界在哪（真正的画面变换要等摄像机走完才更新）。
+## The rectangle of the world covered by the view. Camera2D clamps the view inside its limit_* by itself; this works it out with the same rules,
+## because we need to know the edges **this frame** (the real view transform only updates after the camera has moved).
 func view_rect() -> Rect2:
 	var half := get_viewport_rect().size * 0.5 / zoom
 	var middle := global_position
-	# 关卡比屏幕窄的时候夹不住，那就让画面对着关卡中心
+	# When the level is narrower than the screen the clamp cannot hold, so centre the view on the level
 	middle.x = clampf(middle.x, minf(limit_left + half.x, limit_right - half.x), maxf(limit_left + half.x, limit_right - half.x))
 	middle.y = clampf(middle.y, minf(limit_top + half.y, limit_bottom - half.y), maxf(limit_top + half.y, limit_bottom - half.y))
 	return Rect2(middle - half, half * 2.0)

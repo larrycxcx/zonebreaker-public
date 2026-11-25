@@ -1,19 +1,19 @@
 class_name BossGunner
 extends Boss
-## 第五关的**中段小 Boss**「变异枪手」（素材 `lab-tileset/boss/1`）。2026-11 和用户定的：
-## 关卡中间一间闸门封住的房间里，**打死它不算通关**（`ends_level` 关着），打死了前面的门才开。
+## Stage 5's **mid-level boss**, the "mutant gunner" (art `lab-tileset/boss/1`). Agreed with the user in 2026-11:
+## it waits in a gated room in the middle of the stage; **killing it does not clear the stage** (`ends_level` is off), it opens the door ahead.
 ##
-## 招式**按固定顺序轮着来**（`ROTATION`）：蓄力激光 → 边走边打的激光弹 → 枪托冲撞；
-## 玩家贴到 `kick_range` 以内时插一记**前踢**（把人踹开）。
-## 1. **蓄力激光**：站住、播蓄力那几帧（`charge_time`，预警），然后一道横着的激光**打到墙为止**（`Sight.first_solid`，
-##    单向平台不挡），高度在胸口——**趴下躲得掉**（和「站着开的枪从趴着的人头顶飞过」是同一条规矩）。
-## 2. **激光弹**：朝玩家走、一边打一串（基类那套连发，`bullet_scene`）。
-## 3. **枪托冲撞**：蹲一下蓄力（`lunge_windup`），然后猛地往前冲一段（`lunge_speed` × `lunge_time`），撞上就挨一下。
-## **血过半**：节奏变快（`enrage_rush`），蓄力激光变成**两道**——先胸口一道（趴下躲），紧接着**原地蹦起来**
-## （`hop_height`），在最高点停住再水平打一道：那一道离地约 50，站在地上的人头顶擦过、跳起来反而挨，
-## 不能一直趴着。素材里没有举高枪的姿势，所以高的那道靠「人蹦起来」打，激光照样从枪口出去；蹦那一下也是预兆。
-## 只报一次 `boss_enrage`。
-## 不追出地盘（`roam_range`，以出生点为中心），那间房就是它的地盘。
+## Its moves come **in a fixed order** (`ROTATION`): charged laser → laser bolts fired while walking → rifle-butt lunge;
+## when the player gets within `kick_range` it slips in a **front kick** (knocks them away).
+## 1. **Charged laser**: stands still, plays the charge frames (`charge_time`, the warning), then fires a level beam **that stops at the first wall** (`Sight.first_solid`;
+## one-way platforms do not block it) at chest height — **lying prone dodges it** (the same rule as "standing shots fly over prone targets").
+## 2. **Laser bolts**: walks toward the player firing a burst (the base class burst, `bullet_scene`).
+## 3. **Rifle-butt lunge**: crouches to wind up (`lunge_windup`), then rushes forward (`lunge_speed` × `lunge_time`); contact hurts.
+## **Below half health**: faster rhythm (`enrage_rush`) and the charged laser becomes **two beams** — first at chest height (dodge prone), then it **hops in place**
+## (`hop_height`) and fires a second level beam from the top of the hop, about 50 above the floor: it clears a standing player's head but hits a jumper,
+## so you cannot just stay prone. The art has no raised-gun pose, so the high beam comes from "the gunner hopping up" and still leaves the muzzle; the hop is also the warning.
+## `boss_enrage` is reported only once.
+## It does not leave its home ground (`roam_range` around where it spawned); the room is its ground.
 
 enum Move { IDLE, CHARGE, BEAM, BOLTS, LUNGE_WINDUP, LUNGE, KICK, HOP }
 
@@ -29,11 +29,11 @@ const ROTATION := [Move.CHARGE, Move.BOLTS, Move.LUNGE_WINDUP]
 @export var beam_time := 0.45
 @export var beam_damage := 52
 @export var beam_range := 640.0
-## 激光的半粗（判定是一条横带）。
+## Half thickness of the beam (the hit check is a horizontal band).
 @export var beam_half := 3.0
-## 第一道激光比原点低多少（负数 = 高）：素材里激光在第 41~45 行，原点在第 48 行 → 高 5，离地约 29（胸口）。
+## How far below the origin the first beam is (negative = higher): in the art the beam is on rows 41~45 and the origin on row 48 → 5 up, about 29 above the floor (chest).
 @export var beam_low := -5.0
-## 二阶段第二道之前蹦多高：在最高点打，激光离地约 29 + 21 = 50（站着的人头顶上面一点，跳起来正好挨）。
+## How high it hops before the second beam in phase 2: fired from the top, the beam is about 29 + 21 = 50 above the floor (just over a standing head, right where a jump goes).
 @export var hop_height := 21.0
 
 @export_group("Bolts")
@@ -57,7 +57,7 @@ const ROTATION := [Move.CHARGE, Move.BOLTS, Move.LUNGE_WINDUP]
 @export var enrage_rush := 0.7
 @export var rest_time := 0.8
 
-## 激光从哪儿出（相对原点、朝右时）：枪口那一截。
+## Where the beam comes out (relative to the origin, facing right): the muzzle.
 const BEAM_ORIGIN := Vector2(36, 0)
 
 var move := Move.IDLE
@@ -69,7 +69,7 @@ var _kicked := false
 var _enraged := false
 var _home := Vector2.ZERO
 var _lunge_hit := false
-## 蹦到最高点打第二道的时候悬在空中（不受重力），打完才落下来。
+## Hovering at the top of the hop (no gravity) while firing the second beam; it drops once done.
 var _hovering := false
 
 
@@ -77,7 +77,7 @@ var _homed := false
 
 
 func _boss_process(delta: float) -> void:
-	# 地盘的中心在第一次行动时才记（出场时站在哪儿就是哪儿；生成后再摆位的也对）
+	# The centre of its ground is taken on its first action (wherever it stands when it appears; also right for ones placed after spawning)
 	if not _homed:
 		_homed = true
 		_home = global_position
@@ -108,7 +108,7 @@ func _boss_process(delta: float) -> void:
 				_beams_left -= 1
 				_hovering = false
 				if _beams_left > 0:
-					# 二阶段的第二道：先蹦起来，到最高点再打
+					# Second beam of phase 2: hop first, fire from the top
 					move = Move.HOP
 					velocity.y = -sqrt(2.0 * gravity * hop_height)
 					_show_beam()
@@ -151,7 +151,7 @@ func _boss_process(delta: float) -> void:
 				_rest()
 	_stay_home()
 	move_and_slide()
-	# 冲撞一帧走 5 像素，停在线外一点也要夹回来
+	# The lunge covers 5 pixels a frame; if it stops a little past the line, clamp it back
 	global_position.x = clampf(global_position.x, _home.x - roam_range, _home.x + roam_range)
 
 
@@ -195,7 +195,7 @@ func take_damage(amount: int, source_position := Vector2.INF, from: Node = null)
 		GameEvents.report(&"boss_enrage", self)
 
 
-## 出光那几帧：身子碰到那条横带的都挨一下（无敌帧挡住同一道的第二下）。
+## While the beam is on: everyone whose body touches the band takes a hit (invincibility frames stop a second hit from the same beam).
 func _burn() -> void:
 	var from := beam_start()
 	var to := beam_end()
@@ -239,7 +239,7 @@ func _land_kick() -> void:
 				player.shove(Vector2(kick_push.x * facing, kick_push.y))
 
 
-## 不出自己那块地盘：走到边上就停（冲撞冲到边上也停）。
+## Stays on its own ground: stops at the edge (a lunge stops at the edge too).
 func _stay_home() -> void:
 	var low := _home.x - roam_range
 	var high := _home.x + roam_range

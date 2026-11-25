@@ -1,10 +1,10 @@
 extends GameTest
-## 实验室素材包（第五关那一套，`tools/terrain_build.py lab` 从 Lab Tileset 生成）。
+## The lab skin pack (stage 5's set, generated from the Lab Tileset by `tools/terrain_build.py lab`).
 ##
-## 和别的区守的是同一批：一个区只装自己独有的、其余顺着 fallback 拿，地砖别挑成半格的，
-## 背景挡得住清屏色，像拾取物的东西不要。这一关独有的：可打爆的障碍是**毒气罐**（四个破损阶段，
-## 素材的 `Chest` 是掀盖子的补给箱、用不上），新机关是地刺。
-## **音乐暂时借地下室那首**（素材包没有），所以这里不守「每个区一首」，守的是「有曲子可放」。
+## It guards the same things as the other zones: a zone only holds what is unique to it and takes the rest through the fallback, tiles not picked as half cells,
+## the backdrop hides the clear colour, nothing that looks like a pickup. Unique to this stage: the breakable obstacle is **the gas capsule** (four stages of damage;
+## the art's `Chest` is a supply box with a lid and is no use), and the new trap is spikes.
+## **For now the music is borrowed from the basement** (the art pack has none), so this does not guard "one track per zone" but "there is a track to play".
 
 const PACK := "res://skins/lab/lab_skin.tres"
 const ART := "res://skins/lab"
@@ -50,7 +50,7 @@ func test_the_terrain_art_is_this_zone_and_not_another() -> void:
 
 func test_no_terrain_tile_is_half_empty() -> void:
 	if needs_art(): return
-	# 整行透明的地砖会让九宫格把空白也当成边（工业区那张薄条踩过的坑）
+	# A fully transparent row in a tile makes the nine-slice take the blank part as an edge (the pitfall the industrial thin strip fell into)
 	for name: String in ["ground", "ledge", "stone"]:
 		var image := zone_art("terrain/%s.png" % name)
 		var empty := 0
@@ -111,7 +111,7 @@ func _art_height(texture: Texture2D) -> int:
 
 func test_only_shattered_capsules_are_scenery() -> void:
 	if needs_art(): return
-	# 完好的、打裂的、碎一半的罐子都还挡路——装饰里只能有碎完的那张，不然玩家分不清哪个打得碎
+	# Intact, cracked and half-shattered capsules all still block the way — scenery can only use the fully shattered image, or the player could not tell which ones break
 	var props := DirAccess.get_files_at(ART + "/props")
 	var capsules := Array(props).filter(func(f: String) -> bool:
 		return f.begins_with("capsule") and f.ends_with(".png"))
